@@ -32,7 +32,7 @@
 - [x] 配置 Vitest + Testing Library（descriptor、active-run assembler、Provider lifecycle 共 13 个测试）
 - [x] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
 - [x] 增加 axe 可访问性检查
-- [ ] 增加 GitHub Actions：typecheck、lint、unit、build、browser smoke
+- [x] 增加 GitHub Actions：format、typecheck、lint、unit、build、size、browser smoke
 - [x] 按需注册 ECharts 图表能力，避免默认入口引入完整运行时
 - [x] 用 Size Limit 同时约束初始入口和全部 JavaScript chunks 的 gzip 体积
 

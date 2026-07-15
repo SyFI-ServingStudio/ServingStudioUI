@@ -3,14 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": "^22.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.playwright.json --noEmit",
     "lint": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
     "lint:fix": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --fix",
-    "format": "prettier --write src e2e vite.config.ts vitest.config.ts playwright.config.ts",
-    "format:check": "prettier --check src e2e vite.config.ts vitest.config.ts playwright.config.ts",
+    "format": "prettier --write src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
+    "format:check": "prettier --check src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
     "test": "vitest",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
@@ -25,13 +28,15 @@
       "name": "initial JavaScript",
       "path": "dist/assets/index-*.js",
       "limit": "500 kB",
-      "gzip": true
+      "gzip": true,
+      "message": "Inspect eager imports and full-library entry points; include any future static entry dependencies in this budget."
     },
     {
       "name": "all JavaScript chunks",
       "path": "dist/assets/*.js",
       "limit": "590 kB",
-      "gzip": true
+      "gzip": true,
+      "message": "This budget includes the entry and every deferred application chunk."
     }
   ],
   "dependencies": {

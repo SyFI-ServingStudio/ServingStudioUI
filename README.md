@@ -8,7 +8,8 @@ VibeSim 运行结果、部署拓扑和 worker/kernel 明细的交互式可视化
 
 ```bash
 cd app
-npm install
+# Node.js 22
+npm ci
 npx playwright install chromium
 npm run dev -- --host 0.0.0.0 --port 5177
 ```
@@ -32,6 +33,9 @@ Chromium 中执行导航、响应式、console/page error 和 axe 检查；只�
 
 `size:check` 检查已有 `dist/`；需要从干净源码构建并检查时运行 `npm run size`。
 当前预算同时约束入口 JavaScript 与所有 chunks 的 gzip 总量，避免 code splitting 仅把体积移出入口。
+
+`.github/workflows/ci.yml` 在 Node.js 22 上并行运行静态/单测/bundle 与 Chromium
+质量门槛；Playwright 失败诊断保留 7 天。仓库接入 GitHub remote 后即可启用该 workflow。
 
 ## 目录
 

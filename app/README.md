@@ -5,7 +5,8 @@ React + TypeScript + Vite 主应用，使用 MUI、ECharts、Motion、TanStack Q
 ## 命令
 
 ```bash
-npm install
+# Node.js 22
+npm ci
 npx playwright install chromium
 npm run dev -- --host 0.0.0.0 --port 5177
 npm run format:check
@@ -27,6 +28,8 @@ A/AA 门槛。`npm run test:a11y` 可只运行无障碍检查；失败 trace、�
 
 `npm run size:check` 对已有 `dist/` 执行 Size Limit；`npm run size` 会先生产构建再检查。
 预算分别约束初始入口和全部 JavaScript chunks 的 gzip 总量。
+
+CI 使用 `.nvmrc` 固定 Node.js 22，并把工程质量与 Chromium 浏览器门槛拆成并行 jobs。
 
 ## 数据接入原则
 
