@@ -1,0 +1,17 @@
+{
+  "cause": "DurationReached",
+  "completed_req_s": 2.7935,
+  "decode_tok_s": 53998.847,
+  "decode_tokens": 107997694,
+  "num_gpus": 48,
+  "prefill_tok_s": 636.585,
+  "prefill_tokens": 1273170,
+  "realtime_x": 10.413790414094084,
+  "requests_finished": 5587,
+  "requests_total": 150000,
+  "sim_ms": 2000000,
+  "total_tok_s": 54635.432,
+  "total_tok_s_per_gpu": 1138.2381666666668,
+  "total_tokens": 109270864,
+  "wall_s": 192.05302973
+}

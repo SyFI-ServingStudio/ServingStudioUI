@@ -6,7 +6,7 @@
  * straggler's representative kernel. Deterministic by (worker id, node id) so a
  * backend can swap in real per-rank samples later.
  */
-import { type Run, type WorkerRow } from './fakeData';
+import type { Run, WorkerRow } from '../domain/run';
 import { type CostNode } from './tree';
 import { iterationsFor } from './iterations';
 
@@ -70,11 +70,11 @@ export interface Imbalance {
 export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance {
   const spec = laneSpec(w, node);
   const P = spec.lanes;
-  const tl = iterationsFor(run, w.id);
+  const tl = iterationsFor(run, w.key);
   const refBatch = Math.max(1, tl.ref.batchTokens);
   const refPrefill = Math.max(1, tl.ref.prefillTokens);
   const refDecode = Math.max(1, tl.ref.decodeRequests);
-  const seed = strHash(`${w.id}:${node.id}`);
+  const seed = strHash(`${w.key}:${node.id}`);
 
   // per-branch driver (only used when dim === 'branch'): prefill vs decode vs batch
   const kids = node.children ?? [];

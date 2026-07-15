@@ -56,9 +56,20 @@ export default function App() {
   const stage: Record<typeof st.scope, { title: string; sub: string }> = {
     cluster: { title: 'Cluster outcome', sub: 'SLO · throughput · conservation — whole deployment' },
     pool: { title: `Pool · ${role}`, sub: 'utilization · KV occupancy · batch composition' },
-    worker: { title: `Worker · ${w.id}`, sub: 'batch composition · cost tree · kernel throughput' },
-    kernel: { title: `Worker · ${w.id}`, sub: `cost tree · kernel · ${leafName}` },
-    parallel: { title: `Worker · ${w.id}`, sub: 'cost tree · parallel node · load imbalance + straggler' },
+    worker: {
+      title: `Worker · ${w.id}`,
+      sub: run.capabilities.workerIterations
+        ? 'batch composition · cost tree · kernel throughput'
+        : 'full-run aggregate kernel time share · iteration detail not generated',
+    },
+    kernel: {
+      title: `Worker · ${w.id}`,
+      sub: run.capabilities.kernelPerformance ? `cost tree · kernel · ${leafName}` : 'kernel detail not generated',
+    },
+    parallel: {
+      title: `Worker · ${w.id}`,
+      sub: run.capabilities.loadImbalance ? 'cost tree · parallel node · load imbalance + straggler' : 'load-imbalance detail not generated',
+    },
   };
   const meta = stage[st.scope];
 
@@ -95,13 +106,13 @@ export default function App() {
           appears once you're inside a worker (no iteration selection at
           cluster/pool scope). */}
       <Stack spacing={1.5} sx={{ mt: 2 }}>
-        <TimelineBand />
-        {(st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && <IterationBand />}
+        {run.capabilities.concurrencyTimeline && <TimelineBand />}
+        {run.capabilities.workerIterations && (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && <IterationBand />}
       </Stack>
 
       {/* execution trace — whole-run wall-clock view, only meaningful at
           cluster scope (structural drill has its own per-scope stage below) */}
-      {st.scope === 'cluster' && (
+      {st.scope === 'cluster' && run.source.kind === 'synthetic' && run.capabilities.perfettoTrace && (
         <Box sx={{ mt: 2 }}>
           <PerfettoTrace />
         </Box>
@@ -114,7 +125,9 @@ export default function App() {
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" useFlexGap sx={{ gap: 2, mt: 5, pt: 2, borderTop: `1px solid ${tokens.hair}`, fontFamily: tokens.mono, fontSize: 10.5, letterSpacing: '.1em', color: tokens.sub, textTransform: 'uppercase' }}>
         <span>VibeSim · analyzer prototype</span>
-        <Box component="span" sx={{ fontFamily: tokens.serif, fontStyle: 'italic', fontSize: 13, textTransform: 'none', letterSpacing: 0, color: tokens.ink }}>scope-adaptive · fake data</Box>
+        <Box component="span" sx={{ fontFamily: tokens.serif, fontStyle: 'italic', fontSize: 13, textTransform: 'none', letterSpacing: 0, color: tokens.ink }}>
+          {run.source.kind === 'synthetic' ? 'scope-adaptive · synthetic fixture' : `analyzer artifacts · ${run.source.simulationFolder}`}
+        </Box>
         <span>Run ▸ Pool ▸ Worker ▸ Kernel</span>
       </Stack>
 

@@ -32,7 +32,7 @@ export default function KernelDetail() {
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontFamily: tokens.mono, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', px: 1.1, py: 0.4, borderRadius: 0.75, color, background: `${color}22` }}>
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', background: color }} />{kindLabel(s.kind)}
         </Box>
-        <IconButton size="small" onClick={() => st.selectWorker(w.id)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
+        <IconButton size="small" onClick={() => st.selectWorker(w.key)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Stack>

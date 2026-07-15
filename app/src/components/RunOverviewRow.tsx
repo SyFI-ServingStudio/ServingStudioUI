@@ -114,20 +114,25 @@ export default function RunOverviewRow() {
   const run = useViz(currentRun);
   const overview = useMemo(() => {
     const param = (key: string, fallback = 'n/a') => distinct(run.workerList.map((worker) => worker.arch.params[key]), fallback);
-    const trace = traceOverviewFor(run);
+    // traceOverviewFor is an explicitly synthetic layout fixture. Real runs
+    // stay unavailable until an offered-workload subject is adapted.
+    const trace = run.source.kind === 'synthetic' && run.capabilities.traceOverview
+      ? traceOverviewFor(run)
+      : null;
     const traceEndMs = run.payloads.throughput.t_end_ms[run.payloads.throughput.t_end_ms.length - 1] ?? 0;
     const traceSpan = traceEndMs >= 1000
       ? `${(traceEndMs / 1000).toFixed(traceEndMs % 1000 ? 1 : 0)} s`
       : `${traceEndMs} ms`;
 
-    const experts = param('experts', 'dense');
+    const hasMoeArch = run.workerList.some((worker) => worker.archType.toLowerCase().includes('moe'));
+    const experts = param('experts', hasMoeArch ? 'n/a' : 'dense');
     const topK = param('top_k', 'n/a');
     return {
       trace,
       traceSpan,
-      lengthOption: lengthDistributionOption(trace, CHART_THEME),
-      arrivalOption: arrivalPatternOption(trace, CHART_THEME),
-      modelKind: experts === 'dense' ? 'dense transformer' : 'mixture of experts',
+      lengthOption: trace ? lengthDistributionOption(trace, CHART_THEME) : null,
+      arrivalOption: trace ? arrivalPatternOption(trace, CHART_THEME) : null,
+      modelKind: hasMoeArch ? 'mixture of experts' : 'dense transformer',
       modelProperties: [
         { label: 'Parameters', value: param('parameters') },
         { label: 'Active params', value: param('active_parameters') },
@@ -136,7 +141,7 @@ export default function RunOverviewRow() {
         { label: 'Attention heads', value: param('attention_heads') },
         { label: 'KV heads', value: param('kv_heads') },
         { label: 'Context', value: param('context_length') },
-        { label: 'Experts / top-k', value: experts === 'dense' ? 'dense' : `${experts} / ${topK}` },
+        { label: 'Experts / top-k', value: hasMoeArch ? `${experts} / ${topK}` : 'dense' },
       ],
       simulationProperties: [
         { label: 'GPU type', value: run.gpu.replace('NVIDIA ', '') },
@@ -174,7 +179,7 @@ export default function RunOverviewRow() {
           kind="preset"
           accent={tokens.gold}
           headline={run.deployment === 'afd' ? 'AFD deployment' : 'Unified deployment'}
-          description={<>{run.id}<br />preset topology · parallelism · placement</>}
+          description={<>{run.source.simulationFolder}<br />{run.source.kind === 'synthetic' ? 'synthetic preset topology' : 'analyzer folder · topology · parallelism · placement'}</>}
           properties={overview.simulationProperties}
         />
       </Stack>
@@ -195,24 +200,39 @@ export default function RunOverviewRow() {
               {overview.traceSpan} wall-clock
             </Typography>
             <Typography sx={{ px: 0.8, py: 0.3, borderRadius: 1, background: 'rgba(194,92,58,.09)', fontFamily: tokens.mono, fontSize: 9, color: tokens.terra, whiteSpace: 'nowrap' }}>
-              burst peak {overview.trace.peakToMean}× mean
+              {overview.trace ? `burst peak ${overview.trace.peakToMean}× mean` : 'not generated'}
             </Typography>
           </Stack>
           <Typography sx={{ mt: 0.3, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
-            {fmtInt(run.summary.requests)} requests · {fmtInt(run.workerList.length)} worker tracks · deterministic fake workload
+            {fmtInt(run.summary.requests)} requests · {fmtInt(run.workerList.length)} workers · {run.source.simulationFolder}
           </Typography>
         </Box>
 
-        <Figure title="Length distribution" note="split violin · input ↑ output ↓">
-          <Box sx={{ height: { xs: 125, md: 138 } }}>
-            <EChart option={overview.lengthOption} />
+        {overview.trace && overview.lengthOption && overview.arrivalOption ? (
+          <>
+            <Figure title="Length distribution" note="split violin · input ↑ output ↓">
+              <Box sx={{ height: { xs: 125, md: 138 } }}>
+                <EChart option={overview.lengthOption} />
+              </Box>
+            </Figure>
+            <Figure title="Arrival pattern" note="requests per bucket · local mean">
+              <Box sx={{ height: { xs: 115, md: 134 } }}>
+                <EChart option={overview.arrivalOption} />
+              </Box>
+            </Figure>
+          </>
+        ) : (
+          <Box sx={{ flex: 1, minHeight: 220, display: 'grid', placeItems: 'center', border: `1px dashed ${tokens.hair}`, borderRadius: 1.5, background: tokens.tile2, p: 3, textAlign: 'center' }}>
+            <Box>
+              <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, color: tokens.ink }}>
+                Trace distribution not generated
+              </Typography>
+              <Typography sx={{ mt: 0.75, maxWidth: 470, fontFamily: tokens.mono, fontSize: 10.5, lineHeight: 1.6, color: tokens.sub }}>
+                This simulation folder has no offered-workload summary for input/output lengths or arrival burstiness. The UI will not substitute synthetic distributions.
+              </Typography>
+            </Box>
           </Box>
-        </Figure>
-        <Figure title="Arrival pattern" note="requests per bucket · local mean">
-          <Box sx={{ height: { xs: 115, md: 134 } }}>
-            <EChart option={overview.arrivalOption} />
-          </Box>
-        </Figure>
+        )}
       </Paper>
     </Box>
   );

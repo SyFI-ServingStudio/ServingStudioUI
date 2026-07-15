@@ -66,7 +66,7 @@ export default function ParallelDetail() {
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontFamily: tokens.mono, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', px: 1.1, py: 0.4, borderRadius: 0.75, color: tokens.violet, background: 'rgba(122,92,255,.12)' }}>
           {imb.label} · overlap {imb.overlap.toFixed(2)}
         </Box>
-        <IconButton size="small" onClick={() => st.selectWorker(w.id)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
+        <IconButton size="small" onClick={() => st.selectWorker(w.key)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Stack>

@@ -8,7 +8,8 @@
  * Deterministic by run id so a backend can swap these for real cost_log steps.
  */
 import { annotate, type CostNode } from './tree';
-import { type Run } from './fakeData';
+import type { Run } from '../domain/run';
+import type { WorkerKey } from '../domain/worker';
 
 export interface Iteration {
   id: number;
@@ -40,11 +41,11 @@ const tlCache = new Map<string, IterTimeline>();
  *  attn vs ffn step on different cadences; even in a unified run the batch
  *  composition is per-worker). Timestamps share the run's wall-clock span so a
  *  wall-clock cursor can resolve to each worker's nearest step. */
-export function iterationsFor(run: Run, workerId: string): IterTimeline {
-  const key = `${run.id}::${workerId}`;
+export function iterationsFor(run: Run, workerKey: WorkerKey): IterTimeline {
+  const key = `${run.id}::${workerKey}`;
   const hit = tlCache.get(key);
   if (hit) return hit;
-  const w = run.workerList.find((x) => x.id === workerId);
+  const w = run.workerList.find((x) => x.key === workerKey);
   const pool = w?.pool ?? 'main';
   const r = rng(strHash(key) ^ 0x5bd1e995);
   const multi = run.deployment === 'afd' || run.summary.num_gpus > 1;

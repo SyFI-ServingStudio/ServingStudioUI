@@ -15,13 +15,14 @@
 
 ## P1 · 数据边界
 
-- [ ] 定义 analyzer v1 的运行、拓扑、subject、worker、iteration 合同
-- [ ] 为当前 analyzer JSON 增加运行时校验和兼容适配
-- [ ] 建立 `AnalyzerRepository` 接口
-- [ ] 用真实输出裁剪出小型、可提交的 fixtures
-- [ ] 实现 `FixtureAnalyzerRepository`
-- [ ] 让页面从 repository 加载，移除组件对 `fakeData` 的直接依赖
-- [ ] 对 unavailable、not generated、failed 和 incompatible 提供明确 UI 状态
+- [x] 定义 analyzer v1 的运行、拓扑、subject、worker、iteration 合同
+- [~] 为当前 analyzer JSON 增加运行时校验和兼容适配（descriptor 已完成，subject adapters 待实现）
+- [x] 建立 `AnalyzerRepository` 接口
+- [x] 用真实输出裁剪出小型、可提交的 fixtures（25 个真实 artifact + provenance，确定性生成）
+- [x] 实现 `FixtureAnalyzerRepository`
+- [x] 顶层选择器改为 repository 提供的 simulation folder；当前只展示真实重分析目录，不展示 demo 模型
+- [~] 让页面从 repository 加载，移除组件对 `fakeData` 的直接依赖（真实 fixture 已接入；其余页面仍使用 transitional assembled `Run`）
+- [~] 对 unavailable、not generated、failed 和 incompatible 提供明确 UI 状态（当前真实缺失项已显式空态，通用状态组件待实现）
 
 验收标准：页面可完全由 fixture repository 驱动；畸形或版本不兼容的数据会产生可读错误，而非静默显示错误图表。
 
@@ -65,7 +66,7 @@
 - [ ] 固化 offered workload / trace overview 所需摘要
 - [ ] 增加 worker、pool、cluster pending queue / backpressure subject
 - [ ] 增加 worker iteration index 和 iteration detail subject 或查询端点
-- [ ] 修复 analyzer utilization 对跨 pool 重复 worker id 的聚合问题
+- [x] 修复 analyzer utilization 对跨 pool 重复 worker id 的聚合问题
 
 这些项目需要 analyzer 侧补充；UI 在此之前必须显示“数据源尚未生成”，不得伪造为零值。
 
@@ -78,3 +79,16 @@
 5. 缺失、未生成、生成失败、协议不兼容是不同状态；不能一律折叠为空数组。
 6. aggregate 首屏使用有界静态 artifact；高基数 iteration 数据按 worker/iteration 懒加载。
 7. Zustand 负责本地交互状态；异步 analyzer 数据不写入无界的全局 map。
+8. TanStack Query 负责 repository 异步状态与缓存；repository 通过 React context 注入。
+9. 顶层运行标识是 simulation folder 名；浏览器通过 repository 的 run catalog 发现目录，不直接扫描服务器文件系统。
+
+## 已验证的已知问题
+
+- production bundle 当前约 1.95 MB / 629 KB gzip（含真实 fixture JSON），需在 P2 做 artifact 按需加载、ECharts 按需引入与 chunk 拆分。
+- 从 desktop 实时缩到 390 px 时，AFD 页面仍可能产生横向溢出；冷启动移动端正常。P3 必须增加 resize 回归测试后修复。
+- npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。
+
+## 运行记录
+
+- `20260715_0_afd_ui_refresh`：dry-run 为 1 个正确 AFD run；正式 cache build 因没有 idle GPU 在 simulation 前退出，未产生新模拟数据。
+- `20260715_1_afd_ui_reanalysis`：复制 20260703 的事实数据，使用修复后的 analyzer 重算。utilization 为 10 workers（attn 8、ffn 2），FFN avg 0.653；kernel time share ready，kernel input distribution 因旧日志缺列而 unavailable。

@@ -1,4 +1,4 @@
-import { Box, Stack } from '@mui/material';
+import { Box, Paper, Stack, Typography } from '@mui/material';
 import { useViz, workerTree, currentRun, currentWorker, cursorSeconds } from '../../store';
 import { leafTotals, leafByName, leafById, nodeById, colorOf, type CostNode } from '../../data/tree';
 import { kernelPerf, inputDist } from '../../data/kernel';
@@ -11,6 +11,7 @@ import TimeShareBlocks from '../TimeShareBlocks';
 import KernelDetail from '../KernelDetail';
 import ParallelDetail from '../ParallelDetail';
 import ChartCard from '../ChartCard';
+import { tokens } from '../../theme';
 
 /** Worker-scope bottom: scheduler pressure/composition, time-share, and kernel throughput. */
 function WorkerBottom() {
@@ -19,7 +20,7 @@ function WorkerBottom() {
   const run = currentRun(st);
   const worker = currentWorker(st);
   const backpressure = metricView('backpressure', st);
-  const batch = workerBatchFor(run, worker.id);
+  const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
   const locs: KernelLoc[] = lt.positions.slice(0, 10).map((p) => {
     const node = leafByName(tree, p.name)!;
@@ -132,6 +133,25 @@ function ParallelBottom({ node }: { node: CostNode }) {
  *  scopes are sub-states of the worker view, not separate views. */
 export default function WorkerStage() {
   const st = useViz();
+  const run = currentRun(st);
+  // The current iteration/per-call helpers are synthetic authoring fixtures.
+  // Real repositories must provide subject adapters before enabling this path.
+  if (run.source.kind !== 'synthetic' || !run.capabilities.workerIterations) {
+    return (
+      <Stack spacing={2}>
+        <Paper sx={{ borderRadius: 2, p: 2, borderLeft: `3px solid ${tokens.gold}` }}>
+          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
+            Aggregate worker evidence only
+          </Typography>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 10.5, lineHeight: 1.6, color: tokens.sub }}>
+            This folder provides run-aggregate kernel time share, but no interactive worker iteration index, batch detail, pending queue, kernel input distribution, or per-call roofline data. Missing subjects remain unavailable.
+          </Typography>
+        </Paper>
+        <CostTreeFlow />
+        <TimeShareBlocks />
+      </Stack>
+    );
+  }
   const tree = workerTree(st);
   const leaf = st.scope === 'kernel' && st.leafId != null ? leafById(tree, st.leafId) : null;
   const par = st.scope === 'parallel' && st.parId != null ? nodeById(tree, st.parId) : null;

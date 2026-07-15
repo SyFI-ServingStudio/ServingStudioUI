@@ -1,4 +1,4 @@
-import type { Run } from './fakeData';
+import type { Run } from '../domain/run';
 
 export interface TraceOverviewData {
   tokenLengths: number[];

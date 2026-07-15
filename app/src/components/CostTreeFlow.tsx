@@ -1,11 +1,11 @@
 import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useViz, currentWorker, workerTree, currentIter } from '../store';
+import { useViz, currentRun, currentWorker, workerTree, currentIter } from '../store';
 import { tokens } from '../theme';
 import { GROUP, colorOf, kindLabel, fmtMs, fmtPct, type CostNode } from '../data/tree';
 
-interface NodeProps { node: CostNode; selId: number | null; onSelect: (id: number) => void; onRoot?: () => void; parSel?: number | null; onPar?: (id: number) => void; }
+interface NodeProps { node: CostNode; selId: number | null; onSelect?: (id: number) => void; onRoot?: () => void; parSel?: number | null; onPar?: (id: number) => void; }
 
 function SelectionBoundary({ color }: { color: string }) {
   const reduceMotion = useReducedMotion();
@@ -132,17 +132,17 @@ function LeafCard({ node, selId, onSelect }: NodeProps) {
         <div>kind · {kindLabel(s.kind)}</div>
         <div>config · {s.config || '—'}</div>
         <div>backend · {s.backend || 'default'}</div>
-        <div style={{ color: '#5fc7c1' }}>{fmtMs(node.ms)} · {fmtPct(node.pct)} of iter</div>
+        <div style={{ color: '#5fc7c1' }}>{fmtMs(node.ms)} · {fmtPct(node.pct)} of worker total</div>
       </Box>
     </Box>
   );
   return (
     <Tooltip title={title} arrow placement="top" enterDelay={120}>
       <Box
-        onClick={(e) => { e.stopPropagation(); onSelect(node.id); }}
+        onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(node.id); } : undefined}
         sx={{
           position: 'relative', display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 120, maxWidth: 160,
-          p: '9px 11px', borderRadius: 1.25, cursor: 'pointer', background: tokens.leafbg,
+          p: '9px 11px', borderRadius: 1.25, cursor: onSelect ? 'pointer' : 'default', background: tokens.leafbg,
           border: `1px solid ${tokens.hair}`,
           transform: 'none',
           boxShadow: selected ? tokens.shadowLift : `inset 2px 0 0 ${color}, ${tokens.shadow}`,
@@ -233,11 +233,14 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
 
 export default function CostTreeFlow() {
   const st = useViz();
+  const run = currentRun(st);
   const w = currentWorker(st);
   const tree = workerTree(st);
   const atIter = currentIter(st) != null;
   const selId = st.scope === 'kernel' ? st.leafId : null;
   const parSel = st.scope === 'parallel' ? st.parId : null;
+  const timeBasis = run.capabilities.workerIterations ? (atIter ? 'selected iter' : 'iter mean') : 'full-run aggregate';
+  const canInspectKernel = run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
 
   return (
     <Paper sx={{ borderRadius: 2, borderTop: `2px solid ${tokens.teal}`, overflow: 'hidden' }}>
@@ -246,7 +249,7 @@ export default function CostTreeFlow() {
           arch <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 12, color: tokens.teal, fontWeight: 500 }}>{w.id} · {w.arch.type} · {w.gpuCount} GPU</Box>
         </Typography>
         <Box sx={{ fontFamily: tokens.mono, fontSize: 11.5, color: tokens.sub, border: `1px solid ${tokens.hair}`, borderRadius: 0.9, px: 1.25, py: 0.5, background: tokens.tile2 }}>
-          Σ / {atIter ? 'iter' : 'iter · mean'} <b style={{ color: tokens.teal }}>{fmtMs(tree.totalMs!)}</b>
+          Σ / {timeBasis} <b style={{ color: tokens.teal }}>{fmtMs(tree.totalMs!)}</b>
         </Box>
         <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: '5px 12px', alignItems: 'center', ml: 'auto' }}>
           {Object.entries(GROUP).filter(([g]) => g !== 'misc').map(([g, G]) => (
@@ -259,7 +262,14 @@ export default function CostTreeFlow() {
       </Stack>
       <Box sx={{ overflow: 'auto', p: '22px 18px 24px', minHeight: 220 }}>
         <Box sx={{ display: 'inline-flex', alignItems: 'stretch', width: 'max-content' }}>
-          <FlowNode node={tree} selId={selId} onSelect={st.selectKernel} onRoot={() => st.selectWorker(w.id)} parSel={parSel} onPar={st.selectParallel} />
+          <FlowNode
+            node={tree}
+            selId={selId}
+            onSelect={canInspectKernel ? st.selectKernel : undefined}
+            onRoot={() => st.selectWorker(w.key)}
+            parSel={parSel}
+            onPar={run.capabilities.loadImbalance ? st.selectParallel : undefined}
+          />
         </Box>
       </Box>
     </Paper>

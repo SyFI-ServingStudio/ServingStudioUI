@@ -1,55 +1,22 @@
 /*
- * fakeData.ts — 3 deterministic fake VibeSim runs (ported from shared/data.js).
- * Mirrors real artifact shapes so a backend can swap in later (only this file
- * would be replaced by fetches to logs/<run>/…/payloads + run_meta.json).
+ * fakeData.ts — deterministic synthetic fixtures (ported from shared/data.js).
+ * FixtureAnalyzerRepository exposes these through the same async boundary as
+ * future artifact/HTTP implementations. Production paths must not silently
+ * fall back to these values when an analyzer subject is unavailable.
  */
 import { annotate, leaf, sum, max, scale, type CostNode } from './tree';
+import type { Concurrency, KvSeries, PendingQueue, Run, SloMetric, Throughput, UtilSeries, WorkerRow } from '../domain/run';
+import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
 
-// ---- payload types ---------------------------------------------------------
-export interface SloMetric {
-  label: string;
-  unit: string;
-  x: number[];
-  y_pct: number[];
-  markers: { p50: number; p90: number; p99: number };
-}
-export interface Slo { ttft: SloMetric; tpot: SloMetric; e2e: SloMetric; }
-export interface Throughput { t_start_ms: number[]; t_end_ms: number[]; total: number[]; prefill: number[]; decode: number[]; }
-export interface UtilSeries { t_ms: number[]; series: { key: string; label: string; util: number[] }[]; }
-export interface KvSeries { t_ms: number[]; series: { label: string; capacity: number; active: number[] }[]; }
-/** In-flight requests in the whole system over wall-clock (admitted − completed). */
-export interface Concurrency { t_ms: number[]; active: number[]; peak: number; }
-export interface PendingQueueSeries { workerId: string; pool: string; pending: number[]; }
-/** Raw per-worker scheduler queues. Pool and cluster totals are derived so every
- *  scope is mathematically consistent with these leaf series. */
-export interface PendingQueue { t_ms: number[]; series: PendingQueueSeries[]; }
-export interface Payloads {
-  slo: Slo;
-  throughput: Throughput;
-  utilization: UtilSeries;
-  kv: KvSeries;
-  concurrency?: Concurrency;
-  pendingQueue?: PendingQueue;
-}
-
-// ---- topology types --------------------------------------------------------
-export interface Arch { type: string; model: string; params: Record<string, number | string>; }
-export interface WorkerCfg { type: string; memGb: number; mult: number; }
-export interface WorkerInstance { id: string; gpus: number[]; dp?: number; }
-export interface Group { gpu: string; replicas: number; gpusPerReplica: number; numGpus: number; arch: Arch; worker: WorkerCfg; workers: WorkerInstance[]; }
-export interface Pool { role: string; placement: string; groups: Group[]; }
-export interface Topology { pools: Pool[]; }
-
-export interface Summary { total_tok_s: number; num_gpus: number; requests: number; ttft_p50: number; tpot_p50: number; e2e_p50: number; }
-export interface WorkerRow {
-  id: string; pool: string; workerType: string; archType: string; gpu: string;
-  gpuCount: number; gpus: number[]; dp: number | null; arch: Arch; worker: WorkerCfg; tree: CostNode;
-}
-export interface Run {
-  id: string; name: string; model: string; deployment: 'unified' | 'afd'; gpu: string;
-  summary: Summary; topology: Topology; trees: Record<string, CostNode>; payloads: Payloads;
-  workerList: WorkerRow[]; gpuTotal: number;
-}
+const SYNTHETIC_CAPABILITIES = {
+  traceOverview: true,
+  concurrencyTimeline: true,
+  workerIterations: true,
+  kernelPerformance: true,
+  kernelInputDistribution: true,
+  loadImbalance: true,
+  perfettoTrace: true,
+} as const;
 
 // ---- seeded RNG ------------------------------------------------------------
 function rng(seed: number): () => number {
@@ -134,7 +101,7 @@ function pendingQueueOf(seed: number, run: Run, spanMs: number): PendingQueue {
       const jitter = 0.9 + random() * 0.2;
       return Math.max(0, Math.round(targetPeak * Math.min(1, burstPressure) * fill * drain * jitter));
     });
-    return { workerId: worker.id, pool: worker.pool, pending };
+    return { key: worker.key, worker: worker.ref, pending };
   });
 
   return { t_ms: tMs, series };
@@ -263,6 +230,8 @@ const rawRuns: Run[] = [
   {
     id: '20260713_llama3_8b_unified', name: 'Llama-3 8B · unified', model: 'Llama-3-8B (dense)',
     deployment: 'unified', gpu: H200,
+    source: { kind: 'synthetic', simulationFolder: 'synthetic/llama3-8b', simulationReexecuted: false },
+    capabilities: SYNTHETIC_CAPABILITIES,
     summary: { total_tok_s: 13825, num_gpus: 1, requests: 300, ttft_p50: 22.2, tpot_p50: 8.9, e2e_p50: 4393 },
     topology: {
       pools: [{
@@ -275,7 +244,7 @@ const rawRuns: Run[] = [
         }],
       }],
     },
-    trees: { 'main-0': denseT },
+    trees: { [makeWorkerKey('main', 'main-0')]: denseT },
     payloads: {
       slo: { ttft: { label: 'TTFT', unit: 'ms', ...cdf(rng(11), 22, 0.4) }, tpot: { label: 'TPOT', unit: 'ms', ...cdf(rng(12), 8.9, 0.12) }, e2e: { label: 'E2E', unit: 'ms', ...cdf(rng(13), 4400, 0.22) } },
       throughput: throughputOf(101, 13825, 22000),
@@ -287,6 +256,8 @@ const rawRuns: Run[] = [
   {
     id: '20260530_qwen3_235b_ep32', name: 'Qwen3 235B · unified MoE (EP=32)', model: 'Qwen3-235B-A22B (MoE)',
     deployment: 'unified', gpu: H200,
+    source: { kind: 'synthetic', simulationFolder: 'synthetic/qwen3-235b-ep32', simulationReexecuted: false },
+    capabilities: SYNTHETIC_CAPABILITIES,
     summary: { total_tok_s: 41980, num_gpus: 32, requests: 1000, ttft_p50: 48.0, tpot_p50: 11.0, e2e_p50: 5200 },
     topology: {
       pools: [{
@@ -299,7 +270,7 @@ const rawRuns: Run[] = [
         }],
       }],
     },
-    trees: { 'main-0': moeT },
+    trees: { [makeWorkerKey('main', 'main-0')]: moeT },
     payloads: {
       slo: { ttft: { label: 'TTFT', unit: 'ms', ...cdf(rng(14), 48, 0.5) }, tpot: { label: 'TPOT', unit: 'ms', ...cdf(rng(15), 11, 0.15) }, e2e: { label: 'E2E', unit: 'ms', ...cdf(rng(16), 5200, 0.28) } },
       throughput: throughputOf(102, 41980, 60000),
@@ -311,6 +282,8 @@ const rawRuns: Run[] = [
   {
     id: '20260704_afd_qwen3_235b', name: 'Qwen3 235B · AFD (attn ∥ ffn)', model: 'Qwen3-235B-A22B (MoE, disaggregated)',
     deployment: 'afd', gpu: H200,
+    source: { kind: 'synthetic', simulationFolder: 'synthetic/qwen3-235b-afd', simulationReexecuted: false },
+    capabilities: SYNTHETIC_CAPABILITIES,
     summary: { total_tok_s: 46110, num_gpus: 40, requests: 1000, ttft_p50: 44.0, tpot_p50: 10.2, e2e_p50: 4950 },
     topology: {
       pools: [
@@ -334,7 +307,11 @@ const rawRuns: Run[] = [
         },
       ],
     },
-    trees: { 'attn-0': attnT, 'attn-1': attnT, 'ffn-0': ffnT },
+    trees: {
+      [makeWorkerKey('attn', 'attn-0')]: attnT,
+      [makeWorkerKey('attn', 'attn-1')]: attnT,
+      [makeWorkerKey('ffn', 'ffn-0')]: ffnT,
+    },
     payloads: {
       slo: { ttft: { label: 'TTFT', unit: 'ms', ...cdf(rng(17), 44, 0.48) }, tpot: { label: 'TPOT', unit: 'ms', ...cdf(rng(18), 10.2, 0.14) }, e2e: { label: 'E2E', unit: 'ms', ...cdf(rng(19), 4950, 0.26) } },
       throughput: throughputOf(103, 46110, 60000),
@@ -351,10 +328,12 @@ rawRuns.forEach((run, i) => {
   run.topology.pools.forEach((pool) => {
     pool.groups.forEach((grp) => {
       grp.workers.forEach((w) => {
+        const ref = makeWorkerRef(pool.role, w.id);
+        const key = makeWorkerKey(ref);
         wl.push({
-          id: w.id, pool: pool.role, workerType: grp.worker.type, archType: grp.arch.type,
+          key, ref, id: w.id, pool: pool.role, workerType: grp.worker.type, archType: grp.arch.type,
           gpu: grp.gpu, gpuCount: w.gpus.length, gpus: w.gpus, dp: w.dp ?? null,
-          arch: grp.arch, worker: grp.worker, tree: run.trees[w.id],
+          arch: grp.arch, worker: grp.worker, tree: run.trees[key],
         });
       });
     });

@@ -8,7 +8,8 @@
  *                            scheduler iterations, so it matches iteration drill
  * Deterministic by run id (+ pool) so a backend can swap these for real payloads.
  */
-import { type Run } from './fakeData';
+import type { BatchSeries, CheckStatus, Conservation, ConservationCheck, Run } from '../domain/run';
+import type { WorkerKey } from '../domain/worker';
 import { iterationsFor } from './iterations';
 import { leafTotals, GROUP } from './tree';
 
@@ -23,14 +24,10 @@ function rng(seed: number): () => number {
 }
 
 // ---- workload conservation (cluster) ---------------------------------------
-export type CheckStatus = 'ok' | 'warn' | 'fail';
-export interface Check { name: string; description: string; actual: number; expected: number; deltaPct: number; status: CheckStatus; }
-export interface Conservation { allOk: boolean; checks: Check[]; }
-
 export function conservationFor(run: Run): Conservation {
   const r = rng(strHash(run.id) ^ 0x9e3779b9);
   const reqs = run.summary.requests;
-  const mk = (name: string, description: string, base: number, jitter: number): Check => {
+  const mk = (name: string, description: string, base: number, jitter: number): ConservationCheck => {
     const expected = base;
     const actual = base * (1 + (r() - 0.5) * jitter);
     const deltaPct = ((actual - expected) / expected) * 100;
@@ -48,8 +45,6 @@ export function conservationFor(run: Run): Conservation {
 }
 
 // ---- batch composition (pool) ----------------------------------------------
-export interface BatchSeries { t_ms: number[]; batchTokens: number[]; prefillTokens: number[]; decodeRequests: number[]; }
-
 export function batchFor(run: Run, poolRole: string): BatchSeries {
   const r = rng(strHash(run.id + ':' + poolRole));
   const n = 56;
@@ -76,8 +71,8 @@ export function batchFor(run: Run, poolRole: string): BatchSeries {
 /** Worker composition comes from the worker-owned iteration stream rather than
  *  a second synthetic series. This keeps the chart, iteration strip, selected
  *  step readout, and cost-tree reweighting on one source of truth. */
-export function workerBatchFor(run: Run, workerId: string): BatchSeries {
-  const timeline = iterationsFor(run, workerId);
+export function workerBatchFor(run: Run, workerKey: WorkerKey): BatchSeries {
+  const timeline = iterationsFor(run, workerKey);
   return {
     t_ms: timeline.iters.map((iteration) => iteration.timeMs),
     batchTokens: timeline.iters.map((iteration) => iteration.batchTokens),

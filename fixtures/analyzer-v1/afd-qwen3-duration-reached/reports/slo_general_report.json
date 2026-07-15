@@ -1,0 +1,42 @@
+{
+  "available": true,
+  "definitions": {
+    "e2e": "finish_decode_time_ms - arrival_time_ms (scalar; survives log_output_token_times off)",
+    "scope": "completed requests only",
+    "tpot": "tpot_mean_ms = mean inter-token gap during decode (pre-aggregated)",
+    "ttft": "ttft_ms = first_token_time - arrival (pre-aggregated by the sim)"
+  },
+  "meta": {
+    "completed_requests": 5587,
+    "excluded_requests": 5091,
+    "log_dir": "logs/20260715_1_afd_ui_reanalysis",
+    "total_requests": 10678
+  },
+  "metrics": {
+    "e2e": {
+      "max": 1997564.877062,
+      "mean": 1065898.9694132032,
+      "n": 5587,
+      "p50": 992100.285859,
+      "p90": 1752676.0544154006,
+      "p99": 1939844.65141106
+    },
+    "tpot": {
+      "max": 71.26004791259766,
+      "mean": 66.7046456897709,
+      "n": 5587,
+      "p50": 66.43318176269531,
+      "p90": 69.56873168945313,
+      "p99": 70.29729614257812
+    },
+    "ttft": {
+      "max": 1603364,
+      "mean": 202370.31173936563,
+      "n": 5587,
+      "p50": 91.20600891113281,
+      "p90": 743621.95,
+      "p99": 1332174.83
+    }
+  },
+  "schema_version": 1
+}

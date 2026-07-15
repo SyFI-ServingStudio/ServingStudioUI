@@ -1,43 +1,67 @@
-import { Box, Stack, Typography } from '@mui/material';
-import { RUNS } from '../data/fakeData';
+import { Autocomplete, Box, Stack, TextField, Typography } from '@mui/material';
+
+import { useRunListQuery } from '../application/queries';
 import { useViz } from '../store';
 import { tokens } from '../theme';
-import { shortName } from '../util';
 
 export default function RunSwitcher() {
-  const runIx = useViz((s) => s.runIx);
-  const setRun = useViz((s) => s.setRun);
+  const runId = useViz((state) => state.runId);
+  const setRun = useViz((state) => state.setRun);
+  const runs = useRunListQuery();
+  const selectedRun = runs.data?.find((run) => run.runId === runId);
+
   return (
-    <Stack spacing={1} sx={{ minWidth: 270 }}>
+    <Stack spacing={1} sx={{ minWidth: { xs: '100%', sm: 460 }, maxWidth: 680 }}>
       <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: tokens.sub }}>
-        Simulated run
+        Simulation folder
       </Typography>
-      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-        {RUNS.map((r, i) => {
-          const active = i === runIx;
-          return (
-            <Box
-              key={r.id}
-              onClick={() => setRun(i)}
-              sx={{
-                cursor: 'pointer', fontFamily: tokens.body, fontWeight: 600, fontSize: 12.5,
-                px: 1.75, py: 1, borderRadius: 999, whiteSpace: 'nowrap',
-                transition: `all .3s ${tokens.ease}`,
-                border: `1px solid ${active ? tokens.ink : tokens.hair}`,
-                background: active ? tokens.ink : tokens.tile,
-                color: active ? tokens.paper : tokens.sub,
-                boxShadow: active ? tokens.shadow : 'none',
-                '&:hover': { borderColor: tokens.teal, color: active ? tokens.paper : tokens.ink, transform: 'translateY(-1px)' },
-              }}
-            >
-              {shortName(r)}
-              <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 9.5, opacity: 0.7, ml: 0.9 }}>
-                {r.deployment.toUpperCase()}
-              </Box>
+      {selectedRun ? (
+        <Autocomplete
+          disableClearable
+          options={runs.data ?? []}
+          value={selectedRun}
+          getOptionLabel={(run) => run.runId}
+          isOptionEqualToValue={(option, value) => option.runId === value.runId}
+          onChange={(_, run) => setRun(run.runId)}
+          noOptionsText="No simulation folders"
+          renderOption={(props, run) => (
+            <Box component="li" {...props} key={run.runId} sx={{ display: 'block !important', py: '9px !important' }}>
+              <Typography sx={{ fontFamily: tokens.mono, fontSize: 11.5, color: tokens.ink }}>
+                {run.runId}
+              </Typography>
+              <Typography sx={{ mt: 0.25, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+                {run.deployment?.toUpperCase() ?? 'simulation'} · {run.lifecycle.analysis} analysis
+                {run.provenance?.source === 'fixture'
+                  ? run.provenance.synthetic ? ' · synthetic fixture' : ' · real analyzer fixture'
+                  : ''}
+              </Typography>
             </Box>
-          );
-        })}
-      </Stack>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              helperText={selectedRun.modelName}
+              inputProps={{ ...params.inputProps, 'aria-label': 'Simulation folder' }}
+              sx={{
+                '& .MuiInputBase-root': { background: tokens.tile, fontFamily: tokens.mono, fontSize: 11.5 },
+                '& .MuiFormHelperText-root': { mx: 0, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub },
+              }}
+            />
+          )}
+        />
+      ) : (
+        <TextField
+          disabled
+          error={runs.isError}
+          value={runs.isError ? 'Run index unavailable' : runs.isPending ? 'Loading simulation folders…' : 'No simulation folders'}
+          helperText={runs.isError ? 'Could not load the simulation-folder index.' : 'Waiting for a repository run descriptor.'}
+          inputProps={{ 'aria-label': 'Simulation folder' }}
+          sx={{
+            '& .MuiInputBase-root': { background: tokens.tile, fontFamily: tokens.mono, fontSize: 11.5 },
+            '& .MuiFormHelperText-root': { mx: 0, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub },
+          }}
+        />
+      )}
     </Stack>
   );
 }

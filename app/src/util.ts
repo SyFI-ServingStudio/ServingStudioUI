@@ -1,9 +1,9 @@
-import type { Run } from './data/fakeData';
+import type { Run } from './domain/run';
 
 export const fmtInt = (n: number): string => n.toLocaleString('en-US');
 
 export function shortName(r: Run): string {
-  if (r.deployment === 'afd') return 'Qwen3 · AFD';
-  if (r.summary.num_gpus === 1) return 'Llama-3 8B';
-  return 'Qwen3 · MoE';
+  const modelFile = r.model.split('/').pop() ?? r.model;
+  const modelStem = modelFile.replace(/\.json$/i, '').replace(/[_-]+/g, ' ');
+  return `${modelStem} · ${r.deployment.toUpperCase()}`;
 }

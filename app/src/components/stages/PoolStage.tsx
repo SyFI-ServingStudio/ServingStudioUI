@@ -14,7 +14,8 @@ export default function PoolStage() {
   const util = metricView('utilization', st);
   const kv = metricView('kv', st);
   const backpressure = metricView('backpressure', st);
-  const batch = batchFor(run, role);
+  const batch = run.payloads.batchByPool?.[role]
+    ?? (run.source.kind === 'synthetic' ? batchFor(run, role) : null);
   const cS = cursorSeconds(st);
 
   return (
@@ -34,8 +35,9 @@ export default function PoolStage() {
       />
       <ChartCard
         idx="d" title="Batch composition" sub={`pool: ${role}`}
-        option={batchOption(batch, CHART_THEME, cS)}
-        note="prefill ∥ decode tokens per step · concurrent decode requests (right axis)"
+        option={batch ? batchOption(batch, CHART_THEME, cS) : null}
+        note={batch ? 'prefill ∥ decode tokens per step · concurrent decode requests (right axis)' : 'batch subject not generated for this folder'}
+        empty={batch ? undefined : 'Batch composition is unavailable for this simulation folder.'}
         caption="Batched tokens per scheduler step, split into prefill vs decode, with the number of concurrent decode requests on the right axis. Shows how the pool fills its token budget over the run."
       />
       <WorkersInPool idx="e" role={role} />

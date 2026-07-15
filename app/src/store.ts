@@ -4,7 +4,9 @@
  */
 import { create } from 'zustand';
 import type { EChartsOption } from 'echarts';
-import { RUNS, type Run, type WorkerRow, type UtilSeries, type KvSeries, type PendingQueueSeries } from './data/fakeData';
+import { REAL_RUNS as RUNS } from './data/realRunFixture';
+import type { KvSeries, PendingQueueSeries, Run, UtilSeries, WorkerRow } from './domain/run';
+import type { WorkerKey } from './domain/worker';
 import type { CostNode } from './data/tree';
 import { iterationsFor, nearestIter, treeAtIter, type Iteration, type IterTimeline } from './data/iterations';
 
@@ -28,19 +30,19 @@ export interface ScopedPendingQueue {
 export interface FocusPayload { title: string; caption: string; option: EChartsOption | null; }
 
 export interface VizState {
-  runIx: number;
+  runId: string;
   scope: Scope;
   poolRole: string | null;
-  workerId: string | null;
+  workerKey: WorkerKey | null;
   leafId: number | null;
   parId: number | null; // selected Max ("parallel") node id; drives parallel scope
   cursorMs: number | null; // wall-clock cursor (from the Timeline); null = aggregate
   focus: FocusPayload | null;
 
-  setRun: (i: number) => void;
+  setRun: (runId: string) => void;
   setCluster: () => void;
   selectPool: (role: string) => void;
-  selectWorker: (id: string) => void;
+  selectWorker: (workerKey: WorkerKey) => void;
   selectKernel: (leafId: number) => void;
   selectParallel: (parId: number) => void;
   setTime: (ms: number | null) => void;
@@ -48,31 +50,42 @@ export interface VizState {
   closeFocus: () => void;
 }
 
-function firstWorkerOfPool(run: Run, role: string): string {
+function firstWorkerOfPool(run: Run, role: string): WorkerKey {
   const w = run.workerList.find((x) => x.pool === role);
-  return (w ?? run.workerList[0]).id;
+  return (w ?? run.workerList[0]).key;
+}
+
+function requireRun(runId: string): Run {
+  const run = RUNS.find((candidate) => candidate.id === runId);
+  if (!run) throw new Error(`Unknown run id: ${runId}`);
+  return run;
 }
 
 export const useViz = create<VizState>((set, get) => ({
-  runIx: 0,
+  runId: RUNS[0].id,
   scope: 'cluster',
   poolRole: null,
-  workerId: RUNS[0].workerList[0].id,
+  workerKey: RUNS[0].workerList[0].key,
   leafId: null,
   parId: null,
   cursorMs: null,
   focus: null,
 
-  setRun: (i) => set({ runIx: i, scope: 'cluster', poolRole: null, leafId: null, parId: null, cursorMs: null, focus: null, workerId: RUNS[i].workerList[0].id }),
+  setRun: (runId) => {
+    const run = RUNS.find((candidate) => candidate.id === runId);
+    if (!run) return;
+    set({ runId, scope: 'cluster', poolRole: null, leafId: null, parId: null, cursorMs: null, focus: null, workerKey: run.workerList[0].key });
+  },
   setCluster: () => set({ scope: 'cluster', poolRole: null, leafId: null, parId: null }),
   selectPool: (role) => {
-    const run = RUNS[get().runIx];
-    set({ scope: 'pool', poolRole: role, leafId: null, parId: null, workerId: firstWorkerOfPool(run, role) });
+    const run = requireRun(get().runId);
+    set({ scope: 'pool', poolRole: role, leafId: null, parId: null, workerKey: firstWorkerOfPool(run, role) });
   },
-  selectWorker: (id) => {
-    const run = RUNS[get().runIx];
-    const w = run.workerList.find((x) => x.id === id);
-    set({ scope: 'worker', workerId: id, poolRole: w ? w.pool : null, leafId: null, parId: null });
+  selectWorker: (workerKey) => {
+    const run = requireRun(get().runId);
+    const worker = run.workerList.find((candidate) => candidate.key === workerKey);
+    if (!worker) return;
+    set({ scope: 'worker', workerKey, poolRole: worker.pool, leafId: null, parId: null });
   },
   selectKernel: (leafId) => set({ scope: 'kernel', leafId, parId: null }),
   selectParallel: (parId) => set({ scope: 'parallel', parId, leafId: null }),
@@ -82,17 +95,18 @@ export const useViz = create<VizState>((set, get) => ({
 }));
 
 // ---- derived selectors (pure helpers) --------------------------------------
-export const currentRun = (s: VizState): Run => RUNS[s.runIx];
+export const currentRun = (s: VizState): Run => requireRun(s.runId);
 export const currentWorker = (s: VizState): WorkerRow => {
-  const run = RUNS[s.runIx];
-  return run.workerList.find((w) => w.id === s.workerId) ?? run.workerList[0];
+  const run = requireRun(s.runId);
+  return run.workerList.find((worker) => worker.key === s.workerKey) ?? run.workerList[0];
 };
 export const poolInScope = (s: VizState): string | null => {
   if (s.poolRole) return s.poolRole;
   if (s.scope === 'worker' || s.scope === 'kernel' || s.scope === 'parallel') return currentWorker(s).pool;
   return null;
 };
-const matchesPool = (key: string | undefined, label: string | undefined, role: string) => {
+const matchesPool = (key: string | undefined, label: string | undefined, role: string, poolTag?: string) => {
+  if (poolTag !== undefined) return poolTag === role;
   const k = (key ?? '').toLowerCase();
   const l = (label ?? '').toLowerCase();
   return k.indexOf(role) >= 0 || l.indexOf(role) >= 0;
@@ -101,14 +115,14 @@ export const scopedUtil = (s: VizState): UtilSeries => {
   const u = currentRun(s).payloads.utilization;
   const role = poolInScope(s);
   if (!role) return u;
-  const f = u.series.filter((x) => matchesPool(x.key, x.label, role));
-  return { t_ms: u.t_ms, series: f.length ? f : u.series };
+  const f = u.series.filter((x) => matchesPool(x.key, x.label, role, x.poolTag));
+  return { t_ms: u.t_ms, series: f };
 };
 export const scopedKv = (s: VizState): KvSeries => {
   const k = currentRun(s).payloads.kv;
   const role = poolInScope(s);
   if (!role) return k;
-  return { t_ms: k.t_ms, series: k.series.filter((x) => matchesPool(undefined, x.label, role)) };
+  return { t_ms: k.t_ms, series: k.series.filter((x) => matchesPool(undefined, x.label, role, x.poolTag)) };
 };
 
 function sumPendingQueue(series: PendingQueueSeries[], sampleCount: number): number[] {
@@ -125,25 +139,25 @@ export const scopedPendingQueue = (s: VizState): ScopedPendingQueue => {
 
   const sampleCount = queue.t_ms.length;
   if (s.scope === 'worker' || s.scope === 'kernel' || s.scope === 'parallel') {
-    const workerId = currentWorker(s).id;
-    const worker = queue.series.find((item) => item.workerId === workerId);
+    const selectedWorker = currentWorker(s);
+    const worker = queue.series.find((item) => item.key === selectedWorker.key);
     return {
       t_ms: queue.t_ms,
-      totalLabel: workerId,
+      totalLabel: selectedWorker.id,
       total: worker?.pending ?? [],
-      series: worker ? [{ key: worker.workerId, label: worker.workerId, pending: worker.pending }] : [],
+      series: worker ? [{ key: worker.key, label: worker.worker.workerId, pending: worker.pending }] : [],
       stacked: false,
     };
   }
 
   if (s.scope === 'pool') {
     const role = poolInScope(s);
-    const workers = queue.series.filter((item) => item.pool === role);
+    const workers = queue.series.filter((item) => item.worker.poolTag === role);
     return {
       t_ms: queue.t_ms,
       totalLabel: `${role ?? 'unknown'} pool total`,
       total: sumPendingQueue(workers, sampleCount),
-      series: workers.map((worker) => ({ key: worker.workerId, label: worker.workerId, pending: worker.pending })),
+      series: workers.map((worker) => ({ key: worker.key, label: worker.worker.workerId, pending: worker.pending })),
       stacked: true,
     };
   }
@@ -153,8 +167,8 @@ export const scopedPendingQueue = (s: VizState): ScopedPendingQueue => {
     totalLabel: 'cluster total',
     total: sumPendingQueue(queue.series, sampleCount),
     series: queue.series.map((worker) => ({
-      key: `${worker.pool}:${worker.workerId}`,
-      label: `${worker.pool} / ${worker.workerId}`,
+      key: worker.key,
+      label: `${worker.worker.poolTag} / ${worker.worker.workerId}`,
       pending: worker.pending,
     })),
     stacked: true,
@@ -165,7 +179,7 @@ export const scopedPendingQueue = (s: VizState): ScopedPendingQueue => {
 // Timeline = wall-clock cursor (run-level, exact). Iteration = the CURRENT
 // worker's step nearest that cursor (snapped). One source of truth: cursorMs.
 export const cursorSeconds = (s: VizState): number | undefined => (s.cursorMs == null ? undefined : s.cursorMs / 1000);
-export const iterTimeline = (s: VizState): IterTimeline => iterationsFor(currentRun(s), currentWorker(s).id);
+export const iterTimeline = (s: VizState): IterTimeline => iterationsFor(currentRun(s), currentWorker(s).key);
 export const currentIter = (s: VizState): Iteration | null =>
   s.cursorMs == null ? null : nearestIter(iterTimeline(s), s.cursorMs);
 
@@ -175,8 +189,9 @@ const treeCache = new Map<string, CostNode>();
 export const workerTree = (s: VizState): CostNode => {
   const run = currentRun(s);
   const w = currentWorker(s);
+  if (!run.capabilities.workerIterations) return w.tree;
   const it = currentIter(s);
-  const key = `${run.id}:${w.id}:${it ? it.id : 'all'}`;
+  const key = `${run.id}:${w.key}:${it ? it.id : 'all'}`;
   let t = treeCache.get(key);
   if (!t) {
     t = treeAtIter(w.tree, it, iterTimeline(s).ref);

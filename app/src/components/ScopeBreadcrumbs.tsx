@@ -17,7 +17,7 @@ export default function ScopeBreadcrumbs() {
     parts.push({ g: 'pool', lab: role, here: st.scope === 'pool', onClick: () => st.selectPool(role) });
   }
   if (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') {
-    parts.push({ g: 'worker', lab: w.id, here: st.scope === 'worker', onClick: () => st.selectWorker(w.id) });
+    parts.push({ g: 'worker', lab: w.id, here: st.scope === 'worker', onClick: () => st.selectWorker(w.key) });
   }
   if (st.scope === 'kernel') {
     const lf = leafById(workerTree(st), st.leafId);
@@ -31,9 +31,11 @@ export default function ScopeBreadcrumbs() {
   const hint: Record<string, string> = {
     cluster: 'cluster — SLO · throughput · conservation',
     pool: 'pool — utilization · KV · batch composition',
-    worker: 'worker — batch composition · cost tree · kernel throughput',
-    kernel: 'kernel — roofline · input distribution',
-    parallel: 'parallel — load imbalance · straggler',
+    worker: run.capabilities.workerIterations
+      ? 'worker — batch composition · cost tree · kernel throughput'
+      : 'worker — full-run aggregate kernel time share',
+    kernel: run.capabilities.kernelPerformance ? 'kernel — roofline · input distribution' : 'kernel — detail not generated',
+    parallel: run.capabilities.loadImbalance ? 'parallel — load imbalance · straggler' : 'parallel — detail not generated',
   };
 
   return (

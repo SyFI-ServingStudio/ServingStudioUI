@@ -1,0 +1,63 @@
+{
+  "deployment": "afd",
+  "io": {
+    "force_cache_build": false,
+    "kv_log_stride": 8,
+    "log_dir": "logs/20260703_4_qwen3_coder_480b_send_trace",
+    "log_level": "info",
+    "log_output_token_times": false,
+    "quiet": false
+  },
+  "pools": {
+    "attn": {
+      "groups": [
+        {
+          "arch": {
+            "attn_tp_size": 4,
+            "fp8": true,
+            "model_config": "model/config/qwen3_coder_480b.json",
+            "type": "qwen3_attn_tp"
+          },
+          "gpu": "NVIDIA H200",
+          "replicas": 8,
+          "worker": {
+            "attn_gpu_memory_gb": 144,
+            "type": "disagg_attn"
+          }
+        }
+      ],
+      "placement": "least-queued"
+    },
+    "ffn": {
+      "groups": [
+        {
+          "arch": {
+            "attn_tp_size": 4,
+            "ep_size": 8,
+            "fp8": true,
+            "model_config": "model/config/qwen3_coder_480b.json",
+            "nvl_num_gpu": 8,
+            "routing": "uniform",
+            "type": "qwen3_ffn_moe"
+          },
+          "gpu": "NVIDIA H200",
+          "replicas": 2,
+          "worker": {
+            "type": "disagg_ffn"
+          }
+        }
+      ],
+      "placement": "least-queued"
+    }
+  },
+  "start_ts": "2026-07-03T14:01:37.654034+00:00",
+  "workload": {
+    "duration_ms": 2000000,
+    "request_rate": 150,
+    "run_to_end": false,
+    "tick_dt_us": 10,
+    "trace_files": [
+      "trace/aime_long.csv"
+    ]
+  }
+}

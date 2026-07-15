@@ -1,0 +1,12 @@
+{
+  "copied_at_utc": "2026-07-15T05:11:27Z",
+  "expected_worker_counts": {
+    "attn": 8,
+    "ffn": 2,
+    "total": 10
+  },
+  "kind": "copied_run_reanalysis",
+  "purpose": "Refresh analyzer artifacts after fixing composite worker identity in utilization.",
+  "simulation_reexecuted": false,
+  "source_run": "logs/20260703_4_qwen3_coder_480b_send_trace"
+}

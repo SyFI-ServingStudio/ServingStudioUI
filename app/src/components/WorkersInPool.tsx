@@ -21,7 +21,7 @@ export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?:
         {workers.map((w) => (
           <Box
             key={w.id}
-            onClick={() => st.selectWorker(w.id)}
+            onClick={() => st.selectWorker(w.key)}
             sx={{ cursor: 'pointer', p: '10px 14px', borderRadius: 1.25, border: `1px solid ${tokens.hair}`, background: tokens.tile2, transition: `all .24s ${tokens.ease}`, '&:hover': { transform: 'translateY(-2px)', borderColor: tokens.teal, boxShadow: tokens.shadow } }}
           >
             <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 14, color: tokens.teal }}>{w.id}</Typography>

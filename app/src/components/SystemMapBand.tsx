@@ -2,7 +2,8 @@ import { Box, Paper, Stack, Typography } from '@mui/material';
 import { useViz, currentRun, currentWorker } from '../store';
 import { tokens } from '../theme';
 import { shortName } from '../util';
-import type { Group, WorkerInstance } from '../data/fakeData';
+import type { Group, WorkerInstance } from '../domain/run';
+import { makeWorkerKey } from '../domain/worker';
 
 const chip = (label: string) => (
   <Box key={label} component="span" sx={{ px: 0.75, py: '1px', borderRadius: 0.75, border: `1px solid ${tokens.hair}`, background: tokens.tile, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>
@@ -111,9 +112,12 @@ export default function SystemMapBand() {
                     {archChips(gr).map(chip)}
                   </Stack>
                   <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
-                    {gr.workers.map((wo) => (
-                      <WorkerChip key={wo.id} w={wo} type={gr.worker.type} selected={st.workerId === wo.id && (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel')} onClick={() => st.selectWorker(wo.id)} />
-                    ))}
+                    {gr.workers.map((wo) => {
+                      const workerKey = makeWorkerKey(pool.role, wo.id);
+                      return (
+                        <WorkerChip key={workerKey} w={wo} type={gr.worker.type} selected={st.workerKey === workerKey && (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel')} onClick={() => st.selectWorker(workerKey)} />
+                      );
+                    })}
                   </Stack>
                 </Box>
               ))}

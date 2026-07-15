@@ -1,0 +1,88 @@
+{
+  "checks": [
+    {
+      "actual": 78936540,
+      "delta": 0,
+      "delta_pct": 0,
+      "description": "AFD attention-layer prefill work: Σ attn cost_log prefill_tokens vs Σ p × layers",
+      "expected": 78936540,
+      "name": "prefill_tokens",
+      "status": "OK"
+    },
+    {
+      "actual": 6695432655,
+      "delta": 116453,
+      "delta_pct": 0.00173932039184667,
+      "description": "AFD attention-layer decode passes: Σ attn cost_log decode_request_count vs Σ max(d-1,0) × layers",
+      "expected": 6695316202,
+      "name": "decode_passes",
+      "positive_boundary_allowance": 315642,
+      "status": "OK",
+      "unexplained_delta": 0,
+      "unexplained_delta_pct": 0
+    },
+    {
+      "actual": 7102160117,
+      "delta": 120952,
+      "delta_pct": 0.0017030601661009003,
+      "description": "AFD FFN section token pass: Σ ffn cost_log batch_tokens vs Σ[p + max(d-1,0)] × (layers+3)",
+      "expected": 7102039165,
+      "name": "ffn_token_pass",
+      "positive_boundary_allowance": 330915,
+      "status": "OK",
+      "unexplained_delta": 0,
+      "unexplained_delta_pct": 0
+    },
+    {
+      "actual": 7526244356,
+      "delta": 0,
+      "delta_pct": 0,
+      "description": "AFD attention-layer causal prefill work: Σ [a·prefix + a(a+1)/2] vs Σ p(p+1)/2 × layers",
+      "expected": 7526244356,
+      "name": "prefill_causal_attn_work",
+      "status": "OK"
+    },
+    {
+      "actual": 56290439708967,
+      "delta": 1356720987,
+      "delta_pct": 0.0024102737422276267,
+      "description": "AFD attention-layer decode KV read: Σ attn cost_log decode_kv_total vs Σ [m·p + m(m-1)/2] × layers",
+      "expected": 56289082987980,
+      "name": "decode_kv_sum",
+      "positive_boundary_allowance": 3488931880,
+      "status": "OK",
+      "unexplained_delta": 0,
+      "unexplained_delta_pct": 0
+    },
+    {
+      "actual": 6774369195,
+      "delta": 0,
+      "delta_pct": 0,
+      "description": "AFD attn cost_log internal: Σ attn batch_tokens vs Σ(attn prefill_tokens + attn decode_request_count)",
+      "expected": 6774369195,
+      "name": "cost_log_batch_self_consistency",
+      "status": "OK"
+    }
+  ],
+  "definitions": {
+    "afd_note": "for deployment=afd, attention actuals are summed from pool_tag=attn, section=attn and multiplied by observed layer count; FFN actuals are summed from pool_tag=ffn section rows and expected as Σ[p+m]×(layers+3)",
+    "boundary_allowance_note": "positive-only allowance for DurationReached pipeline tails: an incomplete request may have at most one un-emitted decode token partially through the layer/section pipeline; negative deltas are never absorbed",
+    "causal_note": "prefill work is the causal count (~p^2/2), chunk-invariant; NOT the dense a*kv_len (=p^2)",
+    "d": "request_slo.num_output_tokens (terminal decode length)",
+    "decode_boundary_note": "a positive Δ on decode_passes / decode_kv_sum can be the sim-end truncation boundary: an in-flight request's final decode iteration is counted in cost_log but its token postdates the terminal request_slo snapshot; the positive boundary allowance makes only that explained tail OK",
+    "p": "request_slo.prefill_processed (terminal prefill length)",
+    "preserved_prefix": "assumed 0 (single-round today); add when multi-round lands",
+    "scope": "whole run — cost_log actuals vs request_slo per-request expected",
+    "status": "OK |unexplained Δ%| <= tolerance_pct; WARN <= warn_pct; FAIL otherwise"
+  },
+  "meta": {
+    "all_ok": true,
+    "available": true,
+    "deployment": "afd",
+    "log_dir": "logs/20260715_1_afd_ui_reanalysis",
+    "mode": "afd-layered",
+    "tolerance_pct": 0.01,
+    "warn_pct": 5
+  },
+  "schema_version": 1
+}

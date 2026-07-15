@@ -3,10 +3,10 @@
  * Each returns an EChartsOption consumed by <EChart option={...} />.
  */
 import type { EChartsOption } from 'echarts';
-import type { Slo, Throughput, UtilSeries, KvSeries, Concurrency } from '../data/fakeData';
+import type { BatchSeries, Slo, Throughput, UtilSeries, KvSeries, Concurrency } from '../domain/run';
 import type { KernelPerf, InputDist } from '../data/kernel';
 import type { Imbalance } from '../data/imbalance';
-import type { BatchSeries, ClusterKernelBreakdown } from '../data/scopeData';
+import type { ClusterKernelBreakdown } from '../data/scopeData';
 import type { ScopedPendingQueue } from '../store';
 import { tokens } from '../theme';
 

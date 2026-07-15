@@ -1,0 +1,12 @@
+{
+  "available": false,
+  "definitions": {
+    "itl": "consecutive diffs of output_token_times, pooled across requests (available only when io.log_output_token_times was on)",
+    "scope": "completed requests only"
+  },
+  "meta": {
+    "log_dir": "logs/20260715_1_afd_ui_reanalysis"
+  },
+  "reason": "no per-token gaps: output_token_times not logged (io.log_output_token_times was off) or no completed requests",
+  "schema_version": 1
+}

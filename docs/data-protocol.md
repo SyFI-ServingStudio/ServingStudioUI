@@ -46,15 +46,15 @@ worker id 仅在 pool 内唯一。领域层必须使用复合标识：
 ```ts
 export interface WorkerRef {
   poolTag: string;
-  workerId: number;
+  workerId: string;
 }
 
-export type WorkerKey = `${string}/${number}`;
+export type WorkerKey = string & { readonly __workerKey: unique symbol };
 ```
 
-任何按 `worker_id` 单独建 map 或聚合的实现都可能混淆 AFD 的 attention/FFN worker。UI 路由、query key、选择状态和图表 series id 均应使用复合键。
+wire JSON 中的数值 `worker_id` 由 repository 统一规范化为字符串；组件不同时处理两种 id 类型。任何按 `worker_id` 单独建 map 或聚合的实现都可能混淆 AFD 的 attention/FFN worker。UI 路由、query key、选择状态和图表 series id 均应使用统一 helper 生成的复合键。
 
-当前 analyzer utilization 还有一个已知问题：其部分映射和 SQL 聚合只使用 `worker_id`，跨 pool 的相同 id 会覆盖或合并。真实样例有 10 个 worker，但报告只出现 8 个，且 FFN 平均利用率可超过 1。UI 不应通过 clamp 隐藏这一问题；在 analyzer 修复前应标记数据异常。
+analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导致跨 pool 同号 worker 被覆盖或合并。该问题已在 2026-07-15 修复：SQL、roster、bin 聚合均使用 `(pool_tag, worker_id)`，真实重分析样例恢复为 10 个 worker（attn 8、ffn 2）。UI 保留 `pool_tag` 做精确筛选，也不通过 clamp 隐藏异常值。
 
 ## 4. 运行描述
 
@@ -117,6 +117,7 @@ interface AnalyzerRepository {
     runId: string,
     kind: K,
   ): Promise<SubjectResult<SubjectPayloadByKind[K]>>;
+  getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostTree>;
   getWorkerTimeline(runId: string, worker: WorkerRef): Promise<WorkerTimeline>;
   getIteration(
     runId: string,

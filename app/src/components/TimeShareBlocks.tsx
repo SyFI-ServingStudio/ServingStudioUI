@@ -1,5 +1,5 @@
 import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { useViz, workerTree } from '../store';
+import { useViz, currentRun, workerTree } from '../store';
 import { tokens } from '../theme';
 import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../data/tree';
 
@@ -43,8 +43,10 @@ function Bar({ title, note, segs, clickable }: { title: string; note: string; se
 
 export default function TimeShareBlocks() {
   const st = useViz();
+  const run = currentRun(st);
   const tree = workerTree(st);
   const lt = leafTotals(tree);
+  const canInspectKernel = run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
 
   const groupSegs: Seg[] = lt.groups.map((g) => ({ label: g.label, full: g.label, pct: g.pct, ms: g.ms, color: g.color, nodeId: null }));
 
@@ -65,9 +67,14 @@ export default function TimeShareBlocks() {
     <Paper sx={{ borderRadius: 2, p: '16px 18px 18px' }}>
       <Stack spacing={2}>
         <Bar title="by kernel family" note="busy-time composition" segs={groupSegs} clickable={false} />
-        <Bar title="by kernel position" note="click a block to inspect the leaf" segs={posSegs} clickable />
+        <Bar
+          title="by kernel position"
+          note={canInspectKernel ? 'click a block to inspect the leaf' : 'aggregate composition · detail not generated'}
+          segs={posSegs}
+          clickable={canInspectKernel}
+        />
         <Stack direction="row" justifyContent="space-between" sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2, letterSpacing: '.05em' }}>
-          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% of GPU busy time / iter</span>
+          <span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100% of GPU busy time</span>
         </Stack>
       </Stack>
     </Paper>
