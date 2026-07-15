@@ -4,6 +4,11 @@ import type { RunDescriptor } from '../domain/artifacts';
 import { SUBJECT_NAMES, type SubjectName, type SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import { loadActiveRunCore, type SubjectResults } from './loadActiveRun';
+import {
+  CATALOG_POLL_INTERVAL_MS,
+  descriptorPollInterval,
+  LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
+} from './lifecyclePolling';
 import { useAnalyzerRepository } from './RepositoryProvider';
 
 export const analyzerQueryKeys = {
@@ -65,6 +70,9 @@ export function useRunListQuery() {
   return useQuery({
     queryKey: analyzerQueryKeys.runs(),
     queryFn: () => repository.listRuns(),
+    refetchInterval: CATALOG_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
   });
 }
 
@@ -74,6 +82,9 @@ export function useRunDescriptorQuery(runId: string) {
     queryKey: analyzerQueryKeys.descriptor(runId),
     queryFn: () => repository.getRunDescriptor(runId),
     enabled: runId.length > 0,
+    refetchInterval: (query) => descriptorPollInterval(query.state.data),
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
   });
 }
 

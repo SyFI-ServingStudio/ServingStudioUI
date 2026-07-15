@@ -118,8 +118,12 @@ Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览
 - catalog 包含可描述的 pending/failed run；只有 cache-build 临时目录和完全没有 run
   sidecar 的壳目录被排除。列表按 `updated_at` 降序、再按 `run_id` 排序。
 - `descriptor_href` 相对 catalog URL 解析。服务对 catalog 和 descriptor 返回
-  `ETag`；pending catalog/descriptor 建议每 2 秒 conditional refetch，complete run 不
-  自动轮询，catalog 在窗口重新聚焦或 30 秒后可刷新。
+  `ETag`。catalog 在前台每 30 秒 conditional refetch，并在窗口重新聚焦时
+  刷新。descriptor 在 simulation 或 analysis 为 `pending` 时每 2 秒刷新；
+  terminal `complete`/`failed` 停止定时轮询，但仍在窗口聚焦时刷新。
+  simulation 已完成而 analysis 仍为 `not_started` 可能是 launcher 在写入
+  `.complete` 与发布 pipeline sidecar 之间的短暂竞态，也可能是长期
+  `--no-analyze`；它复用 catalog 的 30 秒前台节奏，而不是持续 2 秒轮询。
 
 ### 4.2 Descriptor
 

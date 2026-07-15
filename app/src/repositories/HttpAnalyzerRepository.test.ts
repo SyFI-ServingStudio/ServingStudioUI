@@ -159,19 +159,29 @@ describe('HttpAnalyzerRepository', () => {
     });
   });
 
-  it('uses ETag validators and reuses a cached 304 body', async () => {
+  it('reuses cached catalog and descriptor bodies after conditional 304 responses', async () => {
     const fetch = fakeAnalyzerFetch();
     const repository = new HttpAnalyzerRepository({ fetch });
 
     const first = await repository.listRuns();
     const second = await repository.listRuns();
+    const firstDescriptor = await repository.getRunDescriptor(RUN_ID);
+    const secondDescriptor = await repository.getRunDescriptor(RUN_ID);
 
     expect(second).toEqual(first);
+    expect(secondDescriptor).toEqual(firstDescriptor);
     const catalogCalls = fetch.mock.calls.filter(
       ([input]) => String(input) === absolute('/api/v1/runs'),
     );
     expect(catalogCalls).toHaveLength(2);
     expect(new Headers(catalogCalls[1]?.[1]?.headers).get('If-None-Match')).toBe('"catalog-v1"');
+    const descriptorCalls = fetch.mock.calls.filter(
+      ([input]) => String(input) === absolute(`/api/v1/runs/${RUN_ID}/descriptor`),
+    );
+    expect(descriptorCalls).toHaveLength(2);
+    expect(new Headers(descriptorCalls[1]?.[1]?.headers).get('If-None-Match')).toBe(
+      '"descriptor-v1"',
+    );
   });
 
   it('rejects unknown ids and descriptor identity substitution', async () => {
