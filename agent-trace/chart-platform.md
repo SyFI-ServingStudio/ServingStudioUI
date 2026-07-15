@@ -37,6 +37,11 @@
 
 ## Review
 
+- Primary integration review checked the shared platform, every migrated custom
+  formatter, runtime registration, wrapper theme propagation, and keyboard
+  interaction. The branch is accepted without corrective changes; the only
+  intentional visual trade-off is dropping ECharts' generated HTML marker from
+  custom rich-text tooltips.
 - Custom tooltip formatters intentionally omit ECharts' generated marker token:
   in rich-text mode that token is itself formatter markup. Series order and
   labels remain visible without accepting generated markup into the safe-text
@@ -50,6 +55,8 @@
 
 ## Feedback
 
+- The isolated branch applied cleanly after the live-trace feature commit and
+  did not touch user-owned `WORKPLAN.md` or unrelated state/data boundaries.
 - Future option builders should use `richTextTooltip` and `safeChartText` for any
   external identity; direct tooltip object literals should be treated as a
   review failure.
