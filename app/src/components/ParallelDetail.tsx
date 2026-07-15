@@ -119,12 +119,15 @@ function LaneStrip({ imb }: { imb: Imbalance }) {
 /** Bottom panel when a Max ("parallel") node is selected: identifies the lanes,
  *  the straggler that sets the node's wall-time, and its achieved perf. */
 export default function ParallelDetail() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const workerKey = useViz((state) => state.workerKey);
+  const parId = useViz((state) => state.parId);
+  const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
-  const w = currentWorker(run, st);
+  const w = currentWorker(run, { workerKey });
   const tree = useProjectedWorkerTree();
-  if (st.scope !== 'parallel' || st.parId == null) return null;
-  const node = nodeById(tree, st.parId);
+  if (scope !== 'parallel' || parId == null) return null;
+  const node = nodeById(tree, parId);
   if (!node || node.kind !== 'max') return null;
   const imb = imbalanceFor(run, w, node);
   const sLeaf = leafById(tree, imb.stragglerLeafId);
@@ -177,7 +180,7 @@ export default function ParallelDetail() {
         <IconButton
           aria-label={`Back to worker ${w.ref.poolTag}/${w.ref.workerId}`}
           size="small"
-          onClick={() => st.selectWorker(w.ref)}
+          onClick={() => selectWorker(w.ref)}
           sx={{
             ml: 'auto',
             color: tokens.sub,

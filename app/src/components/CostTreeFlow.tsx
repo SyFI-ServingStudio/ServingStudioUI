@@ -638,14 +638,21 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
 }
 
 export default function CostTreeFlow() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const workerKey = useViz((state) => state.workerKey);
+  const leafId = useViz((state) => state.leafId);
+  const parId = useViz((state) => state.parId);
+  const cursorMs = useViz((state) => state.cursorMs);
+  const selectWorker = useViz((state) => state.selectWorker);
+  const selectKernel = useViz((state) => state.selectKernel);
+  const selectParallel = useViz((state) => state.selectParallel);
   const run = useActiveRun();
-  const w = currentWorker(run, st);
+  const w = currentWorker(run, { workerKey });
   const tree = useProjectedWorkerTree();
   const treeState = useActiveWorkerTreeState();
-  const atIter = currentIter(run, st) != null;
-  const selId = st.scope === 'kernel' ? st.leafId : null;
-  const parSel = st.scope === 'parallel' ? st.parId : null;
+  const atIter = currentIter(run, { workerKey, cursorMs }) != null;
+  const selId = scope === 'kernel' ? leafId : null;
+  const parSel = scope === 'parallel' ? parId : null;
   const timeBasis = run.capabilities.workerIterations
     ? atIter
       ? 'selected iter'
@@ -732,10 +739,10 @@ export default function CostTreeFlow() {
           <FlowNode
             node={tree}
             selId={selId}
-            onSelect={canInspectKernel ? st.selectKernel : undefined}
-            onRoot={() => st.selectWorker(w.ref)}
+            onSelect={canInspectKernel ? selectKernel : undefined}
+            onRoot={() => selectWorker(w.ref)}
             parSel={parSel}
-            onPar={run.capabilities.loadImbalance ? st.selectParallel : undefined}
+            onPar={run.capabilities.loadImbalance ? selectParallel : undefined}
           />
         </Box>
       </Box>

@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode } from 'react';
-import { useViz } from './store';
+import { useViz, type Scope } from './store';
 import { currentWorker } from './application/runSelection';
 import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
@@ -13,7 +13,7 @@ import RunOverviewRow from './components/RunOverviewRow';
 import SystemMapBand from './components/SystemMapBand';
 import TimelineBand from './components/TimelineBand';
 import IterationBand from './components/IterationBand';
-import PerfettoTrace from './components/PerfettoTrace';
+import { PerfettoTrace } from './features/trace';
 import ClusterStage from './components/stages/ClusterStage';
 import PoolStage from './components/stages/PoolStage';
 import FocusDialog from './components/FocusDialog';
@@ -111,9 +111,9 @@ function WorkerStageFallback() {
 }
 
 function Stage() {
-  const st = useViz();
-  if (st.scope === 'cluster') return <ClusterStage />;
-  if (st.scope === 'pool') return <PoolStage />;
+  const scope = useViz((state) => state.scope);
+  if (scope === 'cluster') return <ClusterStage />;
+  if (scope === 'pool') return <PoolStage />;
   // Worker AND kernel — kernel is a sub-state (bottom panels swap).
   return (
     <Suspense fallback={<WorkerStageFallback />}>
@@ -191,7 +191,9 @@ function Masthead({ hasRun }: { hasRun: boolean }) {
 export default function App() {
   const activeRun = useActiveRunState();
   const run = activeRun.run;
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
   if (!run) {
     return (
       <Box
@@ -229,12 +231,12 @@ export default function App() {
     );
   }
 
-  const w = currentWorker(run, st);
-  const role = st.poolRole ?? w.pool;
+  const w = currentWorker(run, { workerKey });
+  const role = poolRole ?? w.pool;
   const hasHierarchicalWorkerDetail =
     activeRun.data.descriptor.details['worker-cost-tree']?.status === 'ready';
 
-  const stage: Record<typeof st.scope, { title: string; sub: string }> = {
+  const stage: Record<Scope, { title: string; sub: string }> = {
     cluster: {
       title: 'Cluster outcome',
       sub: 'SLO · throughput · conservation — whole deployment',
@@ -264,7 +266,7 @@ export default function App() {
         : 'load-imbalance detail not generated',
     },
   };
-  const meta = stage[st.scope];
+  const meta = stage[scope];
   return (
     <ActiveWorkerTreeProvider
       run={run}
@@ -298,20 +300,16 @@ export default function App() {
         <Stack spacing={1.5} sx={{ mt: 2 }}>
           <TimelineBand />
           {run.capabilities.workerIterations &&
-            (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && (
-              <IterationBand />
-            )}
+            (scope === 'worker' || scope === 'kernel' || scope === 'parallel') && <IterationBand />}
         </Stack>
 
         {/* execution trace — whole-run wall-clock view, only meaningful at
           cluster scope (structural drill has its own per-scope stage below) */}
-        {st.scope === 'cluster' &&
-          run.source.kind === 'synthetic' &&
-          run.capabilities.perfettoTrace && (
-            <Box sx={{ mt: 2 }}>
-              <PerfettoTrace />
-            </Box>
-          )}
+        {scope === 'cluster' && run.capabilities.perfettoTrace && (
+          <Box sx={{ mt: 2 }}>
+            <PerfettoTrace />
+          </Box>
+        )}
 
         {/* 02 — scope-adaptive stage */}
         <Section idx="02" title={meta.title} sub={meta.sub}>

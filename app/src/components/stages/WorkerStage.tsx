@@ -39,12 +39,16 @@ import { tokens } from '../../theme';
 
 /** Worker-scope bottom: scheduler pressure/composition, time-share, and kernel throughput. */
 function WorkerBottom() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
   const activeData = useActiveRunData();
   const tree = useProjectedWorkerTree();
-  const worker = currentWorker(run, st);
-  const backpressure = metricView(activeData.subjects.backpressure, run, st);
+  const selection = { scope, poolRole, workerKey, cursorMs };
+  const worker = currentWorker(run, { workerKey });
+  const backpressure = metricView(activeData.subjects.backpressure, run, selection);
   const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
   const locs: KernelLoc[] = lt.positions.slice(0, 10).flatMap((p) => {
@@ -79,7 +83,7 @@ function WorkerBottom() {
         idx="b"
         title="Batch composition"
         sub={`worker: ${worker.id}`}
-        option={batchOption(batch, CHART_THEME, cursorSeconds(st))}
+        option={batchOption(batch, CHART_THEME, cursorSeconds({ cursorMs }))}
         note="prefill ∥ decode tokens per iteration · concurrent decode requests (right axis)"
         caption="This worker's batched tokens per scheduler iteration, split into prefill and decode work, with concurrent decode requests on the right axis. The selected iteration is shared with the iteration strip and cost tree."
       />
@@ -139,10 +143,10 @@ function KernelBottom({ node }: { node: LeafNode }) {
  *  plus the straggler kernel's roofline + input distribution. The cost tree hero
  *  above is untouched — the Max node is a sub-state of the worker view. */
 function ParallelBottom({ node }: { node: MaxNode }) {
-  const st = useViz();
+  const workerKey = useViz((state) => state.workerKey);
   const run = useActiveRun();
   const tree = useProjectedWorkerTree();
-  const imb = imbalanceFor(run, currentWorker(run, st), node);
+  const imb = imbalanceFor(run, currentWorker(run, { workerKey }), node);
   const sLeaf = leafById(tree, imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
   const dist = sLeaf ? inputDist(sLeaf) : null;
@@ -199,7 +203,9 @@ function ParallelBottom({ node }: { node: MaxNode }) {
  *  (load imbalance + straggler) when a Max node is selected. Kernel and parallel
  *  scopes are sub-states of the worker view, not separate views. */
 function ReadyWorkerStage() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const leafId = useViz((state) => state.leafId);
+  const parId = useViz((state) => state.parId);
   const run = useActiveRun();
   const treeState = useActiveWorkerTreeState();
   const tree = useProjectedWorkerTree();
@@ -237,8 +243,8 @@ function ReadyWorkerStage() {
       </Stack>
     );
   }
-  const leaf = st.scope === 'kernel' && st.leafId != null ? leafById(tree, st.leafId) : null;
-  const par = st.scope === 'parallel' && st.parId != null ? nodeById(tree, st.parId) : null;
+  const leaf = scope === 'kernel' && leafId != null ? leafById(tree, leafId) : null;
+  const par = scope === 'parallel' && parId != null ? nodeById(tree, parId) : null;
 
   return (
     <Stack spacing={2}>

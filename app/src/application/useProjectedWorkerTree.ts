@@ -9,7 +9,8 @@ import { useActiveWorkerTree } from './WorkerTreeProvider';
  * optional synthetic iteration projection. */
 export function useProjectedWorkerTree(): CostTree {
   const run = useActiveRun();
-  const state = useViz();
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
   const baseTree = useActiveWorkerTree();
-  return projectWorkerTree(run, state, baseTree);
+  return projectWorkerTree(run, { workerKey, cursorMs }, baseTree);
 }

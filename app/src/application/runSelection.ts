@@ -14,7 +14,23 @@ import {
   type Iteration,
   type IterTimeline,
 } from '../data/iterations';
-import type { VizState } from '../store';
+import type { Scope } from '../store';
+import type { WorkerKey } from '../domain/worker';
+
+/** Minimal serializable projection consumed by run-scoping helpers. Keeping
+ * actions/dialog/detail ids out of this contract prevents callers from
+ * manufacturing a full Zustand snapshot just to compute a chart scope. */
+export interface RunSelection {
+  readonly scope: Scope;
+  readonly poolRole: string | null;
+  readonly workerKey: WorkerKey | null;
+  readonly cursorMs: number | null;
+}
+
+type WorkerSelection = Pick<RunSelection, 'workerKey'>;
+type PoolSelection = Pick<RunSelection, 'scope' | 'poolRole' | 'workerKey'>;
+type CursorSelection = Pick<RunSelection, 'cursorMs'>;
+type IterationSelection = Pick<RunSelection, 'workerKey' | 'cursorMs'>;
 
 export interface ScopedPendingQueueSeries {
   key: string;
@@ -30,14 +46,14 @@ export interface ScopedPendingQueue {
   stacked: boolean;
 }
 
-export const currentWorker = (run: Run, state: VizState): WorkerRow => {
+export const currentWorker = (run: Run, state: WorkerSelection): WorkerRow => {
   const worker =
     run.workerList.find((candidate) => candidate.key === state.workerKey) ?? run.workerList[0];
   if (!worker) throw new Error(`Run ${run.id} has no workers.`);
   return worker;
 };
 
-export const poolInScope = (run: Run, state: VizState): string | null => {
+export const poolInScope = (run: Run, state: PoolSelection): string | null => {
   if (state.poolRole) return state.poolRole;
   if (state.scope === 'worker' || state.scope === 'kernel' || state.scope === 'parallel') {
     return currentWorker(run, state).pool;
@@ -88,7 +104,7 @@ function sumPendingQueue(series: PendingQueueSeries[], sampleCount: number): num
 export const scopedPendingQueue = (
   queue: PendingQueue,
   run: Run,
-  state: VizState,
+  state: RunSelection,
 ): ScopedPendingQueue => {
   const sampleCount = queue.t_ms.length;
   if (state.scope === 'worker' || state.scope === 'kernel' || state.scope === 'parallel') {
@@ -134,13 +150,13 @@ export const scopedPendingQueue = (
   };
 };
 
-export const cursorSeconds = (state: VizState): number | undefined =>
+export const cursorSeconds = (state: CursorSelection): number | undefined =>
   state.cursorMs == null ? undefined : state.cursorMs / 1000;
 
-export const iterTimeline = (run: Run, state: VizState): IterTimeline =>
+export const iterTimeline = (run: Run, state: WorkerSelection): IterTimeline =>
   iterationsFor(run, currentWorker(run, state).key);
 
-export const currentIter = (run: Run, state: VizState): Iteration | null =>
+export const currentIter = (run: Run, state: IterationSelection): Iteration | null =>
   state.cursorMs == null ? null : nearestIter(iterTimeline(run, state), state.cursorMs);
 
 // Key by the repository-owned base tree so a refetch/version change cannot
@@ -150,7 +166,11 @@ const treeCache = new WeakMap<CostTree, Map<string, CostTree>>();
 /** Project a repository-owned visual tree at the current synthetic
  * iteration. The base tree is an explicit argument so Run never becomes a
  * high-cardinality detail cache. */
-export const projectWorkerTree = (run: Run, state: VizState, baseTree: CostTree): CostTree => {
+export const projectWorkerTree = (
+  run: Run,
+  state: IterationSelection,
+  baseTree: CostTree,
+): CostTree => {
   const worker = currentWorker(run, state);
   if (!run.capabilities.workerIterations) return baseTree;
   const iteration = currentIter(run, state);

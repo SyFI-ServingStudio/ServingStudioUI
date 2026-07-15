@@ -32,42 +32,53 @@ const crumbSx = (here: boolean) => ({
 });
 
 export default function ScopeBreadcrumbs() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const leafId = useViz((state) => state.leafId);
+  const parId = useViz((state) => state.parId);
+  const cursorMs = useViz((state) => state.cursorMs);
+  const setCluster = useViz((state) => state.setCluster);
+  const selectPool = useViz((state) => state.selectPool);
+  const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
   const treeState = useActiveWorkerTreeState();
-  const w = currentWorker(run, st);
-  const tree = treeState.status === 'ready' ? projectWorkerTree(run, st, treeState.tree) : null;
+  const w = currentWorker(run, { workerKey });
+  const tree =
+    treeState.status === 'ready'
+      ? projectWorkerTree(run, { workerKey, cursorMs }, treeState.tree)
+      : null;
 
   const parts: Crumb[] = [
-    { g: '▸', lab: shortName(run), here: st.scope === 'cluster', onClick: () => st.setCluster() },
+    { g: '▸', lab: shortName(run), here: scope === 'cluster', onClick: setCluster },
   ];
-  if (st.scope !== 'cluster') {
-    const role = st.poolRole ?? w.pool;
+  if (scope !== 'cluster') {
+    const role = poolRole ?? w.pool;
     parts.push({
       g: 'pool',
       lab: role,
-      here: st.scope === 'pool',
-      onClick: () => st.selectPool(role),
+      here: scope === 'pool',
+      onClick: () => selectPool(role),
     });
   }
-  if (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') {
+  if (scope === 'worker' || scope === 'kernel' || scope === 'parallel') {
     parts.push({
       g: 'worker',
       lab: w.id,
-      here: st.scope === 'worker',
-      onClick: () => st.selectWorker(w.ref),
+      here: scope === 'worker',
+      onClick: () => selectWorker(w.ref),
     });
   }
-  if (st.scope === 'kernel') {
-    const lf = tree ? leafById(tree, st.leafId) : null;
+  if (scope === 'kernel') {
+    const lf = tree ? leafById(tree, leafId) : null;
     parts.push({
       g: 'kernel',
       lab: lf ? (lf.slot.name.split('.').pop() ?? lf.slot.name) : '—',
       here: true,
     });
   }
-  if (st.scope === 'parallel') {
-    const pn = tree ? nodeById(tree, st.parId) : null;
+  if (scope === 'parallel') {
+    const pn = tree ? nodeById(tree, parId) : null;
     parts.push({
       g: 'parallel',
       lab: pn?.kind === 'max' ? (pn.label ?? 'max') : '—',
@@ -149,7 +160,7 @@ export default function ScopeBreadcrumbs() {
           letterSpacing: '.04em',
         }}
       >
-        {hint[st.scope]}
+        {hint[scope]}
       </Typography>
     </Stack>
   );

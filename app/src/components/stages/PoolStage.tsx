@@ -18,11 +18,8 @@ export default function PoolStage() {
   const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
   const activeData = useActiveRunData();
-  // metricView and the pool helpers share this four-field selection contract.
-  // Memoizing a type-complete snapshot preserves that API without making this
-  // stage observe focus, leaf, parallel, or run-switch state.
   const metricSelection = useMemo(
-    () => ({ ...useViz.getState(), scope, poolRole, workerKey, cursorMs }),
+    () => ({ scope, poolRole, workerKey, cursorMs }),
     [scope, poolRole, workerKey, cursorMs],
   );
   const role = poolInScope(run, metricSelection) ?? poolRole ?? '—';

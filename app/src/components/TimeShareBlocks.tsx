@@ -26,7 +26,9 @@ function Bar({
   segs: Seg[];
   clickable: boolean;
 }) {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const leafId = useViz((state) => state.leafId);
+  const selectKernel = useViz((state) => state.selectKernel);
   return (
     <Stack spacing={0.9}>
       <Stack
@@ -62,7 +64,7 @@ function Bar({
       >
         {segs.map((s, i) => {
           const selected =
-            clickable && st.scope === 'kernel' && s.nodeId != null && s.nodeId === st.leafId;
+            clickable && scope === 'kernel' && s.nodeId != null && s.nodeId === leafId;
           const interactive = clickable && s.nodeId != null;
           const accessibleLabel = `${s.full} — ${fmtMs(s.ms)} · ${fmtPct(s.pct)}`;
           return (
@@ -76,7 +78,7 @@ function Bar({
                 onClick={
                   interactive
                     ? () => {
-                        if (s.nodeId !== null) st.selectKernel(s.nodeId);
+                        if (s.nodeId !== null) selectKernel(s.nodeId);
                       }
                     : undefined
                 }

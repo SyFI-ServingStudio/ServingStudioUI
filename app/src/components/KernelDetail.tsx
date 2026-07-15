@@ -46,12 +46,15 @@ function Item({ k, v, big, teal }: { k: string; v: string; big?: boolean; teal?:
 }
 
 export default function KernelDetail() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const workerKey = useViz((state) => state.workerKey);
+  const leafId = useViz((state) => state.leafId);
+  const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
-  const w = currentWorker(run, st);
+  const w = currentWorker(run, { workerKey });
   const tree = useProjectedWorkerTree();
-  if (st.scope !== 'kernel' || st.leafId == null) return null;
-  const node = leafById(tree, st.leafId);
+  if (scope !== 'kernel' || leafId == null) return null;
+  const node = leafById(tree, leafId);
   if (!node) return null;
   const s = node.slot;
   const color = colorOf(s.kind);
@@ -100,7 +103,7 @@ export default function KernelDetail() {
         <IconButton
           aria-label={`Back to worker ${w.ref.poolTag}/${w.ref.workerId}`}
           size="small"
-          onClick={() => st.selectWorker(w.ref)}
+          onClick={() => selectWorker(w.ref)}
           sx={{
             ml: 'auto',
             color: tokens.sub,

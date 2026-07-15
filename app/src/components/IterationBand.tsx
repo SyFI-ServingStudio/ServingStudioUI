@@ -26,13 +26,7 @@ export default function IterationBand() {
   const cursorMs = useViz((state) => state.cursorMs);
   const setTime = useViz((state) => state.setTime);
   const run = useActiveRun();
-  // Iteration projection only depends on worker identity and wall-clock cursor.
-  // The memoized full shape keeps the shared runSelection API type-safe while
-  // leaving unrelated store updates outside this dense component's render path.
-  const iterationSelection = useMemo(
-    () => ({ ...useViz.getState(), workerKey, cursorMs }),
-    [workerKey, cursorMs],
-  );
+  const iterationSelection = useMemo(() => ({ workerKey, cursorMs }), [workerKey, cursorMs]);
   const w = currentWorker(run, iterationSelection);
   const tl = iterTimeline(run, iterationSelection);
   const n = tl.iters.length;

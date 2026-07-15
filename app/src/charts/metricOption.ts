@@ -7,13 +7,14 @@ import {
   pendingQueueOption,
 } from './options';
 import { CHART_THEME } from './platform';
-import type { VizState, MetricKey } from '../store';
+import type { MetricKey } from '../store';
 import {
   cursorSeconds,
   scopedUtil,
   scopedKv,
   scopedPendingQueue,
   poolInScope,
+  type RunSelection,
 } from '../application/runSelection';
 import type { Run } from '../domain/run';
 import type { SubjectResult } from '../domain/subject';
@@ -37,7 +38,7 @@ interface MetricProjection {
 export function metricView(
   subject: MetricSubjectResult,
   run: Run,
-  s: VizState,
+  s: RunSelection,
   projection: MetricProjection = {},
 ): MetricView {
   if (subject.status !== 'ready') {

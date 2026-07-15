@@ -17,11 +17,8 @@ export default function ClusterStage() {
   const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
   const activeData = useActiveRunData();
-  // metricView's scope projection consumes exactly these four selection fields.
-  // Keep a type-complete, memoized snapshot for its existing VizState contract
-  // without subscribing this stage to unrelated dialog or drill-detail state.
   const metricSelection = useMemo(
-    () => ({ ...useViz.getState(), scope, poolRole, workerKey, cursorMs }),
+    () => ({ scope, poolRole, workerKey, cursorMs }),
     [scope, poolRole, workerKey, cursorMs],
   );
   const slo = metricView(activeData.subjects.slo, run, metricSelection);
