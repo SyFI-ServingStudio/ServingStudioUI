@@ -1,5 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material';
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { useViz } from './store';
 import { currentWorker, workerTree } from './application/runSelection';
 import { useActiveRunState } from './application/ActiveRunProvider';
@@ -15,8 +15,11 @@ import IterationBand from './components/IterationBand';
 import PerfettoTrace from './components/PerfettoTrace';
 import ClusterStage from './components/stages/ClusterStage';
 import PoolStage from './components/stages/PoolStage';
-import WorkerStage from './components/stages/WorkerStage';
 import FocusDialog from './components/FocusDialog';
+
+// Worker, kernel, and parallel scopes share the cost-tree/Motion feature. Keep
+// that feature out of the cluster/pool entry path and load it at the drill edge.
+const WorkerStage = lazy(() => import('./components/stages/WorkerStage'));
 
 function SectionHead({
   id,
@@ -84,11 +87,38 @@ function Section({
 /** The main stage renders a DIFFERENT view per drill scope (not a filtered
  *  version of the same panels): cluster→global metrics, pool→resources,
  *  worker→cost tree, kernel→performance + input distribution. */
+function WorkerStageFallback() {
+  return (
+    <Box
+      role="status"
+      aria-busy="true"
+      sx={{
+        minHeight: { xs: 240, md: 300 },
+        display: 'grid',
+        placeItems: 'center',
+        border: `1px solid ${tokens.hair}`,
+        borderRadius: 2,
+        background: tokens.tile,
+        boxShadow: tokens.shadow,
+      }}
+    >
+      <Typography sx={{ fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+        Loading worker analysis…
+      </Typography>
+    </Box>
+  );
+}
+
 function Stage() {
   const st = useViz();
   if (st.scope === 'cluster') return <ClusterStage />;
   if (st.scope === 'pool') return <PoolStage />;
-  return <WorkerStage />; // worker AND kernel — kernel is a sub-state (bottom panels swap)
+  // Worker AND kernel — kernel is a sub-state (bottom panels swap).
+  return (
+    <Suspense fallback={<WorkerStageFallback />}>
+      <WorkerStage />
+    </Suspense>
+  );
 }
 
 function Masthead({ hasRun }: { hasRun: boolean }) {

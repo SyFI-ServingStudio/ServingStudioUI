@@ -86,8 +86,9 @@
 
 ## 已验证的已知问题
 
-- ECharts 按需注册后 production bundle 约 1.46 MB / 468 KB gzip；后续仍需把真实
-  fixture 与 worker/Motion 按数据、交互边界拆分；Size Limit 当前约束入口 ≤500 kB、
+- Worker/Motion 已在 worker drill 边界按需加载；production 入口约 1.30 MB /
+  416 KB gzip，worker chunk 约 160 KB / 52 KB gzip，所有 chunks 合计约 468 KB
+  gzip。真实 fixture 仍在入口 eager 加载；Size Limit 当前约束入口 ≤500 kB、
   全部 JS chunks ≤590 kB（gzip）。
 - desktop 冷启动、390 px 冷启动及 desktop→390 px 实时缩放均已由 Playwright
   overflow 回归保护；检查会等待 ResizeObserver/ECharts 重排稳定后再判定。
