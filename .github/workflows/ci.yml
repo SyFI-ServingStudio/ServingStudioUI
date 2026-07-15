@@ -36,6 +36,8 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
+      - name: Verify analyzer fixture protocol
+        run: npm run fixture:check
       - name: Unit tests
         run: npm run test:unit
       - name: Production build

@@ -21,6 +21,7 @@ cd app
 npm run format:check
 npm run typecheck
 npm run lint
+npm run fixture:check
 npm run test:unit
 npm run test:e2e
 npm run build
@@ -31,7 +32,8 @@ npm run size:check
 Chromium 中执行导航、响应式、console/page error 和 axe 检查；只重跑无障碍门槛可用
 `npm run test:a11y`。失败产物写入 `.artifacts/playwright-test/`。
 
-`size:check` 检查已有 `dist/`；需要从干净源码构建并检查时运行 `npm run size`。
+`fixture:check` 会从 checked-in analyzer JSON 重新计算 descriptor、catalog 和内容 revision，
+确保重新裁剪 fixture 后不会留下陈旧 sidecar。`size:check` 检查已有 `dist/`；需要从干净源码构建并检查时运行 `npm run size`。
 当前预算同时约束入口 JavaScript 与所有 chunks 的 gzip 总量，避免 code splitting 仅把体积移出入口。
 
 `.github/workflows/ci.yml` 在 Node.js 22 上并行运行静态/单测/bundle 与 Chromium
@@ -57,7 +59,7 @@ viz-ui/
 - transport DTO、领域模型和视图模型分离；现有 analyzer v1 由 subject-specific adapter 兼容。
 - worker 用 `(pool_tag, worker_id)` 复合标识，避免跨 pool 冲突。
 - fixture、静态 artifact 和 HTTP 使用同一个 `AnalyzerRepository` 接口。
-- 运行选择器展示 simulation folder id；当前 fixture catalog 含 `20260715_1_afd_ui_reanalysis`。
+- 运行选择器展示 simulation folder 名称、状态只保存 opaque run id；当前 fixture catalog 含 `20260715_1_afd_ui_reanalysis`。
 - 缺失、未生成、失败和版本不兼容均为显式状态，不伪装成零值。
 
 具体任务见 [WORKPLAN.md](WORKPLAN.md)，协议依据见 [docs/data-protocol.md](docs/data-protocol.md)。

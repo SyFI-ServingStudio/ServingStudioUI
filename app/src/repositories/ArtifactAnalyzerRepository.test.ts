@@ -69,9 +69,8 @@ describe('ArtifactAnalyzerRepository', () => {
     const descriptor = await repository.getRunDescriptor(RUN_ID);
 
     expect(descriptor.runId).toBe(RUN_ID);
-    expect(descriptor.analysis?.revision).toBe(
-      'fixture-sha256-513a646a0688807e15dd538314b276ecfdbceb622c028f733625db69a979c404',
-    );
+    expect(descriptor.analysis?.revision).toBe(descriptorJson.analysis.revision);
+    expect(descriptor.analysis?.revision).toMatch(/^fixture-sha256-[a-f0-9]{64}$/);
     await expect(repository.getRunDescriptor('path-like-name')).rejects.toBeInstanceOf(
       UnknownAnalyzerRunError,
     );
