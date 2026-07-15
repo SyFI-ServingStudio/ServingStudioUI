@@ -1,4 +1,3 @@
-import type { CostNode } from '../data/tree';
 import type { KernelTimeShare } from './kernelTimeShare';
 import type { WorkerKey, WorkerRef } from './worker';
 
@@ -158,7 +157,6 @@ export interface WorkerRow {
   dp: number | null;
   arch: Arch;
   worker: WorkerCfg;
-  tree: CostNode;
 }
 
 /**
@@ -174,7 +172,6 @@ export interface Run {
   gpu: string;
   summary: Summary;
   topology: Topology;
-  trees: Record<WorkerKey, CostNode>;
   payloads: Payloads;
   workerList: WorkerRow[];
   gpuTotal: number;

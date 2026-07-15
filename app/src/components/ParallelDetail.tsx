@@ -1,8 +1,9 @@
 import { Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useViz } from '../store';
-import { currentWorker, workerTree } from '../application/runSelection';
+import { currentWorker } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
 import { nodeById, leafById, fmtMs, kindLabel } from '../data/tree';
 import { imbalanceFor, type Imbalance } from '../data/imbalance';
 import { kernelPerf } from '../data/kernel';
@@ -121,8 +122,8 @@ export default function ParallelDetail() {
   const st = useViz();
   const run = useActiveRun();
   const w = currentWorker(run, st);
+  const tree = useProjectedWorkerTree();
   if (st.scope !== 'parallel' || st.parId == null) return null;
-  const tree = workerTree(run, st);
   const node = nodeById(tree, st.parId);
   if (!node || node.kind !== 'max') return null;
   const imb = imbalanceFor(run, w, node);

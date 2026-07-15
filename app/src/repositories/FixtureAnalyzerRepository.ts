@@ -14,6 +14,7 @@ import {
 import { makeWorkerKey, type WorkerRef } from '../domain/worker';
 import { iterationsFor, type Iteration, type IterTimeline } from '../data/iterations';
 import { batchFor, conservationFor } from '../data/scopeData';
+import { projectKernelTimeWorkerTree } from '../data/kernelTimeTree';
 import type { CostNode } from '../data/tree';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 
@@ -148,10 +149,14 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
 
   async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode> {
     const run = await this.requireRun(runId);
-    const tree = run.trees[makeWorkerKey(worker)];
-    if (!tree)
-      throw new Error(`Unknown worker ${worker.poolTag}/${worker.workerId} in run ${runId}`);
-    return tree;
+    const workerKey = makeWorkerKey(worker);
+    const composition = run.payloads.kernelTimeShare?.workers.find(
+      (candidate) => candidate.key === workerKey,
+    );
+    if (!composition) {
+      throw new Error(`Run ${runId} has no kernel-time worker composition for ${workerKey}.`);
+    }
+    return projectKernelTimeWorkerTree(composition);
   }
 
   async getWorkerTimeline(runId: string, worker: WorkerRef): Promise<IterTimeline> {

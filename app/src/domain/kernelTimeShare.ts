@@ -1,5 +1,8 @@
 import type { WorkerKey, WorkerRef } from './worker';
 
+/** Analyzer threshold below which a scope has no reportable kernel time. */
+export const KERNEL_TIME_EPSILON_MS = 1e-12;
+
 /** UI-independent projection of analyzer `kernel-time-share` schema v1. */
 export interface KernelTimeSegment {
   position: string;

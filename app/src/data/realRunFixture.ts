@@ -10,7 +10,6 @@ import kernelTimeShareJson from '../../../fixtures/analyzer-v1/afd-qwen3-duratio
 import batchJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/batch_scatter.json';
 import conservationJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/workload_conservation_checks.json';
 import { decodeAnalyzerV1KernelTimeSharePayload } from '../contracts/analyzer/v1/kernelTimeShare';
-import type { KernelTimeWorkerComposition } from '../domain/kernelTimeShare';
 import type {
   Arch,
   BatchSeries,
@@ -27,7 +26,6 @@ import type {
   WorkerRow,
 } from '../domain/run';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey } from '../domain/worker';
-import { annotate, leaf, sum, type CostNode } from './tree';
 
 const RUN_FOLDER = '20260715_1_afd_ui_reanalysis';
 const ARTIFACT_LOG_DIR = `logs/${RUN_FOLDER}`;
@@ -486,39 +484,16 @@ const topologyGpuTotal = topology.pools.reduce(
 );
 invariant(topologyGpuTotal === rawRunMeta.num_gpus, 'topology GPU total does not match run_meta');
 
-/**
- * This is a run-aggregate composition tree, not a representative iteration.
- * Every leaf base is the analyzer's real per-worker `kernel_time_ms` for that
- * position over the full run; the flat sum intentionally preserves that unit.
- */
-function buildAggregateKernelTree(worker: KernelTimeWorkerComposition): CostNode {
-  return annotate(
-    sum(
-      `run aggregate · ${worker.ref.poolTag}/${worker.ref.workerId}`,
-      ...worker.segments.map((segment) =>
-        leaf(
-          segment.position,
-          segment.kind,
-          `run aggregate · share_pct=${segment.sharePct}`,
-          segment.kernelTimeMs,
-        ),
-      ),
-    ),
-  );
-}
-
-const trees = {} as Record<WorkerKey, CostNode>;
-kernelTimeShare.workers.forEach((worker) => {
-  const key = worker.key;
-  invariant(trees[key] === undefined, `kernel time share repeats worker ${key}`);
-  trees[key] = buildAggregateKernelTree(worker);
-});
+const kernelTimeShareWorkerKeys = new Set(kernelTimeShare.workers.map((worker) => worker.key));
 invariant(
-  Object.keys(trees).length === resolvedMetaWorkers.length,
+  kernelTimeShareWorkerKeys.size === resolvedMetaWorkers.length,
   'kernel time share worker set is incomplete',
 );
 resolvedMetaWorkers.forEach((worker) =>
-  invariant(trees[worker.key] !== undefined, `missing kernel tree for ${worker.key}`),
+  invariant(
+    kernelTimeShareWorkerKeys.has(worker.key),
+    `missing kernel composition for ${worker.key}`,
+  ),
 );
 
 const workerList: WorkerRow[] = topology.pools.flatMap((pool) =>
@@ -526,8 +501,6 @@ const workerList: WorkerRow[] = topology.pools.flatMap((pool) =>
     group.workers.map((worker) => {
       const ref = makeWorkerRef(pool.role, worker.id);
       const key = makeWorkerKey(ref);
-      const tree = trees[key];
-      invariant(tree !== undefined, `missing aggregate kernel tree for ${key}`);
       return {
         arch: group.arch,
         archType: group.arch.type,
@@ -539,7 +512,6 @@ const workerList: WorkerRow[] = topology.pools.flatMap((pool) =>
         key,
         pool: pool.role,
         ref,
-        tree,
         worker: group.worker,
         workerType: group.worker.type,
       };
@@ -743,7 +715,6 @@ const realRun: Run = {
     ttft_p50: slo.ttft.markers.p50,
   },
   topology,
-  trees,
   workerList,
 };
 

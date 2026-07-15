@@ -1,9 +1,10 @@
 import { z, type ZodIssue } from 'zod';
 
-import type {
-  KernelTimeComposition,
-  KernelTimeShare,
-  KernelTimeWorkerComposition,
+import {
+  KERNEL_TIME_EPSILON_MS,
+  type KernelTimeComposition,
+  type KernelTimeShare,
+  type KernelTimeWorkerComposition,
 } from '../../../domain/kernelTimeShare';
 import type { SubjectResult } from '../../../domain/subject';
 import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
@@ -22,7 +23,6 @@ const safeCount = z.number().int().nonnegative().safe();
 const positiveSafeCount = safeCount.positive();
 // Must match analyzer `TIME_EPSILON_MS`: values above this still produce a
 // positive composition whose shares sum to 100.
-const KERNEL_TIME_EPSILON_MS = 1e-12;
 const RELATIVE_TOLERANCE = 1e-9;
 const PERCENTAGE_ABSOLUTE_TOLERANCE = 1e-6;
 

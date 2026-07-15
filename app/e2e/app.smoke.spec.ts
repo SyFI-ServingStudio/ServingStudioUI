@@ -17,7 +17,6 @@ test('loads the real analyzer folder and drills through a composite worker ident
   await expect(page.getByRole('heading', { name: 'Pool · attn', level: 2 })).toBeVisible();
 
   await scopeToWorker(page, 'attn/0');
-  await expect(page.getByRole('heading', { name: 'Worker · 0', level: 2 })).toBeVisible();
 
   await page.getByRole('button', { name: 'Scope to whole deployment' }).click();
   await expect(page.getByRole('heading', { name: 'Cluster outcome', level: 2 })).toBeVisible();
@@ -28,4 +27,5 @@ test('opens the FFN pool through the same stable pool control', async ({ page })
   await scopeToPool(page, 'ffn');
   await expect(page.getByRole('button', { name: 'Scope to worker ffn/0' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Scope to worker ffn/1' }).first()).toBeVisible();
+  await scopeToWorker(page, 'ffn/0');
 });

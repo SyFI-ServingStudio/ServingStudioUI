@@ -1,9 +1,9 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { useViz } from './store';
-import { currentWorker, workerTree } from './application/runSelection';
+import { currentWorker } from './application/runSelection';
 import { useActiveRunState } from './application/ActiveRunProvider';
-import { leafById } from './data/tree';
+import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
 import RunSwitcher from './components/RunSwitcher';
 import KpiStatline from './components/KpiStatline';
@@ -224,121 +224,127 @@ export default function App() {
 
   const w = currentWorker(run, st);
   const role = st.poolRole ?? w.pool;
-  const leaf = st.scope === 'kernel' ? leafById(workerTree(run, st), st.leafId) : null;
-  const leafName = leaf ? leaf.slot!.name.split('.').pop() : '—';
 
   const stage: Record<typeof st.scope, { title: string; sub: string }> = {
     cluster: {
       title: 'Cluster outcome',
       sub: 'SLO · throughput · conservation — whole deployment',
     },
-    pool: { title: `Pool · ${role}`, sub: 'utilization · KV occupancy · batch composition' },
+    pool: {
+      title: `Pool · ${role}`,
+      sub: 'utilization · KV occupancy · batch composition · kernel time',
+    },
     worker: {
-      title: `Worker · ${w.id}`,
+      title: `Worker · ${w.key}`,
       sub: run.capabilities.workerIterations
         ? 'batch composition · cost tree · kernel throughput'
         : 'full-run aggregate kernel time share · iteration detail not generated',
     },
     kernel: {
-      title: `Worker · ${w.id}`,
+      title: `Worker · ${w.key}`,
       sub: run.capabilities.kernelPerformance
-        ? `cost tree · kernel · ${leafName}`
+        ? 'cost tree · selected kernel'
         : 'kernel detail not generated',
     },
     parallel: {
-      title: `Worker · ${w.id}`,
+      title: `Worker · ${w.key}`,
       sub: run.capabilities.loadImbalance
         ? 'cost tree · parallel node · load imbalance + straggler'
         : 'load-imbalance detail not generated',
     },
   };
   const meta = stage[st.scope];
+  const kernelTimeShareSubject = activeRun.data.subjects.kernelTimeShare;
+  const workerTreeSchemaVersion =
+    kernelTimeShareSubject.status === 'ready' ? kernelTimeShareSubject.schemaVersion : undefined;
 
   return (
-    <Box
-      component="main"
-      sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
-    >
-      <Masthead hasRun />
-
-      <ScopeBreadcrumbs />
-
-      <RunOverviewRow />
-
-      {/* 01 — persistent STRUCTURAL navigator: the system map is how you re-scope */}
-      <Section
-        idx="01"
-        title="System map"
-        sub={`${run.gpuTotal} GPUs · ${run.gpu} · ${run.deployment === 'afd' ? 'AFD (attn ∥ ffn)' : 'unified'} · click to scope`}
+    <ActiveWorkerTreeProvider run={run} schemaVersion={workerTreeSchemaVersion}>
+      <Box
+        component="main"
+        sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
       >
-        <SystemMapBand />
-      </Section>
+        <Masthead hasRun />
 
-      {/* TEMPORAL navigators — orthogonal to the structural drill. Timeline
+        <ScopeBreadcrumbs />
+
+        <RunOverviewRow />
+
+        {/* 01 — persistent STRUCTURAL navigator: the system map is how you re-scope */}
+        <Section
+          idx="01"
+          title="System map"
+          sub={`${run.gpuTotal} GPUs · ${run.gpu} · ${run.deployment === 'afd' ? 'AFD (attn ∥ ffn)' : 'unified'} · click to scope`}
+        >
+          <SystemMapBand />
+        </Section>
+
+        {/* TEMPORAL navigators — orthogonal to the structural drill. Timeline
           (wall-clock) is always present; the worker-level Iteration band only
           appears once you're inside a worker (no iteration selection at
           cluster/pool scope). */}
-      <Stack spacing={1.5} sx={{ mt: 2 }}>
-        {run.capabilities.concurrencyTimeline && <TimelineBand />}
-        {run.capabilities.workerIterations &&
-          (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && (
-            <IterationBand />
-          )}
-      </Stack>
+        <Stack spacing={1.5} sx={{ mt: 2 }}>
+          {run.capabilities.concurrencyTimeline && <TimelineBand />}
+          {run.capabilities.workerIterations &&
+            (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && (
+              <IterationBand />
+            )}
+        </Stack>
 
-      {/* execution trace — whole-run wall-clock view, only meaningful at
+        {/* execution trace — whole-run wall-clock view, only meaningful at
           cluster scope (structural drill has its own per-scope stage below) */}
-      {st.scope === 'cluster' &&
-        run.source.kind === 'synthetic' &&
-        run.capabilities.perfettoTrace && (
-          <Box sx={{ mt: 2 }}>
-            <PerfettoTrace />
-          </Box>
-        )}
+        {st.scope === 'cluster' &&
+          run.source.kind === 'synthetic' &&
+          run.capabilities.perfettoTrace && (
+            <Box sx={{ mt: 2 }}>
+              <PerfettoTrace />
+            </Box>
+          )}
 
-      {/* 02 — scope-adaptive stage */}
-      <Section idx="02" title={meta.title} sub={meta.sub}>
-        <Stage />
-      </Section>
+        {/* 02 — scope-adaptive stage */}
+        <Section idx="02" title={meta.title} sub={meta.sub}>
+          <Stage />
+        </Section>
 
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        flexWrap="wrap"
-        useFlexGap
-        sx={{
-          gap: 2,
-          mt: 5,
-          pt: 2,
-          borderTop: `1px solid ${tokens.hair}`,
-          fontFamily: tokens.mono,
-          fontSize: 10.5,
-          letterSpacing: '.1em',
-          color: tokens.sub,
-          textTransform: 'uppercase',
-        }}
-      >
-        <span>VibeSim · analyzer prototype</span>
-        <Box
-          component="span"
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
           sx={{
-            fontFamily: tokens.serif,
-            fontStyle: 'italic',
-            fontSize: 13,
-            textTransform: 'none',
-            letterSpacing: 0,
-            color: tokens.ink,
+            gap: 2,
+            mt: 5,
+            pt: 2,
+            borderTop: `1px solid ${tokens.hair}`,
+            fontFamily: tokens.mono,
+            fontSize: 10.5,
+            letterSpacing: '.1em',
+            color: tokens.sub,
+            textTransform: 'uppercase',
           }}
         >
-          {run.source.kind === 'synthetic'
-            ? 'scope-adaptive · synthetic fixture'
-            : `analyzer artifacts · ${run.source.simulationFolder}`}
-        </Box>
-        <span>Run ▸ Pool ▸ Worker ▸ Kernel</span>
-      </Stack>
+          <span>VibeSim · analyzer prototype</span>
+          <Box
+            component="span"
+            sx={{
+              fontFamily: tokens.serif,
+              fontStyle: 'italic',
+              fontSize: 13,
+              textTransform: 'none',
+              letterSpacing: 0,
+              color: tokens.ink,
+            }}
+          >
+            {run.source.kind === 'synthetic'
+              ? 'scope-adaptive · synthetic fixture'
+              : `analyzer artifacts · ${run.source.simulationFolder}`}
+          </Box>
+          <span>Run ▸ Pool ▸ Worker ▸ Kernel</span>
+        </Stack>
 
-      <FocusDialog />
-    </Box>
+        <FocusDialog />
+      </Box>
+    </ActiveWorkerTreeProvider>
   );
 }

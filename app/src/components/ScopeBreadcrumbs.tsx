@@ -1,7 +1,8 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
-import { currentWorker, workerTree } from '../application/runSelection';
+import { currentWorker, projectWorkerTree } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useActiveWorkerTreeState } from '../application/WorkerTreeProvider';
 import { leafById, nodeById } from '../data/tree';
 import { tokens } from '../theme';
 import { shortName } from '../util';
@@ -33,7 +34,9 @@ const crumbSx = (here: boolean) => ({
 export default function ScopeBreadcrumbs() {
   const st = useViz();
   const run = useActiveRun();
+  const treeState = useActiveWorkerTreeState();
   const w = currentWorker(run, st);
+  const tree = treeState.status === 'ready' ? projectWorkerTree(run, st, treeState.tree) : null;
 
   const parts: Crumb[] = [
     { g: '▸', lab: shortName(run), here: st.scope === 'cluster', onClick: () => st.setCluster() },
@@ -56,17 +59,17 @@ export default function ScopeBreadcrumbs() {
     });
   }
   if (st.scope === 'kernel') {
-    const lf = leafById(workerTree(run, st), st.leafId);
+    const lf = tree ? leafById(tree, st.leafId) : null;
     parts.push({ g: 'kernel', lab: lf ? lf.slot!.name.split('.').pop()! : '—', here: true });
   }
   if (st.scope === 'parallel') {
-    const pn = nodeById(workerTree(run, st), st.parId);
+    const pn = tree ? nodeById(tree, st.parId) : null;
     parts.push({ g: 'parallel', lab: pn ? (pn.label ?? 'max') : '—', here: true });
   }
 
   const hint: Record<string, string> = {
     cluster: 'cluster — SLO · throughput · conservation',
-    pool: 'pool — utilization · KV · batch composition',
+    pool: 'pool — utilization · KV · batch composition · kernel time',
     worker: run.capabilities.workerIterations
       ? 'worker — batch composition · cost tree · kernel throughput'
       : 'worker — full-run aggregate kernel time share',

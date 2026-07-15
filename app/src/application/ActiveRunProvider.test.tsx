@@ -104,7 +104,7 @@ describe('ActiveRunProvider', () => {
     expect(calls.subjects).toBe(0);
   });
 
-  it('publishes a ready run only after all required artifacts are assembled', async () => {
+  it('publishes a bounded ready run without reading worker trees', async () => {
     const { repository, calls } = createTestRepository();
 
     renderProvider(repository);
@@ -113,6 +113,6 @@ describe('ActiveRunProvider', () => {
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
     expect(calls.subjects).toBe(10);
-    expect(calls.trees).toBe(2);
+    expect(calls.trees).toBe(0);
   });
 });

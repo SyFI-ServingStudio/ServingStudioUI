@@ -29,7 +29,7 @@
 ## P2 · 工程质量护栏
 
 - [x] 配置 ESLint、Prettier 和显式 UI 文件范围的格式检查
-- [x] 配置 Vitest + Testing Library（descriptor、subject adapter、active-run assembler、Provider lifecycle、fixture loader 共 29 个测试）
+- [x] 配置 Vitest + Testing Library（descriptor、subject adapter、active-run assembler、Provider lifecycle、worker detail query、fixture loader 共 40 个测试）
 - [x] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
 - [x] 增加 axe 可访问性检查
 - [x] 增加 GitHub Actions：format、typecheck、lint、unit、build、size、browser smoke
@@ -41,7 +41,7 @@
 ## P3 · 可维护性重构
 
 - [ ] 按 feature 拆分 overview、system-map、worker、kernel 和 trace 模块
-- [ ] 将 domain、transport DTO 和 view-model 分离
+- [~] 将 domain、transport DTO 和 view-model 分离（Run 已移除 worker tree；其他 subject view-model 待拆）
 - [x] 将 Zustand 限定为 UI/选择状态；active run、catalog、descriptor 和 subject 数据由 query cache 管理
 - [ ] 将 cost tree 改为可判别联合类型，消除不安全断言
 - [ ] 收紧 store selector，避免整库订阅导致的无关重渲染
@@ -54,7 +54,7 @@
 
 - [ ] 明确 analyzer artifact index / HTTP API 的所有权
 - [ ] 实现 `HttpAnalyzerRepository`
-- [ ] 聚合 subject 使用静态 JSON；worker/iteration 明细按需加载
+- [~] 聚合 subject 使用静态 JSON；worker cost tree 已按选择加载，iteration 明细待接线
 - [ ] 支持分析生命周期和 subject 状态轮询
 - [ ] 支持 Perfetto trace URL，不在浏览器读取 raw parquet
 - [ ] 与 Rust 端共享或生成协议 schema，并加入兼容性测试
@@ -83,18 +83,20 @@
 8. TanStack Query 负责 repository 异步状态与缓存；repository 通过 React context 注入。
 9. 顶层运行标识是 simulation folder 名；浏览器通过 repository 的 run catalog 发现目录，不直接扫描服务器文件系统。
 10. Repository 只提供 descriptor、typed summary/topology、subject 和 worker detail 读取；整页兼容 `Run` 在 application 层组装，不能作为 repository DTO。
+11. `Run` / `WorkerRow` 不保存 cost tree；Cluster/Pool 直接消费 analyzer aggregate，worker tree 使用包含完整 `WorkerRef` 的独立 Query，并将加载失败限制在 worker stage。
 
 ## 已验证的已知问题
 
-- Worker/Motion 和真实 fixture 已分别在 drill 与 repository 边界按需导入；
-  production 入口约 1.08 MB / 352 KB gzip，fixture chunk 约 227 KB / 67 KB gzip，
-  worker chunk 约 160 KB / 52 KB gzip，所有 chunks 合计约 470 KB gzip。当前默认
+- Worker/Motion 和真实 fixture 已分别在 drill 与 repository 边界按需导入；worker cost
+  tree 仅在选中复合 worker 后投影并由 Query 缓存，Cluster/Pool 不读取 tree。production
+  入口约 1.08 MB / 353 KB gzip，fixture chunk 约 228 KB / 67 KB gzip，worker chunk 约
+  161 KB / 53 KB gzip，所有 chunks 合计约 471 KB gzip。当前默认
   run 会在 catalog bootstrap 后立即加载 fixture；真正的 per-run 数据按需加载属于 P4。
   Size Limit 当前约束入口 ≤500 kB、全部 JS chunks ≤590 kB（gzip）。
 - desktop 冷启动、390 px 冷启动及 desktop→390 px 实时缩放均已由 Playwright
   overflow 回归保护；检查会等待 ResizeObserver/ECharts 重排稳定后再判定。
 - npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。
-- 当前兼容 assembler 为 cluster kernel breakdown eager 读取全部 worker aggregate tree；接入 HTTP 前应改为直接消费 kernel-time-share aggregate，再让 worker tree 按选择懒加载。
+- Cluster/Pool kernel breakdown 已直接消费带状态的 kernel-time-share overall/pools，不再从 worker tree 重建或按 GPU 数二次加权；首屏与 pool scope 的 worker tree 读取数均为 0。
 
 ## 运行记录
 

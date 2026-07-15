@@ -25,6 +25,9 @@ export async function scopeToWorker(page: Page, workerKey: string): Promise<void
     .getByRole('button', { name: `Scope to worker ${workerKey}` })
     .first()
     .click();
+  await expect(
+    page.getByRole('heading', { name: `Worker · ${workerKey}`, level: 2 }),
+  ).toBeVisible();
   await expect(page.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
 }
 

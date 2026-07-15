@@ -6,8 +6,7 @@ import {
   type SubjectPayloadByName,
   type SubjectResult,
 } from '../domain/subject';
-import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
-import type { CostNode } from '../data/tree';
+import { makeWorkerKey, makeWorkerRef, type WorkerRef } from '../domain/worker';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 
 export type SubjectResults = { [Name in SubjectName]: SubjectResult<Name> };
@@ -65,14 +64,12 @@ function requireSameWorkerRoster(
   return descriptorRoster;
 }
 
-function buildWorkerRows(topology: Topology, trees: Record<WorkerKey, CostNode>): WorkerRow[] {
+function buildWorkerRows(topology: Topology): WorkerRow[] {
   return topology.pools.flatMap((pool) =>
     pool.groups.flatMap((group) =>
       group.workers.map((worker) => {
         const ref = makeWorkerRef(pool.role, worker.id);
         const key = makeWorkerKey(ref);
-        const tree = trees[key];
-        if (!tree) throw new Error(`Missing aggregate cost tree for ${key}.`);
         return {
           key,
           ref,
@@ -86,7 +83,6 @@ function buildWorkerRows(topology: Topology, trees: Record<WorkerKey, CostNode>)
           dp: worker.dp ?? null,
           arch: group.arch,
           worker: group.worker,
-          tree,
         };
       }),
     ),
@@ -98,13 +94,12 @@ function assembleRun(
   rootSummary: RunSummaryArtifact,
   topology: Topology,
   subjects: SubjectResults,
-  trees: Record<WorkerKey, CostNode>,
 ): Run {
   const slo = requireReady(subjects, 'slo');
   const throughput = requireReady(subjects, 'throughput');
   const utilization = requireReady(subjects, 'utilization');
   const kv = requireReady(subjects, 'kv');
-  const workerList = buildWorkerRows(topology, trees);
+  const workerList = buildWorkerRows(topology);
   const gpuNames = new Set(topology.pools.flatMap((pool) => pool.groups.map((group) => group.gpu)));
   if (gpuNames.size !== 1)
     throw new Error(
@@ -187,7 +182,6 @@ function assembleRun(
       e2e_p50: slo.e2e.markers.p50,
     },
     topology,
-    trees,
     payloads,
     workerList,
     gpuTotal,
@@ -210,10 +204,8 @@ function assembleRun(
   };
 }
 
-/** Compatibility assembler for the current synchronous view. It deliberately
- * lives above the repository so transport implementations keep fine-grained,
- * status-preserving reads. Worker trees can become selection-lazy once the
- * cluster breakdown consumes kernelTimeShare directly. */
+/** Assemble only bounded run-level artifacts. Worker trees are intentionally
+ * excluded: the worker feature owns a separate selection-scoped query. */
 export async function loadActiveRunData(
   repository: AnalyzerRepository,
   descriptor: RunDescriptor,
@@ -228,20 +220,10 @@ export async function loadActiveRunData(
     ),
   ]);
   const subjects = Object.fromEntries(subjectPairs) as SubjectResults;
-  const roster = requireSameWorkerRoster(descriptor.workers, topology);
-  const treePairs = await Promise.all(
-    roster.map(
-      async (worker) =>
-        [
-          makeWorkerKey(worker),
-          await repository.getWorkerCostTree(descriptor.runId, worker),
-        ] as const,
-    ),
-  );
-  const trees = Object.fromEntries(treePairs) as Record<WorkerKey, CostNode>;
+  requireSameWorkerRoster(descriptor.workers, topology);
   return {
     descriptor,
     subjects,
-    run: assembleRun(descriptor, rootSummary, topology, subjects, trees),
+    run: assembleRun(descriptor, rootSummary, topology, subjects),
   };
 }

@@ -1,7 +1,9 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
-import { workerTree, currentWorker, cursorSeconds } from '../../application/runSelection';
+import { currentWorker, cursorSeconds } from '../../application/runSelection';
 import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
+import { useProjectedWorkerTree } from '../../application/useProjectedWorkerTree';
 import {
   leafTotals,
   leafByName,
@@ -34,7 +36,7 @@ import { tokens } from '../../theme';
 function WorkerBottom() {
   const st = useViz();
   const run = useActiveRun();
-  const tree = workerTree(run, st);
+  const tree = useProjectedWorkerTree();
   const worker = currentWorker(run, st);
   const backpressure = metricView('backpressure', run, st);
   const batch = workerBatchFor(run, worker.key);
@@ -130,8 +132,9 @@ function KernelBottom({ node }: { node: CostNode }) {
 function ParallelBottom({ node }: { node: CostNode }) {
   const st = useViz();
   const run = useActiveRun();
+  const tree = useProjectedWorkerTree();
   const imb = imbalanceFor(run, currentWorker(run, st), node);
-  const sLeaf = leafById(workerTree(run, st), imb.stragglerLeafId);
+  const sLeaf = leafById(tree, imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
   const dist = sLeaf ? inputDist(sLeaf) : null;
   const sName = sLeaf ? sLeaf.slot!.name : '';
@@ -186,9 +189,10 @@ function ParallelBottom({ node }: { node: CostNode }) {
  *  roofline + input distribution) when a leaf is selected, and parallel-level
  *  (load imbalance + straggler) when a Max node is selected. Kernel and parallel
  *  scopes are sub-states of the worker view, not separate views. */
-export default function WorkerStage() {
+function ReadyWorkerStage() {
   const st = useViz();
   const run = useActiveRun();
+  const tree = useProjectedWorkerTree();
   // The current iteration/per-call helpers are synthetic authoring fixtures.
   // Real repositories must provide subject adapters before enabling this path.
   if (run.source.kind !== 'synthetic' || !run.capabilities.workerIterations) {
@@ -217,7 +221,6 @@ export default function WorkerStage() {
       </Stack>
     );
   }
-  const tree = workerTree(run, st);
   const leaf = st.scope === 'kernel' && st.leafId != null ? leafById(tree, st.leafId) : null;
   const par = st.scope === 'parallel' && st.parId != null ? nodeById(tree, st.parId) : null;
 
@@ -233,4 +236,49 @@ export default function WorkerStage() {
       )}
     </Stack>
   );
+}
+
+/** Local detail boundary: a missing worker artifact never replaces the
+ * already-loaded overview, system map, or cluster/pool subjects. */
+export default function WorkerStage() {
+  const state = useActiveWorkerTreeState();
+  if (state.status === 'loading' || state.status === 'idle') {
+    const worker = state.status === 'loading' ? state.worker.key : 'selected worker';
+    return (
+      <Paper role="status" aria-busy="true" sx={{ borderRadius: 2, p: 3 }}>
+        <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
+          Loading worker cost tree
+        </Typography>
+        <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+          Fetching aggregate kernel composition for {worker}…
+        </Typography>
+      </Paper>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <Paper role="alert" sx={{ borderRadius: 2, p: 3, borderLeft: `3px solid ${tokens.terra}` }}>
+        <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
+          Could not load worker cost tree
+        </Typography>
+        <Typography
+          sx={{
+            mt: 0.5,
+            fontFamily: tokens.mono,
+            fontSize: 11,
+            color: tokens.sub,
+            lineHeight: 1.6,
+          }}
+        >
+          {state.error.message}
+        </Typography>
+        {state.retry && (
+          <Button size="small" onClick={state.retry} sx={{ mt: 1.5 }}>
+            Retry worker detail
+          </Button>
+        )}
+      </Paper>
+    );
+  }
+  return <ReadyWorkerStage />;
 }

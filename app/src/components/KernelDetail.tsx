@@ -1,8 +1,9 @@
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useViz } from '../store';
-import { currentWorker, workerTree } from '../application/runSelection';
+import { currentWorker } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
 import { leafById, kindLabel, colorOf, fmtMs, fmtPct } from '../data/tree';
 import { kernelPerf } from '../data/kernel';
 import { tokens } from '../theme';
@@ -48,8 +49,9 @@ export default function KernelDetail() {
   const st = useViz();
   const run = useActiveRun();
   const w = currentWorker(run, st);
+  const tree = useProjectedWorkerTree();
   if (st.scope !== 'kernel' || st.leafId == null) return null;
-  const node = leafById(workerTree(run, st), st.leafId);
+  const node = leafById(tree, st.leafId);
   if (!node) return null;
   const s = node.slot!;
   const color = colorOf(s.kind);

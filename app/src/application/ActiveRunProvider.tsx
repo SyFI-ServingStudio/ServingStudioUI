@@ -136,3 +136,9 @@ export function useActiveRun(): Run {
   if (state.status !== 'ready') throw new Error(`Active run is not ready (${state.status}).`);
   return state.run;
 }
+
+export function useActiveRunData(): ActiveRunData {
+  const state = useActiveRunState();
+  if (state.status !== 'ready') throw new Error(`Active run data is not ready (${state.status}).`);
+  return state.data;
+}

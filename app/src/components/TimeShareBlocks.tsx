@@ -1,7 +1,7 @@
 import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useViz } from '../store';
-import { workerTree } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
 import { tokens } from '../theme';
 import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../data/tree';
 
@@ -141,9 +141,8 @@ function Bar({
 }
 
 export default function TimeShareBlocks() {
-  const st = useViz();
   const run = useActiveRun();
-  const tree = workerTree(run, st);
+  const tree = useProjectedWorkerTree();
   const lt = leafTotals(tree);
   const canInspectKernel =
     run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
@@ -213,7 +212,7 @@ export default function TimeShareBlocks() {
           <span>25%</span>
           <span>50%</span>
           <span>75%</span>
-          <span>100% of GPU busy time</span>
+          <span>100% of CostTree root kernel time</span>
         </Stack>
       </Stack>
     </Paper>

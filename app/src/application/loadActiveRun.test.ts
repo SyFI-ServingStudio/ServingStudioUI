@@ -13,7 +13,7 @@ import { loadActiveRunData } from './loadActiveRun';
 describe('loadActiveRunData', () => {
   it('assembles one run while preserving same-numbered workers in different pools', async () => {
     const descriptor = makeTestDescriptor();
-    const { repository } = createTestRepository({ descriptor });
+    const { repository, calls } = createTestRepository({ descriptor });
 
     const active = await loadActiveRunData(repository, descriptor);
 
@@ -25,6 +25,7 @@ describe('loadActiveRunData', () => {
     expect(active.subjects.backpressure).toMatchObject({ status: 'not_generated' });
     expect(active.run.payloads.pendingQueue).toBeUndefined();
     expect(active.run.source.simulationReexecuted).toBeNull();
+    expect(calls.trees).toBe(0);
   });
 
   it('rejects duplicate composite worker identities in the descriptor', async () => {
@@ -36,7 +37,7 @@ describe('loadActiveRunData', () => {
     );
   });
 
-  it('rejects an empty topology before attempting to load worker trees', async () => {
+  it('rejects an empty topology without attempting to load worker trees', async () => {
     const descriptor = makeTestDescriptor({ workers: undefined });
     const { repository, calls } = createTestRepository({ descriptor, topology: { pools: [] } });
 

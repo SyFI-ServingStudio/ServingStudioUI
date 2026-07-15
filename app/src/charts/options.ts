@@ -13,7 +13,8 @@ import type {
 } from '../domain/run';
 import type { KernelPerf, InputDist } from '../data/kernel';
 import type { Imbalance } from '../data/imbalance';
-import type { ClusterKernelBreakdown } from '../data/scopeData';
+import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
+import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import type { ScopedPendingQueue } from '../application/runSelection';
 import { tokens } from '../theme';
 
@@ -513,14 +514,19 @@ export function batchOption(bs: BatchSeries, t: ChartTheme, cursorS?: number): E
 }
 
 // ---- cluster kernel time breakdown — 100% stacked bar (cluster scope) ------
-export function clusterKernelStackOption(
-  data: ClusterKernelBreakdown,
+export function kernelTimeStackOption(
+  data: ReadyKernelTimeBreakdown,
   t: ChartTheme,
 ): EChartsOption {
-  const cats = data.rows.map((r) => r.label);
+  const formatTotal = (totalMs: number): string => {
+    if (totalMs >= 1_000_000) return `${(totalMs / 1_000_000).toFixed(2)}M ms`;
+    if (totalMs >= 1_000) return `${(totalMs / 1_000).toFixed(2)}K ms`;
+    return `${totalMs.toFixed(2)} ms`;
+  };
+  const cats = data.rows.map((r) => `${r.label} · ${formatTotal(r.total)}`);
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 84, right: 22, top: 30, bottom: 28 },
+    grid: { left: 156, right: 22, top: 30, bottom: 28 },
     legend: {
       top: 0,
       right: 0,
@@ -539,7 +545,7 @@ export function clusterKernelStackOption(
     xAxis: {
       type: 'value',
       max: 100,
-      name: '% of GPU·kernel time · all GPUs',
+      name: '% of CostTree root kernel time',
       nameTextStyle: { color: t.sub, fontSize: 10 },
       axisLine: { lineStyle: { color: t.axis } },
       axisLabel: { color: t.sub, fontSize: 11, formatter: '{value}%' },
@@ -557,8 +563,8 @@ export function clusterKernelStackOption(
       name: f.label,
       type: 'bar' as const,
       stack: 'kernel',
-      data: data.rows.map(
-        (r) => +(r.total > 0 ? ((r.byGroup[f.group] ?? 0) / r.total) * 100 : 0).toFixed(2),
+      data: data.rows.map((r) =>
+        r.total > KERNEL_TIME_EPSILON_MS ? ((r.byGroup[f.group] ?? 0) / r.total) * 100 : 0,
       ),
       itemStyle: { color: f.color },
       barMaxWidth: 34,

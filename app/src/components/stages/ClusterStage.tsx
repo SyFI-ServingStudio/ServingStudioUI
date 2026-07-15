@@ -1,11 +1,12 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
-import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
-import { utilizationOption, clusterKernelStackOption, CHART_THEME } from '../../charts/options';
-import { conservationFor, clusterKernelBreakdown } from '../../data/scopeData';
+import { utilizationOption, CHART_THEME } from '../../charts/options';
+import { conservationFor } from '../../data/scopeData';
 import ChartCard from '../ChartCard';
 import ConservationCard from '../ConservationCard';
+import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
 import { tokens } from '../../theme';
 
 /** Whole-deployment outcome: SLO + throughput, scheduler backpressure,
@@ -13,12 +14,12 @@ import { tokens } from '../../theme';
 export default function ClusterStage() {
   const st = useViz();
   const run = useActiveRun();
+  const activeData = useActiveRunData();
   const slo = metricView('slo', run, st);
   const tp = metricView('throughput', run, st);
   const backpressure = metricView('backpressure', run, st);
   const cons =
     run.payloads.conservation ?? (run.source.kind === 'synthetic' ? conservationFor(run) : null);
-  const kbreak = clusterKernelBreakdown(run);
 
   const util = run.payloads.utilization;
   const pools = run.topology.pools;
@@ -83,15 +84,11 @@ export default function ClusterStage() {
         ))}
       </Box>
 
-      {/* cluster-wide kernel time breakdown — stacked by kernel family */}
-      <ChartCard
+      <KernelTimeBreakdownCard
         idx="e"
         title="Cluster kernel time breakdown"
-        sub="share by family · all GPUs"
-        option={clusterKernelStackOption(kbreak, CHART_THEME)}
-        height={Math.max(170, kbreak.rows.length * 48 + 74)}
-        note="hover a segment for its %"
-        caption="Share of GPU·kernel time by family (GEMM / attention / collectives / norm / routing), counted across ALL GPUs — each worker's batched-iteration cost is weighted by its GPU count and summed. The 'cluster' bar is the whole deployment (so the 32-GPU ffn pool weighs more than an 8-GPU attn pool); per-pool bars show each pool's own mix."
+        subject={activeData.subjects.kernelTimeShare}
+        scope={{ kind: 'cluster' }}
       />
 
       {cons ? (

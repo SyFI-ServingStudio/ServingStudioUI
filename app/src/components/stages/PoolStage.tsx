@@ -1,17 +1,19 @@
 import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { cursorSeconds, poolInScope } from '../../application/runSelection';
-import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { batchOption, CHART_THEME } from '../../charts/options';
 import { batchFor } from '../../data/scopeData';
 import ChartCard from '../ChartCard';
+import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
 import WorkersInPool from '../WorkersInPool';
 
-/** Pool-level resource behaviour: utilization + KV + queue pressure + batch, then drill. */
+/** Pool-level resource behaviour: utilization, KV, queue/batch, kernel mix, then drill. */
 export default function PoolStage() {
   const st = useViz();
   const run = useActiveRun();
+  const activeData = useActiveRunData();
   const role = poolInScope(run, st) ?? st.poolRole ?? '—';
   const util = metricView('utilization', run, st);
   const kv = metricView('kv', run, st);
@@ -67,7 +69,13 @@ export default function PoolStage() {
         empty={batch ? undefined : 'Batch composition is unavailable for this simulation folder.'}
         caption="Batched tokens per scheduler step, split into prefill vs decode, with the number of concurrent decode requests on the right axis. Shows how the pool fills its token budget over the run."
       />
-      <WorkersInPool idx="e" role={role} />
+      <KernelTimeBreakdownCard
+        idx="e"
+        title={`Kernel time breakdown · ${role}`}
+        subject={activeData.subjects.kernelTimeShare}
+        scope={{ kind: 'pool', poolTag: role }}
+      />
+      <WorkersInPool idx="f" role={role} />
     </Stack>
   );
 }

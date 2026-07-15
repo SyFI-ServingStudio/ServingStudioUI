@@ -11,7 +11,6 @@
 import type { BatchSeries, CheckStatus, Conservation, ConservationCheck, Run } from '../domain/run';
 import type { WorkerKey } from '../domain/worker';
 import { iterationsFor } from './iterations';
-import { leafTotals, GROUP } from './tree';
 
 function strHash(s: string): number {
   let h = 2166136261 >>> 0;
@@ -100,55 +99,4 @@ export function workerBatchFor(run: Run, workerKey: WorkerKey): BatchSeries {
     prefillTokens: timeline.iters.map((iteration) => iteration.prefillTokens),
     decodeRequests: timeline.iters.map((iteration) => iteration.decodeRequests),
   };
-}
-
-// ---- cluster kernel time breakdown (cluster scope) -------------------------
-export interface KernelStackFamily {
-  group: string;
-  label: string;
-  color: string;
-}
-export interface KernelStackRow {
-  label: string;
-  total: number;
-  byGroup: Record<string, number>;
-}
-export interface ClusterKernelBreakdown {
-  families: KernelStackFamily[];
-  rows: KernelStackRow[];
-}
-
-/** Kernel time by family across ALL GPUs in the cluster: each worker's
- *  per-iteration batch cost is weighted by its GPU count (kernels run on every
- *  GPU of the worker), then summed. One 'cluster' row, plus a row per pool when
- *  disaggregated (>1 pool). Values are GPU·ms; the chart normalises each bar to
- *  a percentage. */
-export function clusterKernelBreakdown(run: Run): ClusterKernelBreakdown {
-  const cluster: Record<string, number> = {};
-  const perPool = new Map<string, Record<string, number>>();
-  const order: string[] = [];
-  for (const w of run.workerList) {
-    let acc = perPool.get(w.pool);
-    if (!acc) {
-      acc = {};
-      perPool.set(w.pool, acc);
-      order.push(w.pool);
-    }
-    const gpus = w.gpuCount; // count the kernel on every GPU of this worker
-    for (const g of leafTotals(w.tree).groups) {
-      cluster[g.group] = (cluster[g.group] ?? 0) + g.ms * gpus;
-      acc[g.group] = (acc[g.group] ?? 0) + g.ms * gpus;
-    }
-  }
-  const families: KernelStackFamily[] = Object.keys(cluster)
-    .sort((a, b) => cluster[b] - cluster[a])
-    .map((g) => ({ group: g, label: GROUP[g].label, color: GROUP[g].color }));
-  const rowOf = (label: string, m: Record<string, number>): KernelStackRow => ({
-    label,
-    total: Object.values(m).reduce((a, b) => a + b, 0),
-    byGroup: m,
-  });
-  const rows: KernelStackRow[] = [rowOf('cluster', cluster)];
-  if (order.length > 1) for (const p of order) rows.push(rowOf(p, perPool.get(p)!));
-  return { families, rows };
 }

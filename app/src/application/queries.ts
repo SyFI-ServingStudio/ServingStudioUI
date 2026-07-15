@@ -20,7 +20,7 @@ export const analyzerQueryKeys = {
       subject,
       schemaVersion ?? 'unknown-version',
     ] as const,
-  workerTree: (runId: string, worker: WorkerRef) =>
+  workerTree: (runId: string, worker: WorkerRef, schemaVersion: number) =>
     [
       ...analyzerQueryKeys.runs(),
       runId,
@@ -28,6 +28,7 @@ export const analyzerQueryKeys = {
       worker.poolTag,
       worker.workerId,
       'cost-tree',
+      `schema-v${schemaVersion}`,
     ] as const,
   active: (runId: string, descriptorFingerprint: string) =>
     [...analyzerQueryKeys.runs(), runId, 'active-view', descriptorFingerprint] as const,
@@ -91,5 +92,39 @@ export function useActiveRunDataQuery(descriptor: RunDescriptor | undefined) {
       return loadActiveRunData(repository, descriptor);
     },
     enabled: descriptor !== undefined,
+  });
+}
+
+/** High-cardinality worker detail stays outside the active-run assembly. A
+ * completed run is immutable, so revisiting the same composite worker can use
+ * the query cache without another repository read. */
+export function useWorkerCostTreeQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  schemaVersion: number | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  return useQuery({
+    queryKey:
+      worker === undefined
+        ? [...analyzerQueryKeys.runs(), runId, 'worker', 'no-selection', 'cost-tree']
+        : schemaVersion === undefined
+          ? [
+              ...analyzerQueryKeys.runs(),
+              runId,
+              'worker',
+              worker.poolTag,
+              worker.workerId,
+              'cost-tree',
+              'unversioned',
+            ]
+          : analyzerQueryKeys.workerTree(runId, worker, schemaVersion),
+    queryFn: () => {
+      if (worker === undefined) throw new Error('Cannot load a worker tree without a WorkerRef.');
+      return repository.getWorkerCostTree(runId, worker);
+    },
+    enabled: enabled && runId.length > 0 && worker !== undefined && schemaVersion !== undefined,
+    staleTime: Infinity,
   });
 }

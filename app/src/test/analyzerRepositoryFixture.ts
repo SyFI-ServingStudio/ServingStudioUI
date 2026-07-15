@@ -5,6 +5,7 @@ import type {
   TraceResource,
 } from '../domain/artifacts';
 import type { KvSeries, Slo, Throughput, Topology, UtilSeries } from '../domain/run';
+import type { KernelTimeShare } from '../domain/kernelTimeShare';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
 import { annotate, leaf, type CostNode } from '../data/tree';
@@ -18,6 +19,7 @@ export interface RepositoryCallCounts {
   topology: number;
   subjects: number;
   trees: number;
+  treeWorkers: WorkerKey[];
 }
 
 export const TEST_WORKERS = [makeWorkerRef('attn', 0), makeWorkerRef('ffn', 0)] as const;
@@ -50,7 +52,7 @@ export function makeTestDescriptor(overrides: Partial<RunDescriptor> = {}): RunD
       batch: { status: 'not_generated', reason: 'Not logged.' },
       conservation: { status: 'not_generated', reason: 'Not logged.' },
       kernelInputDistribution: { status: 'not_generated', reason: 'Not logged.' },
-      kernelTimeShare: { status: 'not_generated', reason: 'Not logged.' },
+      kernelTimeShare: readyArtifact('kernel-time-share'),
     },
     traces: {
       perfetto: { status: 'not_generated', reason: 'Not requested.' },
@@ -129,6 +131,72 @@ export function makeTestSubjectResults(): SubjectResults {
     t_ms: [0],
     series: [{ label: 'attn/0', poolTag: 'attn', capacity: 100, active: [20] }],
   };
+  const kernelTimeShare: KernelTimeShare = {
+    overall: {
+      kernelTimeMs: 2,
+      segments: [
+        {
+          position: 'attention',
+          kind: 'flashinfer_attn_decode',
+          kernelTimeMs: 1,
+          sharePct: 50,
+        },
+        { position: 'ffn', kind: 'single_gemm', kernelTimeMs: 1, sharePct: 50 },
+      ],
+    },
+    pools: [
+      {
+        poolTag: 'attn',
+        numWorkers: 1,
+        kernelTimeMs: 1,
+        segments: [
+          {
+            position: 'attention',
+            kind: 'flashinfer_attn_decode',
+            kernelTimeMs: 1,
+            sharePct: 100,
+          },
+        ],
+      },
+      {
+        poolTag: 'ffn',
+        numWorkers: 1,
+        kernelTimeMs: 1,
+        segments: [{ position: 'ffn', kind: 'single_gemm', kernelTimeMs: 1, sharePct: 100 }],
+      },
+    ],
+    workers: TEST_WORKERS.map((ref, index) => ({
+      ref,
+      key: makeWorkerKey(ref),
+      rawRows: 1,
+      sampledRows: 1,
+      sampleStride: 1,
+      kernelTimeMs: 1,
+      segments: [
+        index === 0
+          ? {
+              position: 'attention',
+              kind: 'flashinfer_attn_decode',
+              kernelTimeMs: 1,
+              sharePct: 100,
+            }
+          : { position: 'ffn', kind: 'single_gemm', kernelTimeMs: 1, sharePct: 100 },
+      ],
+    })),
+    positions: [
+      { name: 'attention', kind: 'flashinfer_attn_decode', overallSharePct: 50 },
+      { name: 'ffn', kind: 'single_gemm', overallSharePct: 50 },
+    ],
+    kernelTimeTotalsExact: true,
+    sampling: {
+      positionMixExact: true,
+      method: 'all rows',
+      rawRows: 2,
+      sampledRows: 2,
+      maxReplayRowsTarget: 10,
+    },
+    definitions: {},
+  };
   const missing = <Name extends SubjectName>(subject: Name): SubjectResult<Name> => ({
     subject,
     status: 'not_generated',
@@ -150,7 +218,12 @@ export function makeTestSubjectResults(): SubjectResults {
     batch: missing('batch'),
     conservation: missing('conservation'),
     kernelInputDistribution: missing('kernelInputDistribution'),
-    kernelTimeShare: missing('kernelTimeShare'),
+    kernelTimeShare: {
+      subject: 'kernelTimeShare',
+      status: 'ready',
+      schemaVersion: 1,
+      payload: kernelTimeShare,
+    },
   };
 }
 
@@ -170,6 +243,7 @@ export function createTestRepository(
     topology?: Topology;
     subjects?: SubjectResults;
     trees?: Record<WorkerKey, CostNode>;
+    treeErrors?: Partial<Record<WorkerKey, Error>>;
   } = {},
 ): { repository: AnalyzerRepository; calls: RepositoryCallCounts } {
   const descriptor = options.descriptor ?? makeTestDescriptor();
@@ -184,6 +258,7 @@ export function createTestRepository(
     topology: 0,
     subjects: 0,
     trees: 0,
+    treeWorkers: [],
   };
 
   const repository: AnalyzerRepository = {
@@ -222,8 +297,12 @@ export function createTestRepository(
     },
     async getWorkerCostTree(_runId: string, worker: WorkerRef) {
       calls.trees += 1;
-      const tree = trees[makeWorkerKey(worker)];
-      if (!tree) throw new Error(`Missing test tree for ${makeWorkerKey(worker)}.`);
+      const workerKey = makeWorkerKey(worker);
+      calls.treeWorkers.push(workerKey);
+      const configuredError = options.treeErrors?.[workerKey];
+      if (configuredError) throw configuredError;
+      const tree = trees[workerKey];
+      if (!tree) throw new Error(`Missing test tree for ${workerKey}.`);
       return tree;
     },
     async getWorkerTimeline() {

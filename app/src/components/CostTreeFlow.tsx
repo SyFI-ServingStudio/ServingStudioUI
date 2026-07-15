@@ -2,8 +2,9 @@ import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useViz } from '../store';
-import { currentWorker, workerTree, currentIter } from '../application/runSelection';
+import { currentWorker, currentIter } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
 import { tokens } from '../theme';
 import { GROUP, colorOf, kindLabel, fmtMs, fmtPct, type CostNode } from '../data/tree';
 
@@ -628,7 +629,7 @@ export default function CostTreeFlow() {
   const st = useViz();
   const run = useActiveRun();
   const w = currentWorker(run, st);
-  const tree = workerTree(run, st);
+  const tree = useProjectedWorkerTree();
   const atIter = currentIter(run, st) != null;
   const selId = st.scope === 'kernel' ? st.leafId : null;
   const parSel = st.scope === 'parallel' ? st.parId : null;
