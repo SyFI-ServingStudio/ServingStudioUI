@@ -149,8 +149,8 @@ JSON 作为 `run_descriptor.json`：
     "slo-general": {
       "status": "ready",
       "schema_version": 1,
-      "report_href": "reports/slo_general_report.json",
-      "payload_href": "payloads/slo_general_cdf.json"
+      "report_href": "revisions/20260715T050953Z-7a31c2f/reports/slo-general",
+      "payload_href": "revisions/20260715T050953Z-7a31c2f/payloads/slo-general"
     },
     "backpressure": {
       "status": "not_generated"
@@ -165,7 +165,10 @@ JSON 作为 `run_descriptor.json`：
     "iteration-detail": { "status": "not_generated" }
   },
   "traces": {
-    "perfetto": { "status": "ready", "href": "traces/run.pftrace.gz" }
+    "perfetto": {
+      "status": "ready",
+      "href": "revisions/20260715T050953Z-7a31c2f/traces/perfetto"
+    }
   },
   "analysis": {
     "revision": "20260715T050953Z-7a31c2f",
@@ -214,6 +217,12 @@ HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览�
   路径仍在配置的 logs root 和该 run 下；URL 参数不得直接 `join` 到文件系统路径。
 - artifact allowlist 只有 descriptor 声明的有界 JSON、trace 和明确的 detail endpoint。
   `raw/*.parquet`、`raw/gpu_cluster/**`、临时文件永不对浏览器开放。
+- HTTP service 中所有 ready subject 和 trace href 必须位于 descriptor
+  `analysis.revision` 对应的 `revisions/{revision}/...` 路径下。请求期间如果
+  analyzer 已发布新 generation，旧 href 返回 `409` 和稳定 code
+  `artifact_generation_changed`，调用方重新获取 descriptor；不允许回退到无
+  revision 的固定路径。静态 export 可以使用其自身的不可变相对文件布局，
+  但 descriptor schema 和 generation 一致性语义不变。
 - ready resource 返回 404/损坏时，服务使用 RFC 9457 Problem Details 加稳定 `code`
   （如 `artifact_missing`、`artifact_incompatible`）。可选 subject 映射为其自己的
   failed/incompatible 状态；summary/topology 失败才阻止基础 run 页面。

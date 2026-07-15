@@ -14,6 +14,7 @@ import {
 
 const RUN_ID = 'opaque-live-run';
 const UPDATED_AT = '2026-07-15T05:11:27Z';
+const REVISION = 'pipeline-generation-http-test';
 
 interface Route {
   body: unknown;
@@ -29,19 +30,23 @@ function protocolData() {
   const descriptor = {
     ...descriptorFixture,
     run_id: RUN_ID,
+    analysis: {
+      ...descriptorFixture.analysis,
+      revision: REVISION,
+    },
     summary: { href: 'summary' },
     topology: { href: 'topology', media_type: 'application/json', schema_version: 1 },
     subjects: {
       ...descriptorFixture.subjects,
       'slo-general': {
         ...descriptorFixture.subjects['slo-general'],
-        report_href: 'artifacts/reports/slo_general_report.json',
-        payload_href: 'artifacts/payloads/slo_general_cdf.json',
+        report_href: `revisions/${REVISION}/reports/slo-general`,
+        payload_href: `revisions/${REVISION}/payloads/slo-general`,
       },
       'kv-occupancy': {
         ...descriptorFixture.subjects['kv-occupancy'],
-        report_href: 'artifacts/reports/kv_occupancy_report.json',
-        payload_href: 'artifacts/payloads/kv_occupancy_series.json',
+        report_href: `revisions/${REVISION}/reports/kv-occupancy`,
+        payload_href: `revisions/${REVISION}/payloads/kv-occupancy`,
       },
     },
     provenance: {
@@ -80,7 +85,7 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
     [absolute(`/api/v1/runs/${RUN_ID}/topology`)]: {
       body: { schema_version: 1, params, run_meta: runMeta },
     },
-    [absolute(`/api/v1/runs/${RUN_ID}/artifacts/payloads/slo_general_cdf.json`)]: {
+    [absolute(`/api/v1/runs/${RUN_ID}/revisions/${REVISION}/payloads/slo-general`)]: {
       body: sloPayload,
     },
     ...overrides,
@@ -156,6 +161,34 @@ describe('HttpAnalyzerRepository', () => {
     await expect(repository.getSubject(RUN_ID, 'slo')).resolves.toMatchObject({
       subject: 'slo',
       status: 'ready',
+    });
+  });
+
+  it('keeps a stale generation conflict local to that subject', async () => {
+    const stalePayload = absolute(
+      `/api/v1/runs/${RUN_ID}/revisions/${REVISION}/payloads/slo-general`,
+    );
+    const repository = new HttpAnalyzerRepository({
+      fetch: fakeAnalyzerFetch({
+        [stalePayload]: {
+          status: 409,
+          body: {
+            type: 'about:blank',
+            title: 'Artifact generation changed',
+            status: 409,
+            code: 'artifact_generation_changed',
+            detail: 'The requested analysis revision is no longer current.',
+          },
+        },
+      }),
+    });
+
+    await repository.listRuns();
+    await repository.getRunDescriptor(RUN_ID);
+    await expect(repository.getSubject(RUN_ID, 'slo')).resolves.toMatchObject({
+      subject: 'slo',
+      status: 'failed',
+      code: 'artifact_generation_changed',
     });
   });
 
