@@ -8,6 +8,7 @@ React + TypeScript + Vite 主应用，使用 MUI、ECharts、Motion、TanStack Q
 npm install
 npm run dev -- --host 0.0.0.0 --port 5177
 npm run typecheck
+npm run lint
 npm run test:unit
 npm run test:coverage
 npm run build

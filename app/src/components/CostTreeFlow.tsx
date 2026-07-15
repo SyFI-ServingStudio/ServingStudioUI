@@ -85,7 +85,7 @@ function SelectionBoundary({ color }: { color: string }) {
   );
 }
 
-function WrapLabel({ text, glyph, node, extra, showMsRight }: { text?: string; glyph: string; node: CostNode; extra?: string; showMsRight?: boolean }) {
+function WrapLabel({ text, glyph, node, extra }: { text?: string; glyph: string; node: CostNode; extra?: string }) {
   return (
     <Stack direction="row" alignItems="center" spacing={1} useFlexGap flexWrap="wrap" sx={{ rowGap: 0.4, fontFamily: tokens.mono, fontWeight: 500, fontSize: 9, letterSpacing: '.12em', textTransform: 'uppercase', color: tokens.sub }}>
       {text && <><Box component="span" sx={{ color: tokens.teal, fontSize: 12 }}>{glyph}</Box>{text}</>}
