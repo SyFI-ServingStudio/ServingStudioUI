@@ -31,10 +31,12 @@ function asError(error: unknown, fallback: string): Error {
 export function ActiveWorkerTreeProvider({
   run,
   schemaVersion,
+  analysisRevision,
   children,
 }: {
   run: Run;
   schemaVersion: number | undefined;
+  analysisRevision: string | undefined;
   children: ReactNode;
 }) {
   const scope = useViz((state) => state.scope);
@@ -47,6 +49,7 @@ export function ActiveWorkerTreeProvider({
     run.id,
     worker?.ref,
     schemaVersion,
+    analysisRevision,
     enabled && worker !== undefined,
   );
 
@@ -68,6 +71,15 @@ export function ActiveWorkerTreeProvider({
         worker,
         tree: null,
         error: new Error(`Run ${run.id} has no versioned worker cost-tree artifact source.`),
+        retry: null,
+      };
+    }
+    if (analysisRevision === undefined) {
+      return {
+        status: 'error',
+        worker,
+        tree: null,
+        error: new Error(`Run ${run.id} has no analysis revision for worker detail caching.`),
         retry: null,
       };
     }

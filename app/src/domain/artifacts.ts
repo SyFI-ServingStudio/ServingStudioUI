@@ -1,5 +1,6 @@
 import type { SubjectName } from './subject';
 import type { WorkerRef } from './worker';
+import type { Deployment } from './deployment';
 
 export type RunKind = 'simulation';
 export type LifecycleStageStatus = 'not_started' | 'pending' | 'complete' | 'failed';
@@ -82,6 +83,13 @@ export type SubjectArtifact =
   | NotGeneratedArtifact
   | FailedArtifact;
 
+export type DetailArtifact =
+  | { status: 'ready'; schemaVersion: number; resource: ArtifactRef }
+  | PendingArtifact
+  | UnavailableArtifact
+  | NotGeneratedArtifact
+  | FailedArtifact;
+
 export type TraceResource =
   | { status: 'ready'; artifact: ArtifactRef }
   | PendingArtifact
@@ -94,7 +102,7 @@ export interface RunListItem {
   kind: RunKind;
   displayName?: string;
   modelName?: string;
-  deployment?: 'unified' | 'afd';
+  deployment?: Deployment;
   lifecycle: RunLifecycle;
   provenance?: ArtifactProvenance;
 }
@@ -106,11 +114,17 @@ export interface RunListItem {
 export interface RunDescriptor extends RunListItem {
   protocolVersion: 1;
   /** Required for a full descriptor even though catalog rows may omit it. */
-  deployment: 'unified' | 'afd';
+  deployment: Deployment;
   summary: ArtifactRef;
   model?: ArtifactRef;
   topology?: ArtifactRef;
   workers?: readonly WorkerRef[];
   subjects: Partial<Record<SubjectName, SubjectArtifact>>;
+  details: Readonly<Record<string, DetailArtifact>>;
   traces: Readonly<Record<string, TraceResource>>;
+  analysis?: {
+    revision: string;
+    generatedAt: string;
+    generatorVersion: string;
+  };
 }

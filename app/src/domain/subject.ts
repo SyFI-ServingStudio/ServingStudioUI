@@ -25,6 +25,7 @@ export const SUBJECT_NAMES = [
   'concurrency',
   'backpressure',
   'batch',
+  'kernelThroughput',
   'conservation',
   'kernelInputDistribution',
   'kernelTimeShare',
@@ -40,6 +41,7 @@ export interface SubjectPayloadByName {
   concurrency: Concurrency;
   backpressure: PendingQueue;
   batch: BatchSubject;
+  kernelThroughput: unknown;
   conservation: Conservation;
   kernelInputDistribution: unknown;
   kernelTimeShare: KernelTimeShare;

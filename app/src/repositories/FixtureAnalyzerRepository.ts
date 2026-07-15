@@ -101,6 +101,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
       topology: { href: `fixture://${encodeURIComponent(runId)}/topology.json` },
       workers: run.workerList.map((worker) => worker.ref),
       subjects,
+      details: {},
       traces: {
         perfetto:
           run.source.kind === 'synthetic' && run.capabilities.perfettoTrace
@@ -115,6 +116,11 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
                 status: 'not_generated',
                 reason: 'This simulation folder has no Perfetto trace artifact.',
               },
+      },
+      analysis: {
+        revision: `fixture-${run.id}-v${FIXTURE_SCHEMA_VERSION}`,
+        generatedAt: '2026-07-15T00:00:00Z',
+        generatorVersion: `fixture-v${FIXTURE_SCHEMA_VERSION}`,
       },
       provenance: {
         source: 'fixture',

@@ -9,18 +9,21 @@ import { useAnalyzerRepository } from './RepositoryProvider';
 export const analyzerQueryKeys = {
   all: ['analyzer'] as const,
   runs: () => [...analyzerQueryKeys.all, 'runs'] as const,
-  summary: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'summary'] as const,
-  topology: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'topology'] as const,
+  summary: (runId: string, analysisRevision: string) =>
+    [...analyzerQueryKeys.runs(), runId, 'summary', `analysis-${analysisRevision}`] as const,
+  topology: (runId: string, analysisRevision: string) =>
+    [...analyzerQueryKeys.runs(), runId, 'topology', `analysis-${analysisRevision}`] as const,
   descriptor: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'descriptor'] as const,
-  subject: (runId: string, subject: string, schemaVersion?: number) =>
+  subject: (runId: string, subject: string, schemaVersion: number, analysisRevision: string) =>
     [
       ...analyzerQueryKeys.runs(),
       runId,
       'subject',
       subject,
-      schemaVersion ?? 'unknown-version',
+      `schema-v${schemaVersion}`,
+      `analysis-${analysisRevision}`,
     ] as const,
-  workerTree: (runId: string, worker: WorkerRef, schemaVersion: number) =>
+  workerTree: (runId: string, worker: WorkerRef, schemaVersion: number, analysisRevision: string) =>
     [
       ...analyzerQueryKeys.runs(),
       runId,
@@ -29,6 +32,7 @@ export const analyzerQueryKeys = {
       worker.workerId,
       'cost-tree',
       `schema-v${schemaVersion}`,
+      `analysis-${analysisRevision}`,
     ] as const,
   active: (runId: string, descriptorFingerprint: string) =>
     [...analyzerQueryKeys.runs(), runId, 'active-view', descriptorFingerprint] as const,
@@ -46,7 +50,9 @@ function descriptorFingerprint(descriptor: RunDescriptor): string {
     topology: descriptor.topology,
     workers: descriptor.workers,
     subjects: descriptor.subjects,
+    details: descriptor.details,
     traces: descriptor.traces,
+    analysis: descriptor.analysis,
     provenance: descriptor.provenance,
   });
 }
@@ -71,11 +77,12 @@ export function useRunDescriptorQuery(runId: string) {
 export function useSubjectQuery<Name extends SubjectName>(
   runId: string,
   subject: Name,
-  schemaVersion?: number,
+  schemaVersion: number,
+  analysisRevision: string,
 ) {
   const repository = useAnalyzerRepository();
   return useQuery({
-    queryKey: analyzerQueryKeys.subject(runId, subject, schemaVersion),
+    queryKey: analyzerQueryKeys.subject(runId, subject, schemaVersion, analysisRevision),
     queryFn: () => repository.getSubject(runId, subject),
     enabled: runId.length > 0,
   });
@@ -95,13 +102,14 @@ export function useActiveRunDataQuery(descriptor: RunDescriptor | undefined) {
   });
 }
 
-/** High-cardinality worker detail stays outside the active-run assembly. A
- * completed run is immutable, so revisiting the same composite worker can use
- * the query cache without another repository read. */
+/** High-cardinality worker detail stays outside the active-run assembly. The
+ * analysis revision separates regenerated content even when href and schema
+ * version remain unchanged. */
 export function useWorkerCostTreeQuery(
   runId: string,
   worker: WorkerRef | undefined,
   schemaVersion: number | undefined,
+  analysisRevision: string | undefined,
   enabled: boolean,
 ) {
   const repository = useAnalyzerRepository();
@@ -119,12 +127,28 @@ export function useWorkerCostTreeQuery(
               'cost-tree',
               'unversioned',
             ]
-          : analyzerQueryKeys.workerTree(runId, worker, schemaVersion),
+          : analysisRevision === undefined
+            ? [
+                ...analyzerQueryKeys.runs(),
+                runId,
+                'worker',
+                worker.poolTag,
+                worker.workerId,
+                'cost-tree',
+                `schema-v${schemaVersion}`,
+                'unrevisioned',
+              ]
+            : analyzerQueryKeys.workerTree(runId, worker, schemaVersion, analysisRevision),
     queryFn: () => {
       if (worker === undefined) throw new Error('Cannot load a worker tree without a WorkerRef.');
       return repository.getWorkerCostTree(runId, worker);
     },
-    enabled: enabled && runId.length > 0 && worker !== undefined && schemaVersion !== undefined,
+    enabled:
+      enabled &&
+      runId.length > 0 &&
+      worker !== undefined &&
+      schemaVersion !== undefined &&
+      analysisRevision !== undefined,
     staleTime: Infinity,
   });
 }

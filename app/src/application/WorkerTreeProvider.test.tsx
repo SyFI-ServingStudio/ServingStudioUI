@@ -12,6 +12,7 @@ import {
   type RepositoryCallCounts,
 } from '../test/analyzerRepositoryFixture';
 import { ActiveRunProvider, useActiveRunState } from './ActiveRunProvider';
+import { analyzerQueryKeys } from './queries';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
 import { ActiveWorkerTreeProvider, useActiveWorkerTreeState } from './WorkerTreeProvider';
 
@@ -30,7 +31,11 @@ function ReadyRunHarness({ showWorkerStage }: { showWorkerStage: boolean }) {
   const schemaVersion =
     kernelTimeShare.status === 'ready' ? kernelTimeShare.schemaVersion : undefined;
   return (
-    <ActiveWorkerTreeProvider run={active.run} schemaVersion={schemaVersion}>
+    <ActiveWorkerTreeProvider
+      run={active.run}
+      schemaVersion={schemaVersion}
+      analysisRevision={active.data.descriptor.analysis?.revision}
+    >
       <div data-testid="run-state">ready:{active.run.id}</div>
       <TreeStateProbe />
       {showWorkerStage ? <WorkerStage /> : null}
@@ -79,6 +84,13 @@ afterEach(() => {
 });
 
 describe('ActiveWorkerTreeProvider', () => {
+  it('keys worker detail by analysis revision as well as schema and composite identity', () => {
+    const first = analyzerQueryKeys.workerTree('run', TEST_WORKERS[0], 1, 'revision-a');
+    const regenerated = analyzerQueryKeys.workerTree('run', TEST_WORKERS[0], 1, 'revision-b');
+
+    expect(first).not.toEqual(regenerated);
+  });
+
   it('loads only selected composite workers and reuses cached trees', async () => {
     const { repository, calls } = createTestRepository();
     renderHarness(repository);

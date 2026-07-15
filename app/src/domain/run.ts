@@ -1,5 +1,6 @@
 import type { KernelTimeShare } from './kernelTimeShare';
 import type { WorkerKey, WorkerRef } from './worker';
+import type { Deployment } from './deployment';
 
 // Analyzer-derived metric models. Transport DTOs remain snake_case in
 // contracts/; repositories map them into these UI-independent domain shapes.
@@ -168,7 +169,7 @@ export interface Run {
   id: string;
   name: string;
   model: string;
-  deployment: 'unified' | 'afd';
+  deployment: Deployment;
   gpu: string;
   summary: Summary;
   topology: Topology;

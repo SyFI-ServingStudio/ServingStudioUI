@@ -54,17 +54,84 @@ export type WorkerKey = string & { readonly __workerKey: unique symbol };
 
 wire JSON 中的数值 `worker_id` 由 repository 统一规范化为字符串；组件不同时处理两种 id 类型。任何按 `worker_id` 单独建 map 或聚合的实现都可能混淆 AFD 的 attention/FFN worker。UI 路由、query key、选择状态和图表 series id 均应使用统一 helper 生成的复合键。
 
+字符串形式的 `pool_tag`、`worker_id`、run id 和 resource key 是身份字段，decoder
+不得 trim 或改写；只有数值 `worker_id` 被精确转换为十进制字符串。展示文本可以单独
+规范化，但不能反向成为 cache/selection identity。
+
 analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导致跨 pool 同号 worker 被覆盖或合并。该问题已在 2026-07-15 修复：SQL、roster、bin 聚合均使用 `(pool_tag, worker_id)`，真实重分析样例恢复为 10 个 worker（attn 8、ffn 2）。UI 保留 `pool_tag` 做精确筛选，也不通过 clamp 隐藏异常值。
+
+wire 层 subject id 使用 analyzer `registry::SUBJECTS` 的 canonical token；UI
+repository 必须通过显式表映射到领域名，不能从文件名或 camelCase 自动推断：
+
+| analyzer subject id         | UI domain name            |
+| --------------------------- | ------------------------- |
+| `slo-general`               | `slo`                     |
+| `throughput`                | `throughput`              |
+| `utilization`               | `utilization`             |
+| `kv-occupancy`              | `kv`                      |
+| `batch`                     | `batch`                   |
+| `kernel-throughput`         | `kernelThroughput`        |
+| `workload-conservation`     | `conservation`            |
+| `kernel-input-distribution` | `kernelInputDistribution` |
+| `kernel-time-share`         | `kernelTimeShare`         |
+
+`slo-detailed` 等尚无 UI consumer 的 registry subject 仍可出现在 descriptor；旧 UI
+必须忽略未知 subject，而不是拒绝整个 run。descriptor 的 deployment 合同覆盖
+`unified | pd | afd`，不能把 PD 降级显示成 unified。
+
+`concurrency` 与 `backpressure` 是为未来有界 timeline artifact 预留的 wire id；它们
+目前不属于 analyzer `registry::SUBJECTS`，服务不得在没有真实 artifact 时把它们标为
+`ready`。
 
 ## 4. 运行描述
 
-现有运行目录缺少一个专为发现和加载设计的稳定入口。建议新增独立 run descriptor，而不是改变 analyzer 现有 root `manifest.json` 的语义：
+现有运行目录缺少一个专为发现和加载设计的稳定入口。新增独立 run
+descriptor，而不是改变 analyzer 现有 root `manifest.json` 的复现语义。
+
+### 4.1 Catalog
+
+Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览器不接收 logs root，
+也不扫描文件系统。catalog route 固定为 `GET /api/v1/runs`：
 
 ```json
 {
   "protocol_version": 1,
-  "run_id": "20260703_4_qwen3_coder_480b_send_trace",
+  "generated_at": "2026-07-15T05:11:53Z",
+  "runs": [
+    {
+      "run_id": "r_01JZX8NQJ9YFJ5KQ7Q3T9F1M2P",
+      "kind": "simulation",
+      "display_name": "20260715_1_afd_ui_reanalysis",
+      "descriptor_href": "runs/r_01JZX8NQJ9YFJ5KQ7Q3T9F1M2P/descriptor",
+      "lifecycle": { "simulation": "complete", "analysis": "complete" },
+      "updated_at": "2026-07-15T05:11:53Z"
+    }
+  ]
+}
+```
+
+- `run_id` 是 server-issued、在同一配置中稳定的 opaque id；它不是 basename，
+  也不能反向解析成路径。这样嵌套 sweep 中重复的 `simulation`、`tp2` 等 basename
+  不会冲突。
+- `display_name` 是面向人的 logs-root-relative label。selector 保存 `run_id`，只展示
+  `display_name`。
+- catalog 包含可描述的 pending/failed run；只有 cache-build 临时目录和完全没有 run
+  sidecar 的壳目录被排除。列表按 `updated_at` 降序、再按 `run_id` 排序。
+- `descriptor_href` 相对 catalog URL 解析。服务对 catalog 和 descriptor 返回
+  `ETag`；pending catalog/descriptor 建议每 2 秒 conditional refetch，complete run 不
+  自动轮询，catalog 在窗口重新聚焦或 30 秒后可刷新。
+
+### 4.2 Descriptor
+
+`GET /api/v1/runs/{run_id}/descriptor` 返回下列合同；静态 artifact export 使用相同
+JSON 作为 `run_descriptor.json`：
+
+```json
+{
+  "protocol_version": 1,
+  "run_id": "r_01JZX8NQJ9YFJ5KQ7Q3T9F1M2P",
   "kind": "simulation",
+  "display_name": "20260715_1_afd_ui_reanalysis",
   "model_name": "model/config/qwen3_coder_480b.json",
   "deployment": "afd",
   "lifecycle": {
@@ -75,23 +142,62 @@ analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导�
   "model": { "href": "artifacts/model.json" },
   "topology": { "href": "artifacts/topology.json" },
   "subjects": {
-    "throughput": {
+    "slo-general": {
       "status": "ready",
       "schema_version": 1,
-      "report_href": "reports/throughput.json",
-      "payload_href": "payloads/throughput.json"
+      "report_href": "reports/slo_general_report.json",
+      "payload_href": "payloads/slo_general_cdf.json"
     },
     "backpressure": {
       "status": "not_generated"
     }
   },
+  "details": {
+    "worker-cost-tree": {
+      "status": "not_generated",
+      "reason": "No versioned hierarchical worker CostTree query is available."
+    },
+    "worker-iteration-index": { "status": "not_generated" },
+    "iteration-detail": { "status": "not_generated" }
+  },
   "traces": {
     "perfetto": { "status": "ready", "href": "traces/run.pftrace.gz" }
+  },
+  "analysis": {
+    "revision": "20260715T050953Z-7a31c2f",
+    "generated_at": "2026-07-15T05:09:53Z",
+    "generator_version": "7a31c2f"
   }
 }
 ```
 
 `protocol_version` 描述 descriptor；每个 subject 的 `schema_version` 描述其 payload。两者独立演进。
+
+`details` 中每一种高基数资源也拥有独立 `schema_version` 和 endpoint/index
+`href`；不能借用 `kernel-time-share` 的版本。当前由 kernel-time-share worker
+composition 投影的扁平 run aggregate 不是 hierarchical worker/iteration CostTree，
+不得在 descriptor 中声称后者 ready。iteration index 必须分页，iteration detail 只在
+用户选择后请求。
+
+`analysis.revision` 标识一次完整 artifact generation。仅有 `.complete` 只能证明
+simulation 完成，因为 launcher 在它之后才运行 analyzer；旧 schema v1 的语义修复也
+必须通过 generator version/revision 区分，不能只依赖 `schema_version`。当
+`lifecycle.analysis` 为 `complete` 时 `analysis` 必须存在；每次重新生成 artifact 都必须
+发布新的 `revision`，即使 href 和 subject `schema_version` 没有变化。
+
+### 4.3 href 与错误边界
+
+- JSON/trace href 必须是同源相对引用，按包含它的 catalog/descriptor URL 解析。
+  protocol v1 拒绝绝对 URL、scheme-relative URL、反斜线、空 path segment、`..`、
+  percent-encoded percent/dot/slash/backslash 等可逃逸形式。禁止 encoded percent 是为
+  防止代理或 router 解码一层后产生 double-encoded traversal。
+- 服务端先从 catalog 的 opaque id 解析受信 run，再 canonicalize resource，并验证最终
+  路径仍在配置的 logs root 和该 run 下；URL 参数不得直接 `join` 到文件系统路径。
+- artifact allowlist 只有 descriptor 声明的有界 JSON、trace 和明确的 detail endpoint。
+  `raw/*.parquet`、`raw/gpu_cluster/**`、临时文件永不对浏览器开放。
+- ready resource 返回 404/损坏时，服务使用 RFC 9457 Problem Details 加稳定 `code`
+  （如 `artifact_missing`、`artifact_incompatible`）。可选 subject 映射为其自己的
+  failed/incompatible 状态；summary/topology 失败才阻止基础 run 页面。
 
 ## 5. 状态模型
 
@@ -136,6 +242,13 @@ interface AnalyzerRepository {
 
 active-run provider 自己拥有 run catalog bootstrap、默认目录选择、加载和错误状态。Zustand 只保存可空的 `runId` 与本地钻取选择，不能保存 fetched `Run` 对象，也不能通过反向解析序列化 worker key 恢复领域身份。
 
+`ArtifactAnalyzerRepository` 和 `HttpAnalyzerRepository` 必须复用同一组
+subject-specific decoders。前者验证静态 export；后者只增加 fetch、ETag、polling 和
+受限 detail query，不能复制一套 schema。optional subject 的 transport/decoder 失败
+不得 reject 整个 active run。repository 按 catalog/requested opaque id 获取 descriptor
+后，必须精确验证 decoded `descriptor.runId === requestedRunId`；不得从
+`descriptor_href` 反解或推断 run id。
+
 实现顺序：
 
 1. `FixtureAnalyzerRepository`：可重复的开发和测试数据。
@@ -148,7 +261,10 @@ active-run provider 自己拥有 run catalog bootstrap、默认目录选择、�
 - worker iteration index 按 worker 加载，可分块或分页。
 - iteration detail 只在用户选择后加载。
 - Perfetto 只传递可访问的 trace URL；UI 不复制 trace 内容进应用状态。
-- query cache key 必须包含 run id、subject version，以及完整 `WorkerRef`。
+- query cache key 必须包含 run id、subject version、`analysis.revision`，以及完整
+  `WorkerRef`。
+- catalog/descriptor 的 pending 生命周期使用 conditional polling；run 切换后旧请求的
+  晚返回只能进入旧 query key，不能覆盖当前 selection。
 
 ## 8. 当前缺失的数据源
 

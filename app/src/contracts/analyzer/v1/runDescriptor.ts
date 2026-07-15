@@ -3,18 +3,31 @@ import { z, ZodError, type ZodIssue } from 'zod';
 import type {
   ArtifactProvenance,
   ArtifactRef,
+  DetailArtifact,
   RunDescriptor,
   SubjectArtifact,
   TraceResource,
 } from '../../../domain/artifacts';
-import { SUBJECT_NAMES, type SubjectName } from '../../../domain/subject';
+import type { SubjectName } from '../../../domain/subject';
+import { DEPLOYMENTS } from '../../../domain/deployment';
 import { makeWorkerRef } from '../../../domain/worker';
+import { analyzerV1ArtifactHrefSchema } from './artifactHref';
+import { domainSubjectName } from './subjectIds';
 
 const nonEmptyString = z.string().trim().min(1);
 
+// Server-issued identities are opaque. Validate blankness without transforming
+// their bytes so catalog and descriptor keys remain exactly comparable.
+const opaqueIdentityString = z
+  .string()
+  .min(1)
+  .refine((value) => value.trim().length > 0, {
+    message: 'must contain a non-whitespace character',
+  });
+
 const artifactRefSchema = z
   .object({
-    href: nonEmptyString,
+    href: analyzerV1ArtifactHrefSchema,
     media_type: nonEmptyString.optional(),
     schema_version: z.number().int().positive().optional(),
     byte_length: z.number().int().nonnegative().optional(),
@@ -59,8 +72,8 @@ const readySubjectSchema = z
   .object({
     status: z.literal('ready'),
     schema_version: z.number().int().positive(),
-    report_href: nonEmptyString.optional(),
-    payload_href: nonEmptyString.optional(),
+    report_href: analyzerV1ArtifactHrefSchema.optional(),
+    payload_href: analyzerV1ArtifactHrefSchema.optional(),
   })
   .strict()
   .refine((resource) => resource.report_href !== undefined || resource.payload_href !== undefined, {
@@ -75,11 +88,37 @@ const subjectArtifactSchema = z.union([
   failedSchema,
 ]);
 
+// Forward compatibility lives at the subject boundary: a previous UI validates
+// subjects it understands and completely ignores future registry rows, including
+// envelope shapes introduced by a newer analyzer.
+const subjectsSchema = z
+  .record(opaqueIdentityString, z.unknown())
+  .transform((subjects, context) => {
+    const recognizedSubjects: Record<string, z.infer<typeof subjectArtifactSchema>> = {};
+    for (const [subjectId, resource] of Object.entries(subjects)) {
+      if (domainSubjectName(subjectId) === undefined) continue;
+
+      const parsedResource = subjectArtifactSchema.safeParse(resource);
+      if (parsedResource.success) {
+        recognizedSubjects[subjectId] = parsedResource.data;
+        continue;
+      }
+      for (const issue of parsedResource.error.issues) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [subjectId, ...issue.path],
+          message: issue.message,
+        });
+      }
+    }
+    return recognizedSubjects;
+  });
+
 const traceResourceSchema = z.discriminatedUnion('status', [
   z
     .object({
       status: z.literal('ready'),
-      href: nonEmptyString,
+      href: analyzerV1ArtifactHrefSchema,
       media_type: nonEmptyString.optional(),
       byte_length: z.number().int().nonnegative().optional(),
       sha256: z
@@ -124,22 +163,44 @@ const provenanceSchema = z
 
 const workerRefSchema = z
   .object({
-    pool_tag: nonEmptyString,
-    worker_id: z.union([nonEmptyString, z.number().int().nonnegative()]),
+    pool_tag: opaqueIdentityString,
+    worker_id: z.union([opaqueIdentityString, z.number().int().nonnegative()]),
   })
   .strict();
 
-const subjectNameSchema = z.enum(SUBJECT_NAMES);
+const readyDetailSchema = z
+  .object({
+    status: z.literal('ready'),
+    schema_version: z.number().int().positive(),
+    href: analyzerV1ArtifactHrefSchema,
+  })
+  .strict();
+
+const detailArtifactSchema = z.union([
+  readyDetailSchema,
+  pendingSchema,
+  unavailableSchema,
+  notGeneratedSchema,
+  failedSchema,
+]);
+
+const analysisSchema = z
+  .object({
+    revision: nonEmptyString,
+    generated_at: z.string().datetime({ offset: true }),
+    generator_version: nonEmptyString,
+  })
+  .strict();
 
 /** Wire schema is deliberately snake_case and strict at every object boundary. */
 export const analyzerV1RunDescriptorSchema = z
   .object({
     protocol_version: z.literal(1),
-    run_id: nonEmptyString,
+    run_id: opaqueIdentityString,
     kind: z.literal('simulation'),
     display_name: nonEmptyString.optional(),
     model_name: nonEmptyString.optional(),
-    deployment: z.enum(['unified', 'afd']),
+    deployment: z.enum(DEPLOYMENTS),
     lifecycle: z
       .object({
         simulation: z.enum(['not_started', 'pending', 'complete', 'failed']),
@@ -150,16 +211,28 @@ export const analyzerV1RunDescriptorSchema = z
     model: artifactRefSchema.optional(),
     topology: artifactRefSchema.optional(),
     workers: z.array(workerRefSchema).optional(),
-    subjects: z.record(subjectNameSchema, subjectArtifactSchema),
-    traces: z.record(nonEmptyString, traceResourceSchema),
+    subjects: subjectsSchema,
+    details: z.record(opaqueIdentityString, detailArtifactSchema).default({}),
+    traces: z.record(opaqueIdentityString, traceResourceSchema),
+    analysis: analysisSchema.optional(),
     provenance: provenanceSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((descriptor, context) => {
+    if (descriptor.lifecycle.analysis === 'complete' && descriptor.analysis === undefined) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['analysis'],
+        message: 'is required when lifecycle.analysis is complete',
+      });
+    }
+  });
 
 type WireArtifactRef = z.infer<typeof artifactRefSchema>;
 type WireSubjectArtifact = z.infer<typeof subjectArtifactSchema>;
 type WireTraceResource = z.infer<typeof traceResourceSchema>;
 type WireProvenance = z.infer<typeof provenanceSchema>;
+type WireDetailArtifact = z.infer<typeof detailArtifactSchema>;
 
 function toArtifactRef(resource: WireArtifactRef): ArtifactRef {
   return {
@@ -201,6 +274,15 @@ function toTraceResource(resource: WireTraceResource): TraceResource {
   };
 }
 
+function toDetailArtifact(resource: WireDetailArtifact): DetailArtifact {
+  if (resource.status !== 'ready') return resource;
+  return {
+    status: 'ready',
+    schemaVersion: resource.schema_version,
+    resource: { href: resource.href },
+  };
+}
+
 function toProvenance(provenance: WireProvenance): ArtifactProvenance {
   if (provenance.source === 'fixture') {
     return {
@@ -223,15 +305,21 @@ function toProvenance(provenance: WireProvenance): ArtifactProvenance {
 
 function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): RunDescriptor {
   const subjects: Partial<Record<SubjectName, SubjectArtifact>> = {};
-  for (const subjectName of SUBJECT_NAMES) {
-    const resource = wire.subjects[subjectName];
-    if (resource !== undefined) subjects[subjectName] = toSubjectArtifact(resource);
+  for (const [subjectId, resource] of Object.entries(wire.subjects)) {
+    const subjectName = domainSubjectName(subjectId);
+    if (subjectName !== undefined) subjects[subjectName] = toSubjectArtifact(resource);
   }
 
   const traces = Object.fromEntries(
     Object.entries(wire.traces).map(([traceName, resource]) => [
       traceName,
       toTraceResource(resource),
+    ]),
+  );
+  const details = Object.fromEntries(
+    Object.entries(wire.details).map(([detailName, resource]) => [
+      detailName,
+      toDetailArtifact(resource),
     ]),
   );
 
@@ -252,7 +340,17 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
           workers: wire.workers.map((worker) => makeWorkerRef(worker.pool_tag, worker.worker_id)),
         }),
     subjects,
+    details,
     traces,
+    ...(wire.analysis === undefined
+      ? {}
+      : {
+          analysis: {
+            revision: wire.analysis.revision,
+            generatedAt: wire.analysis.generated_at,
+            generatorVersion: wire.analysis.generator_version,
+          },
+        }),
     ...(wire.provenance === undefined ? {} : { provenance: toProvenance(wire.provenance) }),
   };
 }

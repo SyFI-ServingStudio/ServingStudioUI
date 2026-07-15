@@ -7,6 +7,7 @@ import { traceOverviewFor } from '../data/runOverview';
 import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
+import type { Deployment } from '../domain/deployment';
 
 interface Property {
   label: string;
@@ -16,6 +17,12 @@ interface Property {
 function distinct(values: Array<number | string | null | undefined>, fallback = 'n/a'): string {
   const present = values.filter((value): value is number | string => value != null);
   return [...new Set(present.map(String))].join(' · ') || fallback;
+}
+
+function deploymentHeadline(deployment: Deployment): string {
+  if (deployment === 'afd') return 'AFD deployment';
+  if (deployment === 'pd') return 'Prefill / decode deployment';
+  return 'Unified deployment';
 }
 
 function PropertyGrid({ properties }: { properties: Property[] }) {
@@ -276,7 +283,7 @@ export default function RunOverviewRow() {
           title="Simulation overview"
           kind="preset"
           accent={tokens.gold}
-          headline={run.deployment === 'afd' ? 'AFD deployment' : 'Unified deployment'}
+          headline={deploymentHeadline(run.deployment)}
           description={
             <>
               {run.source.simulationFolder}

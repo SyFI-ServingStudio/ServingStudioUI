@@ -112,7 +112,7 @@ describe('ActiveRunProvider', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
-    expect(calls.subjects).toBe(10);
+    expect(calls.subjects).toBe(11);
     expect(calls.trees).toBe(0);
   });
 });

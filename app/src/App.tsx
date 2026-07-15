@@ -5,6 +5,7 @@ import { currentWorker } from './application/runSelection';
 import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
+import type { Deployment } from './domain/deployment';
 import RunSwitcher from './components/RunSwitcher';
 import KpiStatline from './components/KpiStatline';
 import ScopeBreadcrumbs from './components/ScopeBreadcrumbs';
@@ -119,6 +120,12 @@ function Stage() {
       <WorkerStage />
     </Suspense>
   );
+}
+
+function deploymentMapLabel(deployment: Deployment): string {
+  if (deployment === 'afd') return 'AFD (attn ∥ ffn)';
+  if (deployment === 'pd') return 'PD (prefill ∥ decode)';
+  return 'unified';
 }
 
 function Masthead({ hasRun }: { hasRun: boolean }) {
@@ -259,7 +266,11 @@ export default function App() {
     kernelTimeShareSubject.status === 'ready' ? kernelTimeShareSubject.schemaVersion : undefined;
 
   return (
-    <ActiveWorkerTreeProvider run={run} schemaVersion={workerTreeSchemaVersion}>
+    <ActiveWorkerTreeProvider
+      run={run}
+      schemaVersion={workerTreeSchemaVersion}
+      analysisRevision={activeRun.data.descriptor.analysis?.revision}
+    >
       <Box
         component="main"
         sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
@@ -274,7 +285,7 @@ export default function App() {
         <Section
           idx="01"
           title="System map"
-          sub={`${run.gpuTotal} GPUs · ${run.gpu} · ${run.deployment === 'afd' ? 'AFD (attn ∥ ffn)' : 'unified'} · click to scope`}
+          sub={`${run.gpuTotal} GPUs · ${run.gpu} · ${deploymentMapLabel(run.deployment)} · click to scope`}
         >
           <SystemMapBand />
         </Section>

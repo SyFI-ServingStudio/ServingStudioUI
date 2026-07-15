@@ -16,7 +16,7 @@
 ## P1 · 数据边界
 
 - [x] 定义 analyzer v1 的运行、拓扑、subject、worker、iteration 合同
-- [~] 为当前 analyzer JSON 增加运行时校验和兼容适配（descriptor、kernel-time-share 已完成，其他 subject adapters 待实现）
+- [~] 为当前 analyzer JSON 增加运行时校验和兼容适配（catalog、descriptor、summary、kernel-time-share 已完成，其他 subject adapters 待实现）
 - [x] 建立 `AnalyzerRepository` 接口
 - [x] 用真实输出裁剪出小型、可提交的 fixtures（25 个真实 artifact + provenance，确定性生成）
 - [x] 实现 `FixtureAnalyzerRepository`
@@ -29,7 +29,7 @@
 ## P2 · 工程质量护栏
 
 - [x] 配置 ESLint、Prettier 和显式 UI 文件范围的格式检查
-- [x] 配置 Vitest + Testing Library（descriptor、subject adapter、active-run assembler、Provider lifecycle、worker detail query、fixture loader 共 40 个测试）
+- [x] 配置 Vitest + Testing Library（catalog、descriptor、subject adapter、active-run assembler、Provider lifecycle、worker detail query、fixture loader 共 78 个测试）
 - [x] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
 - [x] 增加 axe 可访问性检查
 - [x] 增加 GitHub Actions：format、typecheck、lint、unit、build、size、browser smoke
@@ -52,7 +52,7 @@
 
 ## P4 · Rust analyzer 接线
 
-- [ ] 明确 analyzer artifact index / HTTP API 的所有权
+- [~] 明确 analyzer artifact index / HTTP API 的所有权（catalog、descriptor、opaque run id 与 href 安全合同已定；Rust 服务待实现）
 - [ ] 实现 `HttpAnalyzerRepository`
 - [~] 聚合 subject 使用静态 JSON；worker cost tree 已按选择加载，iteration 明细待接线
 - [ ] 支持分析生命周期和 subject 状态轮询
@@ -81,9 +81,10 @@
 6. aggregate 首屏使用有界静态 artifact；高基数 iteration 数据按 worker/iteration 懒加载。
 7. Zustand 负责本地交互状态；异步 analyzer 数据不写入无界的全局 map。
 8. TanStack Query 负责 repository 异步状态与缓存；repository 通过 React context 注入。
-9. 顶层运行标识是 simulation folder 名；浏览器通过 repository 的 run catalog 发现目录，不直接扫描服务器文件系统。
+9. simulation folder 的 logs-root-relative path 只作为展示 label；浏览器通过 repository 的 run catalog 获取 opaque run id，不直接扫描服务器文件系统。
 10. Repository 只提供 descriptor、typed summary/topology、subject 和 worker detail 读取；整页兼容 `Run` 在 application 层组装，不能作为 repository DTO。
 11. `Run` / `WorkerRow` 不保存 cost tree；Cluster/Pool 直接消费 analyzer aggregate，worker tree 使用包含完整 `WorkerRef` 的独立 Query，并将加载失败限制在 worker stage。
+12. HTTP wire subject 使用 analyzer registry canonical token，repository 显式映射 UI 领域名；run id 是不含路径语义的 opaque id，selector 只展示 server 提供的 simulation-folder label。
 
 ## 已验证的已知问题
 

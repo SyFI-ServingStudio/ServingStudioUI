@@ -50,12 +50,19 @@ export function makeTestDescriptor(overrides: Partial<RunDescriptor> = {}): RunD
       concurrency: { status: 'not_generated', reason: 'Not logged.' },
       backpressure: { status: 'not_generated', reason: 'Not logged.' },
       batch: { status: 'not_generated', reason: 'Not logged.' },
+      kernelThroughput: { status: 'not_generated', reason: 'Not logged.' },
       conservation: { status: 'not_generated', reason: 'Not logged.' },
       kernelInputDistribution: { status: 'not_generated', reason: 'Not logged.' },
       kernelTimeShare: readyArtifact('kernel-time-share'),
     },
+    details: {},
     traces: {
       perfetto: { status: 'not_generated', reason: 'Not requested.' },
+    },
+    analysis: {
+      revision: 'test-revision-v1',
+      generatedAt: '2026-07-15T00:00:00Z',
+      generatorVersion: 'test-v1',
     },
     provenance: {
       source: 'fixture',
@@ -216,6 +223,7 @@ export function makeTestSubjectResults(): SubjectResults {
     concurrency: missing('concurrency'),
     backpressure: missing('backpressure'),
     batch: missing('batch'),
+    kernelThroughput: missing('kernelThroughput'),
     conservation: missing('conservation'),
     kernelInputDistribution: missing('kernelInputDistribution'),
     kernelTimeShare: {
