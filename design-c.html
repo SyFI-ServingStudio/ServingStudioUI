@@ -1,0 +1,1126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VibeSim · explorer + subject switch</title>
+
+<!-- Google Fonts: JetBrains Mono (data/UI) + Chivo (headings) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,400;0,700;0,900;1,700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================ tokens ============================ */
+:root{
+  --bg:#0b0c0f; --panel:#111318; --panel-2:#0e1015; --border:#20242c;
+  --border-2:#2a2f3a; --text:#e6e8ec; --sub:#8b93a1; --dim:#5c6473;
+  --amber:#ffb020; --lime:#b6f24a; --cyan:#4fd6e6; --pink:#e0508a; --violet:#9b8cff;
+  --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --head:'Chivo', 'JetBrains Mono', monospace;
+  --row-h:26px;
+  --rail-w:288px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:var(--mono); font-size:13px; line-height:1.5;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  /* very subtle scanline + grid texture */
+  background-image:
+    linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.14) 3px);
+  background-size: 44px 44px, 44px 44px, 100% 3px;
+}
+::selection{background:rgba(255,176,32,.28); color:#fff}
+/* scrollbars */
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:#242a34;border-radius:0;border:2px solid var(--bg)}
+*::-webkit-scrollbar-thumb:hover{background:#333b48}
+
+.mono-num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum" 1}
+
+/* ============================ shell ============================ */
+.app{display:flex; flex-direction:column; height:100vh}
+
+/* ---- top bar ---- */
+.topbar{
+  display:flex; align-items:stretch; gap:0; height:52px; flex:0 0 auto;
+  background:linear-gradient(180deg,#111318,#0d0f13);
+  border-bottom:1px solid var(--border);
+}
+.brand{
+  display:flex; align-items:center; gap:11px; padding:0 18px; flex:0 0 var(--rail-w);
+  border-right:1px solid var(--border);
+}
+.brand .logo{
+  width:22px;height:22px;position:relative;flex:0 0 auto;
+}
+.brand .logo::before,.brand .logo::after{
+  content:"";position:absolute;inset:0;border:1.5px solid var(--amber);
+}
+.brand .logo::after{transform:translate(4px,4px);border-color:var(--lime);opacity:.55;mix-blend-mode:screen}
+.brand .wm{font-family:var(--head); font-weight:900; letter-spacing:.14em; font-size:14px; text-transform:uppercase}
+.brand .wm em{color:var(--amber);font-style:normal}
+.brand .tag{color:var(--dim); font-size:9.5px; letter-spacing:.22em; text-transform:uppercase; margin-top:2px}
+
+.runswitch{display:flex; align-items:center; gap:8px; padding:0 16px; flex:1 1 auto; min-width:0}
+.runswitch .lbl{color:var(--dim); font-size:10px; letter-spacing:.2em; text-transform:uppercase; margin-right:2px}
+.runtabs{display:flex; gap:6px; overflow:auto; padding:6px 0}
+.runtab{
+  display:flex; flex-direction:column; justify-content:center; gap:1px;
+  padding:5px 12px; border:1px solid var(--border); background:var(--panel-2);
+  cursor:pointer; white-space:nowrap; position:relative; transition:.14s;
+  min-width:0;
+}
+.runtab:hover{border-color:var(--border-2); background:#14171d}
+.runtab .n{font-size:11.5px; font-weight:500; color:var(--sub)}
+.runtab .m{font-size:9px; color:var(--dim); letter-spacing:.03em}
+.runtab.active{border-color:var(--amber); background:linear-gradient(180deg,rgba(255,176,32,.08),transparent)}
+.runtab.active .n{color:var(--text)}
+.runtab.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--amber)}
+.runtab .dep{
+  position:absolute;top:4px;right:5px;font-size:7.5px;letter-spacing:.1em;
+  padding:1px 3px;border:1px solid var(--border-2);color:var(--dim);text-transform:uppercase;
+}
+.runtab.active .dep{color:var(--lime);border-color:rgba(182,242,74,.4)}
+
+.clock{display:flex;align-items:center;gap:14px;padding:0 18px;border-left:1px solid var(--border);flex:0 0 auto}
+.clock .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.clock .stat .v{font-size:13px;color:var(--text);font-weight:500}
+.clock .stat .v b{color:var(--amber);font-weight:700}
+.clock .stat .k{font-size:8.5px;color:var(--dim);letter-spacing:.16em;text-transform:uppercase}
+
+/* ---- body split ---- */
+.body{display:flex; flex:1 1 auto; min-height:0}
+
+/* ============================ explorer rail ============================ */
+.rail{
+  flex:0 0 var(--rail-w); background:var(--panel-2); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; min-height:0;
+}
+.rail-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 14px; border-bottom:1px solid var(--border);
+  font-family:var(--head); font-size:10px; letter-spacing:.24em; text-transform:uppercase; color:var(--sub);
+}
+.rail-head .dot{width:6px;height:6px;background:var(--lime);border-radius:50%;box-shadow:0 0 8px var(--lime)}
+.rail-scroll{overflow:auto; flex:1 1 auto; padding:6px 0 40px}
+
+/* explorer tree rows */
+.exp-row{
+  display:flex; align-items:center; gap:6px; height:var(--row-h);
+  padding-right:12px; cursor:pointer; position:relative; user-select:none;
+  border-left:2px solid transparent; transition:background .1s;
+}
+.exp-row:hover{background:rgba(255,255,255,.035)}
+.exp-row.sel{background:linear-gradient(90deg,rgba(255,176,32,.12),rgba(255,176,32,.02)); border-left-color:var(--amber)}
+.exp-row.sel .lbl{color:#fff}
+.exp-indent{flex:0 0 auto;display:inline-block}
+.exp-caret{
+  flex:0 0 12px; width:12px; text-align:center; color:var(--dim); font-size:9px;
+  transition:transform .12s; cursor:pointer;
+}
+.exp-caret.spacer{visibility:hidden}
+.exp-ico{flex:0 0 auto;font-size:10px;width:14px;text-align:center}
+.exp-row .lbl{font-size:12px;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto}
+.exp-row .meta{font-size:9.5px;color:var(--dim);flex:0 0 auto;letter-spacing:.02em}
+.exp-badge{
+  font-size:8px;letter-spacing:.08em;text-transform:uppercase;padding:1px 4px;
+  border:1px solid var(--border-2);color:var(--dim);flex:0 0 auto;
+}
+.exp-row.kind-run .exp-ico{color:var(--amber)}
+.exp-row.kind-dep .exp-ico{color:var(--violet)}
+.exp-row.kind-pool .exp-ico{color:var(--cyan)}
+.exp-row.kind-worker .exp-ico{color:var(--lime)}
+.exp-row.kind-cost .exp-ico{color:var(--pink)}
+.exp-row.kind-cost .lbl{font-style:italic}
+.exp-children{overflow:hidden}
+.exp-children.collapsed{display:none}
+.exp-line{position:absolute;top:0;bottom:0;width:1px;background:var(--border)}
+
+.rail-foot{
+  border-top:1px solid var(--border); padding:8px 14px; font-size:9px; color:var(--dim);
+  letter-spacing:.06em; display:flex; justify-content:space-between; flex:0 0 auto;
+}
+
+/* ============================ main ============================ */
+.main{flex:1 1 auto; display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--bg)}
+
+/* subject switch */
+.subjbar{
+  display:flex; align-items:center; gap:0; height:44px; flex:0 0 auto;
+  border-bottom:1px solid var(--border); background:var(--panel-2); padding:0 6px 0 0;
+}
+.subj-seg{display:flex; gap:0; padding:6px 8px; overflow:auto}
+.subj{
+  display:flex;align-items:center;gap:7px; padding:6px 14px; cursor:pointer;
+  border:1px solid transparent; border-bottom:2px solid transparent;
+  color:var(--dim); font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  white-space:nowrap; transition:.12s; position:relative;
+}
+.subj .g{font-size:11px;opacity:.7}
+.subj:hover{color:var(--sub); background:rgba(255,255,255,.03)}
+.subj.active{color:var(--text); border-bottom-color:var(--amber); background:linear-gradient(180deg,transparent,rgba(255,176,32,.06))}
+.subj.active .g{opacity:1;color:var(--amber)}
+.subj.disabled{opacity:.28; pointer-events:none}
+
+/* breadcrumb + scope */
+.crumbbar{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  height:38px; flex:0 0 auto; padding:0 18px; border-bottom:1px solid var(--border);
+  background:var(--panel);
+}
+.crumbs{display:flex;align-items:center;gap:8px;font-size:11px;overflow:hidden;flex:1 1 auto;min-width:0}
+.crumb{display:flex;align-items:center;gap:7px;color:var(--sub);white-space:nowrap}
+.crumb .ic{font-size:10px}
+.crumb.last{color:var(--text)}
+.crumb-sep{color:var(--dim);font-size:11px}
+.scopechip{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:3px 10px;border:1px solid var(--border-2);background:var(--panel-2);
+  font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--sub);
+}
+.scopechip .sw{width:7px;height:7px;background:var(--amber)}
+.scopechip .sw.pool{background:var(--cyan)}
+.scopechip .sw.worker{background:var(--lime)}
+.scopechip .sw.kernel{background:var(--pink)}
+.scopechip .sw.cluster{background:var(--violet)}
+
+/* stage */
+.stage{flex:1 1 auto; min-height:0; position:relative; overflow:hidden}
+.view{position:absolute; inset:0; padding:18px; overflow:auto; display:none}
+.view.show{display:block; animation:viewin .32s cubic-bezier(.2,.7,.2,1)}
+@keyframes viewin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.viewhead{
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin-bottom:14px;
+}
+.viewhead h2{
+  font-family:var(--head); font-weight:900; font-size:15px; letter-spacing:.16em;
+  text-transform:uppercase; margin:0; color:var(--text);
+}
+.viewhead h2 .accent{color:var(--amber)}
+.viewhead .sub{font-size:10px;color:var(--dim);letter-spacing:.08em}
+
+/* chart card */
+.chartcard{
+  border:1px solid var(--border); background:var(--panel);
+  height:calc(100% - 40px); min-height:280px; display:flex; flex-direction:column;
+  position:relative;
+}
+.chartcard .cc-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;border-bottom:1px solid var(--border);
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--sub);
+}
+.chartcard .cc-head .r{color:var(--dim);font-size:9.5px;letter-spacing:.05em;text-transform:none}
+.chart-dom{flex:1 1 auto; min-height:0; width:100%}
+.corner{position:absolute;width:8px;height:8px;pointer-events:none}
+.corner.tl{top:-1px;left:-1px;border-top:1px solid var(--amber);border-left:1px solid var(--amber)}
+.corner.tr{top:-1px;right:-1px;border-top:1px solid var(--amber);border-right:1px solid var(--amber)}
+.corner.bl{bottom:-1px;left:-1px;border-bottom:1px solid var(--amber);border-left:1px solid var(--amber)}
+.corner.br{bottom:-1px;right:-1px;border-bottom:1px solid var(--amber);border-right:1px solid var(--amber)}
+
+/* kernels split */
+.kern-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; height:calc(100% - 40px); min-height:300px}
+@media(max-width:1000px){.kern-grid{grid-template-columns:1fr; grid-auto-rows:minmax(240px,1fr)}}
+
+/* ============ arch / cost tree ============ */
+.arch-wrap{display:flex;flex-direction:column;height:calc(100% - 40px);min-height:0;gap:12px}
+.arch-meta{
+  display:flex; gap:0; border:1px solid var(--border); background:var(--panel); flex:0 0 auto;
+}
+.arch-meta .m{padding:8px 16px; border-right:1px solid var(--border); display:flex;flex-direction:column;gap:2px}
+.arch-meta .m:last-child{border-right:0}
+.arch-meta .m .k{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.arch-meta .m .v{font-size:12px;color:var(--text)}
+.arch-meta .m .v b{color:var(--amber);font-weight:700}
+.arch-meta .spring{flex:1 1 auto}
+.arch-meta .legend{display:flex;align-items:center;gap:12px;padding:8px 16px;border-left:1px solid var(--border)}
+.arch-meta .legend .lg{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--sub)}
+.arch-meta .legend .lg i{width:9px;height:9px;display:inline-block}
+
+.tree-panel{
+  flex:1 1 auto; min-height:0; border:1px solid var(--border); background:var(--panel);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.tree-panel .tp-head{
+  display:grid; grid-template-columns:1fr 150px 88px 62px; gap:0;
+  padding:7px 14px; border-bottom:1px solid var(--border); background:var(--panel-2);
+  font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);flex:0 0 auto;
+}
+.tp-head .r{text-align:right}
+.tp-head .c{text-align:center}
+.tree-scroll{overflow:auto; flex:1 1 auto; padding:4px 0 10px}
+
+/* cost tree rows */
+.ct-row{
+  display:grid; grid-template-columns:1fr 150px 88px 62px; align-items:center;
+  gap:0; min-height:27px; padding:1px 14px 1px 0; cursor:default; position:relative;
+  border-left:2px solid transparent;
+}
+.ct-row.container{cursor:pointer}
+.ct-row.leafrow{cursor:pointer}
+.ct-row:hover{background:rgba(255,255,255,.04)}
+.ct-row.sel{background:linear-gradient(90deg,rgba(224,80,138,.16),rgba(224,80,138,.02)); border-left-color:var(--pink)}
+.ct-name{display:flex;align-items:center;gap:2px;min-width:0}
+.ct-guides{display:inline-flex;flex:0 0 auto;height:27px;align-items:center}
+.ct-guide{width:15px;height:27px;flex:0 0 auto;position:relative}
+.ct-guide::before{content:"";position:absolute;left:7px;top:0;bottom:0;width:1px;background:var(--border)}
+.ct-caret{
+  flex:0 0 14px;width:14px;text-align:center;color:var(--sub);font-size:9px;
+  transition:transform .12s;cursor:pointer;
+}
+.ct-caret.spacer{visibility:hidden}
+.ct-glyph{
+  flex:0 0 auto;font-size:11px;width:22px;text-align:center;font-weight:700;
+}
+.ct-glyph.sum{color:var(--sub)}
+.ct-glyph.max{color:var(--cyan)}
+.ct-glyph.scale{color:var(--lime);font-size:10px;letter-spacing:-.02em}
+.ct-glyph.leaf{color:var(--sub)}
+.ct-label{
+  font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  min-width:0;flex:1 1 auto;
+}
+.ct-row.container .ct-label{color:var(--sub)}
+.ct-row.scalerow .ct-label{color:var(--lime)}
+.ct-scale-badge{
+  flex:0 0 auto;font-family:var(--head);font-weight:700;font-size:9.5px;letter-spacing:.04em;
+  padding:1px 6px;border:1px solid rgba(182,242,74,.4);color:var(--lime);
+  background:rgba(182,242,74,.06);margin-right:2px;text-transform:uppercase;
+}
+.ct-kchip{
+  flex:0 0 auto;font-size:8px;letter-spacing:.04em;padding:1px 5px;
+  border:1px solid;text-transform:uppercase;white-space:nowrap;margin-left:4px;
+}
+.ct-bar-cell{padding:0 12px 0 8px}
+.ct-bar{height:7px;background:var(--panel-2);border:1px solid var(--border);position:relative;overflow:hidden}
+.ct-bar > i{position:absolute;left:0;top:0;bottom:0;display:block}
+.ct-ms{text-align:right;font-size:11px;color:var(--text);padding-right:14px;font-variant-numeric:tabular-nums}
+.ct-pct{text-align:right;font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.ct-row.container .ct-ms{color:var(--sub)}
+.ct-kids.collapsed{display:none}
+
+/* kernel detail strip */
+.kdetail{
+  flex:0 0 auto; border:1px solid var(--pink); border-left-width:3px;
+  background:linear-gradient(90deg,rgba(224,80,138,.08),var(--panel));
+  padding:10px 16px; display:none;
+}
+.kdetail.show{display:block; animation:viewin .2s ease}
+.kdetail .kd-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.kdetail .kd-name{font-size:13px;color:#fff;font-weight:500}
+.kdetail .kd-kind{font-size:9px;padding:2px 7px;border:1px solid;text-transform:uppercase;letter-spacing:.06em}
+.kdetail .kd-close{margin-left:auto;color:var(--dim);cursor:pointer;font-size:14px;line-height:1}
+.kdetail .kd-close:hover{color:var(--text)}
+.kdetail .kd-grid{display:flex;gap:0;flex-wrap:wrap}
+.kdetail .kd-f{padding:2px 18px 2px 0;margin-right:18px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:1px}
+.kdetail .kd-f:last-child{border-right:0}
+.kdetail .kd-f .k{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.kdetail .kd-f .v{font-size:12px;color:var(--text)}
+.kdetail .kd-f .v.mono{color:var(--lime)}
+
+/* generic empty */
+.empty{padding:40px;text-align:center;color:var(--dim);font-size:12px}
+
+/* footer */
+.foot{
+  flex:0 0 auto; height:26px; border-top:1px solid var(--border); background:var(--panel-2);
+  display:flex; align-items:center; justify-content:space-between; padding:0 16px;
+  font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+}
+.foot .blink{color:var(--lime);animation:blink 1.6s steps(1) infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* tooltip for leaf hover */
+#tt{
+  position:fixed; z-index:200; pointer-events:none; display:none; max-width:340px;
+  background:rgba(6,8,12,.97); border:1px solid var(--border-2); border-left:2px solid var(--amber);
+  padding:8px 11px; font-size:11px; color:var(--text); box-shadow:0 10px 30px rgba(0,0,0,.6);
+}
+#tt .tt-n{color:#fff;font-weight:500;margin-bottom:3px}
+#tt .tt-r{display:flex;gap:8px;color:var(--sub);font-size:10.5px}
+#tt .tt-r .k{color:var(--dim);min-width:52px}
+#tt .tt-r .v.mono{color:var(--lime)}
+
+/* staggered entrance for rail + subj on first load */
+.stagger{opacity:0; transform:translateY(6px); animation:stag .5s cubic-bezier(.2,.7,.2,1) forwards}
+@keyframes stag{to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ TOP BAR ============ -->
+  <header class="topbar">
+    <div class="brand stagger" style="animation-delay:.02s">
+      <div class="logo"></div>
+      <div>
+        <div class="wm">VIBE<em>SIM</em></div>
+        <div class="tag">cluster inspector</div>
+      </div>
+    </div>
+    <div class="runswitch stagger" style="animation-delay:.06s">
+      <span class="lbl">run</span>
+      <div class="runtabs" id="runtabs"></div>
+    </div>
+    <div class="clock stagger" style="animation-delay:.1s" id="clock"></div>
+  </header>
+
+  <div class="body">
+
+    <!-- ============ EXPLORER RAIL ============ -->
+    <aside class="rail stagger" style="animation-delay:.08s">
+      <div class="rail-head">
+        <span>Explorer</span>
+        <span class="dot" title="live"></span>
+      </div>
+      <div class="rail-scroll" id="explorer"></div>
+      <div class="rail-foot">
+        <span id="footWorkers">— workers</span>
+        <span id="footGpus">— gpu</span>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main class="main">
+
+      <!-- subject switch -->
+      <div class="subjbar stagger" style="animation-delay:.12s">
+        <div class="subj-seg" id="subjseg"></div>
+      </div>
+
+      <!-- breadcrumb + scope -->
+      <div class="crumbbar">
+        <div class="crumbs" id="crumbs"></div>
+        <div class="scopechip" id="scopechip"></div>
+      </div>
+
+      <!-- stage -->
+      <div class="stage" id="stage">
+
+        <!-- ARCH / COST TREE -->
+        <section class="view" data-subj="arch">
+          <div class="arch-wrap">
+            <div class="arch-meta" id="archMeta"></div>
+            <div class="tree-panel">
+              <div class="tp-head">
+                <span>node</span>
+                <span class="c">share</span>
+                <span class="r">cost / tok</span>
+                <span class="r">%</span>
+              </div>
+              <div class="tree-scroll" id="treeScroll"></div>
+            </div>
+            <div class="kdetail" id="kdetail"></div>
+          </div>
+        </section>
+
+        <!-- SLO -->
+        <section class="view" data-subj="slo">
+          <div class="viewhead"><h2><span class="accent">//</span> SLO latency <span class="accent">CDF</span></h2><span class="sub">ttft · tpot · e2e — cluster scope</span></div>
+          <div class="chartcard">
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <div class="cc-head"><span>cumulative distribution</span><span class="r" id="sloR"></span></div>
+            <div class="chart-dom" id="dom-slo"></div>
+          </div>
+        </section>
+
+        <!-- THROUGHPUT -->
+        <section class="view" data-subj="throughput">
+          <div class="viewhead"><h2><span class="accent">//</span> throughput <span class="accent">tok/s</span></h2><span class="sub">prefill ∥ decode over wallclock — cluster scope</span></div>
+          <div class="chartcard">
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <div class="cc-head"><span>stacked token rate</span><span class="r" id="tpR"></span></div>
+            <div class="chart-dom" id="dom-throughput"></div>
+          </div>
+        </section>
+
+        <!-- UTILIZATION -->
+        <section class="view" data-subj="utilization">
+          <div class="viewhead"><h2><span class="accent">//</span> GPU <span class="accent">utilization</span></h2><span class="sub">per-pool busy fraction</span></div>
+          <div class="chartcard">
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <div class="cc-head"><span>busy %</span><span class="r" id="utilR"></span></div>
+            <div class="chart-dom" id="dom-utilization"></div>
+          </div>
+        </section>
+
+        <!-- KV -->
+        <section class="view" data-subj="kv">
+          <div class="viewhead"><h2><span class="accent">//</span> KV <span class="accent">occupancy</span></h2><span class="sub">active tokens vs capacity</span></div>
+          <div class="chartcard">
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <div class="cc-head"><span>cache fill %</span><span class="r" id="kvR"></span></div>
+            <div class="chart-dom" id="dom-kv"></div>
+          </div>
+        </section>
+
+        <!-- KERNELS -->
+        <section class="view" data-subj="kernels">
+          <div class="viewhead"><h2><span class="accent">//</span> kernel <span class="accent">time-share</span></h2><span class="sub" id="kernSub">busy-time composition — worker scope</span></div>
+          <div class="kern-grid">
+            <div class="chartcard">
+              <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+              <div class="cc-head"><span>by semantic group</span><span class="r">donut</span></div>
+              <div class="chart-dom" id="dom-kdonut"></div>
+            </div>
+            <div class="chartcard">
+              <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+              <div class="cc-head"><span>top positions</span><span class="r">ms / token</span></div>
+              <div class="chart-dom" id="dom-kbars"></div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /stage -->
+
+      <div class="foot">
+        <span>Direction C · explorer + subject switch · fake data</span>
+        <span><span class="blink">▮</span> ready · deterministic</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="tt"></div>
+
+<!-- ================= shared globals ================= -->
+<script src="shared/tree.js"></script>
+<script src="shared/data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="shared/charts.js"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- console chart theme (dark) ----
+  const THEME = {
+    font: "'JetBrains Mono', ui-monospace, monospace",
+    text:'#e6e8ec', sub:'#8b93a1', axis:'#232833',
+    split:'rgba(120,140,170,.12)', bg:'#111318', tip:'rgba(6,8,12,.96)',
+    palette:['#ffb020','#b6f24a','#4fd6e6','#e0508a','#9b8cff'],
+  };
+
+  const $  = (s,r)=> (r||document).querySelector(s);
+  const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+  const el = (tag,cls,txt)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; };
+
+  // ---- app state ----
+  const state = {
+    runIdx: 0,
+    scope: 'cluster',        // 'cluster' | 'pool' | 'worker' | 'kernel'
+    poolRole: null,          // pool role when scope>=pool
+    workerId: null,          // worker id when scope>=worker
+    kernelNode: null,        // annotated leaf node when scope==kernel
+    subject: 'arch',         // active subject
+    expOpen: {},             // explorer collapse map (pool nodes)
+    ctOpen: {},              // cost-tree collapse map by node id
+  };
+
+  // chart instances (reused, resized when shown)
+  const charts = { slo:null, throughput:null, utilization:null, kv:null, kdonut:null, kbars:null };
+
+  const run = ()=> VIZ.runs[state.runIdx];
+  const curWorker = ()=> run().workerList.find(w=> w.id===state.workerId) || null;
+  const poolOf = (role)=> run().topology.pools.find(p=> p.role===role) || null;
+
+  // subjects (segmented switch)
+  const SUBJECTS = [
+    { key:'arch',        label:'Arch · cost tree', glyph:'⌗' },
+    { key:'slo',         label:'SLO',              glyph:'▚' },
+    { key:'throughput',  label:'Throughput',       glyph:'▤' },
+    { key:'utilization', label:'Utilization',      glyph:'▰' },
+    { key:'kv',          label:'KV',               glyph:'▦' },
+    { key:'kernels',     label:'Kernels',          glyph:'◐' },
+  ];
+  // which subjects require a worker selection
+  const WORKER_SUBJECTS = new Set(['arch','kernels']);
+
+  /* =========================================================
+     RUN TABS
+  ========================================================= */
+  function buildRunTabs(){
+    const host = $('#runtabs'); host.innerHTML='';
+    VIZ.runs.forEach((r,i)=>{
+      const t = el('div','runtab'+(i===state.runIdx?' active':''));
+      t.innerHTML =
+        `<span class="dep">${r.deployment}</span>`+
+        `<span class="n">${r.name}</span>`+
+        `<span class="m">${r.model}</span>`;
+      t.onclick = ()=> selectRun(i);
+      host.appendChild(t);
+    });
+  }
+
+  function buildClock(){
+    const s = run().summary;
+    const items = [
+      { k:'tok/s',   v:`<b>${fmtInt(s.total_tok_s)}</b>` },
+      { k:'gpus',    v:`${s.num_gpus}` },
+      { k:'reqs',    v:`${fmtInt(s.requests)}` },
+      { k:'ttft p50',v:`${s.ttft_p50}<span style="color:var(--dim);font-size:9px"> ms</span>` },
+      { k:'tpot p50',v:`${s.tpot_p50}<span style="color:var(--dim);font-size:9px"> ms</span>` },
+    ];
+    $('#clock').innerHTML = items.map(it=>
+      `<div class="stat"><span class="v mono-num">${it.v}</span><span class="k">${it.k}</span></div>`
+    ).join('');
+  }
+
+  /* =========================================================
+     EXPLORER RAIL
+  ========================================================= */
+  function buildExplorer(){
+    const host = $('#explorer'); host.innerHTML='';
+    const r = run();
+
+    // depth→left padding helper (indent guides)
+    const indent = (d)=> { const s=el('span','exp-indent'); s.style.width=(6+d*14)+'px'; return s; };
+
+    // -- RUN root
+    host.appendChild(mkExpRow({
+      depth:0, kind:'run', ico:'▣', label:r.name,
+      meta:r.gpuTotal+' gpu', caret:null,
+      sel:(state.scope==='cluster'),
+      onClick:()=> setScopeCluster(),
+    }));
+
+    // -- DEPLOYMENT node (informational)
+    host.appendChild(mkExpRow({
+      depth:1, kind:'dep', ico:'❖',
+      label:'deployment: '+r.deployment,
+      meta:r.topology.pools.length+' pool'+(r.topology.pools.length>1?'s':''),
+      caret:null, sel:false, onClick:null,
+    }));
+
+    // -- POOLS
+    r.topology.pools.forEach((pool)=>{
+      const poolKey = pool.role;
+      if(state.expOpen[poolKey]===undefined) state.expOpen[poolKey]=true; // open by default
+      const open = state.expOpen[poolKey];
+      const nWorkers = pool.groups.reduce((a,g)=> a+g.workers.length,0);
+      const nGpu = pool.groups.reduce((a,g)=> a+g.numGpus,0);
+
+      const poolRow = mkExpRow({
+        depth:2, kind:'pool', ico:'▤',
+        label:'pool · '+pool.role,
+        meta:nGpu+'g',
+        caret:open, badge:pool.groups[0].arch.type.length>14?null:pool.groups[0].arch.type,
+        sel:(state.scope==='pool' && state.poolRole===pool.role),
+        onCaret:()=>{ state.expOpen[poolKey]=!open; buildExplorer(); },
+        onClick:()=> setScopePool(pool.role),
+      });
+      host.appendChild(poolRow);
+
+      const kids = el('div','exp-children'+(open?'':' collapsed'));
+      pool.groups.forEach((grp)=>{
+        grp.workers.forEach((w)=>{
+          const isSelWorker = (state.workerId===w.id && (state.scope==='worker'||state.scope==='kernel'));
+          const wKey = w.id;
+          // worker row
+          const wRow = mkExpRow({
+            depth:3, kind:'worker', ico:'◆',
+            label:w.id,
+            meta:w.gpus.length+'×gpu'+(w.dp?(' dp'+w.dp):''),
+            caret:isSelWorker ? true : null,
+            sel:(state.scope==='worker' && state.workerId===w.id),
+            onCaret:()=>{ /* worker expansion tied to selection; clicking caret selects+expands */ setScopeWorker(w.id); },
+            onClick:()=> setScopeWorker(w.id),
+          });
+          kids.appendChild(wRow);
+
+          // cost-tree sub-item (only under selected worker)
+          if(isSelWorker){
+            const cRow = mkExpRow({
+              depth:4, kind:'cost', ico:'⌗',
+              label:'cost tree',
+              meta:Tree.fmtMs(w.tree.totalMs),
+              caret:null,
+              sel:(state.subject==='arch'),
+              onClick:()=>{ setScopeWorker(w.id); setSubject('arch'); },
+            });
+            kids.appendChild(cRow);
+          }
+        });
+      });
+      host.appendChild(kids);
+    });
+
+    // footer counts
+    const totW = r.workerList.length;
+    $('#footWorkers').textContent = totW+' worker'+(totW>1?'s':'');
+    $('#footGpus').textContent = r.gpuTotal+' gpu';
+  }
+
+  function mkExpRow(o){
+    const row = el('div','exp-row kind-'+o.kind + (o.sel?' sel':''));
+    row.appendChild(indentSpacer(o.depth));
+    // caret
+    const caret = el('span','exp-caret'+(o.caret===null?' spacer':''));
+    caret.textContent = o.caret===null ? '▸' : (o.caret? '▾':'▸');
+    if(o.caret!==null && o.onCaret){
+      caret.onclick=(ev)=>{ ev.stopPropagation(); o.onCaret(); };
+    }
+    row.appendChild(caret);
+    // icon
+    const ico = el('span','exp-ico'); ico.textContent=o.ico; row.appendChild(ico);
+    // label
+    row.appendChild(el('span','lbl',o.label));
+    // badge
+    if(o.badge){ row.appendChild(el('span','exp-badge',o.badge)); }
+    // meta
+    if(o.meta) row.appendChild(el('span','meta mono-num',o.meta));
+    if(o.onClick) row.onclick=o.onClick;
+    return row;
+  }
+  function indentSpacer(d){ const s=el('span','exp-indent'); s.style.width=(4+d*15)+'px'; return s; }
+
+  /* =========================================================
+     SUBJECT SWITCH
+  ========================================================= */
+  function buildSubjects(){
+    const host = $('#subjseg'); host.innerHTML='';
+    SUBJECTS.forEach(su=>{
+      const needWorker = WORKER_SUBJECTS.has(su.key);
+      const disabled = needWorker && !state.workerId;
+      const s = el('div','subj'+(su.key===state.subject?' active':'')+(disabled?' disabled':''));
+      s.innerHTML = `<span class="g">${su.glyph}</span>${su.label}`;
+      if(!disabled) s.onclick=()=> setSubject(su.key);
+      host.appendChild(s);
+    });
+  }
+
+  /* =========================================================
+     BREADCRUMB + SCOPE CHIP
+  ========================================================= */
+  function buildCrumbs(){
+    const r = run();
+    const parts = [];
+    parts.push({ ic:'▣', txt:r.name, cls:'', onClick:()=> setScopeCluster() });
+    if(state.scope!=='cluster' && state.poolRole){
+      parts.push({ ic:'▤', txt:'pool·'+state.poolRole, onClick:()=> setScopePool(state.poolRole) });
+    }
+    if((state.scope==='worker'||state.scope==='kernel') && state.workerId){
+      parts.push({ ic:'◆', txt:state.workerId, onClick:()=> setScopeWorker(state.workerId) });
+    }
+    if(state.scope==='kernel' && state.kernelNode){
+      parts.push({ ic:'•', txt:leafShort(state.kernelNode) });
+    }
+    const host=$('#crumbs'); host.innerHTML='';
+    parts.forEach((p,i)=>{
+      if(i>0) host.appendChild(el('span','crumb-sep','/'));
+      const c = el('span','crumb'+(i===parts.length-1?' last':''));
+      c.innerHTML = `<span class="ic">${p.ic}</span>${p.txt}`;
+      if(p.onClick && i<parts.length-1){ c.style.cursor='pointer'; c.onclick=p.onClick; }
+      host.appendChild(c);
+    });
+
+    // scope chip
+    const chip=$('#scopechip');
+    const map = {
+      cluster:{sw:'cluster', t:'cluster scope'},
+      pool:{sw:'pool', t:'pool scope · '+state.poolRole},
+      worker:{sw:'worker', t:'worker scope · '+state.workerId},
+      kernel:{sw:'kernel', t:'kernel scope'},
+    };
+    const m=map[state.scope];
+    chip.innerHTML = `<span class="sw ${m.sw}"></span>${m.t}`;
+  }
+
+  /* =========================================================
+     SCOPE TRANSITIONS
+  ========================================================= */
+  function setScopeCluster(){
+    state.scope='cluster'; state.poolRole=null; state.workerId=null; state.kernelNode=null;
+    // cluster scope has no arch/kernels; if on those, jump to slo
+    if(WORKER_SUBJECTS.has(state.subject)) state.subject='slo';
+    rerender();
+  }
+  function setScopePool(role){
+    state.scope='pool'; state.poolRole=role; state.workerId=null; state.kernelNode=null;
+    if(WORKER_SUBJECTS.has(state.subject)) state.subject='utilization';
+    rerender();
+  }
+  function setScopeWorker(id){
+    const w = run().workerList.find(x=> x.id===id); if(!w) return;
+    state.scope='worker'; state.workerId=id; state.poolRole=w.pool; state.kernelNode=null;
+    rerender();
+  }
+  function setScopeKernel(node){
+    state.scope='kernel'; state.kernelNode=node;
+    // keep worker/pool; subject stays arch (detail strip lives in arch view)
+    rerender();
+  }
+  function setSubject(key){
+    // guard: worker-subjects require a worker
+    if(WORKER_SUBJECTS.has(key) && !state.workerId){
+      // auto-pick first worker of current pool, else first worker of run
+      const pool = state.poolRole ? poolOf(state.poolRole) : null;
+      const cand = pool ? pool.groups.flatMap(g=>g.workers)[0] : run().workerList[0];
+      if(cand){ const w=run().workerList.find(x=>x.id===cand.id); if(w){ state.scope='worker'; state.workerId=w.id; state.poolRole=w.pool; } }
+    }
+    state.subject=key;
+    rerender();
+  }
+
+  function selectRun(i){
+    state.runIdx=i;
+    // reset to cluster scope, select workerList[0]
+    state.scope='cluster'; state.poolRole=null; state.workerId=null; state.kernelNode=null;
+    state.expOpen={}; state.ctOpen={};
+    const w0 = run().workerList[0];
+    if(w0){ state.workerId=w0.id; state.poolRole=w0.pool; }
+    state.scope='cluster'; // stay cluster; worker preselected for when arch is opened
+    state.subject='arch';  // default subject; arch valid because worker preselected
+    // dispose charts so they re-init clean on the new run
+    Object.keys(charts).forEach(k=>{ if(charts[k]){ charts[k].dispose(); charts[k]=null; } });
+    buildRunTabs(); buildClock();
+    rerender();
+  }
+
+  /* =========================================================
+     RENDER ORCHESTRATION
+  ========================================================= */
+  function rerender(){
+    // active run tab
+    $$('.runtab').forEach((t,i)=> t.classList.toggle('active', i===state.runIdx));
+    buildExplorer();
+    buildSubjects();
+    buildCrumbs();
+    showSubjectView();
+  }
+
+  function showSubjectView(){
+    // toggle views
+    $$('.view').forEach(v=> v.classList.toggle('show', v.dataset.subj===state.subject));
+    // header chips per subject
+    updateHeaderStats();
+    // render the active subject
+    switch(state.subject){
+      case 'arch':        renderArch(); break;
+      case 'slo':         renderSLO(); break;
+      case 'throughput':  renderThroughput(); break;
+      case 'utilization': renderUtil(); break;
+      case 'kv':          renderKV(); break;
+      case 'kernels':     renderKernels(); break;
+    }
+  }
+
+  function updateHeaderStats(){
+    const s = run().summary;
+    $('#sloR').textContent = `p50 ttft ${s.ttft_p50}ms · tpot ${s.tpot_p50}ms · e2e ${fmtInt(s.e2e_p50)}ms`;
+    $('#tpR').textContent  = `${fmtInt(s.total_tok_s)} tok/s aggregate`;
+  }
+
+  /* =========================================================
+     SUBJECT RENDERERS (charts + arch)
+  ========================================================= */
+  function renderSLO(){
+    charts.slo = Charts.slo($('#dom-slo'), run().payloads.slo, THEME);
+    resizeSoon(charts.slo);
+  }
+  function renderThroughput(){
+    charts.throughput = Charts.throughput($('#dom-throughput'), run().payloads.throughput, THEME);
+    resizeSoon(charts.throughput);
+  }
+  function renderUtil(){
+    const util = run().payloads.utilization;
+    let payload = util, note='all pools';
+    // pool/worker scope → filter series to that pool
+    if((state.scope==='pool'||state.scope==='worker') && state.poolRole){
+      const filt = filterPoolSeries(util.series, state.poolRole);
+      payload = { ...util, series: filt.length?filt:util.series };
+      note = filt.length ? ('scoped · '+state.poolRole) : 'all pools';
+    }
+    $('#utilR').textContent = note;
+    charts.utilization = Charts.utilization($('#dom-utilization'), payload, THEME);
+    resizeSoon(charts.utilization);
+  }
+  function renderKV(){
+    const kv = run().payloads.kv;
+    let payload = kv, note='all pools';
+    if((state.scope==='pool'||state.scope==='worker') && state.poolRole){
+      const filt = filterPoolSeries(kv.series, state.poolRole);
+      payload = { ...kv, series: filt.length?filt:kv.series };
+      note = filt.length ? ('scoped · '+state.poolRole) : 'all pools';
+    }
+    $('#kvR').textContent = note;
+    charts.kv = Charts.kv($('#dom-kv'), payload, THEME);
+    resizeSoon(charts.kv);
+  }
+  // match a pool's series by role: series.key===role OR label starts with role
+  function filterPoolSeries(series, role){
+    return series.filter(s=>{
+      const k=(s.key||'').toLowerCase(), l=(s.label||'').toLowerCase();
+      return k===role.toLowerCase() || l.indexOf(role.toLowerCase())===0 || l.indexOf(role.toLowerCase())>=0 && k==='';
+    });
+  }
+
+  function renderKernels(){
+    const w = curWorker();
+    if(!w){ return; }
+    const kernel = Tree.leafTotals(w.tree);
+    $('#kernSub').textContent = 'busy-time composition — worker '+w.id;
+    charts.kdonut = Charts.kernelDonut($('#dom-kdonut'), kernel, THEME);
+    charts.kbars  = Charts.kernelBars($('#dom-kbars'), kernel, THEME, 8);
+    resizeSoon(charts.kdonut); resizeSoon(charts.kbars);
+  }
+
+  /* =========================================================
+     ARCH — indented collapsible cost tree
+  ========================================================= */
+  function renderArch(){
+    const w = curWorker();
+    const host = $('#treeScroll'); host.innerHTML='';
+    const metaHost = $('#archMeta'); metaHost.innerHTML='';
+    const kd = $('#kdetail');
+
+    if(!w){ host.innerHTML='<div class="empty">Select a worker in the explorer to inspect its arch cost tree.</div>'; return; }
+
+    // ---- arch meta strip ----
+    const a = w.arch, p = a.params||{};
+    const metas = [
+      { k:'arch',    v:`<b>${a.type}</b>` },
+      { k:'worker',  v:w.workerType },
+      { k:'gpus',    v:w.gpuCount+(w.dp?(' · dp'+w.dp):'') },
+      { k:'cost/tok',v:`<b>${Tree.fmtMs(w.tree.totalMs)}</b>` },
+    ];
+    // add a couple arch params if present
+    const pk = ['layers','hidden','ep','attn_tp','experts','top_k','dtype'];
+    const shown = pk.filter(k=> p[k]!=null).slice(0,4);
+    shown.forEach(k=> metas.push({ k, v:String(p[k]) }));
+    metas.forEach(m=>{
+      const d=el('div','m'); d.innerHTML=`<span class="k">${m.k}</span><span class="v mono-num">${m.v}</span>`; metaHost.appendChild(d);
+    });
+    metaHost.appendChild(el('div','spring'));
+    // group legend
+    const lg = el('div','legend');
+    Object.entries(Tree.GROUP).forEach(([g,info])=>{
+      const l=el('span','lg'); l.innerHTML=`<i style="background:${info.color}"></i>${info.label}`; lg.appendChild(l);
+    });
+    metaHost.appendChild(lg);
+
+    // ---- render tree rows ----
+    // default collapse rule: scale collapsed, sum/max expanded
+    function ensureOpen(node){
+      if(state.ctOpen[node.id]===undefined){
+        state.ctOpen[node.id] = (node.kind==='scale') ? false : true;
+      }
+      return state.ctOpen[node.id];
+    }
+    const rootTotal = w.tree.totalMs || 1;
+
+    (function walk(node, depth){
+      const isContainer = node.kind!=='leaf';
+      const row = buildCostRow(node, depth, rootTotal, isContainer);
+      host.appendChild(row);
+      if(isContainer){
+        const open = ensureOpen(node);
+        const kids = el('div','ct-kids'+(open?'':' collapsed'));
+        host.appendChild(kids);
+        // stash a marker so we can append children into this container div
+        (node.children||[]).forEach(c=> walkInto(c, depth+1, kids));
+      }
+    })(w.tree, 0);
+
+    // recursive helper writing into a parent element
+    function walkInto(node, depth, parent){
+      const isContainer = node.kind!=='leaf';
+      parent.appendChild(buildCostRow(node, depth, rootTotal, isContainer));
+      if(isContainer){
+        const open = ensureOpen(node);
+        const kids = el('div','ct-kids'+(open?'':' collapsed'));
+        parent.appendChild(kids);
+        (node.children||[]).forEach(c=> walkInto(c, depth+1, kids));
+      }
+    }
+
+    // ---- kernel detail strip (if a leaf is selected) ----
+    if(state.scope==='kernel' && state.kernelNode){
+      showKernelDetail(state.kernelNode);
+    } else {
+      kd.classList.remove('show');
+    }
+  }
+
+  function buildCostRow(node, depth, rootTotal, isContainer){
+    const row = el('div','ct-row '+(isContainer?'container':'leafrow')+
+      (node.kind==='scale'?' scalerow':'')+
+      (state.kernelNode && node===state.kernelNode ? ' sel':''));
+
+    // ---- name cell: guides + caret + glyph + label ----
+    const nameCell = el('div','ct-name');
+    const guides = el('span','ct-guides');
+    for(let d=0; d<depth; d++){ guides.appendChild(el('span','ct-guide')); }
+    nameCell.appendChild(guides);
+
+    // caret
+    const caret = el('span','ct-caret'+(isContainer?'':' spacer'));
+    if(isContainer){
+      const open = state.ctOpen[node.id];
+      caret.textContent = open ? '▾' : '▸';
+      caret.onclick=(ev)=>{ ev.stopPropagation(); toggleCT(node); };
+    } else { caret.textContent='▸'; }
+    nameCell.appendChild(caret);
+
+    // glyph
+    const glyph = el('span','ct-glyph '+node.kind);
+    if(node.kind==='scale') glyph.textContent='×'+node.n;
+    else glyph.textContent = Tree.glyph[node.kind];
+    nameCell.appendChild(glyph);
+
+    // scale badge (container "×N label")
+    if(node.kind==='scale'){
+      const badge = el('span','ct-scale-badge','×'+node.n);
+      // put the human label after
+      nameCell.appendChild(badge);
+    }
+
+    // label
+    let labelText;
+    if(node.kind==='leaf') labelText = leafShort(node);
+    else labelText = node.label || node.kind;
+    const label = el('span','ct-label', labelText);
+    nameCell.appendChild(label);
+
+    // leaf kind chip
+    if(node.kind==='leaf'){
+      const col = Tree.colorOf(node.slot.kind);
+      const chip = el('span','ct-kchip', Tree.kindLabel(node.slot.kind));
+      chip.style.color=col; chip.style.borderColor=hexA(col,.5); chip.style.background=hexA(col,.08);
+      nameCell.appendChild(chip);
+    }
+    row.appendChild(nameCell);
+
+    // ---- inline mini bar (col 2) ----
+    const barCell = el('div','ct-bar-cell');
+    const bar = el('div','ct-bar');
+    const fill = el('i');
+    const wPct = Math.max(1.5, Math.min(100, node.pct));
+    fill.style.width = wPct+'%';
+    if(node.kind==='leaf'){
+      fill.style.background = Tree.colorOf(node.slot.kind);
+    } else {
+      // container fill = accent, dimmer, with hatch feel via gradient
+      fill.style.background = 'linear-gradient(90deg, rgba(255,176,32,.85), rgba(255,176,32,.45))';
+      if(node.kind==='scale') fill.style.background='linear-gradient(90deg, rgba(182,242,74,.85), rgba(182,242,74,.4))';
+      if(node.kind==='max')   fill.style.background='linear-gradient(90deg, rgba(79,214,230,.8), rgba(79,214,230,.4))';
+    }
+    bar.appendChild(fill);
+    barCell.appendChild(bar);
+    row.appendChild(barCell);
+
+    // ---- ms + pct ----
+    row.appendChild(el('span','ct-ms mono-num', Tree.fmtMs(node.ms)));
+    row.appendChild(el('span','ct-pct mono-num', Tree.fmtPct(node.pct)));
+
+    // ---- interactions ----
+    if(node.kind==='leaf'){
+      row.onclick = ()=> { setScopeKernel(node); };
+      row.onmouseenter = (ev)=> showTip(ev, node);
+      row.onmousemove  = (ev)=> moveTip(ev);
+      row.onmouseleave = hideTip;
+    } else {
+      // clicking a container row toggles (except on caret which already handles)
+      row.onclick = (ev)=>{ if(ev.target.classList.contains('ct-caret')) return; toggleCT(node); };
+    }
+    return row;
+  }
+
+  function toggleCT(node){
+    const cur = state.ctOpen[node.id];
+    state.ctOpen[node.id] = cur===undefined ? (node.kind==='scale'?true:false) : !cur;
+    renderArch();
+  }
+
+  function showKernelDetail(node){
+    const kd = $('#kdetail');
+    const col = Tree.colorOf(node.slot.kind);
+    kd.style.borderLeftColor = col;
+    kd.innerHTML =
+      `<div class="kd-top">`+
+        `<span class="kd-name">${node.slot.name}</span>`+
+        `<span class="kd-kind" style="color:${col};border-color:${hexA(col,.6)}">${Tree.kindLabel(node.slot.kind)}</span>`+
+        `<span class="kd-close" id="kdClose">✕</span>`+
+      `</div>`+
+      `<div class="kd-grid">`+
+        field('slot', node.slot.name)+
+        field('kind', Tree.kindLabel(node.slot.kind)+' · '+node.slot.kind, true)+
+        field('config', node.slot.config || '—', true)+
+        field('backend', node.slot.backend || 'default', true)+
+        field('cost / call', Tree.fmtMs(node.ms))+
+        field('share', Tree.fmtPct(node.pct))+
+      `</div>`;
+    kd.classList.add('show');
+    $('#kdClose').onclick = ()=>{ state.scope='worker'; state.kernelNode=null; rerender(); };
+  }
+  function field(k,v,mono){
+    return `<div class="kd-f"><span class="k">${k}</span><span class="v${mono?' mono':''}">${escapeHtml(String(v))}</span></div>`;
+  }
+
+  /* =========================================================
+     tooltip (leaf hover)
+  ========================================================= */
+  const TT = $('#tt');
+  function showTip(ev, node){
+    const col = Tree.colorOf(node.slot.kind);
+    TT.innerHTML =
+      `<div class="tt-n">${node.slot.name}</div>`+
+      `<div class="tt-r"><span class="k">kind</span><span class="v" style="color:${col}">${Tree.kindLabel(node.slot.kind)}</span></div>`+
+      `<div class="tt-r"><span class="k">config</span><span class="v mono">${escapeHtml(node.slot.config||'—')}</span></div>`+
+      `<div class="tt-r"><span class="k">backend</span><span class="v mono">${escapeHtml(node.slot.backend||'default')}</span></div>`+
+      `<div class="tt-r"><span class="k">cost</span><span class="v">${Tree.fmtMs(node.ms)} · ${Tree.fmtPct(node.pct)}</span></div>`;
+    TT.style.display='block';
+    moveTip(ev);
+  }
+  function moveTip(ev){
+    const pad=14; let x=ev.clientX+pad, y=ev.clientY+pad;
+    const r=TT.getBoundingClientRect();
+    if(x+r.width>window.innerWidth-8) x=ev.clientX-r.width-pad;
+    if(y+r.height>window.innerHeight-8) y=ev.clientY-r.height-pad;
+    TT.style.left=x+'px'; TT.style.top=y+'px';
+  }
+  function hideTip(){ TT.style.display='none'; }
+
+  /* =========================================================
+     small helpers
+  ========================================================= */
+  function leafShort(node){ return node.slot.name.split('.').pop(); }
+  function fmtInt(n){ return (n||0).toLocaleString('en-US'); }
+  function hexA(hex,a){
+    const h=hex.replace('#',''); const n=parseInt(h.length===3?h.split('').map(c=>c+c).join(''):h,16);
+    const r=(n>>16)&255,g=(n>>8)&255,b=n&255; return `rgba(${r},${g},${b},${a})`;
+  }
+  function escapeHtml(s){ return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function resizeSoon(inst){ if(!inst) return; requestAnimationFrame(()=>{ try{inst.resize();}catch(e){} }); setTimeout(()=>{ try{inst.resize();}catch(e){} },60); }
+
+  // resize all live charts on window resize
+  window.addEventListener('resize', ()=>{
+    Object.values(charts).forEach(c=>{ if(c){ try{c.resize();}catch(e){} } });
+  });
+
+  /* =========================================================
+     BOOT
+  ========================================================= */
+  function boot(){
+    // preselect worker[0] but stay at cluster scope on first load
+    const w0 = run().workerList[0];
+    if(w0){ state.workerId=w0.id; state.poolRole=w0.pool; }
+    state.scope='cluster';
+    state.subject='arch'; // arch valid (worker preselected)
+    buildRunTabs();
+    buildClock();
+    rerender();
+  }
+  boot();
+
+})();
+</script>
+</body>
+</html>

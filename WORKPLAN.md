@@ -1,0 +1,80 @@
+# VibeSim UI 工作计划
+
+本文件是 UI 独立仓库的持续工作清单。每个阶段都应保持可构建、可验证；状态变化和影响架构的决定应同步记录在这里。
+
+状态约定：`[x]` 已完成，`[ ]` 待完成，`[~]` 正在进行。
+
+## P0 · 仓库基线
+
+- [x] 审查现有 UI、analyzer 代码及真实运行输出
+- [x] 在 `viz-ui/` 初始化独立 Git 仓库
+- [x] 排除依赖、构建输出和浏览器测试产物
+- [x] 建立项目说明、数据协议和首个可回退基线提交
+
+验收标准：`git status` 不包含 `node_modules/`、`dist/`、`.artifacts/`；当前 UI 的 typecheck 和 production build 通过。
+
+## P1 · 数据边界
+
+- [ ] 定义 analyzer v1 的运行、拓扑、subject、worker、iteration 合同
+- [ ] 为当前 analyzer JSON 增加运行时校验和兼容适配
+- [ ] 建立 `AnalyzerRepository` 接口
+- [ ] 用真实输出裁剪出小型、可提交的 fixtures
+- [ ] 实现 `FixtureAnalyzerRepository`
+- [ ] 让页面从 repository 加载，移除组件对 `fakeData` 的直接依赖
+- [ ] 对 unavailable、not generated、failed 和 incompatible 提供明确 UI 状态
+
+验收标准：页面可完全由 fixture repository 驱动；畸形或版本不兼容的数据会产生可读错误，而非静默显示错误图表。
+
+## P2 · 工程质量护栏
+
+- [ ] 配置 ESLint、Prettier 和按文件运行的格式检查
+- [ ] 配置 Vitest + Testing Library
+- [ ] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
+- [ ] 增加 axe 可访问性检查
+- [ ] 增加 GitHub Actions：typecheck、lint、unit、build、browser smoke
+- [ ] 加入 bundle size 检查，按需加载 ECharts 图表能力
+
+验收标准：本地和 CI 有同一套可重复命令；核心用户路径、移动端布局和基础无障碍均受自动测试保护。
+
+## P3 · 可维护性重构
+
+- [ ] 按 feature 拆分 overview、system-map、worker、kernel 和 trace 模块
+- [ ] 将 domain、transport DTO 和 view-model 分离
+- [ ] 将 Zustand 限定为 UI/选择状态；服务端数据由 query cache 管理
+- [ ] 将 cost tree 改为可判别联合类型，消除不安全断言
+- [ ] 收紧 store selector，避免整库订阅导致的无关重渲染
+- [ ] 统一图表主题、tooltip escaping、空态和交互语义
+- [ ] 修复实时 resize、键盘导航、canvas 标签和 icon button 名称
+
+验收标准：功能目录具有清晰公共 API；数据加载与 UI 状态职责分离；性能和 a11y 回归有测试覆盖。
+
+## P4 · Rust analyzer 接线
+
+- [ ] 明确 analyzer artifact index / HTTP API 的所有权
+- [ ] 实现 `HttpAnalyzerRepository`
+- [ ] 聚合 subject 使用静态 JSON；worker/iteration 明细按需加载
+- [ ] 支持分析生命周期和 subject 状态轮询
+- [ ] 支持 Perfetto trace URL，不在浏览器读取 raw parquet
+- [ ] 与 Rust 端共享或生成协议 schema，并加入兼容性测试
+
+验收标准：一个真实 run 可从索引发现并完整浏览；大 run 的首屏与钻取请求均有明确性能预算。
+
+## P5 · 缺失数据源
+
+- [ ] 在 run artifact 中固化模型配置快照
+- [ ] 固化 offered workload / trace overview 所需摘要
+- [ ] 增加 worker、pool、cluster pending queue / backpressure subject
+- [ ] 增加 worker iteration index 和 iteration detail subject 或查询端点
+- [ ] 修复 analyzer utilization 对跨 pool 重复 worker id 的聚合问题
+
+这些项目需要 analyzer 侧补充；UI 在此之前必须显示“数据源尚未生成”，不得伪造为零值。
+
+## 架构决定
+
+1. `viz-ui/` 是独立 Git 根；可交付应用暂保留在 `app/`，旧 HTML 原型只作视觉参考。
+2. 浏览器只消费 `reports/`、`payloads/`、`traces/` 和运行描述，不直接读取 raw parquet。
+3. worker 标识是 `(pool_tag, worker_id)`，序列化键采用 `pool_tag/worker_id`；`worker_id` 不能被视为全局唯一。
+4. 当前 analyzer `schema_version: 1` 由 subject-specific adapter 接入，不能假设所有 payload envelope 完全一致。
+5. 缺失、未生成、生成失败、协议不兼容是不同状态；不能一律折叠为空数组。
+6. aggregate 首屏使用有界静态 artifact；高基数 iteration 数据按 worker/iteration 懒加载。
+7. Zustand 负责本地交互状态；异步 analyzer 数据不写入无界的全局 map。

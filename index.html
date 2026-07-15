@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VibeSim · Viz — design directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#111318; --panel:#171a21; --line:#242833; --ink:#e7eaf0; --sub:#98a1b2;
+    --a:#4fd6e6; --b:#c8875a; --c:#ffb020; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(900px 500px at 85% -10%, rgba(79,214,230,.06), transparent 60%),
+      radial-gradient(700px 500px at 5% 110%, rgba(255,176,32,.05), transparent 60%),
+      var(--bg);
+    color:var(--ink); font-family:var(--mono); -webkit-font-smoothing:antialiased;
+    min-height:100vh; padding:56px clamp(20px,6vw,90px) 80px;
+  }
+  .kicker{font-family:var(--mono); color:var(--sub); letter-spacing:.34em; text-transform:uppercase; font-size:11px}
+  h1{font-family:'Syne',sans-serif; font-weight:800; font-size:clamp(34px,6vw,66px); line-height:.98; margin:.28em 0 .18em; letter-spacing:-.02em}
+  h1 em{font-style:normal; color:var(--a)}
+  .lede{max-width:70ch; color:var(--sub); font-size:14.5px; line-height:1.7}
+  .lede b{color:var(--ink); font-weight:600}
+  .meta{margin-top:22px; display:flex; flex-wrap:wrap; gap:8px}
+  .chip{border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; color:var(--sub); background:var(--panel)}
+  .chip b{color:var(--ink); font-weight:600}
+  .grid{margin-top:46px; display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:22px}
+  a.card{
+    text-decoration:none; color:inherit; display:flex; flex-direction:column; min-height:340px;
+    background:linear-gradient(180deg,var(--panel),#13161c); border:1px solid var(--line); border-radius:16px;
+    padding:22px 22px 20px; position:relative; overflow:hidden; transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+    opacity:0; transform:translateY(16px); animation:rise .6s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  a.card:nth-child(1){animation-delay:.05s} a.card:nth-child(2){animation-delay:.14s} a.card:nth-child(3){animation-delay:.23s} a.card:nth-child(4){animation-delay:.32s}
+  a.card.feat{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+  a.card .flag{position:absolute;top:12px;right:14px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 9px;background:color-mix(in srgb,var(--accent) 12%,transparent)}
+  @keyframes rise{to{opacity:1; transform:none}}
+  a.card:hover{transform:translateY(-5px); border-color:color-mix(in srgb,var(--accent) 55%,var(--line)); box-shadow:0 18px 50px -24px var(--accent)}
+  a.card::before{content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--accent); opacity:.9}
+  .tag{font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent)}
+  .cname{font-family:'Syne',sans-serif; font-weight:700; font-size:26px; margin:8px 0 2px}
+  .csub{color:var(--sub); font-size:12.5px; min-height:34px}
+  pre.mini{
+    margin:16px 0 14px; padding:12px; background:#0d0f14; border:1px solid var(--line); border-radius:10px;
+    color:var(--sub); font-size:10.5px; line-height:1.45; white-space:pre; overflow:hidden; flex:1;
+  }
+  .rows{display:flex; flex-direction:column; gap:5px; font-size:12px}
+  .row{display:flex; gap:8px}
+  .row span:first-child{color:var(--sub); min-width:74px}
+  .open{margin-top:16px; display:flex; align-items:center; justify-content:space-between; font-size:12px; color:var(--accent); font-weight:600}
+  footer{margin-top:52px; color:var(--sub); font-size:12px; line-height:1.7; max-width:80ch}
+  footer code{color:var(--ink); background:var(--panel); border:1px solid var(--line); padding:1px 6px; border-radius:6px}
+  .note{margin-top:8px; color:#c9a24a}
+</style>
+</head>
+<body>
+  <div class="kicker">VibeSim · results + topology · experimental</div>
+  <h1>Three ways to <em>read a run</em>.</h1>
+  <p class="lede">
+    A prototype for visualizing a VibeSim run — its <b>deployment structure</b> (pools → groups → workers → arch)
+    and its <b>analyzer results</b> (SLO CDFs, throughput, GPU utilization, KV occupancy, kernel time-share).
+    All three share one spine — <b>Run ▸ Pool ▸ Worker ▸ Kernel</b>, where selecting a piece of the machine
+    re-scopes the metrics — and one centerpiece: the <b>cost tree</b> (Sum → · Max ⇉ · <b>Scale ×N</b> · Leaf),
+    flattened so the 94 identical layers collapse into one <b>×94 container</b>. They differ in how you
+    <b>navigate</b> from the system view into an individual graph. Running on fake data — pick the one that feels right.
+  </p>
+  <div class="meta">
+    <span class="chip"><b>3</b> fake runs</span>
+    <span class="chip">llama3-8b · <b>unified</b></span>
+    <span class="chip">qwen3-235b · <b>MoE ep32</b></span>
+    <span class="chip">qwen3-235b · <b>AFD</b> attn∥ffn</span>
+    <span class="chip">5 chart types + cost tree</span>
+  </div>
+
+  <div class="grid">
+    <a class="card" href="design-a.html" style="--accent:var(--a)">
+      <div class="tag">Direction A</div>
+      <div class="cname">Drill-hub</div>
+      <div class="csub">The system map is home; select an entity and the right-side metrics re-scope. Click a metric to focus it full-screen.</div>
+      <pre class="mini">┌ Run ▸ ffn ▸ ffn-0 ───── [focus]┐
+│ SYSTEM MAP   │ metrics @ worker│
+│  ● unified   │  ┌KV┐ ┌util┐    │
+│   └▣ main-0  │  ┌kernel share┐ │
+│ cost-flow:   │  ┌throughput ┐  │
+│  □→[×94]→□   │  click → focus  │
+└──────────────┴─────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span>aesthetic</span><b>dark blueprint</b></div>
+        <div class="row"><span>cost tree</span><b>L→R flow · Scale ×N box</b></div>
+      </div>
+      <div class="open"><span>Open direction A</span><span>→</span></div>
+    </a>
+
+    <a class="card" href="design-b.html" style="--accent:var(--b)">
+      <div class="tag">Direction B</div>
+      <div class="cname">Overview board</div>
+      <div class="csub">One board of small-multiple tiles over the system map; click any tile to zoom it full-screen; click a worker to filter the tiles.</div>
+      <pre class="mini">┌ Board — all small multiples ───┐
+│ [system map] [SLO~]  [tput~]   │
+│ [util ~~]    [KV ~~]  [kernels] │
+│ [icicle ▚▚▚ ×94 band ]         │
+│ click tile → zoom · map → scope │
+└─────────────────────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span>aesthetic</span><b>editorial · warm paper</b></div>
+        <div class="row"><span>cost tree</span><b>icicle · Scale ×N band</b></div>
+      </div>
+      <div class="open"><span>Open direction B</span><span>→</span></div>
+    </a>
+
+    <a class="card" href="design-c.html" style="--accent:var(--c)">
+      <div class="tag">Direction C</div>
+      <div class="cname">Explorer + switch</div>
+      <div class="csub">An IDE explorer on the left, a subject switch on top; the stage shows one big graph, scoped to the tree selection. For deep-diving one metric.</div>
+      <pre class="mini">┌explorer┬[Arch|SLO|Tput|Util|KV|Kern]┐
+│▾ main  │                            │
+│  ▣main0│     one big graph          │
+│▾ ffn   │     scoped to ffn-0        │
+│  ffn-0 │                            │
+│  cost▾ │  → □  ×94 ▸ (collapsed)    │
+└────────┴────────────────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span>aesthetic</span><b>high-contrast console</b></div>
+        <div class="row"><span>cost tree</span><b>indented · ×N collapses</b></div>
+      </div>
+      <div class="open"><span>Open direction C</span><span>→</span></div>
+    </a>
+
+    <a class="card feat" href="design-d.html" style="--accent:#2fb3a8">
+      <div class="flag">synthesis</div>
+      <div class="tag">Direction D</div>
+      <div class="cname">Synthesis</div>
+      <div class="csub">B's editorial style + A's flow cost-tree promoted to a full-width hero line, a stacked-blocks time-share, and metrics moved to the bottom.</div>
+      <pre class="mini">┌ VibeSim — Run ── switch · KPIs ─┐
+│ 01 system map ▸ pool ▸ worker   │
+│ 02 ── COST TREE (full line) ──  │
+│    □→[×94 ▚]→⇉→□   hero, scrolls │
+│ 03 time-share ▉▉▉▉▉▉ stacked    │
+│ 04 SLO · tput · util · KV (btm) │
+└──────────────────────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span>aesthetic</span><b>editorial (from B)</b></div>
+        <div class="row"><span>cost tree</span><b>A's flow · full-width hero</b></div>
+      </div>
+      <div class="open"><span>Open direction D</span><span>→</span></div>
+    </a>
+  </div>
+
+  <footer>
+    Serve locally: <code>cd viz-ui &amp;&amp; python3 -m http.server 8777</code> → open <code>/index.html</code>.
+    Charts use ECharts from a CDN, so the browser needs network access.
+    Data is faked in <code>shared/data.js</code>; the backend that replaces it reads <code>logs/&lt;run&gt;/…/payloads/</code> + <code>run_meta.json</code>.
+    <div class="note">Experimental — pick a direction and we build it for real against the analyzer output.</div>
+  </footer>
+</body>
+</html>
