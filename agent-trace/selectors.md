@@ -46,6 +46,12 @@
 - The type-complete memoized snapshots are intentionally transitional. Once
   `runSelection` is touched after the CostTree merge, its helpers should accept
   an explicit four-field selection projection instead of a full `VizState`.
+- Follow-up `1343797` completed that transition: `runSelection` and
+  `metricView` now accept narrow structural/cursor projections, Cluster/Pool/
+  Iteration no longer spread `useViz.getState()`, and the remaining App,
+  CostTree, breadcrumb, worker, kernel, parallel, and time-share views use
+  scalar/stable-action selectors. A production-code search now finds no
+  zero-argument `useViz()` or manufactured full-store snapshot.
 
 ## Feedback
 
@@ -53,3 +59,6 @@
   within its declared files. A later removal of the legacy `REAL_RUNS` fixture
   should migrate the Profiler test to the application test repository rather
   than discard this regression coverage.
+- The same follow-up also removed the synthetic-only gate around Perfetto, so a
+  selected real HTTP run can render its descriptor-declared trace at cluster
+  scope. TypeScript, ESLint, and all 212 merged unit tests passed afterward.
