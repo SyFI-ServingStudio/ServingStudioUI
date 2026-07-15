@@ -158,4 +158,10 @@ describe('parseAnalyzerV1Topology', () => {
       /run_meta cannot identify 2 groups/,
     );
   });
+
+  it('rejects a descriptor deployment that disagrees with params', () => {
+    expect(() => parseAnalyzerV1Topology(paramsJson, runMetaJson, 'pd')).toThrow(
+      /params\.deployment: afd disagrees with descriptor pd/,
+    );
+  });
 });

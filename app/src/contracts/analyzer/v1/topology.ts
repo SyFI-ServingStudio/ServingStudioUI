@@ -1,3 +1,4 @@
+import type { Deployment } from '../../../domain/deployment';
 import type { Arch, Group, Topology, WorkerCfg } from '../../../domain/run';
 import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
 import {
@@ -260,9 +261,16 @@ export class AnalyzerV1TopologyError extends Error {
 
 /** Decode the two authoritative topology inputs and cross-check their worker,
  * pool and GPU facts before exposing a domain Topology. */
-export function parseAnalyzerV1Topology(paramsInput: unknown, runMetaInput: unknown): Topology {
-  return topologyFromParsed(
-    parseAnalyzerV1Params(paramsInput),
-    parseAnalyzerV1RunMeta(runMetaInput),
-  );
+export function parseAnalyzerV1Topology(
+  paramsInput: unknown,
+  runMetaInput: unknown,
+  expectedDeployment?: Deployment,
+): Topology {
+  const params = parseAnalyzerV1Params(paramsInput);
+  if (expectedDeployment !== undefined && params.deployment !== expectedDeployment) {
+    throw new AnalyzerV1TopologyError([
+      `params.deployment: ${params.deployment} disagrees with descriptor ${expectedDeployment}`,
+    ]);
+  }
+  return topologyFromParsed(params, parseAnalyzerV1RunMeta(runMetaInput));
 }

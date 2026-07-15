@@ -1,0 +1,17 @@
+{
+  "protocol_version": 1,
+  "generated_at": "2026-07-15T05:11:27Z",
+  "runs": [
+    {
+      "run_id": "fixture-afd-qwen3-v1",
+      "kind": "simulation",
+      "display_name": "20260715_1_afd_ui_reanalysis",
+      "descriptor_href": "afd-qwen3-duration-reached/run_descriptor.json",
+      "lifecycle": {
+        "simulation": "complete",
+        "analysis": "complete"
+      },
+      "updated_at": "2026-07-15T05:11:27Z"
+    }
+  ]
+}

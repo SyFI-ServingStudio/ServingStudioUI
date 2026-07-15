@@ -1,0 +1,127 @@
+{
+  "protocol_version": 1,
+  "run_id": "fixture-afd-qwen3-v1",
+  "kind": "simulation",
+  "display_name": "20260715_1_afd_ui_reanalysis",
+  "model_name": "model/config/qwen3_coder_480b.json",
+  "deployment": "afd",
+  "lifecycle": {
+    "simulation": "complete",
+    "analysis": "complete"
+  },
+  "summary": {
+    "href": "summary.json"
+  },
+  "workers": [
+    { "pool_tag": "attn", "worker_id": 0 },
+    { "pool_tag": "attn", "worker_id": 1 },
+    { "pool_tag": "attn", "worker_id": 2 },
+    { "pool_tag": "attn", "worker_id": 3 },
+    { "pool_tag": "attn", "worker_id": 4 },
+    { "pool_tag": "attn", "worker_id": 5 },
+    { "pool_tag": "attn", "worker_id": 6 },
+    { "pool_tag": "attn", "worker_id": 7 },
+    { "pool_tag": "ffn", "worker_id": 0 },
+    { "pool_tag": "ffn", "worker_id": 1 }
+  ],
+  "subjects": {
+    "slo-general": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/slo_general_report.json",
+      "payload_href": "payloads/slo_general_cdf.json"
+    },
+    "slo-detailed": {
+      "status": "unavailable",
+      "code": "output_token_times_missing",
+      "reason": "output_token_times were not logged for this run"
+    },
+    "throughput": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/throughput_report.json",
+      "payload_href": "payloads/throughput_segments.json"
+    },
+    "utilization": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/utilization_report.json",
+      "payload_href": "payloads/utilization_series.json"
+    },
+    "kv-occupancy": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/kv_occupancy_report.json",
+      "payload_href": "payloads/kv_occupancy_series.json"
+    },
+    "batch": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/batch_report.json",
+      "payload_href": "payloads/batch_scatter.json"
+    },
+    "kernel-throughput": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/kernel_throughput_report.json",
+      "payload_href": "payloads/kernel_throughput_locations.json"
+    },
+    "workload-conservation": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/workload_conservation_report.json",
+      "payload_href": "payloads/workload_conservation_checks.json"
+    },
+    "kernel-input-distribution": {
+      "status": "unavailable",
+      "code": "missing_kernel_input_columns",
+      "reason": "cost_log has no slot_backend column; this run predates per-slot backend/input logging"
+    },
+    "kernel-time-share": {
+      "status": "ready",
+      "schema_version": 1,
+      "report_href": "reports/kernel_time_share_report.json",
+      "payload_href": "payloads/kernel_time_share_composition.json"
+    },
+    "concurrency": {
+      "status": "not_generated",
+      "reason": "No bounded concurrency timeline artifact was generated for this run."
+    },
+    "backpressure": {
+      "status": "not_generated",
+      "reason": "Pending-queue logging is not yet available from analyzer v1."
+    }
+  },
+  "details": {
+    "worker-cost-tree": {
+      "status": "not_generated",
+      "reason": "No versioned hierarchical worker CostTree query is available."
+    },
+    "worker-iteration-index": {
+      "status": "not_generated",
+      "reason": "No paginated worker iteration index was generated for this run."
+    },
+    "iteration-detail": {
+      "status": "not_generated",
+      "reason": "No on-demand iteration detail artifact was generated for this run."
+    }
+  },
+  "traces": {
+    "perfetto": {
+      "status": "not_generated",
+      "reason": "The cropped fixture does not contain the source run's Perfetto trace."
+    }
+  },
+  "analysis": {
+    "revision": "fixture-sha256-513a646a0688807e15dd538314b276ecfdbceb622c028f733625db69a979c404",
+    "generated_at": "2026-07-15T05:11:27Z",
+    "generator_version": "fixture-export-v1+analyzer-v1"
+  },
+  "provenance": {
+    "source": "fixture",
+    "synthetic": false,
+    "fixture_id": "afd-qwen3-duration-reached",
+    "source_run": "logs/20260715_1_afd_ui_reanalysis",
+    "generated_at": "2026-07-15T05:11:27Z"
+  }
+}

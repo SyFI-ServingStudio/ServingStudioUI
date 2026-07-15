@@ -28,7 +28,7 @@ export default function RunSwitcher() {
           disableClearable
           options={runs.data ?? []}
           value={selectedRun}
-          getOptionLabel={(run) => run.runId}
+          getOptionLabel={(run) => run.displayName ?? run.runId}
           isOptionEqualToValue={(option, value) => option.runId === value.runId}
           onChange={(_, run) => setRun(run.runId)}
           noOptionsText="No simulation folders"
@@ -40,7 +40,7 @@ export default function RunSwitcher() {
               sx={{ display: 'block !important', py: '9px !important' }}
             >
               <Typography sx={{ fontFamily: tokens.mono, fontSize: 11.5, color: tokens.ink }}>
-                {run.runId}
+                {run.displayName ?? run.runId}
               </Typography>
               <Typography
                 sx={{ mt: 0.25, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}

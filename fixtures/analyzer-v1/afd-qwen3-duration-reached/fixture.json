@@ -11,6 +11,10 @@
       "detail": "Kernel input distribution is unavailable because the original simulation predates slot_backend and slot_input logging."
     }
   ],
+  "protocol_files": [
+    "../run_catalog.json",
+    "run_descriptor.json"
+  ],
   "source_files": [
     "payloads/batch_scatter.json",
     "payloads/kernel_input_distribution_scatter.json",
