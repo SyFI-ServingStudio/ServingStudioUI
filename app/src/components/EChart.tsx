@@ -1,6 +1,8 @@
-import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
+import ReactEChartsCore from 'echarts-for-react/lib/core';
 import type { CSSProperties } from 'react';
+
+import { echarts } from '../charts/echartsRuntime';
 
 /** Thin wrapper around echarts-for-react — fills its parent, canvas renderer,
  *  replaces (not merges) options so scope changes redraw cleanly. */
@@ -15,7 +17,8 @@ export default function EChart({
 }) {
   return (
     <div role="img" aria-label={ariaLabel} style={{ height: '100%', width: '100%', ...style }}>
-      <ReactECharts
+      <ReactEChartsCore
+        echarts={echarts}
         option={option}
         notMerge
         lazyUpdate

@@ -28,6 +28,27 @@ export async function scopeToWorker(page: Page, workerKey: string): Promise<void
   await expect(page.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
 }
 
+export async function expectRenderedCharts(page: Page): Promise<void> {
+  const chartCanvases = page.locator('[role="img"] canvas');
+  await expect(chartCanvases.first()).toBeVisible();
+  const invalidCanvases = await chartCanvases.evaluateAll((canvases) =>
+    canvases
+      .map((element, index) => {
+        const canvas = element instanceof HTMLCanvasElement ? element : null;
+        return {
+          index,
+          bitmap: canvas ? [canvas.width, canvas.height] : [0, 0],
+          layout: [element.clientWidth, element.clientHeight],
+        };
+      })
+      .filter(
+        ({ bitmap, layout }) =>
+          bitmap[0] <= 0 || bitmap[1] <= 0 || layout[0] <= 0 || layout[1] <= 0,
+      ),
+  );
+  expect(invalidCanvases, JSON.stringify(invalidCanvases, null, 2)).toEqual([]);
+}
+
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   await expect(async () => {
     const geometry = await page.evaluate(async () => {

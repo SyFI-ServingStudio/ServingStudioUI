@@ -1,4 +1,4 @@
-import { openRealRun, scopeToPool, scopeToWorker } from './helpers';
+import { expectRenderedCharts, openRealRun, scopeToPool, scopeToWorker } from './helpers';
 import { expect, test } from './quality.fixture';
 
 test('loads the real analyzer folder and drills through a composite worker identity', async ({
@@ -9,6 +9,7 @@ test('loads the real analyzer folder and drills through a composite worker ident
   await expect(page.getByRole('heading', { name: 'Simulation overview', level: 2 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Trace overview', level: 2 })).toBeVisible();
   await expect(page.getByText('Trace distribution not generated', { exact: true })).toBeVisible();
+  await expectRenderedCharts(page);
 
   const poolButton = page.getByRole('button', { name: 'Scope to pool attn' });
   await poolButton.focus();
