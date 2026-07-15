@@ -58,12 +58,14 @@ export class HttpAnalyzerTransportError extends Error {
 export class HttpJsonClient {
   readonly apiBaseUrl: URL;
   private readonly cache = new Map<string, CachedJson>();
+  private readonly fetchImpl: AnalyzerFetch;
 
-  constructor(
-    apiBaseUrl: string | URL,
-    private readonly fetchImpl: AnalyzerFetch = fetch,
-  ) {
+  constructor(apiBaseUrl: string | URL, fetchImpl?: AnalyzerFetch) {
     this.apiBaseUrl = directoryUrl(apiBaseUrl);
+    // Browser fetch performs a receiver brand check. Keeping the bare
+    // `window.fetch` as a class field and later invoking `this.fetchImpl(...)`
+    // would bind `this` to HttpJsonClient and throw "Illegal invocation".
+    this.fetchImpl = fetchImpl ?? globalThis.fetch.bind(globalThis);
     const browserOrigin = new URL(browserBaseUrl()).origin;
     if (this.apiBaseUrl.origin !== browserOrigin) {
       throw new Error(
