@@ -185,6 +185,21 @@ simulation 完成，因为 launcher 在它之后才运行 analyzer；旧 schema 
 `lifecycle.analysis` 为 `complete` 时 `analysis` 必须存在；每次重新生成 artifact 都必须
 发布新的 `revision`，即使 href 和 subject `schema_version` 没有变化。
 
+HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览器直接读取两个
+任意 raw 路径：
+
+```json
+{
+  "schema_version": 1,
+  "params": { "deployment": "afd" },
+  "run_meta": { "num_gpus": 48, "workers": [] }
+}
+```
+
+`params` 与 `run_meta` 保留 simulator 写出的原始 JSON，repository 解开 envelope 后继续
+调用与静态 artifact 相同的 `parseAnalyzerV1Topology`。这样 topology resource 可以独立
+版本化，同时不会产生第二套 deployment/worker 语义。
+
 ### 4.3 href 与错误边界
 
 - JSON/trace href 必须是同源相对引用，按包含它的 catalog/descriptor URL 解析。
@@ -241,6 +256,11 @@ interface AnalyzerRepository {
 `getRunSummary` 与 `getRunTopology` 是有界、typed artifact read；它们不能返回组件用的整页 `Run` view-model。application 层负责把 descriptor、typed reads、各 subject 的 `SubjectResult` 和当前确实需要的 worker cost tree 组装为兼容视图。这样 HTTP repository 不会被迫 eager 返回所有 subject、worker tree 或 iteration 数据，且 unavailable/failed/incompatible 状态不会在组装前丢失。
 
 active-run provider 自己拥有 run catalog bootstrap、默认目录选择、加载和错误状态。Zustand 只保存可空的 `runId` 与本地钻取选择，不能保存 fetched `Run` 对象，也不能通过反向解析序列化 worker key 恢复领域身份。
+
+`lifecycle.simulation` 未完成或失败时，summary/topology core 尚不可用；
+`lifecycle.analysis` pending/failed 不得遮住一个已经完成 simulation 的 core 页面。后者
+只决定各 subject 的 pending/failed 状态及 descriptor 轮询，某个 subject ready 后按它的
+schema version 与 `analysis.revision` 建立独立 query。
 
 `ArtifactAnalyzerRepository` 和 `HttpAnalyzerRepository` 必须复用同一组
 subject-specific decoders。前者验证静态 export；后者只增加 fetch、ETag、polling 和
