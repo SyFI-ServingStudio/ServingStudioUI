@@ -17,6 +17,7 @@ npm run dev -- --host 0.0.0.0 --port 5177
 ```bash
 cd app
 npm run typecheck
+npm run test:unit
 npm run build
 ```
 

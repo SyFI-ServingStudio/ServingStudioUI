@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,10 +27,16 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^3.2.6",
+    "jsdom": "^25.0.1",
     "typescript": "^5.5.4",
-    "vite": "^5.3.3"
+    "vite": "^5.3.3",
+    "vitest": "^3.2.6"
   }
 }
