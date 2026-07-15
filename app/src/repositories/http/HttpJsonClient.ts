@@ -14,6 +14,12 @@ interface ProblemDetails {
   title?: unknown;
 }
 
+const MAX_CONCURRENT_JSON_REQUESTS = 4;
+const MAX_ARTIFACT_BUSY_RETRIES = 2;
+const MAX_RETRY_AFTER_MS = 5_000;
+const IMF_FIXDATE_PATTERN =
+  /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -39,6 +45,71 @@ function parseProblem(input: unknown): ProblemDetails | undefined {
   return input as ProblemDetails;
 }
 
+function parseRetryAfterMs(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  const retryAfter = value.trim();
+  if (retryAfter === '') return undefined;
+
+  let delayMs: number;
+  if (/^\d+$/.test(retryAfter)) {
+    const seconds = Number(retryAfter);
+    if (!Number.isSafeInteger(seconds)) return undefined;
+    delayMs = seconds * 1_000;
+  } else {
+    if (!IMF_FIXDATE_PATTERN.test(retryAfter)) return undefined;
+    const retryAt = Date.parse(retryAfter);
+    if (!Number.isFinite(retryAt) || new Date(retryAt).toUTCString() !== retryAfter) {
+      return undefined;
+    }
+    delayMs = Math.max(0, retryAt - Date.now());
+  }
+
+  // Do not turn a bounded UI read into an arbitrarily long background wait,
+  // and never clamp downward because that would retry before the server asked.
+  return delayMs <= MAX_RETRY_AFTER_MS ? delayMs : undefined;
+}
+
+function wait(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+/** Client-local admission keeps one UI repository from racing the Analyzer's
+ * four fail-fast artifact permits. A retry is deliberately enqueued as a new
+ * operation, so it cannot retain a permit while honoring Retry-After. */
+class FifoRequestScheduler {
+  private activeRequests = 0;
+  private readonly pendingStarts: Array<() => void> = [];
+
+  constructor(private readonly maxConcurrentRequests: number) {}
+
+  run<T>(operation: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      this.pendingStarts.push(() => {
+        this.activeRequests += 1;
+        let result: Promise<T>;
+        try {
+          result = operation();
+        } catch (error) {
+          result = Promise.reject(error);
+        }
+        void result.then(resolve, reject).finally(() => {
+          this.activeRequests -= 1;
+          this.startPendingRequests();
+        });
+      });
+      this.startPendingRequests();
+    });
+  }
+
+  private startPendingRequests(): void {
+    while (this.activeRequests < this.maxConcurrentRequests && this.pendingStarts.length > 0) {
+      this.pendingStarts.shift()?.();
+    }
+  }
+}
+
 /** Transport failures retain a stable service code so subject queries can fail
  * locally without parsing user-facing prose. */
 export class HttpAnalyzerTransportError extends Error {
@@ -47,6 +118,7 @@ export class HttpAnalyzerTransportError extends Error {
     readonly status: number | undefined,
     message: string,
     readonly cause?: unknown,
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = 'HttpAnalyzerTransportError';
@@ -59,6 +131,7 @@ export class HttpJsonClient {
   readonly apiBaseUrl: URL;
   private readonly cache = new Map<string, CachedJson>();
   private readonly fetchImpl: AnalyzerFetch;
+  private readonly requestScheduler = new FifoRequestScheduler(MAX_CONCURRENT_JSON_REQUESTS);
 
   constructor(apiBaseUrl: string | URL, fetchImpl?: AnalyzerFetch) {
     this.apiBaseUrl = directoryUrl(apiBaseUrl);
@@ -86,6 +159,26 @@ export class HttpJsonClient {
 
   async readJson(url: URL): Promise<unknown> {
     const address = this.assertApiUrl(url).href;
+
+    for (let retries = 0; ; retries += 1) {
+      try {
+        return await this.requestScheduler.run(() => this.readJsonAttempt(address));
+      } catch (error) {
+        if (
+          !(error instanceof HttpAnalyzerTransportError) ||
+          error.status !== 503 ||
+          error.code !== 'artifact_read_busy' ||
+          error.retryAfterMs === undefined ||
+          retries >= MAX_ARTIFACT_BUSY_RETRIES
+        ) {
+          throw error;
+        }
+        await wait(error.retryAfterMs);
+      }
+    }
+  }
+
+  private async readJsonAttempt(address: string): Promise<unknown> {
     const cached = this.cache.get(address);
     const headers = new Headers({ Accept: 'application/json' });
     if (cached?.etag !== undefined) headers.set('If-None-Match', cached.etag);
@@ -160,6 +253,8 @@ export class HttpJsonClient {
       code,
       response.status,
       `Analyzer request ${address} failed: ${detail}`,
+      undefined,
+      parseRetryAfterMs(response.headers.get('Retry-After')),
     );
   }
 }

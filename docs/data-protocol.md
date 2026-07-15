@@ -226,6 +226,18 @@ HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览�
 - ready resource 返回 404/损坏时，服务使用 RFC 9457 Problem Details 加稳定 `code`
   （如 `artifact_missing`、`artifact_incompatible`）。可选 subject 映射为其自己的
   failed/incompatible 状态；summary/topology 失败才阻止基础 run 页面。
+- Analyzer artifact I/O 共用四许可、饱和即失败的 service semaphore。一个
+  `HttpAnalyzerRepository` 必须让其共享的 HTTP JSON client 以 FIFO 调度所有 JSON
+  请求，正在 fetch/消费 response 的请求不得超过 4 个；正常返回、transport 异常和
+  decoder 异常都必须释放客户端许可。这个限制是单 client 的背压边界，不能替代服务端
+  对其他 client 和 trace stream 的全局限制。
+- 只有 `503`、Problem Details `code = artifact_read_busy` 且带有效 `Retry-After` 的响应
+  可以由 HTTP JSON client 重试。client 按 delta-seconds 或 IMF-fixdate HTTP-date 等待，每次等待时
+  不占用并发许可，之后从 FIFO 队尾重新进入；最多额外尝试 2 次（总计 3 次），且只接受
+  最长 5 秒的建议等待。缺失、无效或更长的 `Retry-After` 直接保留原 transport error，
+  不能为了本地上限而提前请求。其他 network/HTTP/JSON 错误不在该层重试。
+- 每次实际尝试都从最新 cache 重建 `If-None-Match`；FIFO 和 busy retry 不得绕过既有的
+  同源/API-root 校验、ETag/304 复用或 subject-local error mapping。
 
 ## 5. 状态模型
 
@@ -298,6 +310,10 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
   `WorkerRef`。
 - catalog/descriptor 的 pending 生命周期使用 conditional polling；run 切换后旧请求的
   晚返回只能进入旧 query key，不能覆盖当前 selection。
+- 当前有界 aggregate JSON 读取尚不扩张 repository API 来贯穿 `AbortSignal`；这不阻塞
+  现有有限 subject 集合。启用高基数 detail/window endpoint 前，HTTP scheduler 必须支持
+  从 FIFO 中移除已取消的等待项，并中止对应的 in-flight fetch，避免 run 切换后继续消耗
+  artifact 许可。
 
 ## 8. 当前缺失的数据源
 
