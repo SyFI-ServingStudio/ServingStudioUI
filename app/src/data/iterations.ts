@@ -147,12 +147,11 @@ function cloneScaled(node: CostNode, factor: (leafNode: LeafNode) => number): Ra
       );
     }
     case 'max': {
-      const [first, second, ...rest] = node.children;
+      const [first, ...rest] = node.children;
       return max(
         node.label,
         node.overlap,
         cloneScaled(first, factor),
-        cloneScaled(second, factor),
         ...rest.map((child) => cloneScaled(child, factor)),
       );
     }

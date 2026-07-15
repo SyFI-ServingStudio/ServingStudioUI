@@ -48,6 +48,13 @@ function requireString(value: unknown, path: string, allowEmpty = true): string 
   return value;
 }
 
+function requireUint32(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
+    invalidCostTree(path, 'expected an unsigned 32-bit integer');
+  }
+  return value;
+}
+
 function finiteOperation(value: number, path: string): number {
   if (!Number.isFinite(value)) invalidCostTree(path, 'derived numeric value overflowed');
   return value;
@@ -98,18 +105,22 @@ export function max(
   label: string | undefined,
   overlap: number,
   first: RawCostNode,
-  second: RawCostNode,
   ...rest: RawCostNode[]
 ): RawMaxNode {
-  const validatedOverlap = requireFiniteNonNegative(overlap, 'max.overlap');
-  if (validatedOverlap > 1) {
-    invalidCostTree('max.overlap', 'expected a value in [0,1]');
+  if (!Number.isFinite(overlap)) {
+    invalidCostTree('max.overlap', 'expected a finite overlap number');
   }
-  const children: [RawCostNode, RawCostNode, ...RawCostNode[]] = [first, second, ...rest];
+  if (overlap !== 1) {
+    invalidCostTree(
+      'max.overlap',
+      'incompatible overlap: UI CostTree v1 supports only overlap = 1',
+    );
+  }
+  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
   return Object.freeze({
     kind: 'max',
     ...(label === undefined ? {} : { label }),
-    overlap: validatedOverlap,
+    overlap: 1,
     children: Object.freeze(children),
   });
 }
@@ -119,7 +130,7 @@ export function scale(label: string | undefined, n: number, child: RawCostNode):
   return Object.freeze({
     kind: 'scale',
     ...(label === undefined ? {} : { label }),
-    n: requireFiniteNonNegative(n, 'scale.n'),
+    n: requireUint32(n, 'scale.n'),
     children: Object.freeze(children),
   });
 }
@@ -178,12 +189,9 @@ function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, nu
         (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
         firstCost,
       );
-      const summed = childCosts.reduce((total, childCost) => addFinite(total, childCost, path), 0);
-      nodeCost = addFinite(
-        multiplyFinite(maximum, node.overlap, path),
-        multiplyFinite(summed, 1 - node.overlap, path),
-        path,
-      );
+      // Protocol v1 accepts only overlap=1, so Max is the pure critical-path
+      // maximum. Future overlap algebra needs its own versioned decoder.
+      nodeCost = maximum;
       break;
     }
     case 'scale':
@@ -248,12 +256,11 @@ function annotateNode(
       });
     }
     case 'max': {
-      const [first, second, ...rest] = node.children;
-      const children: [CostNode, CostNode, ...CostNode[]] = [
+      const [first, ...rest] = node.children;
+      const children: [CostNode, ...CostNode[]] = [
         annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
-        annotateNode(second, depth + 1, totalMs, costs, nextId, `${path}.children.1`),
         ...rest.map((child, index) =>
-          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 2}`),
+          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 1}`),
         ),
       ];
       return Object.freeze({

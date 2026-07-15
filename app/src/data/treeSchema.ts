@@ -15,6 +15,23 @@ const finiteNonNegativeSchema = z
   })
   .finite('expected a finite non-negative number')
   .nonnegative('expected a finite non-negative number');
+const v1OverlapSchema = z
+  .number({
+    invalid_type_error: 'expected a finite overlap number',
+    required_error: 'expected a finite overlap number',
+  })
+  .finite('expected a finite overlap number')
+  .refine((overlap): overlap is 1 => overlap === 1, {
+    message: 'incompatible overlap: UI CostTree v1 supports only overlap = 1',
+  });
+const uint32Schema = z
+  .number({
+    invalid_type_error: 'expected an unsigned 32-bit integer',
+    required_error: 'expected an unsigned 32-bit integer',
+  })
+  .int('expected an unsigned 32-bit integer')
+  .min(0, 'expected an unsigned 32-bit integer')
+  .max(0xffff_ffff, 'expected an unsigned 32-bit integer');
 const nonEmptyStringSchema = z.string().min(1, 'expected a non-empty string');
 const slotSchema = z
   .object({
@@ -42,15 +59,15 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('max'),
         label: z.string().optional(),
-        overlap: finiteNonNegativeSchema.max(1, 'expected a value in [0, 1]'),
-        children: z.array(parsedRawCostNodeSchema).min(2, 'max requires at least two children'),
+        overlap: v1OverlapSchema,
+        children: z.array(parsedRawCostNodeSchema).min(1, 'max requires at least one child'),
       })
       .strict(),
     z
       .object({
         kind: z.literal('scale'),
         label: z.string().optional(),
-        n: finiteNonNegativeSchema,
+        n: uint32Schema,
         children: z.array(parsedRawCostNodeSchema).length(1, 'scale requires exactly one child'),
       })
       .strict(),
@@ -101,19 +118,16 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       });
     }
     case 'max': {
-      const [first, second, ...rest] = parsed.children;
-      if (first === undefined || second === undefined) {
-        invalidCostTree('$.children', 'validated Max has fewer than two children');
-      }
-      const children: [RawCostNode, RawCostNode, ...RawCostNode[]] = [
+      const [first, ...rest] = parsed.children;
+      if (first === undefined) invalidCostTree('$.children', 'validated Max has no child');
+      const children: [RawCostNode, ...RawCostNode[]] = [
         immutableRawNode(first),
-        immutableRawNode(second),
         ...rest.map(immutableRawNode),
       ];
       return Object.freeze({
         kind: 'max',
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
-        overlap: parsed.overlap,
+        overlap: 1,
         children: Object.freeze(children),
       });
     }

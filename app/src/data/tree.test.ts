@@ -21,27 +21,27 @@ describe('CostTree annotation', () => {
         leaf('root.a', 'single_gemm', '{}', 2),
         max(
           'parallel',
-          0.5,
+          1,
           leaf('root.b', 'all_reduce', '{}', 3),
           scale('layers', 2, leaf('root.c', 'rms_norm', '{}', 1)),
         ),
       ),
     );
 
-    expect(tree).toMatchObject({ kind: 'sum', id: 0, depth: 0, ms: 6, pct: 100, totalMs: 6 });
+    expect(tree).toMatchObject({ kind: 'sum', id: 0, depth: 0, ms: 5, pct: 100, totalMs: 5 });
     if (tree.kind !== 'sum') throw new Error('Expected the test root to be Sum.');
     const [leafA, parallel] = tree.children;
     expect(leafA).toMatchObject({ kind: 'leaf', id: 1, depth: 1, ms: 2 });
-    expect(leafA.pct).toBeCloseTo(100 / 3);
-    expect(parallel).toMatchObject({ kind: 'max', id: 2, depth: 1, ms: 4 });
-    expect(parallel.pct).toBeCloseTo(200 / 3);
+    expect(leafA.pct).toBeCloseTo(40);
+    expect(parallel).toMatchObject({ kind: 'max', id: 2, depth: 1, ms: 3 });
+    expect(parallel.pct).toBeCloseTo(60);
     if (parallel.kind !== 'max') throw new Error('Expected the second child to be Max.');
     expect(parallel.children[0]).toMatchObject({ kind: 'leaf', id: 3, depth: 2, ms: 3 });
     const repeated = parallel.children[1];
     expect(repeated).toMatchObject({ kind: 'scale', id: 4, depth: 2, ms: 2 });
     if (repeated.kind !== 'scale') throw new Error('Expected the second Max branch to be Scale.');
     expect(repeated.children[0]).toMatchObject({ kind: 'leaf', id: 5, depth: 3, ms: 1 });
-    expect(repeated.children[0].pct).toBeCloseTo(100 / 6);
+    expect(repeated.children[0].pct).toBeCloseTo(20);
     [tree, ...tree.children, ...parallel.children, repeated.children[0]].forEach((node) => {
       expect(Number.isFinite(node.ms)).toBe(true);
       expect(Number.isFinite(node.pct)).toBe(true);
@@ -116,10 +116,7 @@ describe('CostTree malformed boundaries', () => {
 
   it.each([
     [{ kind: 'sum', children: [] }, 'sum requires at least one child'],
-    [
-      { kind: 'max', overlap: 1, children: [{ kind: 'leaf', slot, base: 1 }] },
-      'max requires at least two children',
-    ],
+    [{ kind: 'max', overlap: 1, children: [] }, 'max requires at least one child'],
     [{ kind: 'scale', n: 2, children: [] }, 'scale requires exactly one child'],
     [
       {
@@ -144,7 +141,7 @@ describe('CostTree malformed boundaries', () => {
           { kind: 'leaf', slot: { ...slot, name: 'b' }, base: 1 },
         ],
       },
-      'value in [0, 1]',
+      'incompatible overlap',
     ],
     [
       {
@@ -152,7 +149,15 @@ describe('CostTree malformed boundaries', () => {
         n: Number.POSITIVE_INFINITY,
         children: [{ kind: 'leaf', slot, base: 1 }],
       },
-      'finite non-negative',
+      'unsigned 32-bit integer',
+    ],
+    [
+      { kind: 'scale', n: 1.5, children: [{ kind: 'leaf', slot, base: 1 }] },
+      'unsigned 32-bit integer',
+    ],
+    [
+      { kind: 'scale', n: 0x1_0000_0000, children: [{ kind: 'leaf', slot, base: 1 }] },
+      'unsigned 32-bit integer',
     ],
   ])('rejects malformed shape %#', (raw, message) => {
     expect(() => annotate(raw)).toThrow(CostTreeValidationError);
@@ -171,15 +176,30 @@ describe('CostTree malformed boundaries', () => {
     ).toThrow(/derived numeric value overflowed/);
   });
 
-  it('rejects out-of-range overlap at the authoring boundary', () => {
-    expect(() =>
-      max(
-        'invalid overlap',
-        1.01,
-        leaf('a', 'single_gemm', '{}', 1),
-        leaf('b', 'single_gemm', '{}', 1),
-      ),
-    ).toThrow(/value in \[0,1\]/);
+  it.each([0, 0.5, 1.01])(
+    'rejects unsupported overlap=%s as incompatible at the authoring boundary',
+    (overlap) => {
+      expect(() =>
+        max(
+          'unsupported overlap',
+          overlap,
+          leaf('a', 'single_gemm', '{}', 1),
+          leaf('b', 'single_gemm', '{}', 1),
+        ),
+      ).toThrow(/incompatible overlap: UI CostTree v1 supports only overlap = 1/);
+    },
+  );
+
+  it('accepts a single-child Max emitted by a one-group fan-out', () => {
+    const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', '{}', 3)));
+
+    expect(tree).toMatchObject({ kind: 'max', ms: 3, totalMs: 3 });
+  });
+
+  it.each([1.5, 0x1_0000_0000])('rejects non-u32 scale count %s at the authoring boundary', (n) => {
+    expect(() => scale('invalid repeat', n, leaf('a', 'single_gemm', '{}', 1))).toThrow(
+      /unsigned 32-bit integer/,
+    );
   });
 
   it('rejects cyclic raw nodes before recursive schema parsing', () => {
