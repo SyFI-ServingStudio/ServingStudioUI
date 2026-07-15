@@ -136,7 +136,7 @@ export function makeTestSubjectResults(): SubjectResults {
   };
   const kv: KvSeries = {
     t_ms: [0],
-    series: [{ label: 'attn/0', poolTag: 'attn', capacity: 100, active: [20] }],
+    series: [{ key: 'attn/g0', label: 'attn/0', poolTag: 'attn', capacity: 100, active: [20] }],
   };
   const kernelTimeShare: KernelTimeShare = {
     overall: {

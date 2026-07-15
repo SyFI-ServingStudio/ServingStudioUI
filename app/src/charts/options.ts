@@ -196,14 +196,15 @@ export function utilizationOption(
 
 export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): EChartsOption {
   const x = kv.t_ms.map((v) => +(v / 1000).toFixed(1));
+  const percentMode = kv.series.every((series) => series.capacity !== null);
   const opt = base(t);
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
     yAxis: {
       ...(opt.yAxis as object),
-      max: 100,
-      name: 'KV %',
+      ...(percentMode ? { max: 100 } : {}),
+      name: percentMode ? 'KV %' : 'KV tokens',
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
     series: [
@@ -212,7 +213,10 @@ export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): ECharts
         type: 'line' as const,
         smooth: true,
         symbol: 'none',
-        data: s.active.map((v, j) => [x[j], +((v / s.capacity) * 100).toFixed(1)]),
+        data: s.active.map((v, j) => [
+          x[j],
+          percentMode && s.capacity !== null ? +((v / s.capacity) * 100).toFixed(1) : v,
+        ]),
         lineStyle: { width: 2.2, color: t.palette[(i + 2) % t.palette.length] },
         areaStyle: { opacity: 0.16, color: t.palette[(i + 2) % t.palette.length] },
       })),

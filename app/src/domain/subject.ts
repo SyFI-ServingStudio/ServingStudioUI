@@ -1,3 +1,4 @@
+import type { KernelThroughput } from './kernelThroughput';
 import type { KernelTimeShare } from './kernelTimeShare';
 import type {
   BatchSubject,
@@ -41,7 +42,7 @@ export interface SubjectPayloadByName {
   concurrency: Concurrency;
   backpressure: PendingQueue;
   batch: BatchSubject;
-  kernelThroughput: unknown;
+  kernelThroughput: KernelThroughput;
   conservation: Conservation;
   kernelInputDistribution: unknown;
   kernelTimeShare: KernelTimeShare;

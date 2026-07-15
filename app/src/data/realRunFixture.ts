@@ -605,6 +605,7 @@ function adaptKv(): KvSeries {
     series: rawKv.series.map((series) => ({
       active: [...series.active.mean],
       capacity: series.capacity_tokens,
+      key: series.key,
       label: series.label,
       poolTag: series.pool_tag,
     })),

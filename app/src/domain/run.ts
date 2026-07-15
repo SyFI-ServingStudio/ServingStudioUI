@@ -29,7 +29,14 @@ export interface UtilSeries {
 }
 export interface KvSeries {
   t_ms: number[];
-  series: { label: string; poolTag?: string; capacity: number; active: number[] }[];
+  series: {
+    key: string;
+    label: string;
+    poolTag?: string;
+    /** Older analyzer runs may retain raw KV tokens without a capacity snapshot. */
+    capacity: number | null;
+    active: number[];
+  }[];
 }
 export interface Concurrency {
   t_ms: number[];
@@ -112,6 +119,7 @@ export interface WorkerCfg {
   type: string;
   memGb?: number;
   mult?: number;
+  maxBatchTokens?: number;
 }
 export interface WorkerInstance {
   id: string;

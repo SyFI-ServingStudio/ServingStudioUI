@@ -69,10 +69,15 @@ export function metricView(key: MetricKey, run: Run, s: VizState): MetricView {
       note: `no KV cache on ${role ?? '—'} pool`,
       sub: role ? `pool: ${role}` : '—',
     };
+  const hasCompleteCapacity = kv.series.every((series) => series.capacity !== null);
   return {
     option: kvOption(kv, CHART_THEME, cS),
-    note: role ? `scoped to ${role} pool` : 'aggregate across pools',
-    sub: role ? `pool: ${role}` : '% of capacity',
+    note: role
+      ? `scoped to ${role} pool`
+      : hasCompleteCapacity
+        ? 'aggregate across pools'
+        : 'raw occupancy; capacity metadata unavailable',
+    sub: role ? `pool: ${role}` : hasCompleteCapacity ? '% of capacity' : 'active KV tokens',
   };
 }
 
@@ -87,7 +92,7 @@ export const METRIC_CAPTIONS: Record<MetricKey, string> = {
   slo: 'Cumulative distribution of TTFT, TPOT and end-to-end latency across all requests. Dotted markers show p90.',
   throughput: 'Prefill and decode tokens per second, stacked — warmup ramp then steady state.',
   utilization: 'Per-pool GPU busy fraction over the run window.',
-  kv: 'Active KV-cache tokens as a percentage of pool capacity over time.',
+  kv: 'Active KV-cache tokens over time; shown as capacity percentage when metadata is available.',
   backpressure:
     'Pending scheduler-queue length over wall-clock time. Cluster and pool totals are stacked from their worker queues; the outline is the exact pointwise sum.',
 };
