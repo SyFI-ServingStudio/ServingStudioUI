@@ -30,8 +30,25 @@ Known protocol limitation: Artifact and HTTP repositories intentionally return a
 
 ## Review
 
-<!-- main agent -->
+Independent review found and fixed two protocol-level blockers before merge:
+
+- The first implementation treated `Max.overlap` as a `[0,1]` blend. Current
+  CostTree v1 now accepts only the production value `1`, computes a pure
+  critical-path maximum, and reports any other value as incompatible. `Scale.n`
+  also matches the Rust `u32` wire type and a one-child fan-out remains valid.
+- Worker evidence no longer collapses valid zero data and the distinct
+  `unavailable`, `not_generated`, `failed`, and `incompatible` states into one
+  retryable error. Only transient failures use `role=alert` and expose retry.
+
+The merged series passed Prettier, TypeScript, ESLint, 21 test files / 192 tests,
+the production build, `git diff --check`, and both size limits (381.99 kB gzip
+initial; 502.35 kB gzip across all chunks). No unsafe CostTree assertions or
+optional-child fallbacks remain in production code.
 
 ## Feedback
 
-<!-- main agent -->
+The aggregate kernel composition is intentionally a labelled run-level
+projection, not hierarchical worker detail. When the analyzer eventually marks
+`worker-cost-tree` ready, add its independently versioned decoder and endpoint
+to both Artifact and HTTP repositories; until then the explicit `incompatible`
+state is the correct boundary and must not silently fall back to aggregate data.
