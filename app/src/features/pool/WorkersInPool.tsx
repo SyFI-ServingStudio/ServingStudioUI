@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
-import { useViz } from '../store';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { tokens } from '../theme';
+import { useViz } from '../../store';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import { tokens } from '../../theme';
 
 /** Compact drill affordance at pool scope: the pool's workers, click to descend. */
 export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?: string }) {

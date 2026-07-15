@@ -7,13 +7,12 @@ import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
 import type { Deployment } from './domain/deployment';
 import RunSwitcher from './components/RunSwitcher';
-import ScopeBreadcrumbs from './components/ScopeBreadcrumbs';
 import { KpiStatline, RunOverviewRow } from './features/run-overview';
-import { SystemMapBand } from './features/system-map';
+import { ScopeBreadcrumbs, SystemMapBand } from './features/system-map';
 import { IterationBand, TimelineBand } from './features/timeline';
 import { PerfettoTrace } from './features/trace';
-import ClusterStage from './components/stages/ClusterStage';
-import PoolStage from './components/stages/PoolStage';
+import { ClusterStage } from './features/cluster';
+import { PoolStage } from './features/pool';
 import FocusDialog from './components/FocusDialog';
 
 // Worker, kernel, and parallel scopes share the cost-tree/Motion feature. Keep

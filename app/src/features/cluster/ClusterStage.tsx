@@ -4,9 +4,9 @@ import { useViz } from '../../store';
 import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
-import ChartCard from '../ChartCard';
-import ConservationCard from '../ConservationCard';
-import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
+import ChartCard from '../../components/ChartCard';
+import KernelTimeBreakdownCard from '../../components/KernelTimeBreakdownCard';
+import ConservationCard from './ConservationCard';
 
 /** Whole-deployment outcome: SLO + throughput, scheduler backpressure,
  *  per-pool GPU utilization, kernel-time breakdown, and conservation. */

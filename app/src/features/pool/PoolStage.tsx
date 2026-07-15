@@ -6,9 +6,9 @@ import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunPr
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { batchOption, CHART_THEME } from '../../charts/options';
-import ChartCard from '../ChartCard';
-import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
-import WorkersInPool from '../WorkersInPool';
+import ChartCard from '../../components/ChartCard';
+import KernelTimeBreakdownCard from '../../components/KernelTimeBreakdownCard';
+import WorkersInPool from './WorkersInPool';
 
 /** Pool-level resource behaviour: utilization, KV, queue/batch, kernel mix, then drill. */
 export default function PoolStage() {

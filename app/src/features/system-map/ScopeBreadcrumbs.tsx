@@ -1,11 +1,11 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
-import { useViz } from '../store';
-import { currentWorker, projectWorkerTree } from '../application/runSelection';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { useActiveWorkerTreeState } from '../application/WorkerTreeProvider';
-import { leafById, nodeById } from '../data/tree';
-import { tokens } from '../theme';
-import { shortName } from '../util';
+import { useViz } from '../../store';
+import { currentWorker, projectWorkerTree } from '../../application/runSelection';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
+import { leafById, nodeById } from '../../data/tree';
+import { tokens } from '../../theme';
+import { shortName } from '../../util';
 
 interface Crumb {
   g: string;

@@ -1,7 +1,7 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { fmtInt } from '../util';
-import { tokens } from '../theme';
-import type { Conservation, CheckStatus } from '../domain/run';
+import { fmtInt } from '../../util';
+import { tokens } from '../../theme';
+import type { Conservation, CheckStatus } from '../../domain/run';
 
 const STY: Record<CheckStatus, { color: string; bg: string; label: string }> = {
   ok: { color: tokens.teal, bg: 'rgba(31,111,107,.10)', label: 'OK' },
