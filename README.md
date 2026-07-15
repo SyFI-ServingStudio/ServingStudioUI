@@ -23,11 +23,15 @@ npm run lint
 npm run test:unit
 npm run test:e2e
 npm run build
+npm run size:check
 ```
 
 `test:e2e` 会自动启动或复用 5177 端口的开发服务，并在 desktop 与 390 px
 Chromium 中执行导航、响应式、console/page error 和 axe 检查；只重跑无障碍门槛可用
 `npm run test:a11y`。失败产物写入 `.artifacts/playwright-test/`。
+
+`size:check` 检查已有 `dist/`；需要从干净源码构建并检查时运行 `npm run size`。
+当前预算同时约束入口 JavaScript 与所有 chunks 的 gzip 总量，避免 code splitting 仅把体积移出入口。
 
 ## 目录
 

@@ -34,7 +34,7 @@
 - [x] 增加 axe 可访问性检查
 - [ ] 增加 GitHub Actions：typecheck、lint、unit、build、browser smoke
 - [x] 按需注册 ECharts 图表能力，避免默认入口引入完整运行时
-- [ ] 加入 bundle size 检查
+- [x] 用 Size Limit 同时约束初始入口和全部 JavaScript chunks 的 gzip 体积
 
 验收标准：本地和 CI 有同一套可重复命令；核心用户路径、移动端布局和基础无障碍均受自动测试保护。
 
@@ -87,7 +87,8 @@
 ## 已验证的已知问题
 
 - ECharts 按需注册后 production bundle 约 1.46 MB / 468 KB gzip；后续仍需把真实
-  fixture 与 worker/Motion 按数据、交互边界拆分，并用自动 size gate 防止回退。
+  fixture 与 worker/Motion 按数据、交互边界拆分；Size Limit 当前约束入口 ≤500 kB、
+  全部 JS chunks ≤590 kB（gzip）。
 - desktop 冷启动、390 px 冷启动及 desktop→390 px 实时缩放均已由 Playwright
   overflow 回归保护；检查会等待 ResizeObserver/ECharts 重排稳定后再判定。
 - npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。

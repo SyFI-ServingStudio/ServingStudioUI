@@ -15,6 +15,7 @@ npm run test:unit
 npm run test:coverage
 npm run test:e2e
 npm run build
+npm run size:check
 ```
 
 Vitest 测试锁定 analyzer descriptor、active-run 装配和 Provider 生命周期。测试使用独立 QueryClient 与 test repository，不读取生产 fixture，也不依赖 GPU。
@@ -23,6 +24,9 @@ Playwright 会自动启动或复用 5177 端口的开发服务，并在 1440×90
 Chromium 中覆盖核心导航、实时响应式重排、浏览器 console/page error 和 axe WCAG
 A/AA 门槛。`npm run test:a11y` 可只运行无障碍检查；失败 trace、截图、视频和报告写入
 `../.artifacts/playwright-test/`。
+
+`npm run size:check` 对已有 `dist/` 执行 Size Limit；`npm run size` 会先生产构建再检查。
+预算分别约束初始入口和全部 JavaScript chunks 的 gzip 总量。
 
 ## 数据接入原则
 
