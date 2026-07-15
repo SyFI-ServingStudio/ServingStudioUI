@@ -134,6 +134,15 @@ describe('parseAnalyzerV1RunDescriptor', () => {
     expect(Object.keys(descriptor.traces)).toEqual([' perfetto ']);
   });
 
+  it('rejects numeric worker identities that JavaScript cannot represent exactly', () => {
+    const wire = validWireDescriptor();
+    wire.workers = [{ pool_tag: 'attn', worker_id: Number.MAX_SAFE_INTEGER + 1 }];
+
+    expect(() => parseAnalyzerV1RunDescriptor(wire)).toThrow(
+      /workers\.0\.worker_id: Number must be less than or equal to 9007199254740991/,
+    );
+  });
+
   it('reports the precise path when a required deployment field is missing', () => {
     const wire = validWireDescriptor();
     delete wire.deployment;

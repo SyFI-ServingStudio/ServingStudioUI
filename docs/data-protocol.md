@@ -52,7 +52,7 @@ export interface WorkerRef {
 export type WorkerKey = string & { readonly __workerKey: unique symbol };
 ```
 
-wire JSON 中的数值 `worker_id` 由 repository 统一规范化为字符串；组件不同时处理两种 id 类型。任何按 `worker_id` 单独建 map 或聚合的实现都可能混淆 AFD 的 attention/FFN worker。UI 路由、query key、选择状态和图表 series id 均应使用统一 helper 生成的复合键。
+wire JSON 中的数值 `worker_id` 必须是 JavaScript safe integer，并由 repository 统一规范化为字符串；组件不同时处理两种 id 类型。超出 safe-integer 范围的身份必须由 analyzer 直接编码为十进制字符串，不能先经 JSON number 丢失精度。任何按 `worker_id` 单独建 map 或聚合的实现都可能混淆 AFD 的 attention/FFN worker。UI 路由、query key、选择状态和图表 series id 均应使用统一 helper 生成的复合键。
 
 字符串形式的 `pool_tag`、`worker_id`、run id 和 resource key 是身份字段，decoder
 不得 trim 或改写；只有数值 `worker_id` 被精确转换为十进制字符串。展示文本可以单独

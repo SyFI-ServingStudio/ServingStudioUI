@@ -164,7 +164,7 @@ const provenanceSchema = z
 const workerRefSchema = z
   .object({
     pool_tag: opaqueIdentityString,
-    worker_id: z.union([opaqueIdentityString, z.number().int().nonnegative()]),
+    worker_id: z.union([opaqueIdentityString, z.number().int().nonnegative().safe()]),
   })
   .strict();
 
