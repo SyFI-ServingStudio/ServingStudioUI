@@ -88,7 +88,8 @@ export default function KernelDetail() {
             py: 0.4,
             borderRadius: 0.75,
             color,
-            background: `${color}22`,
+            border: `1px solid ${color}55`,
+            background: tokens.leafbg,
           }}
         >
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', background: color }} />

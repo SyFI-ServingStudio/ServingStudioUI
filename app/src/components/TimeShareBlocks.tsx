@@ -98,6 +98,11 @@ function Bar({
                   zIndex: selected ? 4 : 1,
                   transition: `filter .18s ${tokens.ease}`,
                   '&:hover': { filter: 'brightness(1.07) saturate(1.05)' },
+                  '&:focus-visible': {
+                    outline: `2.5px solid ${tokens.ink}`,
+                    outlineOffset: -2.5,
+                    zIndex: 5,
+                  },
                   '&:last-of-type': { borderRight: 'none' },
                 }}
               >
