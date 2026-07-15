@@ -39,8 +39,17 @@
 
 ## Review
 
-- Pending primary-agent integration review.
+- Primary integration review confirmed the assigned files no longer subscribe
+  to the whole store, action identities remain stable, and the Profiler test
+  covers both the non-render and retained pool-selection behavior. Accepted
+  without corrective code changes.
+- The type-complete memoized snapshots are intentionally transitional. Once
+  `runSelection` is touched after the CostTree merge, its helpers should accept
+  an explicit four-field selection projection instead of a full `VizState`.
 
 ## Feedback
 
-- Pending primary-agent integration feedback.
+- The isolated branch applied cleanly after chart/trace integration and stayed
+  within its declared files. A later removal of the legacy `REAL_RUNS` fixture
+  should migrate the Profiler test to the application test repository rather
+  than discard this regression coverage.
