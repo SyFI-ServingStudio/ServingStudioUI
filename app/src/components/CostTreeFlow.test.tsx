@@ -13,9 +13,9 @@ vi.mock('../application/ActiveRunProvider', () => ({
     id: 'test-run',
     capabilities: {
       kernelPerformance: true,
-      kernelInputDistribution: false,
       loadImbalance: true,
       workerIterations: false,
+      perfettoTrace: false,
     },
     workerList: [
       {

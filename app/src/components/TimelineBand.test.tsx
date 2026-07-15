@@ -6,13 +6,10 @@ import { useViz } from '../store';
 import TimelineBand from './TimelineBand';
 
 vi.mock('../application/ActiveRunProvider', () => ({
-  useActiveRunData: () => ({
-    subjects: {
-      concurrency: {
-        status: 'ready',
-        payload: { t_ms: [0, 5_000, 10_000], active: [0, 8, 2], peak: 8 },
-      },
-    },
+  useActiveRunSubject: () => ({
+    subject: 'concurrency',
+    status: 'ready',
+    payload: { t_ms: [0, 5_000, 10_000], active: [0, 8, 2], peak: 8 },
   }),
 }));
 
