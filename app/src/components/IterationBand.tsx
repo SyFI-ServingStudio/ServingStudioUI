@@ -2,7 +2,9 @@ import { useRef } from 'react';
 import { Box, IconButton, Paper, Stack, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useViz, currentWorker, iterTimeline, currentIter } from '../store';
+import { useViz } from '../store';
+import { currentWorker, iterTimeline, currentIter } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { PHASE_COLOR, type Iteration } from '../data/iterations';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
@@ -21,10 +23,11 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  *  edge) and slides SMOOTHLY via a translated buffer track. */
 export default function IterationBand() {
   const st = useViz();
-  const w = currentWorker(st);
-  const tl = iterTimeline(st);
+  const run = useActiveRun();
+  const w = currentWorker(run, st);
+  const tl = iterTimeline(run, st);
   const n = tl.iters.length;
-  const sel = currentIter(st);
+  const sel = currentIter(run, st);
   const compact = useMediaQuery('(max-width:600px)');
 
   const vis = Math.min(compact ? COMPACT_WINDOW : WIDE_WINDOW, n);

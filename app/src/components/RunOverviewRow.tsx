@@ -4,7 +4,7 @@ import EChart from './EChart';
 import { arrivalPatternOption, lengthDistributionOption } from '../charts/overviewOptions';
 import { CHART_THEME } from '../charts/options';
 import { traceOverviewFor } from '../data/runOverview';
-import { useViz, currentRun } from '../store';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
 
@@ -111,7 +111,7 @@ function Figure({ title, note, children }: { title: string; note: string; childr
 }
 
 export default function RunOverviewRow() {
-  const run = useViz(currentRun);
+  const run = useActiveRun();
   const overview = useMemo(() => {
     const param = (key: string, fallback = 'n/a') => distinct(run.workerList.map((worker) => worker.arch.params[key]), fallback);
     // traceOverviewFor is an explicitly synthetic layout fixture. Real runs

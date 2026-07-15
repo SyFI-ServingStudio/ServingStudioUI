@@ -7,7 +7,7 @@ import type { BatchSeries, Slo, Throughput, UtilSeries, KvSeries, Concurrency } 
 import type { KernelPerf, InputDist } from '../data/kernel';
 import type { Imbalance } from '../data/imbalance';
 import type { ClusterKernelBreakdown } from '../data/scopeData';
-import type { ScopedPendingQueue } from '../store';
+import type { ScopedPendingQueue } from '../application/runSelection';
 import { tokens } from '../theme';
 
 export interface ChartTheme {

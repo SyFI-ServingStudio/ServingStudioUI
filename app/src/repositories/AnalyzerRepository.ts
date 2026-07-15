@@ -1,4 +1,5 @@
-import type { RunDescriptor, RunListItem, TraceResource } from '../domain/artifacts';
+import type { RunDescriptor, RunListItem, RunSummaryArtifact, TraceResource } from '../domain/artifacts';
+import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { Iteration, IterTimeline } from '../data/iterations';
@@ -11,6 +12,10 @@ import type { CostNode } from '../data/tree';
  */
 export interface AnalyzerRepository {
   listRuns(): Promise<readonly RunListItem[]>;
+
+  getRunSummary(runId: string): Promise<RunSummaryArtifact>;
+
+  getRunTopology(runId: string): Promise<Topology>;
 
   getRunDescriptor(runId: string): Promise<RunDescriptor>;
 

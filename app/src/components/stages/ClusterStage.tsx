@@ -1,5 +1,6 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useViz, currentRun } from '../../store';
+import { useViz } from '../../store';
+import { useActiveRun } from '../../application/ActiveRunProvider';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { utilizationOption, clusterKernelStackOption, CHART_THEME } from '../../charts/options';
 import { conservationFor, clusterKernelBreakdown } from '../../data/scopeData';
@@ -11,10 +12,10 @@ import { tokens } from '../../theme';
  *  per-pool GPU utilization, kernel-time breakdown, and conservation. */
 export default function ClusterStage() {
   const st = useViz();
-  const run = currentRun(st);
-  const slo = metricView('slo', st);
-  const tp = metricView('throughput', st);
-  const backpressure = metricView('backpressure', st);
+  const run = useActiveRun();
+  const slo = metricView('slo', run, st);
+  const tp = metricView('throughput', run, st);
+  const backpressure = metricView('backpressure', run, st);
   const cons = run.payloads.conservation
     ?? (run.source.kind === 'synthetic' ? conservationFor(run) : null);
   const kbreak = clusterKernelBreakdown(run);

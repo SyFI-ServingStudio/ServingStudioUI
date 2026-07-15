@@ -1,6 +1,8 @@
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { useViz, currentWorker, workerTree } from '../store';
+import { useViz } from '../store';
+import { currentWorker, workerTree } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { leafById, kindLabel, colorOf, fmtMs, fmtPct } from '../data/tree';
 import { kernelPerf } from '../data/kernel';
 import { tokens } from '../theme';
@@ -16,9 +18,10 @@ function Item({ k, v, big, teal }: { k: string; v: string; big?: boolean; teal?:
 
 export default function KernelDetail() {
   const st = useViz();
-  const w = currentWorker(st);
+  const run = useActiveRun();
+  const w = currentWorker(run, st);
   if (st.scope !== 'kernel' || st.leafId == null) return null;
-  const node = leafById(workerTree(st), st.leafId);
+  const node = leafById(workerTree(run, st), st.leafId);
   if (!node) return null;
   const s = node.slot!;
   const color = colorOf(s.kind);
@@ -32,7 +35,7 @@ export default function KernelDetail() {
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontFamily: tokens.mono, fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', px: 1.1, py: 0.4, borderRadius: 0.75, color, background: `${color}22` }}>
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', background: color }} />{kindLabel(s.kind)}
         </Box>
-        <IconButton size="small" onClick={() => st.selectWorker(w.key)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
+        <IconButton size="small" onClick={() => st.selectWorker(w.ref)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Stack>

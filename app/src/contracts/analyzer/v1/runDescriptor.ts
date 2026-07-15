@@ -127,6 +127,8 @@ export const analyzerV1RunDescriptorSchema = z
     run_id: nonEmptyString,
     kind: z.literal('simulation'),
     display_name: nonEmptyString.optional(),
+    model_name: nonEmptyString.optional(),
+    deployment: z.enum(['unified', 'afd']),
     lifecycle: z
       .object({
         simulation: z.enum(['not_started', 'pending', 'complete', 'failed']),
@@ -221,6 +223,8 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
     runId: wire.run_id,
     kind: 'simulation',
     ...(wire.display_name === undefined ? {} : { displayName: wire.display_name }),
+    ...(wire.model_name === undefined ? {} : { modelName: wire.model_name }),
+    deployment: wire.deployment,
     lifecycle: wire.lifecycle,
     summary: toArtifactRef(wire.summary),
     ...(wire.model === undefined ? {} : { model: toArtifactRef(wire.model) }),

@@ -1,22 +1,23 @@
 import type { EChartsOption } from 'echarts';
 import { sloOption, throughputOption, utilizationOption, kvOption, pendingQueueOption, CHART_THEME } from './options';
-import { currentRun, cursorSeconds, scopedUtil, scopedKv, scopedPendingQueue, poolInScope, type VizState, type MetricKey } from '../store';
+import type { VizState, MetricKey } from '../store';
+import { cursorSeconds, scopedUtil, scopedKv, scopedPendingQueue, poolInScope } from '../application/runSelection';
+import type { Run } from '../domain/run';
 
 export interface MetricView { option: EChartsOption | null; note: string | null; sub: string; }
 
 /** Build the scoped ECharts option + sub-label + optional note for a metric.
  *  Time-axis charts get a cursor at the selected iteration (if any). */
-export function metricView(key: MetricKey, s: VizState): MetricView {
-  const run = currentRun(s);
-  const role = poolInScope(s);
+export function metricView(key: MetricKey, run: Run, s: VizState): MetricView {
+  const role = poolInScope(run, s);
   const cS = cursorSeconds(s);
   if (key === 'slo') return { option: sloOption(run.payloads.slo, CHART_THEME), note: null, sub: 'TTFT · TPOT · E2E · CDF' };
   if (key === 'throughput') return { option: throughputOption(run.payloads.throughput, CHART_THEME, cS), note: null, sub: 'prefill ∥ decode · tok/s' };
   if (key === 'utilization') {
-    return { option: utilizationOption(scopedUtil(s), CHART_THEME, cS), note: role ? `scoped to ${role} pool` : 'click a pool to scope', sub: role ? `pool: ${role}` : 'all pools' };
+    return { option: utilizationOption(scopedUtil(run, s), CHART_THEME, cS), note: role ? `scoped to ${role} pool` : 'click a pool to scope', sub: role ? `pool: ${role}` : 'all pools' };
   }
   if (key === 'backpressure') {
-    const queue = scopedPendingQueue(s);
+    const queue = scopedPendingQueue(run, s);
     if (!queue.total.length) return { option: null, note: 'no pending-queue payload for this scope', sub: 'unavailable' };
     const peak = Math.max(...queue.total);
     const mean = queue.total.reduce((sum, value) => sum + value, 0) / queue.total.length;
@@ -29,7 +30,7 @@ export function metricView(key: MetricKey, s: VizState): MetricView {
       sub: `peak ${peak} · mean ${mean.toFixed(1)}`,
     };
   }
-  const kv = scopedKv(s);
+  const kv = scopedKv(run, s);
   if (!kv.series.length) return { option: null, note: `no KV cache on ${role ?? '—'} pool`, sub: role ? `pool: ${role}` : '—' };
   return { option: kvOption(kv, CHART_THEME, cS), note: role ? `scoped to ${role} pool` : 'aggregate across pools', sub: role ? `pool: ${role}` : '% of capacity' };
 }

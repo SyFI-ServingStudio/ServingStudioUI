@@ -1,11 +1,12 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useViz, currentRun } from '../store';
+import { useViz } from '../store';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 
 /** Compact drill affordance at pool scope: the pool's workers, click to descend. */
 export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?: string }) {
   const st = useViz();
-  const run = currentRun(st);
+  const run = useActiveRun();
   const workers = run.workerList.filter((w) => w.pool === role);
 
   return (
@@ -21,7 +22,7 @@ export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?:
         {workers.map((w) => (
           <Box
             key={w.id}
-            onClick={() => st.selectWorker(w.key)}
+            onClick={() => st.selectWorker(w.ref)}
             sx={{ cursor: 'pointer', p: '10px 14px', borderRadius: 1.25, border: `1px solid ${tokens.hair}`, background: tokens.tile2, transition: `all .24s ${tokens.ease}`, '&:hover': { transform: 'translateY(-2px)', borderColor: tokens.teal, boxShadow: tokens.shadow } }}
           >
             <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 14, color: tokens.teal }}>{w.id}</Typography>

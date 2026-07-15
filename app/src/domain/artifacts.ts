@@ -9,6 +9,15 @@ export interface RunLifecycle {
   analysis: LifecycleStageStatus;
 }
 
+/** Artifact-faithful root summary fields. Latency percentiles belong to the
+ * SLO subject and are merged only in the application view-model. */
+export interface RunSummaryArtifact {
+  totalTokS: number;
+  numGpus: number;
+  requestsFinished: number;
+  requestsTotal?: number;
+}
+
 /** A bounded artifact address. Repositories, not components, resolve `href`. */
 export interface ArtifactRef {
   href: string;
@@ -99,6 +108,8 @@ export interface RunListItem {
  */
 export interface RunDescriptor extends RunListItem {
   protocolVersion: 1;
+  /** Required for a full descriptor even though catalog rows may omit it. */
+  deployment: 'unified' | 'afd';
   summary: ArtifactRef;
   model?: ArtifactRef;
   topology?: ArtifactRef;

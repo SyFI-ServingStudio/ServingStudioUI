@@ -21,7 +21,7 @@
 - [x] 用真实输出裁剪出小型、可提交的 fixtures（25 个真实 artifact + provenance，确定性生成）
 - [x] 实现 `FixtureAnalyzerRepository`
 - [x] 顶层选择器改为 repository 提供的 simulation folder；当前只展示真实重分析目录，不展示 demo 模型
-- [~] 让页面从 repository 加载，移除组件对 `fakeData` 的直接依赖（真实 fixture 已接入；其余页面仍使用 transitional assembled `Run`）
+- [x] 让页面从 repository/query 加载，删除 `fakeData`；application assembler 保留 subject 状态并构建当前兼容 `Run` 视图
 - [~] 对 unavailable、not generated、failed 和 incompatible 提供明确 UI 状态（当前真实缺失项已显式空态，通用状态组件待实现）
 
 验收标准：页面可完全由 fixture repository 驱动；畸形或版本不兼容的数据会产生可读错误，而非静默显示错误图表。
@@ -41,7 +41,7 @@
 
 - [ ] 按 feature 拆分 overview、system-map、worker、kernel 和 trace 模块
 - [ ] 将 domain、transport DTO 和 view-model 分离
-- [ ] 将 Zustand 限定为 UI/选择状态；服务端数据由 query cache 管理
+- [x] 将 Zustand 限定为 UI/选择状态；active run、catalog、descriptor 和 subject 数据由 query cache 管理
 - [ ] 将 cost tree 改为可判别联合类型，消除不安全断言
 - [ ] 收紧 store selector，避免整库订阅导致的无关重渲染
 - [ ] 统一图表主题、tooltip escaping、空态和交互语义
@@ -81,12 +81,14 @@
 7. Zustand 负责本地交互状态；异步 analyzer 数据不写入无界的全局 map。
 8. TanStack Query 负责 repository 异步状态与缓存；repository 通过 React context 注入。
 9. 顶层运行标识是 simulation folder 名；浏览器通过 repository 的 run catalog 发现目录，不直接扫描服务器文件系统。
+10. Repository 只提供 descriptor、typed summary/topology、subject 和 worker detail 读取；整页兼容 `Run` 在 application 层组装，不能作为 repository DTO。
 
 ## 已验证的已知问题
 
-- production bundle 当前约 1.95 MB / 629 KB gzip（含真实 fixture JSON），需在 P2 做 artifact 按需加载、ECharts 按需引入与 chunk 拆分。
+- production bundle 当前约 1.96 MB / 631 KB gzip（含真实 fixture JSON），需在 P2 做 artifact 按需加载、ECharts 按需引入与 chunk 拆分。
 - 从 desktop 实时缩到 390 px 时，AFD 页面仍可能产生横向溢出；冷启动移动端正常。P3 必须增加 resize 回归测试后修复。
 - npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。
+- 当前兼容 assembler 为 cluster kernel breakdown eager 读取全部 worker aggregate tree；接入 HTTP 前应改为直接消费 kernel-time-share aggregate，再让 worker tree 按选择懒加载。
 
 ## 运行记录
 

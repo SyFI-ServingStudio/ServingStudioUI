@@ -1,10 +1,10 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { useViz, currentRun } from '../store';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
 
 export default function KpiStatline() {
-  const run = useViz(currentRun);
+  const run = useActiveRun();
   const s = run.summary;
   const stats = [
     { fig: fmtInt(s.total_tok_s), u: 'tok/s', lab: 'Throughput', accent: true },

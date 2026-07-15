@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useViz, currentRun } from '../store';
+import { useViz } from '../store';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { concurrencySparkOption, CHART_THEME } from '../charts/options';
 import { tokens } from '../theme';
 import EChart from './EChart';
@@ -11,7 +12,7 @@ import EChart from './EChart';
  *  snaps the current worker to the nearest step. "All" clears it. */
 export default function TimelineBand() {
   const st = useViz();
-  const run = currentRun(st);
+  const run = useActiveRun();
   const tp = run.payloads.throughput;
   const conc = run.payloads.concurrency;
   const spanMs = tp.t_end_ms[tp.t_end_ms.length - 1] || 1;

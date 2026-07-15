@@ -65,6 +65,8 @@ analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导�
   "protocol_version": 1,
   "run_id": "20260703_4_qwen3_coder_480b_send_trace",
   "kind": "simulation",
+  "model_name": "model/config/qwen3_coder_480b.json",
+  "deployment": "afd",
   "lifecycle": {
     "simulation": "complete",
     "analysis": "complete"
@@ -113,6 +115,8 @@ UI 适配器还可以产生 `incompatible`，表示拿到了 artifact，但版�
 interface AnalyzerRepository {
   listRuns(): Promise<RunSummary[]>;
   getRunDescriptor(runId: string): Promise<RunDescriptor>;
+  getRunSummary(runId: string): Promise<RunSummaryArtifact>;
+  getRunTopology(runId: string): Promise<Topology>;
   getSubject<K extends SubjectKind>(
     runId: string,
     kind: K,
@@ -127,6 +131,10 @@ interface AnalyzerRepository {
   getTrace(runId: string, kind: TraceKind): Promise<TraceResource>;
 }
 ```
+
+`getRunSummary` 与 `getRunTopology` 是有界、typed artifact read；它们不能返回组件用的整页 `Run` view-model。application 层负责把 descriptor、typed reads、各 subject 的 `SubjectResult` 和当前确实需要的 worker cost tree 组装为兼容视图。这样 HTTP repository 不会被迫 eager 返回所有 subject、worker tree 或 iteration 数据，且 unavailable/failed/incompatible 状态不会在组装前丢失。
+
+active-run provider 自己拥有 run catalog bootstrap、默认目录选择、加载和错误状态。Zustand 只保存可空的 `runId` 与本地钻取选择，不能保存 fetched `Run` 对象，也不能通过反向解析序列化 worker key 恢复领域身份。
 
 实现顺序：
 

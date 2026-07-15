@@ -13,6 +13,6 @@ npm run build
 
 ## 数据接入原则
 
-组件不应直接拼接 analyzer 路径，也不应导入 `fakeData.ts`。迁移通过 `AnalyzerRepository` 渐进进行：当前使用可验证的真实 fixture，下一步实现 artifact/HTTP repository。异步数据、加载/失败/不可用状态在 repository/query 层处理；Zustand 最终只保留本地交互与选择状态。
+组件不直接拼接 analyzer 路径；旧 `fakeData.ts` 已删除。当前由 application active-run assembler 通过 `AnalyzerRepository` 读取可验证的真实 fixture，下一步实现 artifact/HTTP repository。异步数据、加载/失败/不可用状态由 repository/query 层处理；Zustand 只保留目录 ID 和本地交互选择。
 
 完整工作计划和 analyzer 协议分别见 [`../WORKPLAN.md`](../WORKPLAN.md) 与 [`../docs/data-protocol.md`](../docs/data-protocol.md)。

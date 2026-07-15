@@ -1,5 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { useViz, currentRun, currentWorker, workerTree } from '../store';
+import { useViz } from '../store';
+import { currentWorker, workerTree } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { leafById, nodeById } from '../data/tree';
 import { tokens } from '../theme';
 import { shortName } from '../util';
@@ -8,8 +10,8 @@ interface Crumb { g: string; lab: string; here: boolean; onClick?: () => void; }
 
 export default function ScopeBreadcrumbs() {
   const st = useViz();
-  const run = currentRun(st);
-  const w = currentWorker(st);
+  const run = useActiveRun();
+  const w = currentWorker(run, st);
 
   const parts: Crumb[] = [{ g: '▸', lab: shortName(run), here: st.scope === 'cluster', onClick: () => st.setCluster() }];
   if (st.scope !== 'cluster') {
@@ -17,14 +19,14 @@ export default function ScopeBreadcrumbs() {
     parts.push({ g: 'pool', lab: role, here: st.scope === 'pool', onClick: () => st.selectPool(role) });
   }
   if (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') {
-    parts.push({ g: 'worker', lab: w.id, here: st.scope === 'worker', onClick: () => st.selectWorker(w.key) });
+    parts.push({ g: 'worker', lab: w.id, here: st.scope === 'worker', onClick: () => st.selectWorker(w.ref) });
   }
   if (st.scope === 'kernel') {
-    const lf = leafById(workerTree(st), st.leafId);
+    const lf = leafById(workerTree(run, st), st.leafId);
     parts.push({ g: 'kernel', lab: lf ? lf.slot!.name.split('.').pop()! : '—', here: true });
   }
   if (st.scope === 'parallel') {
-    const pn = nodeById(workerTree(st), st.parId);
+    const pn = nodeById(workerTree(run, st), st.parId);
     parts.push({ g: 'parallel', lab: pn ? (pn.label ?? 'max') : '—', here: true });
   }
 

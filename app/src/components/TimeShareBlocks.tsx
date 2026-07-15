@@ -1,5 +1,7 @@
 import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { useViz, currentRun, workerTree } from '../store';
+import { useViz } from '../store';
+import { workerTree } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../data/tree';
 
@@ -43,8 +45,8 @@ function Bar({ title, note, segs, clickable }: { title: string; note: string; se
 
 export default function TimeShareBlocks() {
   const st = useViz();
-  const run = currentRun(st);
-  const tree = workerTree(st);
+  const run = useActiveRun();
+  const tree = workerTree(run, st);
   const lt = leafTotals(tree);
   const canInspectKernel = run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
 

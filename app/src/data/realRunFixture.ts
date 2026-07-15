@@ -624,6 +624,7 @@ const realRun: Run = {
     num_gpus: rawSummary.num_gpus,
     // `requests` means completed requests here so it matches every SLO sample count.
     requests: rawSummary.requests_finished,
+    requests_total: rawSummary.requests_total,
     total_tok_s: rawSummary.total_tok_s,
     tpot_p50: slo.tpot.markers.p50,
     ttft_p50: slo.ttft.markers.p50,

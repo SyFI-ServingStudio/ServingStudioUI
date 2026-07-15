@@ -1,9 +1,11 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useViz, currentRun, currentWorker } from '../store';
+import { useViz } from '../store';
+import { currentWorker } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { shortName } from '../util';
 import type { Group, WorkerInstance } from '../domain/run';
-import { makeWorkerKey } from '../domain/worker';
+import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
 
 const chip = (label: string) => (
   <Box key={label} component="span" sx={{ px: 0.75, py: '1px', borderRadius: 0.75, border: `1px solid ${tokens.hair}`, background: tokens.tile, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>
@@ -53,8 +55,8 @@ function WorkerChip({ w, type, selected, onClick }: { w: WorkerInstance; type: s
 
 export default function SystemMapBand() {
   const st = useViz();
-  const run = currentRun(st);
-  const w = currentWorker(st);
+  const run = useActiveRun();
+  const w = currentWorker(run, st);
 
   const clusterSel = st.scope === 'cluster';
 
@@ -115,7 +117,7 @@ export default function SystemMapBand() {
                     {gr.workers.map((wo) => {
                       const workerKey = makeWorkerKey(pool.role, wo.id);
                       return (
-                        <WorkerChip key={workerKey} w={wo} type={gr.worker.type} selected={st.workerKey === workerKey && (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel')} onClick={() => st.selectWorker(workerKey)} />
+                        <WorkerChip key={workerKey} w={wo} type={gr.worker.type} selected={st.workerKey === workerKey && (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel')} onClick={() => st.selectWorker(makeWorkerRef(pool.role, wo.id))} />
                       );
                     })}
                   </Stack>

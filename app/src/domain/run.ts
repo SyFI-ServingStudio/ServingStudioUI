@@ -45,7 +45,8 @@ export interface Payloads {
 export interface RunSource {
   kind: 'synthetic' | 'analyzer_fixture' | 'analyzer_http';
   simulationFolder: string;
-  simulationReexecuted: boolean;
+  /** `null` means the repository has no execution-session evidence. */
+  simulationReexecuted: boolean | null;
 }
 
 /** Explicit capability gates prevent a missing analyzer artifact from quietly
@@ -69,7 +70,7 @@ export interface Group { gpu: string; replicas: number; gpusPerReplica: number; 
 export interface Pool { role: string; placement: string; groups: Group[]; }
 export interface Topology { pools: Pool[]; }
 
-export interface Summary { total_tok_s: number; num_gpus: number; requests: number; ttft_p50: number; tpot_p50: number; e2e_p50: number; }
+export interface Summary { total_tok_s: number; num_gpus: number; requests: number; requests_total?: number; ttft_p50: number; tpot_p50: number; e2e_p50: number; }
 export interface WorkerRow {
   key: WorkerKey;
   ref: WorkerRef;

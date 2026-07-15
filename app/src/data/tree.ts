@@ -31,7 +31,7 @@ export interface CostNode {
   totalMs?: number; // root only
 }
 
-// ---- authoring DSL (used by fakeData) --------------------------------------
+// ---- authoring DSL (used by validated fixture adapters) --------------------
 type Raw = Omit<CostNode, 'id' | 'depth' | 'ms' | 'pct'>;
 
 export const leaf = (name: string, kind: string, config: string, base: number, backend?: string): Raw => ({

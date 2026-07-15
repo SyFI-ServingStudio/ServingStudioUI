@@ -1,5 +1,7 @@
 import { Box, Stack } from '@mui/material';
-import { useViz, currentRun, cursorSeconds, poolInScope } from '../../store';
+import { useViz } from '../../store';
+import { cursorSeconds, poolInScope } from '../../application/runSelection';
+import { useActiveRun } from '../../application/ActiveRunProvider';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { batchOption, CHART_THEME } from '../../charts/options';
 import { batchFor } from '../../data/scopeData';
@@ -9,11 +11,11 @@ import WorkersInPool from '../WorkersInPool';
 /** Pool-level resource behaviour: utilization + KV + queue pressure + batch, then drill. */
 export default function PoolStage() {
   const st = useViz();
-  const run = currentRun(st);
-  const role = poolInScope(st) ?? st.poolRole ?? '—';
-  const util = metricView('utilization', st);
-  const kv = metricView('kv', st);
-  const backpressure = metricView('backpressure', st);
+  const run = useActiveRun();
+  const role = poolInScope(run, st) ?? st.poolRole ?? '—';
+  const util = metricView('utilization', run, st);
+  const kv = metricView('kv', run, st);
+  const backpressure = metricView('backpressure', run, st);
   const batch = run.payloads.batchByPool?.[role]
     ?? (run.source.kind === 'synthetic' ? batchFor(run, role) : null);
   const cS = cursorSeconds(st);

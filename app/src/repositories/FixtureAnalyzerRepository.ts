@@ -35,6 +35,20 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     }));
   }
 
+  async getRunSummary(runId: string) {
+    const summary = this.requireRun(runId).summary;
+    return {
+      totalTokS: summary.total_tok_s,
+      numGpus: summary.num_gpus,
+      requestsFinished: summary.requests,
+      ...(summary.requests_total === undefined ? {} : { requestsTotal: summary.requests_total }),
+    };
+  }
+
+  async getRunTopology(runId: string) {
+    return this.requireRun(runId).topology;
+  }
+
   async getRunDescriptor(runId: string): Promise<RunDescriptor> {
     const run = this.requireRun(runId);
     const payloads = this.subjectPayloads(run);

@@ -1,5 +1,7 @@
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useViz, workerTree, currentRun, currentWorker, cursorSeconds } from '../../store';
+import { useViz } from '../../store';
+import { workerTree, currentWorker, cursorSeconds } from '../../application/runSelection';
+import { useActiveRun } from '../../application/ActiveRunProvider';
 import { leafTotals, leafByName, leafById, nodeById, colorOf, type CostNode } from '../../data/tree';
 import { kernelPerf, inputDist } from '../../data/kernel';
 import { imbalanceFor } from '../../data/imbalance';
@@ -16,10 +18,10 @@ import { tokens } from '../../theme';
 /** Worker-scope bottom: scheduler pressure/composition, time-share, and kernel throughput. */
 function WorkerBottom() {
   const st = useViz();
-  const tree = workerTree(st);
-  const run = currentRun(st);
-  const worker = currentWorker(st);
-  const backpressure = metricView('backpressure', st);
+  const run = useActiveRun();
+  const tree = workerTree(run, st);
+  const worker = currentWorker(run, st);
+  const backpressure = metricView('backpressure', run, st);
   const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
   const locs: KernelLoc[] = lt.positions.slice(0, 10).map((p) => {
@@ -91,8 +93,9 @@ function KernelBottom({ node }: { node: CostNode }) {
  *  above is untouched — the Max node is a sub-state of the worker view. */
 function ParallelBottom({ node }: { node: CostNode }) {
   const st = useViz();
-  const imb = imbalanceFor(currentRun(st), currentWorker(st), node);
-  const sLeaf = leafById(workerTree(st), imb.stragglerLeafId);
+  const run = useActiveRun();
+  const imb = imbalanceFor(run, currentWorker(run, st), node);
+  const sLeaf = leafById(workerTree(run, st), imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
   const dist = sLeaf ? inputDist(sLeaf) : null;
   const sName = sLeaf ? sLeaf.slot!.name : '';
@@ -133,7 +136,7 @@ function ParallelBottom({ node }: { node: CostNode }) {
  *  scopes are sub-states of the worker view, not separate views. */
 export default function WorkerStage() {
   const st = useViz();
-  const run = currentRun(st);
+  const run = useActiveRun();
   // The current iteration/per-call helpers are synthetic authoring fixtures.
   // Real repositories must provide subject adapters before enabling this path.
   if (run.source.kind !== 'synthetic' || !run.capabilities.workerIterations) {
@@ -152,7 +155,7 @@ export default function WorkerStage() {
       </Stack>
     );
   }
-  const tree = workerTree(st);
+  const tree = workerTree(run, st);
   const leaf = st.scope === 'kernel' && st.leafId != null ? leafById(tree, st.leafId) : null;
   const par = st.scope === 'parallel' && st.parId != null ? nodeById(tree, st.parId) : null;
 

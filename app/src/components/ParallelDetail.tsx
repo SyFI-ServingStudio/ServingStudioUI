@@ -1,6 +1,8 @@
 import { Box, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { useViz, currentRun, currentWorker, workerTree } from '../store';
+import { useViz } from '../store';
+import { currentWorker, workerTree } from '../application/runSelection';
+import { useActiveRun } from '../application/ActiveRunProvider';
 import { nodeById, leafById, fmtMs, kindLabel } from '../data/tree';
 import { imbalanceFor, type Imbalance } from '../data/imbalance';
 import { kernelPerf } from '../data/kernel';
@@ -47,12 +49,13 @@ function LaneStrip({ imb }: { imb: Imbalance }) {
  *  the straggler that sets the node's wall-time, and its achieved perf. */
 export default function ParallelDetail() {
   const st = useViz();
-  const w = currentWorker(st);
+  const run = useActiveRun();
+  const w = currentWorker(run, st);
   if (st.scope !== 'parallel' || st.parId == null) return null;
-  const tree = workerTree(st);
+  const tree = workerTree(run, st);
   const node = nodeById(tree, st.parId);
   if (!node || node.kind !== 'max') return null;
-  const imb = imbalanceFor(currentRun(st), w, node);
+  const imb = imbalanceFor(run, w, node);
   const sLeaf = leafById(tree, imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
   const stragKind = sLeaf ? kindLabel(sLeaf.slot!.kind) : '—';
@@ -66,7 +69,7 @@ export default function ParallelDetail() {
         <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, fontFamily: tokens.mono, fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase', px: 1.1, py: 0.4, borderRadius: 0.75, color: tokens.violet, background: 'rgba(122,92,255,.12)' }}>
           {imb.label} · overlap {imb.overlap.toFixed(2)}
         </Box>
-        <IconButton size="small" onClick={() => st.selectWorker(w.key)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
+        <IconButton size="small" onClick={() => st.selectWorker(w.ref)} sx={{ ml: 'auto', color: tokens.sub, '&:hover': { color: '#fff', background: tokens.terra } }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Stack>
