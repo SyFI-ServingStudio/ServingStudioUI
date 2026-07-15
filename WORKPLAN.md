@@ -30,8 +30,8 @@
 
 - [x] 配置 ESLint、Prettier 和显式 UI 文件范围的格式检查
 - [x] 配置 Vitest + Testing Library（descriptor、active-run assembler、Provider lifecycle 共 13 个测试）
-- [ ] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
-- [ ] 增加 axe 可访问性检查
+- [x] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
+- [x] 增加 axe 可访问性检查
 - [ ] 增加 GitHub Actions：typecheck、lint、unit、build、browser smoke
 - [ ] 加入 bundle size 检查，按需加载 ECharts 图表能力
 
@@ -45,7 +45,7 @@
 - [ ] 将 cost tree 改为可判别联合类型，消除不安全断言
 - [ ] 收紧 store selector，避免整库订阅导致的无关重渲染
 - [ ] 统一图表主题、tooltip escaping、空态和交互语义
-- [ ] 修复实时 resize、键盘导航、canvas 标签和 icon button 名称
+- [x] 修复实时 resize、键盘导航、canvas 标签和 icon button 名称
 
 验收标准：功能目录具有清晰公共 API；数据加载与 UI 状态职责分离；性能和 a11y 回归有测试覆盖。
 
@@ -86,7 +86,8 @@
 ## 已验证的已知问题
 
 - production bundle 当前约 1.96 MB / 631 KB gzip（含真实 fixture JSON），需在 P2 做 artifact 按需加载、ECharts 按需引入与 chunk 拆分。
-- 从 desktop 实时缩到 390 px 时，AFD 页面仍可能产生横向溢出；冷启动移动端正常。P3 必须增加 resize 回归测试后修复。
+- desktop 冷启动、390 px 冷启动及 desktop→390 px 实时缩放均已由 Playwright
+  overflow 回归保护；检查会等待 ResizeObserver/ECharts 重排稳定后再判定。
 - npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。
 - 当前兼容 assembler 为 cluster kernel breakdown eager 读取全部 worker aggregate tree；接入 HTTP 前应改为直接消费 kernel-time-share aggregate，再让 worker tree 按选择懒加载。
 

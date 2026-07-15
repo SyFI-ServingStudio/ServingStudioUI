@@ -9,6 +9,7 @@ VibeSim 运行结果、部署拓扑和 worker/kernel 明细的交互式可视化
 ```bash
 cd app
 npm install
+npx playwright install chromium
 npm run dev -- --host 0.0.0.0 --port 5177
 ```
 
@@ -16,11 +17,17 @@ npm run dev -- --host 0.0.0.0 --port 5177
 
 ```bash
 cd app
+npm run format:check
 npm run typecheck
 npm run lint
 npm run test:unit
+npm run test:e2e
 npm run build
 ```
+
+`test:e2e` 会自动启动或复用 5177 端口的开发服务，并在 desktop 与 390 px
+Chromium 中执行导航、响应式、console/page error 和 axe 检查；只重跑无障碍门槛可用
+`npm run test:a11y`。失败产物写入 `.artifacts/playwright-test/`。
 
 ## 目录
 

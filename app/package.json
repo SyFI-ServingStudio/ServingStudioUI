@@ -6,14 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src vite.config.ts vitest.config.ts --max-warnings 0",
-    "lint:fix": "eslint src vite.config.ts vitest.config.ts --fix",
-    "format": "prettier --write src vite.config.ts vitest.config.ts",
-    "format:check": "prettier --check src vite.config.ts vitest.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.playwright.json --noEmit",
+    "lint": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
+    "lint:fix": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --fix",
+    "format": "prettier --write src e2e vite.config.ts vitest.config.ts playwright.config.ts",
+    "format:check": "prettier --check src e2e vite.config.ts vitest.config.ts playwright.config.ts",
     "test": "vitest",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:a11y": "playwright test e2e/a11y.spec.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -31,10 +33,13 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.61.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.20.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

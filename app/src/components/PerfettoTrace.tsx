@@ -20,7 +20,9 @@ export default function PerfettoTrace() {
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState<TraceStatus>('idle');
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
-  const intervalRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  // This iframe runs only in the browser; keep the DOM timer identity from
+  // being widened to NodeJS.Timeout when Playwright types are installed.
+  const intervalRef = useRef<number | null>(null);
   const readyRef = useRef(false);
 
   useEffect(() => {
