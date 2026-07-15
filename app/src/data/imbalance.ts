@@ -7,7 +7,7 @@
  * backend can swap in real per-rank samples later.
  */
 import type { Run, WorkerRow } from '../domain/run';
-import { type CostNode } from './tree';
+import { type CostNode, type LeafNode, type MaxNode } from './tree';
 import { iterationsFor } from './iterations';
 
 // integer hash → [0,1); stable, no Date/Math.random (matches kernel.ts)
@@ -27,21 +27,24 @@ function strHash(s: string): number {
   return h >>> 0;
 }
 
-export function collectLeaves(node: CostNode): CostNode[] {
-  const out: CostNode[] = [];
+export function collectLeaves(node: CostNode): LeafNode[] {
+  const out: LeafNode[] = [];
   (function walk(n: CostNode) {
     if (n.kind === 'leaf') out.push(n);
-    else (n.children ?? []).forEach(walk);
+    else n.children.forEach(walk);
   })(node);
   return out;
 }
-export function heaviestLeaf(node: CostNode): CostNode {
-  const ls = collectLeaves(node);
-  return ls.reduce((a, b) => (b.ms > a.ms ? b : a), ls[0]);
+export function heaviestLeaf(node: CostNode): LeafNode {
+  const [first, ...rest] = collectLeaves(node);
+  if (first === undefined) throw new Error('A validated CostTree node must contain a leaf.');
+  return rest.reduce(
+    (heaviest, leafNode) => (leafNode.ms > heaviest.ms ? leafNode : heaviest),
+    first,
+  );
 }
 /** Is this node worth a parallel/straggler inspection? (a Max with ≥2 branches) */
-export const isParallelNode = (node: CostNode): boolean =>
-  node.kind === 'max' && (node.children?.length ?? 0) >= 2;
+export const isParallelNode = (node: CostNode): node is MaxNode => node.kind === 'max';
 
 type Dim = 'expert' | 'rank' | 'branch';
 interface LaneSpec {
@@ -52,9 +55,9 @@ interface LaneSpec {
 
 /** How many concurrent lanes this Max spans, and what they represent — inferred
  *  from the worker's parallelism (EP experts / TP ranks) and the node's kernels. */
-function laneSpec(w: WorkerRow, node: CostNode): LaneSpec {
+function laneSpec(w: WorkerRow, node: MaxNode): LaneSpec {
   const p = w.arch.params as Record<string, number | string>;
-  const kinds = new Set(collectLeaves(node).map((l) => l.slot!.kind));
+  const kinds = new Set(collectLeaves(node).map((leafNode) => leafNode.slot.kind));
   const hasGrouped = [...kinds].some(
     (k) => k === 'grouped_gemm' || k === 'moe_router' || k.startsWith('p2p'),
   );
@@ -63,7 +66,7 @@ function laneSpec(w: WorkerRow, node: CostNode): LaneSpec {
   const tp = Number(p.attn_tp) || 0;
   if (ep > 1 && hasGrouped) return { lanes: ep, label: `EP experts · ${ep} ranks`, dim: 'expert' };
   if (tp > 1 && hasAttn) return { lanes: tp, label: `TP attn · ${tp} ranks`, dim: 'rank' };
-  const kids = (node.children ?? []).length || 2;
+  const kids = node.children.length;
   return { lanes: Math.max(2, kids), label: `${kids} overlap branches`, dim: 'branch' };
 }
 
@@ -89,7 +92,7 @@ export interface Imbalance {
 }
 
 /** Per-lane load over the run for a Max node, plus straggler identification. */
-export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance {
+export function imbalanceFor(run: Run, w: WorkerRow, node: MaxNode): Imbalance {
   const spec = laneSpec(w, node);
   const P = spec.lanes;
   const tl = iterationsFor(run, w.key);
@@ -99,9 +102,9 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
   const seed = strHash(`${w.key}:${node.id}`);
 
   // per-branch driver (only used when dim === 'branch'): prefill vs decode vs batch
-  const kids = node.children ?? [];
-  const branchDriver = kids.map((c) => {
-    const nm = (collectLeaves(c)[0]?.slot!.name ?? '').toLowerCase();
+  const kids = node.children;
+  const branchDriver = kids.map((child) => {
+    const nm = (collectLeaves(child)[0]?.slot.name ?? '').toLowerCase();
     return nm.includes('prefill') ? 'prefill' : nm.includes('decode') ? 'decode' : 'batch';
   });
   const branchMs = kids.map((c) => Math.max(1e-3, c.ms));
@@ -122,7 +125,12 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
       laneLabels.push(`r${k}`);
     } else {
       wgt = (branchMs[k] ?? branchMsMean) / branchMsMean;
-      laneLabels.push(collectLeaves(kids[k])[0]?.slot!.name.split('.').pop() ?? `b${k}`);
+      const branch = kids[k];
+      laneLabels.push(
+        branch === undefined
+          ? `b${k}`
+          : (collectLeaves(branch)[0]?.slot.name.split('.').pop() ?? `b${k}`),
+      );
     }
     laneWeight.push(wgt);
   }
@@ -184,7 +192,7 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
     label: spec.label,
     dim: spec.dim,
     lanes: P,
-    overlap: node.overlap == null ? 1 : node.overlap,
+    overlap: node.overlap,
     nodeMs: node.ms,
     t_ms,
     maxLoad,
@@ -198,6 +206,6 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
     maxImbalancePct: +maxImbalancePct.toFixed(0),
     avgImbalancePct: +avgImbalancePct.toFixed(0),
     stragglerLeafId: sLeaf.id,
-    stragglerName: sLeaf.slot!.name,
+    stragglerName: sLeaf.slot.name,
   };
 }

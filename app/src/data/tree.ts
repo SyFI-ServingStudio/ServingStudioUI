@@ -1,70 +1,131 @@
 /*
- * tree.ts — cost-tree engine (ported from the prototype's shared/tree.js).
- *
- * Faithful to VibeSim's cost_manifest wire form: a tree of combinators over a
- * slot table. `scale` is a CONTAINER holding ONE subtree (the N repeats are
- * never expanded) — that is the "flatten but keep the Scale container" rule.
+ * CostTree is the UI's validated view of VibeSim's cost-manifest structure.
+ * Raw nodes mirror the wire combinators; annotated nodes are immutable copies
+ * carrying stable preorder ids and finite derived costs. Keeping the two forms
+ * distinct prevents transport-shaped partial objects from leaking into views.
  */
+import { parseRawCostNode } from './treeSchema';
+import {
+  invalidCostTree,
+  type CostNode,
+  type CostTree,
+  type LeafNode,
+  type RawCostNode,
+  type RawLeafNode,
+  type RawMaxNode,
+  type RawScaleNode,
+  type RawSumNode,
+} from './treeTypes';
 
-export type NodeKind = 'sum' | 'max' | 'scale' | 'leaf';
+export { CostTreeValidationError } from './treeTypes';
+export type {
+  CostNode,
+  CostTree,
+  LeafNode,
+  MaxNode,
+  NodeKind,
+  RawCostNode,
+  RawLeafNode,
+  RawMaxNode,
+  RawScaleNode,
+  RawSumNode,
+  ScaleNode,
+  Slot,
+  SumNode,
+} from './treeTypes';
 
-export interface Slot {
-  name: string;
-  kind: string;
-  config: string;
-  backend: string | null;
+function requireFiniteNonNegative(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    invalidCostTree(path, 'expected a finite non-negative number');
+  }
+  return value;
 }
 
-export interface CostNode {
-  kind: NodeKind;
-  label?: string;
-  n?: number; // scale
-  overlap?: number; // max
-  slot?: Slot; // leaf
-  base?: number; // leaf per-invocation ms
-  children?: CostNode[];
-  // filled by annotate():
-  id: number;
-  depth: number;
-  ms: number;
-  pct: number;
-  totalMs?: number; // root only
+function requireString(value: unknown, path: string, allowEmpty = true): string {
+  if (typeof value !== 'string' || (!allowEmpty && value.length === 0)) {
+    invalidCostTree(path, allowEmpty ? 'expected a string' : 'expected a non-empty string');
+  }
+  return value;
+}
+
+function finiteOperation(value: number, path: string): number {
+  if (!Number.isFinite(value)) invalidCostTree(path, 'derived numeric value overflowed');
+  return value;
+}
+
+function addFinite(left: number, right: number, path: string): number {
+  return finiteOperation(left + right, path);
+}
+
+function multiplyFinite(left: number, right: number, path: string): number {
+  return finiteOperation(left * right, path);
 }
 
 // ---- authoring DSL (used by validated fixture adapters) --------------------
-type Raw = Omit<CostNode, 'id' | 'depth' | 'ms' | 'pct'>;
-
-export const leaf = (
+export function leaf(
   name: string,
   kind: string,
   config: string,
   base: number,
   backend?: string,
-): Raw => ({
-  kind: 'leaf',
-  slot: { name, kind, config: config || '', backend: backend ?? null },
-  base,
-});
-export const sum = (label: string, ...children: Raw[]): Raw => ({
-  kind: 'sum',
-  label,
-  children: children as CostNode[],
-});
-export const max = (label: string, overlap: number, ...children: Raw[]): Raw => ({
-  kind: 'max',
-  label,
-  overlap,
-  children: children as CostNode[],
-});
-export const scale = (label: string, n: number, child: Raw): Raw => ({
-  kind: 'scale',
-  label,
-  n,
-  children: [child as CostNode],
-});
+): RawLeafNode {
+  return Object.freeze({
+    kind: 'leaf',
+    slot: Object.freeze({
+      name: requireString(name, 'leaf.slot.name', false),
+      kind: requireString(kind, 'leaf.slot.kind', false),
+      config: requireString(config, 'leaf.slot.config'),
+      backend: backend ?? null,
+    }),
+    base: requireFiniteNonNegative(base, 'leaf.base'),
+  });
+}
+
+export function sum(
+  label: string | undefined,
+  first: RawCostNode,
+  ...rest: RawCostNode[]
+): RawSumNode {
+  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
+  return Object.freeze({
+    kind: 'sum',
+    ...(label === undefined ? {} : { label }),
+    children: Object.freeze(children),
+  });
+}
+
+export function max(
+  label: string | undefined,
+  overlap: number,
+  first: RawCostNode,
+  second: RawCostNode,
+  ...rest: RawCostNode[]
+): RawMaxNode {
+  const validatedOverlap = requireFiniteNonNegative(overlap, 'max.overlap');
+  if (validatedOverlap > 1) {
+    invalidCostTree('max.overlap', 'expected a value in [0,1]');
+  }
+  const children: [RawCostNode, RawCostNode, ...RawCostNode[]] = [first, second, ...rest];
+  return Object.freeze({
+    kind: 'max',
+    ...(label === undefined ? {} : { label }),
+    overlap: validatedOverlap,
+    children: Object.freeze(children),
+  });
+}
+
+export function scale(label: string | undefined, n: number, child: RawCostNode): RawScaleNode {
+  const children: [RawCostNode] = [child];
+  return Object.freeze({
+    kind: 'scale',
+    ...(label === undefined ? {} : { label }),
+    n: requireFiniteNonNegative(n, 'scale.n'),
+    children: Object.freeze(children),
+  });
+}
 
 // ---- kernel-kind taxonomy --------------------------------------------------
-export const KIND: Record<string, { group: string; label: string }> = {
+export const KIND: Readonly<Record<string, { readonly group: string; readonly label: string }>> = {
   single_gemm: { group: 'gemm', label: 'GEMM' },
   grouped_gemm: { group: 'gemm', label: 'Grouped GEMM' },
   flashinfer_attn_prefill: { group: 'attn', label: 'Attn · prefill' },
@@ -78,7 +139,7 @@ export const KIND: Record<string, { group: string; label: string }> = {
   moe_router: { group: 'route', label: 'MoE router' },
 };
 
-export const GROUP: Record<string, { label: string; color: string }> = {
+export const GROUP: Readonly<Record<string, { readonly label: string; readonly color: string }>> = {
   // These colors serve as both rails on light cards and filled time-share
   // blocks carrying white labels, so each must clear AA in both contexts.
   gemm: { label: 'Dense GEMM', color: '#8a5700' },
@@ -93,139 +154,287 @@ export const groupOf = (kind: string): string => KIND[kind]?.group ?? 'misc';
 export const colorOf = (kind: string): string => GROUP[groupOf(kind)].color;
 export const kindLabel = (kind: string): string => KIND[kind]?.label ?? kind;
 
-// ---- cost aggregation ------------------------------------------------------
-function cost(node: CostNode): number {
-  if (node.kind === 'leaf') return node.base ?? 0;
-  const cs = (node.children ?? []).map(cost);
-  if (node.kind === 'sum') return cs.reduce((a, b) => a + b, 0);
-  if (node.kind === 'max') {
-    const ov = node.overlap == null ? 1 : node.overlap;
-    const mx = Math.max(...cs);
-    const s = cs.reduce((a, b) => a + b, 0);
-    return mx * ov + s * (1 - ov);
+// ---- cost validation and immutable annotation -----------------------------
+function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, number>): number {
+  let nodeCost: number;
+  switch (node.kind) {
+    case 'leaf':
+      nodeCost = node.base;
+      break;
+    case 'sum':
+      nodeCost = node.children.reduce(
+        (total, child, index) =>
+          addFinite(total, computeCosts(child, `${path}.children.${index}`, costs), path),
+        0,
+      );
+      break;
+    case 'max': {
+      const childCosts = node.children.map((child, index) =>
+        computeCosts(child, `${path}.children.${index}`, costs),
+      );
+      const [firstCost, ...restCosts] = childCosts;
+      if (firstCost === undefined) invalidCostTree(path, 'validated Max has no child cost');
+      const maximum = restCosts.reduce(
+        (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
+        firstCost,
+      );
+      const summed = childCosts.reduce((total, childCost) => addFinite(total, childCost, path), 0);
+      nodeCost = addFinite(
+        multiplyFinite(maximum, node.overlap, path),
+        multiplyFinite(summed, 1 - node.overlap, path),
+        path,
+      );
+      break;
+    }
+    case 'scale':
+      nodeCost = multiplyFinite(
+        node.n,
+        computeCosts(node.children[0], `${path}.children.0`, costs),
+        path,
+      );
+      break;
   }
-  if (node.kind === 'scale') return (node.n ?? 1) * cs[0];
-  return 0;
+  costs.set(node, nodeCost);
+  return nodeCost;
 }
 
-export function annotate(root: Raw): CostNode {
-  const r = root as CostNode;
-  const total = cost(r);
-  let id = 0;
-  (function walk(node: CostNode, depth: number) {
-    node.id = id++;
-    node.depth = depth;
-    node.ms = cost(node);
-    node.pct = total > 0 ? (node.ms / total) * 100 : 0;
-    (node.children ?? []).forEach((c) => walk(c, depth + 1));
-  })(r, 0);
-  r.totalMs = total;
-  return r;
+function validateScaleProducts(node: RawCostNode, multiplier: number, path: string): void {
+  if (node.kind === 'leaf') return;
+  const nextMultiplier =
+    node.kind === 'scale' ? multiplyFinite(multiplier, node.n, `${path}.n`) : multiplier;
+  node.children.forEach((child, index) =>
+    validateScaleProducts(child, nextMultiplier, `${path}.children.${index}`),
+  );
+}
+
+function annotatedCost(node: RawCostNode, costs: WeakMap<object, number>): number {
+  const value = costs.get(node);
+  if (value === undefined) invalidCostTree('$', 'internal cost annotation is missing');
+  return value;
+}
+
+function finitePct(ms: number, totalMs: number, path: string): number {
+  if (totalMs === 0) return 0;
+  return finiteOperation((ms / totalMs) * 100, `${path}.pct`);
+}
+
+function annotateNode(
+  node: RawCostNode,
+  depth: number,
+  totalMs: number,
+  costs: WeakMap<object, number>,
+  nextId: { value: number },
+  path: string,
+): CostNode {
+  const id = nextId.value++;
+  const ms = annotatedCost(node, costs);
+  const annotation = { id, depth, ms, pct: finitePct(ms, totalMs, path) };
+  switch (node.kind) {
+    case 'leaf':
+      return Object.freeze({ ...node, ...annotation });
+    case 'sum': {
+      const [first, ...rest] = node.children;
+      const children: [CostNode, ...CostNode[]] = [
+        annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+        ...rest.map((child, index) =>
+          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 1}`),
+        ),
+      ];
+      return Object.freeze({
+        kind: 'sum',
+        ...(node.label === undefined ? {} : { label: node.label }),
+        children: Object.freeze(children),
+        ...annotation,
+      });
+    }
+    case 'max': {
+      const [first, second, ...rest] = node.children;
+      const children: [CostNode, CostNode, ...CostNode[]] = [
+        annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+        annotateNode(second, depth + 1, totalMs, costs, nextId, `${path}.children.1`),
+        ...rest.map((child, index) =>
+          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 2}`),
+        ),
+      ];
+      return Object.freeze({
+        kind: 'max',
+        ...(node.label === undefined ? {} : { label: node.label }),
+        overlap: node.overlap,
+        children: Object.freeze(children),
+        ...annotation,
+      });
+    }
+    case 'scale': {
+      const children: [CostNode] = [
+        annotateNode(node.children[0], depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+      ];
+      return Object.freeze({
+        kind: 'scale',
+        ...(node.label === undefined ? {} : { label: node.label }),
+        n: node.n,
+        children: Object.freeze(children),
+        ...annotation,
+      });
+    }
+  }
+}
+
+function markRoot(root: CostNode, totalMs: number): CostTree {
+  switch (root.kind) {
+    case 'leaf':
+      return Object.freeze({ ...root, totalMs });
+    case 'sum':
+      return Object.freeze({ ...root, totalMs });
+    case 'max':
+      return Object.freeze({ ...root, totalMs });
+    case 'scale':
+      return Object.freeze({ ...root, totalMs });
+  }
+}
+
+/** Validate an untrusted/raw tree and return a deeply immutable annotated copy. */
+export function annotate(input: unknown): CostTree {
+  const root = parseRawCostNode(input);
+  validateScaleProducts(root, 1, '$');
+  const costs = new WeakMap<object, number>();
+  const totalMs = computeCosts(root, '$', costs);
+  const annotated = annotateNode(root, 0, totalMs, costs, { value: 0 }, '$');
+  return markRoot(annotated, totalMs);
 }
 
 // ---- derived breakdowns (drive the time-share view) ------------------------
 export interface LeafPosition {
-  name: string;
-  kind: string;
-  group: string;
-  ms: number;
-  calls: number;
-  pct: number;
+  readonly name: string;
+  readonly kind: string;
+  readonly group: string;
+  readonly ms: number;
+  readonly calls: number;
+  readonly pct: number;
 }
+
 export interface LeafGroup {
-  group: string;
-  label: string;
-  color: string;
-  ms: number;
-  pct: number;
+  readonly group: string;
+  readonly label: string;
+  readonly color: string;
+  readonly ms: number;
+  readonly pct: number;
 }
+
 export interface LeafTotals {
-  positions: LeafPosition[];
-  groups: LeafGroup[];
-  totalMs: number;
+  readonly positions: readonly LeafPosition[];
+  readonly groups: readonly LeafGroup[];
+  readonly totalMs: number;
 }
 
 export function leafTotals(root: CostNode): LeafTotals {
   const byName = new Map<string, LeafPosition>();
   const byGroup = new Map<string, number>();
-  (function walk(node: CostNode, mult: number) {
+  function walk(node: CostNode, multiplier: number): void {
     if (node.kind === 'leaf') {
-      const ms = mult * (node.base ?? 0);
-      const name = node.slot!.name;
-      const g = groupOf(node.slot!.kind);
-      const cur = byName.get(name) ?? {
-        name,
-        kind: node.slot!.kind,
-        group: g,
+      const ms = multiplyFinite(multiplier, node.base, `leafTotals.${node.slot.name}.ms`);
+      const group = groupOf(node.slot.kind);
+      const current = byName.get(node.slot.name) ?? {
+        name: node.slot.name,
+        kind: node.slot.kind,
+        group,
         ms: 0,
         calls: 0,
         pct: 0,
       };
-      cur.ms += ms;
-      cur.calls += mult;
-      byName.set(name, cur);
-      byGroup.set(g, (byGroup.get(g) ?? 0) + ms);
+      byName.set(node.slot.name, {
+        ...current,
+        ms: addFinite(current.ms, ms, `leafTotals.${node.slot.name}.ms`),
+        calls: addFinite(current.calls, multiplier, `leafTotals.${node.slot.name}.calls`),
+      });
+      byGroup.set(group, addFinite(byGroup.get(group) ?? 0, ms, `leafTotals.${group}.ms`));
       return;
     }
-    const m = node.kind === 'scale' ? mult * (node.n ?? 1) : mult;
-    (node.children ?? []).forEach((c) => walk(c, m));
-  })(root, 1);
-  const totMs = [...byGroup.values()].reduce((a, b) => a + b, 0) || 1;
+    const nextMultiplier =
+      node.kind === 'scale'
+        ? multiplyFinite(multiplier, node.n, `leafTotals.scale.${node.id}`)
+        : multiplier;
+    node.children.forEach((child) => walk(child, nextMultiplier));
+  }
+  walk(root, 1);
+
+  const totalMs = [...byGroup.values()].reduce(
+    (total, ms) => addFinite(total, ms, 'leafTotals.totalMs'),
+    0,
+  );
+  const pct = (ms: number, path: string) => finitePct(ms, totalMs, path);
   const positions = [...byName.values()]
-    .map((p) => ({ ...p, pct: (p.ms / totMs) * 100 }))
-    .sort((a, b) => b.ms - a.ms);
-  const groups = [...byGroup.entries()]
-    .map(([g, ms]) => ({
-      group: g,
-      label: GROUP[g].label,
-      color: GROUP[g].color,
-      ms,
-      pct: (ms / totMs) * 100,
+    .map((position) => ({
+      ...position,
+      pct: pct(position.ms, `leafTotals.${position.name}.pct`),
     }))
-    .sort((a, b) => b.ms - a.ms);
-  return { positions, groups, totalMs: totMs };
+    .sort((left, right) => right.ms - left.ms);
+  const groups = [...byGroup.entries()]
+    .map(([group, ms]) => ({
+      group,
+      label: GROUP[group].label,
+      color: GROUP[group].color,
+      ms,
+      pct: pct(ms, `leafTotals.${group}.pct`),
+    }))
+    .sort((left, right) => right.ms - left.ms);
+  return { positions, groups, totalMs };
 }
 
-// ---- formatting ------------------------------------------------------------
-export const fmtMs = (ms: number): string =>
-  ms >= 1 ? ms.toFixed(2) + ' ms' : (ms * 1000).toFixed(1) + ' µs';
-export const fmtPct = (p: number): string => (p >= 9.95 ? p.toFixed(0) : p.toFixed(1)) + '%';
+// ---- formatting and lookup -------------------------------------------------
+export const fmtMs = (ms: number): string => {
+  if (!Number.isFinite(ms)) return '—';
+  return ms >= 1 ? `${ms.toFixed(2)} ms` : `${(ms * 1000).toFixed(1)} µs`;
+};
 
-export function leafById(root: CostNode, id: number | null): CostNode | null {
+export const fmtPct = (pct: number): string => {
+  if (!Number.isFinite(pct)) return '—';
+  return `${pct >= 9.95 ? pct.toFixed(0) : pct.toFixed(1)}%`;
+};
+
+function visitChildren(node: CostNode, visit: (child: CostNode) => void): void {
+  if (node.kind !== 'leaf') node.children.forEach(visit);
+}
+
+export function leafById(root: CostNode, id: number | null): LeafNode | null {
   if (id == null) return null;
-  let f: CostNode | null = null;
-  (function walk(n: CostNode) {
-    if (f) return;
-    if (n.id === id && n.kind === 'leaf') {
-      f = n;
+  let found: LeafNode | null = null;
+  function walk(node: CostNode): void {
+    if (found !== null) return;
+    if (node.kind === 'leaf' && node.id === id) {
+      found = node;
       return;
     }
-    (n.children ?? []).forEach(walk);
-  })(root);
-  return f;
+    visitChildren(node, walk);
+  }
+  walk(root);
+  return found;
 }
+
 export function nodeById(root: CostNode, id: number | null): CostNode | null {
   if (id == null) return null;
-  let f: CostNode | null = null;
-  (function walk(n: CostNode) {
-    if (f) return;
-    if (n.id === id) {
-      f = n;
+  let found: CostNode | null = null;
+  function walk(node: CostNode): void {
+    if (found !== null) return;
+    if (node.id === id) {
+      found = node;
       return;
     }
-    (n.children ?? []).forEach(walk);
-  })(root);
-  return f;
+    visitChildren(node, walk);
+  }
+  walk(root);
+  return found;
 }
-export function leafByName(root: CostNode, name: string): CostNode | null {
-  let f: CostNode | null = null;
-  (function walk(n: CostNode) {
-    if (f) return;
-    if (n.kind === 'leaf' && n.slot!.name === name) {
-      f = n;
+
+export function leafByName(root: CostNode, name: string): LeafNode | null {
+  let found: LeafNode | null = null;
+  function walk(node: CostNode): void {
+    if (found !== null) return;
+    if (node.kind === 'leaf' && node.slot.name === name) {
+      found = node;
       return;
     }
-    (n.children ?? []).forEach(walk);
-  })(root);
-  return f;
+    visitChildren(node, walk);
+  }
+  walk(root);
+  return found;
 }

@@ -7,7 +7,16 @@
  * prefill/decode mix (normalised so the mean step ≈ the base per-iteration tree).
  * Deterministic by run id so a backend can swap these for real cost_log steps.
  */
-import { annotate, type CostNode } from './tree';
+import {
+  annotate,
+  max,
+  scale,
+  sum,
+  type CostNode,
+  type CostTree,
+  type LeafNode,
+  type RawCostNode,
+} from './tree';
 import type { Run } from '../domain/run';
 import type { WorkerKey } from '../domain/worker';
 
@@ -125,26 +134,42 @@ export function nearestIter(tl: IterTimeline, ms: number): Iteration {
 // deep-clone the cost structure with each leaf's base scaled by f (topology and
 // slot identity preserved → re-annotate assigns the SAME ids, so leaf selection
 // survives an iteration change)
-function cloneScaled(node: CostNode, f: (n: CostNode) => number): CostNode {
-  if (node.kind === 'leaf') {
-    return { kind: 'leaf', slot: node.slot, base: (node.base ?? 0) * f(node) } as CostNode;
+function cloneScaled(node: CostNode, factor: (leafNode: LeafNode) => number): RawCostNode {
+  switch (node.kind) {
+    case 'leaf':
+      return { kind: 'leaf', slot: node.slot, base: node.base * factor(node) };
+    case 'sum': {
+      const [first, ...rest] = node.children;
+      return sum(
+        node.label,
+        cloneScaled(first, factor),
+        ...rest.map((child) => cloneScaled(child, factor)),
+      );
+    }
+    case 'max': {
+      const [first, second, ...rest] = node.children;
+      return max(
+        node.label,
+        node.overlap,
+        cloneScaled(first, factor),
+        cloneScaled(second, factor),
+        ...rest.map((child) => cloneScaled(child, factor)),
+      );
+    }
+    case 'scale':
+      return scale(node.label, node.n, cloneScaled(node.children[0], factor));
   }
-  const out = { kind: node.kind, label: node.label } as CostNode;
-  if (node.kind === 'max') out.overlap = node.overlap;
-  if (node.kind === 'scale') out.n = node.n;
-  out.children = (node.children ?? []).map((c) => cloneScaled(c, f));
-  return out;
 }
 
 /** Cost tree as evaluated at one iteration (or the base tree when it === null). */
 export function treeAtIter(
-  tree: CostNode,
+  tree: CostTree,
   it: Iteration | null,
   ref: IterTimeline['ref'],
-): CostNode {
+): CostTree {
   if (!it) return tree;
-  const factor = (n: CostNode): number => {
-    const kind = n.slot!.kind;
+  const factor = (leafNode: LeafNode): number => {
+    const kind = leafNode.slot.kind;
     if (kind === 'flashinfer_attn_prefill') return it.prefillTokens / ref.prefillTokens;
     if (kind === 'flashinfer_attn_decode') return it.decodeRequests / ref.decodeRequests;
     // GEMMs, norms, collectives, routing all scale with the batched-token count

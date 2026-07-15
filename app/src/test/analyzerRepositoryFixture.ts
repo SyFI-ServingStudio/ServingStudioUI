@@ -8,7 +8,7 @@ import type { KvSeries, Slo, Throughput, Topology, UtilSeries } from '../domain/
 import type { KernelTimeShare } from '../domain/kernelTimeShare';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
-import { annotate, leaf, type CostNode } from '../data/tree';
+import { annotate, leaf, type CostTree } from '../data/tree';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 import type { SubjectResults } from '../application/loadActiveRun';
 
@@ -55,7 +55,13 @@ export function makeTestDescriptor(overrides: Partial<RunDescriptor> = {}): RunD
       kernelInputDistribution: { status: 'not_generated', reason: 'Not logged.' },
       kernelTimeShare: readyArtifact('kernel-time-share'),
     },
-    details: {},
+    details: {
+      'worker-cost-tree': {
+        status: 'ready',
+        schemaVersion: 1,
+        resource: { href: 'fixture://test/details/worker-cost-tree' },
+      },
+    },
     traces: {
       perfetto: { status: 'not_generated', reason: 'Not requested.' },
     },
@@ -235,13 +241,13 @@ export function makeTestSubjectResults(): SubjectResults {
   };
 }
 
-function makeTrees(workers: readonly WorkerRef[]): Record<WorkerKey, CostNode> {
+function makeTrees(workers: readonly WorkerRef[]): Record<WorkerKey, CostTree> {
   return Object.fromEntries(
     workers.map((worker) => [
       makeWorkerKey(worker),
       annotate(leaf(`${worker.poolTag}.kernel`, 'single_gemm', '{}', 1)),
     ]),
-  ) as Record<WorkerKey, CostNode>;
+  ) as Record<WorkerKey, CostTree>;
 }
 
 export function createTestRepository(
@@ -251,7 +257,7 @@ export function createTestRepository(
     topology?: Topology;
     subjects?: SubjectResults;
     subjectErrors?: Partial<Record<SubjectName, Error>>;
-    trees?: Record<WorkerKey, CostNode>;
+    trees?: Record<WorkerKey, CostTree>;
     treeErrors?: Partial<Record<WorkerKey, Error>>;
   } = {},
 ): { repository: AnalyzerRepository; calls: RepositoryCallCounts } {

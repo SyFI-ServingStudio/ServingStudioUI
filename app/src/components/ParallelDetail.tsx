@@ -129,7 +129,7 @@ export default function ParallelDetail() {
   const imb = imbalanceFor(run, w, node);
   const sLeaf = leafById(tree, imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
-  const stragKind = sLeaf ? kindLabel(sLeaf.slot!.kind) : '—';
+  const stragKind = sLeaf ? kindLabel(sLeaf.slot.kind) : '—';
 
   return (
     <Paper sx={{ borderRadius: 2, overflow: 'hidden', background: tokens.tile2 }}>

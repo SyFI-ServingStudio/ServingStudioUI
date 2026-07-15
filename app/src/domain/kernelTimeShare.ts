@@ -11,17 +11,18 @@ export interface KernelTimeSegment {
   sharePct: number;
 }
 
-export interface KernelTimeComposition {
+/** A bounded run-level projection. It is not a hierarchical CostTree detail. */
+export interface AggregateKernelComposition {
   kernelTimeMs: number;
   segments: KernelTimeSegment[];
 }
 
-export interface KernelTimePoolComposition extends KernelTimeComposition {
+export interface AggregatePoolKernelComposition extends AggregateKernelComposition {
   poolTag: string;
   numWorkers: number;
 }
 
-export interface KernelTimeWorkerComposition extends KernelTimeComposition {
+export interface AggregateWorkerKernelComposition extends AggregateKernelComposition {
   ref: WorkerRef;
   key: WorkerKey;
   rawRows: number;
@@ -36,9 +37,9 @@ export interface KernelTimePosition {
 }
 
 export interface KernelTimeShare {
-  overall: KernelTimeComposition;
-  pools: KernelTimePoolComposition[];
-  workers: KernelTimeWorkerComposition[];
+  overall: AggregateKernelComposition;
+  pools: AggregatePoolKernelComposition[];
+  workers: AggregateWorkerKernelComposition[];
   positions: KernelTimePosition[];
   /** Scope totals are exact even when the position mixture is sampled. */
   kernelTimeTotalsExact: true;

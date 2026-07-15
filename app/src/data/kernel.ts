@@ -5,7 +5,7 @@
  * the cost model selects across the input feature space). Deterministic by the
  * leaf's cost-tree id so a backend can swap these for real sampled values later.
  */
-import { groupOf, type CostNode } from './tree';
+import { groupOf, type LeafNode } from './tree';
 
 // H200 SXM peak — bf16 dense tensor throughput + HBM3e bandwidth
 export const H200_PEAK = { tflops: 989, gbps: 4800 };
@@ -31,8 +31,8 @@ export interface KernelPerf {
 }
 
 /** Achieved compute/bandwidth for a leaf, characterised by its kernel family. */
-export function kernelPerf(node: CostNode): KernelPerf {
-  const g = groupOf(node.slot!.kind);
+export function kernelPerf(node: LeafNode): KernelPerf {
+  const g = groupOf(node.slot.kind);
   const r = hsh(node.id + 7);
   let tf = 0,
     bw = 0;
@@ -89,8 +89,8 @@ export interface InputDist {
 }
 
 /** Sampled calls over a 2-feature input space, colored by selected backend. */
-export function inputDist(node: CostNode): InputDist {
-  const kind = node.slot!.kind;
+export function inputDist(node: LeafNode): InputDist {
+  const kind = node.slot.kind;
   const backends = candidateBackends(kind);
   const attn = kind.includes('attn');
   const feature: [string, string] = attn

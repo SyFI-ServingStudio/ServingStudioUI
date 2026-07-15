@@ -2,9 +2,9 @@ import { z, type ZodIssue } from 'zod';
 
 import {
   KERNEL_TIME_EPSILON_MS,
-  type KernelTimeComposition,
+  type AggregateKernelComposition,
+  type AggregateWorkerKernelComposition,
   type KernelTimeShare,
-  type KernelTimeWorkerComposition,
 } from '../../../domain/kernelTimeShare';
 import type { SubjectResult } from '../../../domain/subject';
 import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
@@ -343,7 +343,7 @@ function semanticIssues(wire: ReadyWire): string[] {
   return issues;
 }
 
-function toComposition(wire: CompositionWire): KernelTimeComposition {
+function toComposition(wire: CompositionWire): AggregateKernelComposition {
   return {
     kernelTimeMs: wire.kernel_time_ms,
     segments: wire.segments.map((segment) => ({
@@ -363,7 +363,7 @@ function toKernelTimeShare(wire: ReadyWire): KernelTimeShare {
       poolTag: pool.pool_tag,
       numWorkers: pool.num_workers,
     })),
-    workers: wire.workers.map((worker): KernelTimeWorkerComposition => {
+    workers: wire.workers.map((worker): AggregateWorkerKernelComposition => {
       const ref = makeWorkerRef(worker.pool_tag, worker.worker_id);
       return {
         ...toComposition(worker),

@@ -23,7 +23,12 @@ export const analyzerQueryKeys = {
       `schema-v${schemaVersion}`,
       `analysis-${analysisRevision}`,
     ] as const,
-  workerTree: (runId: string, worker: WorkerRef, schemaVersion: number, analysisRevision: string) =>
+  workerCostTreeDetail: (
+    runId: string,
+    worker: WorkerRef,
+    schemaVersion: number,
+    analysisRevision: string,
+  ) =>
     [
       ...analyzerQueryKeys.runs(),
       runId,
@@ -226,10 +231,10 @@ export function useActiveRunSubjectResults(descriptor: RunDescriptor | undefined
   ) as SubjectResults;
 }
 
-/** High-cardinality worker detail stays outside the active-run assembly. The
+/** High-cardinality hierarchical worker detail stays outside active-run assembly. The
  * analysis revision separates regenerated content even when href and schema
  * version remain unchanged. */
-export function useWorkerCostTreeQuery(
+export function useWorkerCostTreeDetailQuery(
   runId: string,
   worker: WorkerRef | undefined,
   schemaVersion: number | undefined,
@@ -262,9 +267,16 @@ export function useWorkerCostTreeQuery(
                 `schema-v${schemaVersion}`,
                 'unrevisioned',
               ]
-            : analyzerQueryKeys.workerTree(runId, worker, schemaVersion, analysisRevision),
+            : analyzerQueryKeys.workerCostTreeDetail(
+                runId,
+                worker,
+                schemaVersion,
+                analysisRevision,
+              ),
     queryFn: () => {
-      if (worker === undefined) throw new Error('Cannot load a worker tree without a WorkerRef.');
+      if (worker === undefined) {
+        throw new Error('Cannot load a worker CostTree detail without a WorkerRef.');
+      }
       return repository.getWorkerCostTree(runId, worker);
     },
     enabled:

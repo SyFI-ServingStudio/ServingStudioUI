@@ -60,11 +60,19 @@ export default function ScopeBreadcrumbs() {
   }
   if (st.scope === 'kernel') {
     const lf = tree ? leafById(tree, st.leafId) : null;
-    parts.push({ g: 'kernel', lab: lf ? lf.slot!.name.split('.').pop()! : '—', here: true });
+    parts.push({
+      g: 'kernel',
+      lab: lf ? (lf.slot.name.split('.').pop() ?? lf.slot.name) : '—',
+      here: true,
+    });
   }
   if (st.scope === 'parallel') {
     const pn = tree ? nodeById(tree, st.parId) : null;
-    parts.push({ g: 'parallel', lab: pn ? (pn.label ?? 'max') : '—', here: true });
+    parts.push({
+      g: 'parallel',
+      lab: pn?.kind === 'max' ? (pn.label ?? 'max') : '—',
+      here: true,
+    });
   }
 
   const hint: Record<string, string> = {
@@ -72,7 +80,9 @@ export default function ScopeBreadcrumbs() {
     pool: 'pool — utilization · KV · batch composition · kernel time',
     worker: run.capabilities.workerIterations
       ? 'worker — batch composition · cost tree · kernel throughput'
-      : 'worker — full-run aggregate kernel time share',
+      : treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
+        ? 'worker — hierarchical CostTree detail'
+        : 'worker — full-run aggregate kernel time share',
     kernel: run.capabilities.kernelPerformance
       ? 'kernel — roofline · input distribution'
       : 'kernel — detail not generated',

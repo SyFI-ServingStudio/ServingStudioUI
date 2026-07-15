@@ -11,15 +11,25 @@ import {
   type SubjectPayloadByName,
   type SubjectResult,
 } from '../domain/subject';
-import { makeWorkerKey, type WorkerRef } from '../domain/worker';
+import { makeWorkerKey, type WorkerKey, type WorkerRef } from '../domain/worker';
 import { iterationsFor, type Iteration, type IterTimeline } from '../data/iterations';
 import { batchFor, conservationFor } from '../data/scopeData';
-import { projectKernelTimeWorkerTree } from '../data/kernelTimeTree';
-import type { CostNode } from '../data/tree';
+import type { CostTree } from '../data/tree';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 
 const FIXTURE_SCHEMA_VERSION = 1;
 type FixtureRunLoader = () => Promise<readonly Run[]>;
+export type FixtureWorkerCostTreeIndex = ReadonlyMap<string, ReadonlyMap<WorkerKey, CostTree>>;
+
+export class FixtureDetailUnavailableError extends Error {
+  constructor(
+    readonly runId: string,
+    readonly workerKey: WorkerKey,
+  ) {
+    super(`Fixture run ${runId} has no declared worker-cost-tree detail for ${workerKey}.`);
+    this.name = 'FixtureDetailUnavailableError';
+  }
+}
 
 async function loadBundledRuns(): Promise<readonly Run[]> {
   const fixtureModule = await import('../data/realRunFixture');
@@ -37,6 +47,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   constructor(
     configuredRuns?: readonly Run[],
     private readonly runLoader: FixtureRunLoader = loadBundledRuns,
+    private readonly workerCostTrees: FixtureWorkerCostTreeIndex = new Map(),
   ) {
     this.runsPromise = configuredRuns === undefined ? null : Promise.resolve(configuredRuns);
   }
@@ -75,6 +86,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
 
   async getRunDescriptor(runId: string): Promise<RunDescriptor> {
     const run = await this.requireRun(runId);
+    const workerCostTrees = this.workerCostTrees.get(run.id);
     const payloads = this.subjectPayloads(run);
     const subjects: RunDescriptor['subjects'] = {};
     for (const subject of SUBJECT_NAMES) {
@@ -101,7 +113,21 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
       topology: { href: `fixture://${encodeURIComponent(runId)}/topology.json` },
       workers: run.workerList.map((worker) => worker.ref),
       subjects,
-      details: {},
+      details: {
+        'worker-cost-tree':
+          workerCostTrees === undefined
+            ? {
+                status: 'not_generated',
+                reason: 'This fixture has no independently versioned hierarchical CostTree.',
+              }
+            : {
+                status: 'ready',
+                schemaVersion: FIXTURE_SCHEMA_VERSION,
+                resource: {
+                  href: `fixture://${encodeURIComponent(runId)}/details/worker-cost-tree`,
+                },
+              },
+      },
       traces: {
         perfetto:
           run.source.kind === 'synthetic' && run.capabilities.perfettoTrace
@@ -153,16 +179,12 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     } as SubjectResult<Name>;
   }
 
-  async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode> {
-    const run = await this.requireRun(runId);
+  async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostTree> {
+    await this.requireRun(runId);
     const workerKey = makeWorkerKey(worker);
-    const composition = run.payloads.kernelTimeShare?.workers.find(
-      (candidate) => candidate.key === workerKey,
-    );
-    if (!composition) {
-      throw new Error(`Run ${runId} has no kernel-time worker composition for ${workerKey}.`);
-    }
-    return projectKernelTimeWorkerTree(composition);
+    const tree = this.workerCostTrees.get(runId)?.get(workerKey);
+    if (tree === undefined) throw new FixtureDetailUnavailableError(runId, workerKey);
+    return tree;
   }
 
   async getWorkerTimeline(runId: string, worker: WorkerRef): Promise<IterTimeline> {

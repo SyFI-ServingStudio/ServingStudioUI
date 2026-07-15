@@ -10,7 +10,8 @@ import {
   leafById,
   nodeById,
   colorOf,
-  type CostNode,
+  type LeafNode,
+  type MaxNode,
 } from '../../data/tree';
 import { kernelPerf, inputDist } from '../../data/kernel';
 import { imbalanceFor } from '../../data/imbalance';
@@ -42,19 +43,22 @@ function WorkerBottom() {
   const backpressure = metricView(activeData.subjects.backpressure, run, st);
   const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
-  const locs: KernelLoc[] = lt.positions.slice(0, 10).map((p) => {
-    const node = leafByName(tree, p.name)!;
+  const locs: KernelLoc[] = lt.positions.slice(0, 10).flatMap((p) => {
+    const node = leafByName(tree, p.name);
+    if (node === null) return [];
     const perf = kernelPerf(node);
-    return {
-      name: p.name,
-      kind: p.kind,
-      color: colorOf(p.kind),
-      tflops: perf.tflops,
-      gbps: perf.gbps,
-      computeUtil: perf.computeUtil,
-      memUtil: perf.memUtil,
-      pct: p.pct,
-    };
+    return [
+      {
+        name: p.name,
+        kind: p.kind,
+        color: colorOf(p.kind),
+        tflops: perf.tflops,
+        gbps: perf.gbps,
+        computeUtil: perf.computeUtil,
+        memUtil: perf.memUtil,
+        pct: p.pct,
+      },
+    ];
   });
   return (
     <>
@@ -91,10 +95,10 @@ function WorkerBottom() {
 
 /** Kernel-scope bottom: identity + roofline + backend-selection distribution.
  *  Replaces WorkerBottom in place — the cost tree hero above is untouched. */
-function KernelBottom({ node }: { node: CostNode }) {
+function KernelBottom({ node }: { node: LeafNode }) {
   const perf = kernelPerf(node);
   const dist = inputDist(node);
-  const name = node.slot!.name;
+  const name = node.slot.name;
   const multi = dist.backends.length > 1;
   return (
     <>
@@ -130,7 +134,7 @@ function KernelBottom({ node }: { node: CostNode }) {
 /** Parallel-scope bottom: load imbalance across the Max node's lanes over time,
  *  plus the straggler kernel's roofline + input distribution. The cost tree hero
  *  above is untouched — the Max node is a sub-state of the worker view. */
-function ParallelBottom({ node }: { node: CostNode }) {
+function ParallelBottom({ node }: { node: MaxNode }) {
   const st = useViz();
   const run = useActiveRun();
   const tree = useProjectedWorkerTree();
@@ -138,7 +142,7 @@ function ParallelBottom({ node }: { node: CostNode }) {
   const sLeaf = leafById(tree, imb.stragglerLeafId);
   const perf = sLeaf ? kernelPerf(sLeaf) : null;
   const dist = sLeaf ? inputDist(sLeaf) : null;
-  const sName = sLeaf ? sLeaf.slot!.name : '';
+  const sName = sLeaf ? sLeaf.slot.name : '';
   return (
     <>
       <ParallelDetail />
@@ -193,10 +197,9 @@ function ParallelBottom({ node }: { node: CostNode }) {
 function ReadyWorkerStage() {
   const st = useViz();
   const run = useActiveRun();
+  const treeState = useActiveWorkerTreeState();
   const tree = useProjectedWorkerTree();
-  // The current iteration/per-call helpers are synthetic authoring fixtures.
-  // Real repositories must provide subject adapters before enabling this path.
-  if (run.source.kind !== 'synthetic' || !run.capabilities.workerIterations) {
+  if (treeState.status === 'ready' && treeState.evidence === 'aggregate-projection') {
     return (
       <Stack spacing={2}>
         <Paper sx={{ borderRadius: 2, p: 2, borderLeft: `3px solid ${tokens.gold}` }}>
@@ -217,6 +220,14 @@ function ReadyWorkerStage() {
             roofline data. Missing subjects remain unavailable.
           </Typography>
         </Paper>
+        <CostTreeFlow />
+        <TimeShareBlocks />
+      </Stack>
+    );
+  }
+  if (!run.capabilities.workerIterations) {
+    return (
+      <Stack spacing={2}>
         <CostTreeFlow />
         <TimeShareBlocks />
       </Stack>
@@ -245,22 +256,33 @@ export default function WorkerStage() {
   const state = useActiveWorkerTreeState();
   if (state.status === 'loading' || state.status === 'idle') {
     const worker = state.status === 'loading' ? state.worker.key : 'selected worker';
+    const hierarchicalDetail =
+      state.status === 'loading' && state.evidence === 'hierarchical-detail';
+    const evidence = hierarchicalDetail
+      ? 'hierarchical CostTree detail'
+      : 'aggregate kernel composition';
     return (
       <Paper role="status" aria-busy="true" sx={{ borderRadius: 2, p: 3 }}>
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
-          Loading worker cost tree
+          {hierarchicalDetail
+            ? 'Loading worker CostTree detail'
+            : 'Preparing aggregate worker evidence'}
         </Typography>
         <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
-          Fetching aggregate kernel composition for {worker}…
+          Fetching {evidence} for {worker}…
         </Typography>
       </Paper>
     );
   }
   if (state.status === 'error') {
+    const title =
+      state.evidence === 'hierarchical-detail'
+        ? 'Could not load worker CostTree detail'
+        : 'Could not build aggregate worker evidence';
     return (
       <Paper role="alert" sx={{ borderRadius: 2, p: 3, borderLeft: `3px solid ${tokens.terra}` }}>
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
-          Could not load worker cost tree
+          {title}
         </Typography>
         <Typography
           sx={{

@@ -53,7 +53,7 @@ export default function KernelDetail() {
   if (st.scope !== 'kernel' || st.leafId == null) return null;
   const node = leafById(tree, st.leafId);
   if (!node) return null;
-  const s = node.slot!;
+  const s = node.slot;
   const color = colorOf(s.kind);
   const perf = kernelPerf(node);
   const util = Math.round(Math.max(perf.computeUtil, perf.memUtil) * 100);

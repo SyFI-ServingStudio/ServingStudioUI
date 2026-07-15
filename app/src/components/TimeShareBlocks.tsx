@@ -73,7 +73,13 @@ function Bar({
                 role={interactive ? undefined : 'img'}
                 aria-label={accessibleLabel}
                 aria-pressed={interactive ? selected : undefined}
-                onClick={interactive ? () => st.selectKernel(s.nodeId!) : undefined}
+                onClick={
+                  interactive
+                    ? () => {
+                        if (s.nodeId !== null) st.selectKernel(s.nodeId);
+                      }
+                    : undefined
+                }
                 sx={{
                   position: 'relative',
                   height: '100%',
@@ -163,7 +169,7 @@ export default function TimeShareBlocks() {
     acc += p.pct;
     const node = leafByName(tree, p.name);
     return {
-      label: p.name.split('.').pop()!,
+      label: p.name.split('.').pop() ?? p.name,
       full: p.name,
       pct: p.pct,
       ms: p.ms,

@@ -6,7 +6,7 @@ import type {
   UtilSeries,
   WorkerRow,
 } from '../domain/run';
-import type { CostNode } from '../data/tree';
+import type { CostTree } from '../data/tree';
 import {
   iterationsFor,
   nearestIter,
@@ -143,26 +143,26 @@ export const iterTimeline = (run: Run, state: VizState): IterTimeline =>
 export const currentIter = (run: Run, state: VizState): Iteration | null =>
   state.cursorMs == null ? null : nearestIter(iterTimeline(run, state), state.cursorMs);
 
-// Key by the repository-owned aggregate tree so a refetch/version change cannot
+// Key by the repository-owned base tree so a refetch/version change cannot
 // reuse a projection from stale input. Weak ownership also lets old runs be GC'd.
-const treeCache = new WeakMap<CostNode, Map<string, CostNode>>();
+const treeCache = new WeakMap<CostTree, Map<string, CostTree>>();
 
-/** Project a repository-owned aggregate tree at the current synthetic
+/** Project a repository-owned visual tree at the current synthetic
  * iteration. The base tree is an explicit argument so Run never becomes a
  * high-cardinality detail cache. */
-export const projectWorkerTree = (run: Run, state: VizState, aggregateTree: CostNode): CostNode => {
+export const projectWorkerTree = (run: Run, state: VizState, baseTree: CostTree): CostTree => {
   const worker = currentWorker(run, state);
-  if (!run.capabilities.workerIterations) return aggregateTree;
+  if (!run.capabilities.workerIterations) return baseTree;
   const iteration = currentIter(run, state);
   const key = `${worker.key}:${iteration ? iteration.id : 'all'}`;
-  let projections = treeCache.get(aggregateTree);
+  let projections = treeCache.get(baseTree);
   if (!projections) {
-    projections = new Map<string, CostNode>();
-    treeCache.set(aggregateTree, projections);
+    projections = new Map<string, CostTree>();
+    treeCache.set(baseTree, projections);
   }
   let tree = projections.get(key);
   if (!tree) {
-    tree = treeAtIter(aggregateTree, iteration, iterTimeline(run, state).ref);
+    tree = treeAtIter(baseTree, iteration, iterTimeline(run, state).ref);
     projections.set(key, tree);
   }
   return tree;

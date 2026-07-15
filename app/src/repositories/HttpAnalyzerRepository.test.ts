@@ -201,6 +201,12 @@ describe('HttpAnalyzerRepository', () => {
     await expect(
       repository.getWorkerTimeline(RUN_ID, { poolTag: 'attn', workerId: '0' }),
     ).rejects.toBeInstanceOf(HttpDetailUnavailableError);
+    await expect(
+      repository.getWorkerCostTree(RUN_ID, { poolTag: 'attn', workerId: '0' }),
+    ).rejects.toMatchObject({
+      detailName: 'worker-cost-tree',
+      status: 'not_generated',
+    });
   });
 
   it('requires a same-origin API root', () => {

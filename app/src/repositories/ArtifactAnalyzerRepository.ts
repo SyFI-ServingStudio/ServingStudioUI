@@ -16,10 +16,9 @@ import type {
 } from '../domain/artifacts';
 import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
-import { makeWorkerKey, type WorkerRef } from '../domain/worker';
+import type { WorkerRef } from '../domain/worker';
 import type { Iteration, IterTimeline } from '../data/iterations';
-import { projectKernelTimeWorkerTree } from '../data/kernelTimeTree';
-import type { CostNode } from '../data/tree';
+import type { CostTree } from '../data/tree';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 import {
   ArtifactModuleReaderError,
@@ -218,26 +217,9 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
     }
   }
 
-  async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode> {
-    const result = await this.getSubject(runId, 'kernelTimeShare');
-    if (result.status !== 'ready') {
-      const reason = 'reason' in result ? `: ${result.reason}` : '';
-      throw new ArtifactDetailUnavailableError(
-        'worker-cost-tree',
-        result.status,
-        `Kernel-time composition for ${runId} is ${result.status}${reason}`,
-      );
-    }
-    const workerKey = makeWorkerKey(worker);
-    const composition = result.payload.workers.find((candidate) => candidate.key === workerKey);
-    if (composition === undefined) {
-      throw new ArtifactDetailUnavailableError(
-        'worker-cost-tree',
-        'unavailable',
-        `Run ${runId} has no kernel-time composition for worker ${workerKey}.`,
-      );
-    }
-    return projectKernelTimeWorkerTree(composition);
+  async getWorkerCostTree(runId: string, _worker: WorkerRef): Promise<CostTree> {
+    const descriptor = await this.getRunDescriptor(runId);
+    throw this.detailUnavailable(runId, 'worker-cost-tree', descriptor);
   }
 
   async getWorkerTimeline(runId: string, _worker: WorkerRef): Promise<IterTimeline> {
@@ -348,6 +330,13 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
         detailName,
         'not_generated',
         `Run ${runId} does not declare detail resource ${detailName}.`,
+      );
+    }
+    if (detail.status === 'ready') {
+      return new ArtifactDetailUnavailableError(
+        detailName,
+        'incompatible',
+        `Run ${runId} declares ${detailName} ready, but this UI has no protocol-v1 detail decoder.`,
       );
     }
     const reason = 'reason' in detail && detail.reason ? `: ${detail.reason}` : '';

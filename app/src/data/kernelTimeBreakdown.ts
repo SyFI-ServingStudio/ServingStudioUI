@@ -1,6 +1,6 @@
 import {
   KERNEL_TIME_EPSILON_MS,
-  type KernelTimeComposition,
+  type AggregateKernelComposition,
   type KernelTimeShare,
 } from '../domain/kernelTimeShare';
 import type { SubjectResult } from '../domain/subject';
@@ -38,7 +38,7 @@ export function hasReportableKernelTime(projection: ReadyKernelTimeBreakdown): b
   return projection.rows.some((row) => row.total > KERNEL_TIME_EPSILON_MS);
 }
 
-function groupTimes(composition: KernelTimeComposition): Record<string, number> {
+function groupTimes(composition: AggregateKernelComposition): Record<string, number> {
   const byGroup: Record<string, number> = {};
   composition.segments.forEach((segment) => {
     const group = groupOf(segment.kind);
@@ -47,7 +47,7 @@ function groupTimes(composition: KernelTimeComposition): Record<string, number> 
   return byGroup;
 }
 
-function row(label: string, composition: KernelTimeComposition): KernelStackRow {
+function row(label: string, composition: AggregateKernelComposition): KernelStackRow {
   return {
     label,
     total: composition.kernelTimeMs,

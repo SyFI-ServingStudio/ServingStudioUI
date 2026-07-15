@@ -8,6 +8,7 @@ import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 import { useViz } from '../store';
 import {
   createTestRepository,
+  makeTestDescriptor,
   TEST_WORKERS,
   type RepositoryCallCounts,
 } from '../test/analyzerRepositoryFixture';
@@ -21,19 +22,18 @@ const testQueryClients = new Set<QueryClient>();
 function TreeStateProbe() {
   const state = useActiveWorkerTreeState();
   const worker = state.worker?.key ?? 'none';
-  return <div data-testid="worker-tree-state">{`${state.status}:${worker}`}</div>;
+  const evidence = state.evidence ?? 'none';
+  return <div data-testid="worker-tree-state">{`${state.status}:${worker}:${evidence}`}</div>;
 }
 
 function ReadyRunHarness({ showWorkerStage }: { showWorkerStage: boolean }) {
   const active = useActiveRunState();
   if (active.status !== 'ready') return <div data-testid="run-state">{active.status}</div>;
-  const kernelTimeShare = active.data.subjects.kernelTimeShare;
-  const schemaVersion =
-    kernelTimeShare.status === 'ready' ? kernelTimeShare.schemaVersion : undefined;
   return (
     <ActiveWorkerTreeProvider
       run={active.run}
-      schemaVersion={schemaVersion}
+      workerCostTreeDetail={active.data.descriptor.details['worker-cost-tree']}
+      aggregateKernelTimeShare={active.data.subjects.kernelTimeShare}
       analysisRevision={active.data.descriptor.analysis?.revision}
     >
       <div data-testid="run-state">ready:{active.run.id}</div>
@@ -61,7 +61,7 @@ function renderHarness(repository: AnalyzerRepository, showWorkerStage = false) 
 
 async function expectReadyRun(calls: RepositoryCallCounts) {
   await waitFor(() => expect(screen.getByTestId('run-state')).toHaveTextContent('ready:test-run'));
-  expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none');
+  expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none:none');
   expect(calls.trees).toBe(0);
 }
 
@@ -85,8 +85,13 @@ afterEach(() => {
 
 describe('ActiveWorkerTreeProvider', () => {
   it('keys worker detail by analysis revision as well as schema and composite identity', () => {
-    const first = analyzerQueryKeys.workerTree('run', TEST_WORKERS[0], 1, 'revision-a');
-    const regenerated = analyzerQueryKeys.workerTree('run', TEST_WORKERS[0], 1, 'revision-b');
+    const first = analyzerQueryKeys.workerCostTreeDetail('run', TEST_WORKERS[0], 1, 'revision-a');
+    const regenerated = analyzerQueryKeys.workerCostTreeDetail(
+      'run',
+      TEST_WORKERS[0],
+      1,
+      'revision-b',
+    );
 
     expect(first).not.toEqual(regenerated);
   });
@@ -97,23 +102,29 @@ describe('ActiveWorkerTreeProvider', () => {
     await expectReadyRun(calls);
 
     act(() => useViz.getState().selectPool('attn'));
-    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none');
+    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none:none');
     expect(calls.trees).toBe(0);
 
     act(() => useViz.getState().selectWorker(TEST_WORKERS[0]));
     await waitFor(() =>
-      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('ready:attn/0'),
+      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+        'ready:attn/0:hierarchical-detail',
+      ),
     );
     expect(calls.treeWorkers).toEqual([makeWorkerKey(TEST_WORKERS[0])]);
 
     act(() => useViz.getState().selectKernel(0));
-    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('ready:attn/0');
+    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+      'ready:attn/0:hierarchical-detail',
+    );
     expect(calls.trees).toBe(1);
 
     act(() => useViz.getState().setCluster());
     act(() => useViz.getState().selectWorker(TEST_WORKERS[1]));
     await waitFor(() =>
-      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('ready:ffn/0'),
+      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+        'ready:ffn/0:hierarchical-detail',
+      ),
     );
     expect(calls.treeWorkers).toEqual([
       makeWorkerKey(TEST_WORKERS[0]),
@@ -122,7 +133,9 @@ describe('ActiveWorkerTreeProvider', () => {
 
     act(() => useViz.getState().selectWorker(TEST_WORKERS[0]));
     await waitFor(() =>
-      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('ready:attn/0'),
+      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+        'ready:attn/0:hierarchical-detail',
+      ),
     );
     expect(calls.trees).toBe(2);
   });
@@ -137,13 +150,37 @@ describe('ActiveWorkerTreeProvider', () => {
 
     act(() => useViz.getState().selectWorker(TEST_WORKERS[1]));
     await waitFor(() =>
-      expect(screen.getByRole('alert')).toHaveTextContent('Could not load worker cost tree'),
+      expect(screen.getByRole('alert')).toHaveTextContent('Could not load worker CostTree detail'),
     );
     expect(screen.getByRole('alert')).toHaveTextContent('ffn tree artifact is corrupt');
     expect(screen.getByTestId('run-state')).toHaveTextContent('ready:test-run');
     expect(calls.treeWorkers).toEqual([ffnKey]);
 
     act(() => useViz.getState().setCluster());
-    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none');
+    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent('idle:none:none');
+  });
+
+  it('projects loaded aggregate evidence without calling the worker detail repository', async () => {
+    const { repository, calls } = createTestRepository({
+      descriptor: makeTestDescriptor({
+        details: {
+          'worker-cost-tree': {
+            status: 'not_generated',
+            reason: 'No hierarchical worker detail was generated.',
+          },
+        },
+      }),
+    });
+    renderHarness(repository, true);
+    await expectReadyRun(calls);
+
+    act(() => useViz.getState().selectWorker(TEST_WORKERS[0]));
+    await waitFor(() =>
+      expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+        'ready:attn/0:aggregate-projection',
+      ),
+    );
+    expect(calls.trees).toBe(0);
+    expect(screen.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
   });
 });

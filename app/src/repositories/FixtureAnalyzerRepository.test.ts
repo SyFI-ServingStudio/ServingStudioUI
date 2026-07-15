@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { REAL_RUNS } from '../data/realRunFixture';
-import { FixtureAnalyzerRepository } from './FixtureAnalyzerRepository';
+import { annotate, leaf } from '../data/tree';
+import type { Run } from '../domain/run';
+import {
+  FixtureAnalyzerRepository,
+  FixtureDetailUnavailableError,
+} from './FixtureAnalyzerRepository';
 
 describe('FixtureAnalyzerRepository fixture loading', () => {
   it('starts lazily and shares one fixture module load across concurrent reads', async () => {
@@ -34,5 +39,45 @@ describe('FixtureAnalyzerRepository fixture loading', () => {
     );
     await expect(repository.listRuns()).resolves.toHaveLength(REAL_RUNS.length);
     expect(loader).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps synthetic hierarchical trees in an explicit detail index', async () => {
+    const source = REAL_RUNS[0];
+    const worker = source.workerList[0];
+    if (worker === undefined) throw new Error('The checked-in fixture must contain a worker.');
+    const syntheticRun: Run = {
+      ...source,
+      id: 'synthetic-tree-run',
+      name: 'Synthetic tree run',
+      source: {
+        kind: 'synthetic',
+        simulationFolder: 'synthetic-tree-run',
+        simulationReexecuted: null,
+      },
+    };
+    const detailTree = annotate(leaf('detail.kernel', 'single_gemm', '{}', 2));
+    const repository = new FixtureAnalyzerRepository(
+      [syntheticRun],
+      async () => [syntheticRun],
+      new Map([[syntheticRun.id, new Map([[worker.key, detailTree]])]]),
+    );
+
+    await expect(repository.getRunDescriptor(syntheticRun.id)).resolves.toMatchObject({
+      details: { 'worker-cost-tree': { status: 'ready', schemaVersion: 1 } },
+    });
+    await expect(repository.getWorkerCostTree(syntheticRun.id, worker.ref)).resolves.toBe(
+      detailTree,
+    );
+  });
+
+  it('does not reinterpret aggregate kernel composition as worker detail', async () => {
+    const run = REAL_RUNS[0];
+    const worker = run.workerList[0];
+    if (worker === undefined) throw new Error('The checked-in fixture must contain a worker.');
+    const repository = new FixtureAnalyzerRepository([run]);
+
+    await expect(repository.getWorkerCostTree(run.id, worker.ref)).rejects.toBeInstanceOf(
+      FixtureDetailUnavailableError,
+    );
   });
 });

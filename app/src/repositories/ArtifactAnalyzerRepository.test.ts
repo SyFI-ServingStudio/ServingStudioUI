@@ -183,7 +183,7 @@ describe('ArtifactAnalyzerRepository', () => {
 });
 
 describe('bundled analyzer-v1 artifact export', () => {
-  it('loads the real catalog, core, aggregate subjects and composite worker trees', async () => {
+  it('loads the real catalog, core and aggregate subjects without claiming worker detail', async () => {
     const [runs, descriptor, summary, topology] = await Promise.all([
       bundledArtifactAnalyzerRepository.listRuns(),
       bundledArtifactAnalyzerRepository.getRunDescriptor(RUN_ID),
@@ -216,11 +216,11 @@ describe('bundled analyzer-v1 artifact export', () => {
       bundledArtifactAnalyzerRepository.getSubject(RUN_ID, 'kernelInputDistribution'),
     ).resolves.toMatchObject({ status: 'unavailable' });
 
-    const [attnTree, ffnTree] = await Promise.all([
+    await expect(
       bundledArtifactAnalyzerRepository.getWorkerCostTree(RUN_ID, makeWorkerRef('attn', 0)),
-      bundledArtifactAnalyzerRepository.getWorkerCostTree(RUN_ID, makeWorkerRef('ffn', 0)),
-    ]);
-    expect(attnTree.label).toContain('attn/0');
-    expect(ffnTree.label).toContain('ffn/0');
+    ).rejects.toMatchObject({
+      detailName: 'worker-cost-tree',
+      status: 'not_generated',
+    });
   });
 });

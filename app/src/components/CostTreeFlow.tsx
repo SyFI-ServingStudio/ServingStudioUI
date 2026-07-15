@@ -4,12 +4,24 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useViz } from '../store';
 import { currentWorker, currentIter } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
+import { useActiveWorkerTreeState } from '../application/WorkerTreeProvider';
 import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
 import { tokens } from '../theme';
-import { GROUP, colorOf, kindLabel, fmtMs, fmtPct, type CostNode } from '../data/tree';
+import {
+  GROUP,
+  colorOf,
+  kindLabel,
+  fmtMs,
+  fmtPct,
+  type CostNode,
+  type LeafNode,
+  type MaxNode,
+  type ScaleNode,
+  type SumNode,
+} from '../data/tree';
 
-interface NodeProps {
-  node: CostNode;
+interface NodeProps<Node extends CostNode = CostNode> {
+  node: Node;
   selId: number | null;
   onSelect?: (id: number) => void;
   onRoot?: () => void;
@@ -137,7 +149,7 @@ function WrapLabel({
 }: {
   text?: string;
   glyph: string;
-  node: CostNode;
+  node: SumNode;
   extra?: string;
 }) {
   return (
@@ -219,7 +231,7 @@ function ContainerHead({
 }: {
   glyph: string;
   text: string;
-  node: CostNode;
+  node: MaxNode | ScaleNode;
   extra?: string;
   showLabel?: boolean;
 }) {
@@ -289,8 +301,8 @@ function ContainerHead({
   );
 }
 
-function LeafCard({ node, selId, onSelect }: NodeProps) {
-  const s = node.slot!;
+function LeafCard({ node, selId, onSelect }: NodeProps<LeafNode>) {
+  const s = node.slot;
   const color = colorOf(s.kind);
   const selected = selId === node.id;
   // The family rail grows into the selection perimeter. Reusing one hue avoids
@@ -420,7 +432,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
   if (node.kind === 'leaf') return <LeafCard node={node} selId={selId} onSelect={onSelect} />;
 
   if (node.kind === 'sum') {
-    const kids = node.children ?? [];
+    const kids = node.children;
     const isRoot = node.depth === 0 && !!onRoot;
     const subSel = selId != null || parSel != null;
     return (
@@ -440,7 +452,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             isRoot
               ? (e) => {
                   e.stopPropagation();
-                  onRoot!();
+                  onRoot?.();
                 }
               : undefined
           }
@@ -494,7 +506,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
   }
 
   if (node.kind === 'max') {
-    const ov = node.overlap == null ? 1 : node.overlap;
+    const ov = node.overlap;
     const selected = parSel != null && parSel === node.id;
     const clickable = !!onPar;
     return (
@@ -516,7 +528,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             clickable
               ? (e) => {
                   e.stopPropagation();
-                  onPar!(node.id);
+                  onPar?.(node.id);
                 }
               : undefined
           }
@@ -557,7 +569,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             },
           }}
         >
-          {(node.children ?? []).map((c, i) => (
+          {node.children.map((c, i) => (
             <FlowNode
               key={i}
               node={c}
@@ -611,11 +623,11 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
         glyph="×"
         text="repeat"
         node={node}
-        extra={`${fmtMs(node.ms / (node.n ?? 1))} ea`}
+        extra={`${fmtMs(node.n === 0 ? 0 : node.ms / node.n)} ea`}
         showLabel={false}
       />
       <FlowNode
-        node={(node.children ?? [])[0]}
+        node={node.children[0]}
         selId={selId}
         onSelect={onSelect}
         parSel={parSel}
@@ -630,6 +642,7 @@ export default function CostTreeFlow() {
   const run = useActiveRun();
   const w = currentWorker(run, st);
   const tree = useProjectedWorkerTree();
+  const treeState = useActiveWorkerTreeState();
   const atIter = currentIter(run, st) != null;
   const selId = st.scope === 'kernel' ? st.leafId : null;
   const parSel = st.scope === 'parallel' ? st.parId : null;
@@ -637,7 +650,9 @@ export default function CostTreeFlow() {
     ? atIter
       ? 'selected iter'
       : 'iter mean'
-    : 'full-run aggregate';
+    : treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
+      ? 'worker detail'
+      : 'full-run aggregate';
   const canInspectKernel =
     run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
 
@@ -671,7 +686,7 @@ export default function CostTreeFlow() {
             background: tokens.tile2,
           }}
         >
-          Σ / {timeBasis} <b style={{ color: tokens.teal }}>{fmtMs(tree.totalMs!)}</b>
+          Σ / {timeBasis} <b style={{ color: tokens.teal }}>{fmtMs(tree.totalMs)}</b>
         </Box>
         <Stack
           direction="row"

@@ -8,7 +8,7 @@ import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { Iteration, IterTimeline } from '../data/iterations';
-import type { CostNode } from '../data/tree';
+import type { CostTree } from '../data/tree';
 
 /**
  * The only analyzer-data boundary visible to application features.
@@ -26,7 +26,9 @@ export interface AnalyzerRepository {
 
   getSubject<Name extends SubjectName>(runId: string, subject: Name): Promise<SubjectResult<Name>>;
 
-  getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode>;
+  /** Read only the independently versioned `worker-cost-tree` detail declared
+   * by RunDescriptor.details. Aggregate kernel-time subjects never satisfy it. */
+  getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostTree>;
 
   getWorkerTimeline(runId: string, worker: WorkerRef): Promise<IterTimeline>;
 

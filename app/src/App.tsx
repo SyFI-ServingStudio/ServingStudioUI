@@ -231,6 +231,8 @@ export default function App() {
 
   const w = currentWorker(run, st);
   const role = st.poolRole ?? w.pool;
+  const hasHierarchicalWorkerDetail =
+    activeRun.data.descriptor.details['worker-cost-tree']?.status === 'ready';
 
   const stage: Record<typeof st.scope, { title: string; sub: string }> = {
     cluster: {
@@ -245,7 +247,9 @@ export default function App() {
       title: `Worker · ${w.key}`,
       sub: run.capabilities.workerIterations
         ? 'batch composition · cost tree · kernel throughput'
-        : 'full-run aggregate kernel time share · iteration detail not generated',
+        : hasHierarchicalWorkerDetail
+          ? 'hierarchical worker CostTree · iteration detail not generated'
+          : 'full-run aggregate kernel time share · iteration detail not generated',
     },
     kernel: {
       title: `Worker · ${w.key}`,
@@ -261,14 +265,11 @@ export default function App() {
     },
   };
   const meta = stage[st.scope];
-  const kernelTimeShareSubject = activeRun.data.subjects.kernelTimeShare;
-  const workerTreeSchemaVersion =
-    kernelTimeShareSubject.status === 'ready' ? kernelTimeShareSubject.schemaVersion : undefined;
-
   return (
     <ActiveWorkerTreeProvider
       run={run}
-      schemaVersion={workerTreeSchemaVersion}
+      workerCostTreeDetail={activeRun.data.descriptor.details['worker-cost-tree']}
+      aggregateKernelTimeShare={activeRun.data.subjects.kernelTimeShare}
       analysisRevision={activeRun.data.descriptor.analysis?.revision}
     >
       <Box
