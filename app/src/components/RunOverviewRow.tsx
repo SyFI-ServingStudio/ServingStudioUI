@@ -4,7 +4,7 @@ import EChart from './EChart';
 import { arrivalPatternOption, lengthDistributionOption } from '../charts/overviewOptions';
 import { CHART_THEME } from '../charts/options';
 import { traceOverviewFor } from '../data/runOverview';
-import { useActiveRun } from '../application/ActiveRunProvider';
+import { useActiveRunData } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
 import type { Deployment } from '../domain/deployment';
@@ -198,7 +198,8 @@ function Figure({ title, note, children }: { title: string; note: string; childr
 }
 
 export default function RunOverviewRow() {
-  const run = useActiveRun();
+  const { run, subjects } = useActiveRunData();
+  const throughput = subjects.throughput.status === 'ready' ? subjects.throughput.payload : null;
   const overview = useMemo(() => {
     const param = (key: string, fallback = 'n/a') =>
       distinct(
@@ -209,14 +210,17 @@ export default function RunOverviewRow() {
     // stay unavailable until an offered-workload subject is adapted.
     const trace =
       run.source.kind === 'synthetic' && run.capabilities.traceOverview
-        ? traceOverviewFor(run)
+        ? throughput === null
+          ? null
+          : traceOverviewFor(run, throughput)
         : null;
-    const traceEndMs =
-      run.payloads.throughput.t_end_ms[run.payloads.throughput.t_end_ms.length - 1] ?? 0;
+    const traceEndMs = throughput?.t_end_ms[throughput.t_end_ms.length - 1];
     const traceSpan =
-      traceEndMs >= 1000
-        ? `${(traceEndMs / 1000).toFixed(traceEndMs % 1000 ? 1 : 0)} s`
-        : `${traceEndMs} ms`;
+      traceEndMs === undefined
+        ? 'n/a'
+        : traceEndMs >= 1000
+          ? `${(traceEndMs / 1000).toFixed(traceEndMs % 1000 ? 1 : 0)} s`
+          : `${traceEndMs} ms`;
 
     const hasMoeArch = run.workerList.some((worker) =>
       worker.archType.toLowerCase().includes('moe'),
@@ -256,7 +260,7 @@ export default function RunOverviewRow() {
         { label: 'Placement', value: distinct(run.topology.pools.map((pool) => pool.placement)) },
       ],
     };
-  }, [run]);
+  }, [run, throughput]);
 
   return (
     <Box

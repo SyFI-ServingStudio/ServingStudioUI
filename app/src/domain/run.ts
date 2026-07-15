@@ -76,10 +76,10 @@ export interface BatchSubject {
   pools: Readonly<Record<string, BatchSeries>>;
 }
 export interface Payloads {
-  slo: Slo;
-  throughput: Throughput;
-  utilization: UtilSeries;
-  kv: KvSeries;
+  slo?: Slo;
+  throughput?: Throughput;
+  utilization?: UtilSeries;
+  kv?: KvSeries;
   concurrency?: Concurrency;
   pendingQueue?: PendingQueue;
   batchByPool?: Readonly<Record<string, BatchSeries>>;
@@ -149,9 +149,10 @@ export interface Summary {
   num_gpus: number;
   requests: number;
   requests_total?: number;
-  ttft_p50: number;
-  tpot_p50: number;
-  e2e_p50: number;
+  /** Latency percentiles are projections of the optional SLO subject. */
+  ttft_p50?: number;
+  tpot_p50?: number;
+  e2e_p50?: number;
 }
 export interface WorkerRow {
   key: WorkerKey;

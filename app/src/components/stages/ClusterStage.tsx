@@ -1,13 +1,11 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
+import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
-import { utilizationOption, CHART_THEME } from '../../charts/options';
-import { conservationFor } from '../../data/scopeData';
 import ChartCard from '../ChartCard';
 import ConservationCard from '../ConservationCard';
 import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
-import { tokens } from '../../theme';
 
 /** Whole-deployment outcome: SLO + throughput, scheduler backpressure,
  *  per-pool GPU utilization, kernel-time breakdown, and conservation. */
@@ -15,23 +13,12 @@ export default function ClusterStage() {
   const st = useViz();
   const run = useActiveRun();
   const activeData = useActiveRunData();
-  const slo = metricView('slo', run, st);
-  const tp = metricView('throughput', run, st);
-  const backpressure = metricView('backpressure', run, st);
-  const cons =
-    run.payloads.conservation ?? (run.source.kind === 'synthetic' ? conservationFor(run) : null);
+  const slo = metricView(activeData.subjects.slo, run, st);
+  const tp = metricView(activeData.subjects.throughput, run, st);
+  const backpressure = metricView(activeData.subjects.backpressure, run, st);
+  const conservation = activeData.subjects.conservation;
 
-  const util = run.payloads.utilization;
   const pools = run.topology.pools;
-  const poolUtilOption = (role: string) => {
-    const series = util.series.filter(
-      (item) =>
-        item.poolTag === role ||
-        (item.poolTag === undefined &&
-          `${item.key} ${item.label}`.toLowerCase().includes(role.toLowerCase())),
-    );
-    return series.length ? utilizationOption({ t_ms: util.t_ms, series }, CHART_THEME) : null;
-  };
 
   return (
     <Stack spacing={2}>
@@ -43,6 +30,7 @@ export default function ClusterStage() {
           title={METRIC_TITLES.slo}
           sub={slo.sub}
           option={slo.option}
+          empty={slo.empty}
           caption={METRIC_CAPTIONS.slo}
         />
         <ChartCard
@@ -50,6 +38,7 @@ export default function ClusterStage() {
           title={METRIC_TITLES.throughput}
           sub={tp.sub}
           option={tp.option}
+          empty={tp.empty}
           caption={METRIC_CAPTIONS.throughput}
         />
       </Box>
@@ -60,7 +49,7 @@ export default function ClusterStage() {
         sub={backpressure.sub}
         option={backpressure.option}
         note={backpressure.note}
-        empty={backpressure.note ?? undefined}
+        empty={backpressure.empty}
         caption={METRIC_CAPTIONS.backpressure}
       />
 
@@ -72,16 +61,26 @@ export default function ClusterStage() {
           gap: 2,
         }}
       >
-        {pools.map((p) => (
-          <ChartCard
-            key={p.role}
-            idx="d"
-            title={`GPU utilization · ${p.role}`}
-            sub={`${p.groups.reduce((a, g) => a + g.numGpus, 0)} GPU`}
-            option={poolUtilOption(p.role)}
-            caption={`GPU busy fraction over the run window for the ${p.role} pool.`}
-          />
-        ))}
+        {pools.map((p) => {
+          const poolUtil = metricView(activeData.subjects.utilization, run, st, {
+            poolRole: p.role,
+          });
+          return (
+            <ChartCard
+              key={p.role}
+              idx="d"
+              title={`GPU utilization · ${p.role}`}
+              sub={
+                activeData.subjects.utilization.status === 'ready'
+                  ? `${p.groups.reduce((a, g) => a + g.numGpus, 0)} GPU`
+                  : poolUtil.sub
+              }
+              option={poolUtil.option}
+              empty={poolUtil.empty}
+              caption={`GPU busy fraction over the run window for the ${p.role} pool.`}
+            />
+          );
+        })}
       </Box>
 
       <KernelTimeBreakdownCard
@@ -91,17 +90,17 @@ export default function ClusterStage() {
         scope={{ kind: 'cluster' }}
       />
 
-      {cons ? (
-        <ConservationCard idx="f" data={cons} />
+      {conservation.status === 'ready' ? (
+        <ConservationCard idx="f" data={conservation.payload} />
       ) : (
-        <Paper sx={{ borderRadius: 2, p: 2 }}>
-          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
-            Workload conservation
-          </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
-            Subject not generated for this simulation folder.
-          </Typography>
-        </Paper>
+        <ChartCard
+          idx="f"
+          title="Workload conservation"
+          sub={subjectStatusLabel(conservation)}
+          option={null}
+          empty={subjectStatusMessage(conservation)}
+          caption="Analyzer workload-conservation subject status."
+        />
       )}
     </Stack>
   );

@@ -1,7 +1,7 @@
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
 import { currentWorker, cursorSeconds } from '../../application/runSelection';
-import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { useProjectedWorkerTree } from '../../application/useProjectedWorkerTree';
 import {
@@ -36,9 +36,10 @@ import { tokens } from '../../theme';
 function WorkerBottom() {
   const st = useViz();
   const run = useActiveRun();
+  const activeData = useActiveRunData();
   const tree = useProjectedWorkerTree();
   const worker = currentWorker(run, st);
-  const backpressure = metricView('backpressure', run, st);
+  const backpressure = metricView(activeData.subjects.backpressure, run, st);
   const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
   const locs: KernelLoc[] = lt.positions.slice(0, 10).map((p) => {
@@ -63,7 +64,7 @@ function WorkerBottom() {
         sub={backpressure.sub}
         option={backpressure.option}
         note={backpressure.note}
-        empty={backpressure.note ?? undefined}
+        empty={backpressure.empty}
         caption={METRIC_CAPTIONS.backpressure}
       />
       <ChartCard

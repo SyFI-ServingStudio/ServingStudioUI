@@ -295,7 +295,7 @@ export default function App() {
           appears once you're inside a worker (no iteration selection at
           cluster/pool scope). */}
         <Stack spacing={1.5} sx={{ mt: 2 }}>
-          {run.capabilities.concurrencyTimeline && <TimelineBand />}
+          <TimelineBand />
           {run.capabilities.workerIterations &&
             (st.scope === 'worker' || st.scope === 'kernel' || st.scope === 'parallel') && (
               <IterationBand />

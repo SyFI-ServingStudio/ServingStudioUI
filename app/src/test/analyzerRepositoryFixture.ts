@@ -250,6 +250,7 @@ export function createTestRepository(
     summary?: RunSummaryArtifact;
     topology?: Topology;
     subjects?: SubjectResults;
+    subjectErrors?: Partial<Record<SubjectName, Error>>;
     trees?: Record<WorkerKey, CostNode>;
     treeErrors?: Partial<Record<WorkerKey, Error>>;
   } = {},
@@ -301,6 +302,8 @@ export function createTestRepository(
       subject: Name,
     ): Promise<SubjectResult<Name>> {
       calls.subjects += 1;
+      const configuredError = options.subjectErrors?.[subject];
+      if (configuredError) throw configuredError;
       return subjects[subject];
     },
     async getWorkerCostTree(_runId: string, worker: WorkerRef) {

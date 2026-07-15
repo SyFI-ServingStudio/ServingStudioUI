@@ -16,41 +16,78 @@ import {
   poolInScope,
 } from '../application/runSelection';
 import type { Run } from '../domain/run';
+import type { SubjectResult } from '../domain/subject';
+import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
 
 export interface MetricView {
   option: EChartsOption | null;
   note: string | null;
   sub: string;
+  empty?: string;
+}
+
+type MetricSubjectResult = { [Name in MetricKey]: SubjectResult<Name> }[MetricKey];
+
+interface MetricProjection {
+  poolRole?: string;
 }
 
 /** Build the scoped ECharts option + sub-label + optional note for a metric.
  *  Time-axis charts get a cursor at the selected iteration (if any). */
-export function metricView(key: MetricKey, run: Run, s: VizState): MetricView {
-  const role = poolInScope(run, s);
-  const cS = cursorSeconds(s);
-  if (key === 'slo')
+export function metricView(
+  subject: MetricSubjectResult,
+  run: Run,
+  s: VizState,
+  projection: MetricProjection = {},
+): MetricView {
+  if (subject.status !== 'ready') {
     return {
-      option: sloOption(run.payloads.slo, CHART_THEME),
+      option: null,
+      note: null,
+      sub: subjectStatusLabel(subject),
+      empty: subjectStatusMessage(subject),
+    };
+  }
+
+  const role = projection.poolRole ?? poolInScope(run, s);
+  const cS = cursorSeconds(s);
+  if (subject.subject === 'slo')
+    return {
+      option: sloOption(subject.payload, CHART_THEME),
       note: null,
       sub: 'TTFT · TPOT · E2E · CDF',
     };
-  if (key === 'throughput')
+  if (subject.subject === 'throughput')
     return {
-      option: throughputOption(run.payloads.throughput, CHART_THEME, cS),
+      option: throughputOption(subject.payload, CHART_THEME, cS),
       note: null,
       sub: 'prefill ∥ decode · tok/s',
     };
-  if (key === 'utilization') {
+  if (subject.subject === 'utilization') {
+    const utilization = scopedUtil(subject.payload, role);
+    if (utilization.series.length === 0) {
+      return {
+        option: null,
+        note: null,
+        sub: 'ready · empty',
+        empty: `The utilization subject has no GPU series for the ${role ?? 'selected'} scope.`,
+      };
+    }
     return {
-      option: utilizationOption(scopedUtil(run, s), CHART_THEME, cS),
+      option: utilizationOption(utilization, CHART_THEME, cS),
       note: role ? `scoped to ${role} pool` : 'click a pool to scope',
       sub: role ? `pool: ${role}` : 'all pools',
     };
   }
-  if (key === 'backpressure') {
-    const queue = scopedPendingQueue(run, s);
+  if (subject.subject === 'backpressure') {
+    const queue = scopedPendingQueue(subject.payload, run, s);
     if (!queue.total.length)
-      return { option: null, note: 'no pending-queue payload for this scope', sub: 'unavailable' };
+      return {
+        option: null,
+        note: null,
+        sub: 'ready · empty',
+        empty: 'The pending-queue subject has no samples for this scope.',
+      };
     const peak = Math.max(...queue.total);
     const mean = queue.total.reduce((sum, value) => sum + value, 0) / queue.total.length;
     const note = queue.stacked
@@ -62,12 +99,13 @@ export function metricView(key: MetricKey, run: Run, s: VizState): MetricView {
       sub: `peak ${peak} · mean ${mean.toFixed(1)}`,
     };
   }
-  const kv = scopedKv(run, s);
+  const kv = scopedKv(subject.payload, role);
   if (!kv.series.length)
     return {
       option: null,
-      note: `no KV cache on ${role ?? '—'} pool`,
+      note: null,
       sub: role ? `pool: ${role}` : '—',
+      empty: `The KV subject has no cache series for the ${role ?? 'selected'} scope.`,
     };
   const hasCompleteCapacity = kv.series.every((series) => series.capacity !== null);
   return {

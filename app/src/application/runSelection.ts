@@ -1,4 +1,11 @@
-import type { KvSeries, PendingQueueSeries, Run, UtilSeries, WorkerRow } from '../domain/run';
+import type {
+  KvSeries,
+  PendingQueue,
+  PendingQueueSeries,
+  Run,
+  UtilSeries,
+  WorkerRow,
+} from '../domain/run';
 import type { CostNode } from '../data/tree';
 import {
   iterationsFor,
@@ -50,9 +57,7 @@ function matchesPool(
   return normalizedKey.includes(role) || normalizedLabel.includes(role);
 }
 
-export const scopedUtil = (run: Run, state: VizState): UtilSeries => {
-  const utilization = run.payloads.utilization;
-  const role = poolInScope(run, state);
+export const scopedUtil = (utilization: UtilSeries, role: string | null): UtilSeries => {
   if (!role) return utilization;
   return {
     t_ms: utilization.t_ms,
@@ -62,9 +67,7 @@ export const scopedUtil = (run: Run, state: VizState): UtilSeries => {
   };
 };
 
-export const scopedKv = (run: Run, state: VizState): KvSeries => {
-  const kv = run.payloads.kv;
-  const role = poolInScope(run, state);
+export const scopedKv = (kv: KvSeries, role: string | null): KvSeries => {
   if (!role) return kv;
   return {
     t_ms: kv.t_ms,
@@ -82,10 +85,11 @@ function sumPendingQueue(series: PendingQueueSeries[], sampleCount: number): num
 
 /** Queue payloads are stored per worker. This selector is the only owner of
  * pool/cluster aggregation, so totals cannot drift from their components. */
-export const scopedPendingQueue = (run: Run, state: VizState): ScopedPendingQueue => {
-  const queue = run.payloads.pendingQueue;
-  if (!queue) return { t_ms: [], totalLabel: '', total: [], series: [], stacked: false };
-
+export const scopedPendingQueue = (
+  queue: PendingQueue,
+  run: Run,
+  state: VizState,
+): ScopedPendingQueue => {
   const sampleCount = queue.t_ms.length;
   if (state.scope === 'worker' || state.scope === 'kernel' || state.scope === 'parallel') {
     const selectedWorker = currentWorker(run, state);

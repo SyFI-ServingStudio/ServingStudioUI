@@ -1,32 +1,20 @@
 import type { RunDescriptor, RunSummaryArtifact } from '../domain/artifacts';
 import type { Payloads, Run, Topology, WorkerRow } from '../domain/run';
-import {
-  SUBJECT_NAMES,
-  type SubjectName,
-  type SubjectPayloadByName,
-  type SubjectResult,
-} from '../domain/subject';
+import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerRef } from '../domain/worker';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 
 export type SubjectResults = { [Name in SubjectName]: SubjectResult<Name> };
 
+export interface ActiveRunCoreData {
+  descriptor: RunDescriptor;
+  run: Run;
+}
+
 export interface ActiveRunData {
   descriptor: RunDescriptor;
   subjects: SubjectResults;
   run: Run;
-}
-
-function requireReady<Name extends SubjectName>(
-  subjects: SubjectResults,
-  name: Name,
-): SubjectPayloadByName[Name] {
-  const result = subjects[name];
-  if (result.status !== 'ready') {
-    const reason = 'reason' in result && result.reason ? `: ${result.reason}` : '';
-    throw new Error(`Required analyzer subject ${name} is ${result.status}${reason}`);
-  }
-  return result.payload;
 }
 
 function topologyWorkers(topology: Topology): WorkerRef[] {
@@ -89,16 +77,14 @@ function buildWorkerRows(topology: Topology): WorkerRow[] {
   );
 }
 
-function assembleRun(
+/** Pure core assembly. Only summary/topology inconsistencies can reject the
+ * basic run; optional analyzer subjects are attached in a second projection. */
+export function assembleActiveRunCore(
   descriptor: RunDescriptor,
   rootSummary: RunSummaryArtifact,
   topology: Topology,
-  subjects: SubjectResults,
-): Run {
-  const slo = requireReady(subjects, 'slo');
-  const throughput = requireReady(subjects, 'throughput');
-  const utilization = requireReady(subjects, 'utilization');
-  const kv = requireReady(subjects, 'kv');
+): ActiveRunCoreData {
+  requireSameWorkerRoster(descriptor.workers, topology);
   const workerList = buildWorkerRows(topology);
   const gpuNames = new Set(topology.pools.flatMap((pool) => pool.groups.map((group) => group.gpu)));
   if (gpuNames.size !== 1)
@@ -129,11 +115,71 @@ function assembleRun(
   }
   const model = descriptor.modelName ?? topologyModel;
 
+  const provenance = descriptor.provenance;
+  const sourceKind =
+    provenance?.source === 'fixture'
+      ? provenance.synthetic
+        ? 'synthetic'
+        : 'analyzer_fixture'
+      : 'analyzer_http';
+  const simulationFolder =
+    provenance?.source === 'fixture'
+      ? (provenance.sourceRun ?? descriptor.runId)
+      : (descriptor.displayName ?? descriptor.runId);
+
+  return {
+    descriptor,
+    run: {
+      id: descriptor.runId,
+      name: descriptor.displayName ?? descriptor.runId,
+      model,
+      deployment: descriptor.deployment,
+      gpu,
+      summary: {
+        total_tok_s: rootSummary.totalTokS,
+        num_gpus: rootSummary.numGpus,
+        requests: rootSummary.requestsFinished,
+        ...(rootSummary.requestsTotal === undefined
+          ? {}
+          : { requests_total: rootSummary.requestsTotal }),
+      },
+      topology,
+      payloads: {},
+      workerList,
+      gpuTotal,
+      source: {
+        kind: sourceKind,
+        simulationFolder,
+        // Artifact provenance says where bytes came from, not whether this UI
+        // session reran the simulator. Preserve that distinction explicitly.
+        simulationReexecuted: null,
+      },
+      capabilities: {
+        traceOverview: false,
+        concurrencyTimeline: false,
+        workerIterations: false,
+        kernelPerformance: false,
+        kernelInputDistribution: false,
+        loadImbalance: false,
+        perfettoTrace: descriptor.traces.perfetto?.status === 'ready',
+      },
+    },
+  };
+}
+
+/** Project independently loaded subject results onto a ready core. Non-ready
+ * subjects remain explicit in `subjects` and are never replaced by empty data. */
+export function assembleActiveRunData(
+  core: ActiveRunCoreData,
+  subjects: SubjectResults,
+): ActiveRunData {
   const payloads: Payloads = {
-    slo,
-    throughput,
-    utilization,
-    kv,
+    ...(subjects.slo.status === 'ready' ? { slo: subjects.slo.payload } : {}),
+    ...(subjects.throughput.status === 'ready' ? { throughput: subjects.throughput.payload } : {}),
+    ...(subjects.utilization.status === 'ready'
+      ? { utilization: subjects.utilization.payload }
+      : {}),
+    ...(subjects.kv.status === 'ready' ? { kv: subjects.kv.payload } : {}),
     ...(subjects.concurrency.status === 'ready'
       ? { concurrency: subjects.concurrency.payload }
       : {}),
@@ -151,79 +197,42 @@ function assembleRun(
       ? { kernelTimeShare: subjects.kernelTimeShare.payload }
       : {}),
   };
-
-  const provenance = descriptor.provenance;
-  const sourceKind =
-    provenance?.source === 'fixture'
-      ? provenance.synthetic
-        ? 'synthetic'
-        : 'analyzer_fixture'
-      : 'analyzer_http';
-  const simulationFolder =
-    provenance?.source === 'fixture'
-      ? (provenance.sourceRun ?? descriptor.runId)
-      : descriptor.runId;
+  const slo = subjects.slo.status === 'ready' ? subjects.slo.payload : null;
 
   return {
-    id: descriptor.runId,
-    name: descriptor.displayName ?? descriptor.runId,
-    model,
-    deployment: descriptor.deployment,
-    gpu,
-    summary: {
-      total_tok_s: rootSummary.totalTokS,
-      num_gpus: rootSummary.numGpus,
-      requests: rootSummary.requestsFinished,
-      ...(rootSummary.requestsTotal === undefined
-        ? {}
-        : { requests_total: rootSummary.requestsTotal }),
-      ttft_p50: slo.ttft.markers.p50,
-      tpot_p50: slo.tpot.markers.p50,
-      e2e_p50: slo.e2e.markers.p50,
-    },
-    topology,
-    payloads,
-    workerList,
-    gpuTotal,
-    source: {
-      kind: sourceKind,
-      simulationFolder,
-      // Artifact provenance says where bytes came from, not whether this UI
-      // session reran the simulator. Preserve that distinction explicitly.
-      simulationReexecuted: null,
-    },
-    capabilities: {
-      traceOverview: false,
-      concurrencyTimeline: subjects.concurrency.status === 'ready',
-      workerIterations: false,
-      kernelPerformance: false,
-      kernelInputDistribution: subjects.kernelInputDistribution.status === 'ready',
-      loadImbalance: false,
-      perfettoTrace: descriptor.traces.perfetto?.status === 'ready',
+    descriptor: core.descriptor,
+    subjects,
+    run: {
+      ...core.run,
+      summary: {
+        ...core.run.summary,
+        ...(slo === null
+          ? {}
+          : {
+              ttft_p50: slo.ttft.markers.p50,
+              tpot_p50: slo.tpot.markers.p50,
+              e2e_p50: slo.e2e.markers.p50,
+            }),
+      },
+      payloads,
+      capabilities: {
+        ...core.run.capabilities,
+        concurrencyTimeline: subjects.concurrency.status === 'ready',
+        kernelInputDistribution: subjects.kernelInputDistribution.status === 'ready',
+      },
     },
   };
 }
 
-/** Assemble only bounded run-level artifacts. Worker trees are intentionally
- * excluded: the worker feature owns a separate selection-scoped query. */
-export async function loadActiveRunData(
+/** Load only bounded core artifacts. Worker details and optional subjects each
+ * have their own selection/version-scoped query. */
+export async function loadActiveRunCore(
   repository: AnalyzerRepository,
   descriptor: RunDescriptor,
-): Promise<ActiveRunData> {
-  const [rootSummary, topology, subjectPairs] = await Promise.all([
+): Promise<ActiveRunCoreData> {
+  const [rootSummary, topology] = await Promise.all([
     repository.getRunSummary(descriptor.runId),
     repository.getRunTopology(descriptor.runId),
-    Promise.all(
-      SUBJECT_NAMES.map(
-        async (name) => [name, await repository.getSubject(descriptor.runId, name)] as const,
-      ),
-    ),
   ]);
-  const subjects = Object.fromEntries(subjectPairs) as SubjectResults;
-  requireSameWorkerRoster(descriptor.workers, topology);
-  return {
-    descriptor,
-    subjects,
-    run: assembleRun(descriptor, rootSummary, topology, subjects),
-  };
+  return assembleActiveRunCore(descriptor, rootSummary, topology);
 }

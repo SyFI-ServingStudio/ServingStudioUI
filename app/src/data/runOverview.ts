@@ -1,4 +1,4 @@
-import type { Run } from '../domain/run';
+import type { Run, Throughput } from '../domain/run';
 
 export interface TraceOverviewData {
   tokenLengths: number[];
@@ -49,7 +49,7 @@ function movingAverage(values: number[], radius = 2): number[] {
 
 /** Deterministic fake workload evidence. Keeping this separate from component
  *  layout makes the eventual payload handoff a one-file replacement. */
-export function traceOverviewFor(run: Run): TraceOverviewData {
+export function traceOverviewFor(run: Run, throughput: Throughput): TraceOverviewData {
   const random = rng(strHash(run.id) ^ 0xa511e9b3);
   const tokenLengths = Array.from({ length: 72 }, (_, index) =>
     Math.round(4 * Math.pow(8192, index / 71)),
@@ -59,8 +59,7 @@ export function traceOverviewFor(run: Run): TraceOverviewData {
   const outputDensity = normalizedDensity(tokenLengths, 180 * moeScale, 0.82);
 
   const bucketCount = 72;
-  const traceEndMs =
-    run.payloads.throughput.t_end_ms[run.payloads.throughput.t_end_ms.length - 1] ?? 1;
+  const traceEndMs = throughput.t_end_ms[throughput.t_end_ms.length - 1] ?? 1;
   const burstCenters = [0.18 + random() * 0.05, 0.52 + random() * 0.06, 0.8 + random() * 0.04];
   const raw = Array.from({ length: bucketCount }, (_, index) => {
     const x = (index + 0.5) / bucketCount;

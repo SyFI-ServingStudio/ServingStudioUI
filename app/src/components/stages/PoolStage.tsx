@@ -2,9 +2,9 @@ import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { cursorSeconds, poolInScope } from '../../application/runSelection';
 import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
+import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { batchOption, CHART_THEME } from '../../charts/options';
-import { batchFor } from '../../data/scopeData';
 import ChartCard from '../ChartCard';
 import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
 import WorkersInPool from '../WorkersInPool';
@@ -15,12 +15,21 @@ export default function PoolStage() {
   const run = useActiveRun();
   const activeData = useActiveRunData();
   const role = poolInScope(run, st) ?? st.poolRole ?? '—';
-  const util = metricView('utilization', run, st);
-  const kv = metricView('kv', run, st);
-  const backpressure = metricView('backpressure', run, st);
-  const batch =
-    run.payloads.batchByPool?.[role] ??
-    (run.source.kind === 'synthetic' ? batchFor(run, role) : null);
+  const util = metricView(activeData.subjects.utilization, run, st);
+  const kv = metricView(activeData.subjects.kv, run, st);
+  const backpressure = metricView(activeData.subjects.backpressure, run, st);
+  const batchSubject = activeData.subjects.batch;
+  const batch = batchSubject.status === 'ready' ? batchSubject.payload.pools[role] : undefined;
+  const batchSub =
+    batchSubject.status === 'ready'
+      ? batch === undefined
+        ? 'ready · empty'
+        : `pool: ${role}`
+      : subjectStatusLabel(batchSubject);
+  const batchEmpty =
+    batchSubject.status === 'ready'
+      ? `The batch subject has no series for pool ${role}.`
+      : subjectStatusMessage(batchSubject);
   const cS = cursorSeconds(st);
 
   return (
@@ -35,7 +44,7 @@ export default function PoolStage() {
           option={util.option}
           note={util.note}
           caption={METRIC_CAPTIONS.utilization}
-          empty={util.note ?? undefined}
+          empty={util.empty}
         />
         <ChartCard
           idx="b"
@@ -44,7 +53,7 @@ export default function PoolStage() {
           option={kv.option}
           note={kv.note}
           caption={METRIC_CAPTIONS.kv}
-          empty={kv.note ?? undefined}
+          empty={kv.empty}
         />
       </Box>
       <ChartCard
@@ -53,20 +62,20 @@ export default function PoolStage() {
         sub={backpressure.sub}
         option={backpressure.option}
         note={backpressure.note}
-        empty={backpressure.note ?? undefined}
+        empty={backpressure.empty}
         caption={METRIC_CAPTIONS.backpressure}
       />
       <ChartCard
         idx="d"
         title="Batch composition"
-        sub={`pool: ${role}`}
+        sub={batchSub}
         option={batch ? batchOption(batch, CHART_THEME, cS) : null}
         note={
           batch
             ? 'prefill ∥ decode tokens per step · concurrent decode requests (right axis)'
-            : 'batch subject not generated for this folder'
+            : null
         }
-        empty={batch ? undefined : 'Batch composition is unavailable for this simulation folder.'}
+        empty={batch ? undefined : batchEmpty}
         caption="Batched tokens per scheduler step, split into prefill vs decode, with the number of concurrent decode requests on the right axis. Shows how the pool fills its token budget over the run."
       />
       <KernelTimeBreakdownCard

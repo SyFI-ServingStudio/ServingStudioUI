@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
-import { useActiveRun } from '../application/ActiveRunProvider';
+import { useActiveRunData } from '../application/ActiveRunProvider';
+import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
 import { concurrencySparkOption, CHART_THEME } from '../charts/options';
 import { tokens } from '../theme';
 import EChart from './EChart';
@@ -12,16 +13,53 @@ import EChart from './EChart';
  *  snaps the current worker to the nearest step. "All" clears it. */
 export default function TimelineBand() {
   const st = useViz();
-  const run = useActiveRun();
-  const tp = run.payloads.throughput;
-  const conc = run.payloads.concurrency;
-  const spanMs = tp.t_end_ms[tp.t_end_ms.length - 1] || 1;
+  const { subjects } = useActiveRunData();
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [drag, setDrag] = useState(false);
+  const concurrency = subjects.concurrency;
+  if (concurrency.status !== 'ready') {
+    return (
+      <Paper sx={{ p: '12px 16px', borderRadius: 2 }}>
+        <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={2}>
+          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
+            Timeline
+          </Typography>
+          <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+            {subjectStatusLabel(concurrency)}
+          </Typography>
+        </Stack>
+        <Typography
+          role="status"
+          sx={{ mt: 0.75, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+        >
+          {subjectStatusMessage(concurrency)}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  const conc = concurrency.payload;
+  const spanMs = conc.t_ms[conc.t_ms.length - 1];
+  if (spanMs === undefined || spanMs <= 0) {
+    return (
+      <Paper sx={{ p: '12px 16px', borderRadius: 2 }}>
+        <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
+          Timeline
+        </Typography>
+        <Typography
+          role="status"
+          sx={{ mt: 0.75, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+        >
+          Concurrency subject is ready but has no positive wall-clock span.
+        </Typography>
+      </Paper>
+    );
+  }
   const cur = st.cursorMs;
   const frac = cur == null ? null : Math.min(1, Math.max(0, cur / spanMs));
 
   // active requests at an arbitrary wall-clock ms (nearest sample)
   const activeAt = (ms: number): number | null => {
-    if (!conc) return null;
     let best = 0,
       bd = Infinity;
     for (let i = 0; i < conc.t_ms.length; i++) {
@@ -34,9 +72,6 @@ export default function TimelineBand() {
     return conc.active[best];
   };
   const activeNow = cur != null ? activeAt(cur) : null;
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [drag, setDrag] = useState(false);
-
   const setFromX = (clientX: number) => {
     const el = trackRef.current;
     if (!el) return;
@@ -100,9 +135,7 @@ export default function TimelineBand() {
         >
           {cur != null
             ? `t = ${(cur / 1000).toFixed(2)}s · ${activeNow ?? '—'} active`
-            : conc
-              ? `aggregate · peak ${conc.peak}`
-              : 'aggregate'}
+            : `aggregate · peak ${conc.peak}`}
         </Box>
         <Box onClick={() => st.setTime(null)} sx={pill}>
           All
@@ -131,14 +164,12 @@ export default function TimelineBand() {
           touchAction: 'none',
         }}
       >
-        {conc && (
-          <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <EChart
-              option={concurrencySparkOption(conc, spanMs, CHART_THEME)}
-              ariaLabel="Request concurrency over simulation time"
-            />
-          </Box>
-        )}
+        <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <EChart
+            option={concurrencySparkOption(conc, spanMs, CHART_THEME)}
+            ariaLabel="Request concurrency over simulation time"
+          />
+        </Box>
         {frac != null && (
           <>
             <Box

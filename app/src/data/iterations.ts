@@ -58,7 +58,10 @@ export function iterationsFor(run: Run, workerKey: WorkerKey): IterTimeline {
   // numerous per-worker steps (hundreds–thousands), varied so worker timelines
   // don't move in lockstep — drives the windowed/scrolling iteration view
   const n = (multi ? 1500 : 480) + Math.floor(r() * (multi ? 260 : 90));
-  const tp = run.payloads.throughput.t_end_ms;
+  // This generator is synthetic-only, but Run also represents artifact-backed
+  // pages where throughput is optional. Keep its authoring fallback local
+  // instead of pretending a missing subject produced an empty payload.
+  const tp = run.payloads.throughput?.t_end_ms ?? [];
   const spanMs = tp[tp.length - 1] || (multi ? 60000 : 22000);
   const ffn = pool.indexOf('ffn') >= 0;
   const attn = pool.indexOf('attn') >= 0;
