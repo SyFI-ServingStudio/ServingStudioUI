@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import kernelTimeShareJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/kernel_time_share_composition.json';
-import { decodeAnalyzerV1KernelTimeSharePayload } from '../contracts/analyzer/v1/kernelTimeShare';
-import type { KernelTimeShare } from '../domain/kernelTimeShare';
-import type { SubjectResult } from '../domain/subject';
+import kernelTimeShareJson from '../../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/kernel_time_share_composition.json';
+import { decodeAnalyzerV1KernelTimeSharePayload } from '../../contracts/analyzer/v1/kernelTimeShare';
+import type { KernelTimeShare } from '../../domain/kernelTimeShare';
+import type { SubjectResult } from '../../domain/subject';
 import { hasReportableKernelTime, projectKernelTimeBreakdown } from './kernelTimeBreakdown';
 
 function readySubject(payload: KernelTimeShare): SubjectResult<'kernelTimeShare'> {

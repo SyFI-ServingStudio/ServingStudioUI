@@ -4,10 +4,15 @@ import { useViz } from '../../store';
 import { cursorSeconds, poolInScope } from '../../application/runSelection';
 import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
-import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
-import { batchOption, CHART_THEME } from '../../charts/options';
+import { CHART_THEME } from '../../charts/platform';
 import ChartCard from '../../components/ChartCard';
-import KernelTimeBreakdownCard from '../../components/KernelTimeBreakdownCard';
+import {
+  batchOption,
+  KernelTimeBreakdownCard,
+  metricView,
+  METRIC_TITLES,
+  METRIC_CAPTIONS,
+} from '../metrics';
 import WorkersInPool from './WorkersInPool';
 
 /** Pool-level resource behaviour: utilization, KV, queue/batch, kernel mix, then drill. */

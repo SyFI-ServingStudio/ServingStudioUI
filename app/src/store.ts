@@ -6,7 +6,6 @@ import { create } from 'zustand';
 import { makeWorkerKey, type WorkerKey, type WorkerRef } from './domain/worker';
 
 export type Scope = 'cluster' | 'pool' | 'worker' | 'kernel' | 'parallel';
-export type MetricKey = 'slo' | 'throughput' | 'utilization' | 'kv' | 'backpressure';
 
 export interface VizState {
   runId: string | null;

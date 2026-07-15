@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ActiveRunProvider, useActiveRunState } from '../../application/ActiveRunProvider';
 import { AnalyzerRepositoryProvider } from '../../application/RepositoryProvider';
+import { ChartFocusProvider } from '../../components/ChartFocusProvider';
 import type { AnalyzerRepository } from '../../repositories/AnalyzerRepository';
 import { createTestRepository, makeTestSubjectResults } from '../../test/analyzerRepositoryFixture';
 import ClusterStage from './ClusterStage';
@@ -29,9 +30,11 @@ function renderStage(repository: AnalyzerRepository) {
     <QueryClientProvider client={queryClient}>
       <AnalyzerRepositoryProvider repository={repository}>
         <ActiveRunProvider>
-          <ReadyGate>
-            <ClusterStage />
-          </ReadyGate>
+          <ChartFocusProvider>
+            <ReadyGate>
+              <ClusterStage />
+            </ReadyGate>
+          </ChartFocusProvider>
         </ActiveRunProvider>
       </AnalyzerRepositoryProvider>
     </QueryClientProvider>,

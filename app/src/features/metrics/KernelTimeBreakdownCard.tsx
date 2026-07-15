@@ -1,12 +1,13 @@
-import type { SubjectResult } from '../domain/subject';
+import type { SubjectResult } from '../../domain/subject';
 import {
   hasReportableKernelTime,
   projectKernelTimeBreakdown,
   type KernelTimeBreakdownProjection,
   type KernelTimeBreakdownScope,
-} from '../data/kernelTimeBreakdown';
-import { CHART_THEME, kernelTimeStackOption } from '../charts/options';
-import ChartCard from './ChartCard';
+} from './kernelTimeBreakdown';
+import { kernelTimeStackOption } from './options';
+import { CHART_THEME } from '../../charts/platform';
+import ChartCard from '../../components/ChartCard';
 
 function unavailableMessage(projection: KernelTimeBreakdownProjection): string {
   if (projection.status === 'scope_missing') return projection.reason;

@@ -2,9 +2,9 @@ import {
   KERNEL_TIME_EPSILON_MS,
   type AggregateKernelComposition,
   type KernelTimeShare,
-} from '../domain/kernelTimeShare';
-import type { SubjectResult } from '../domain/subject';
-import { GROUP, groupOf } from '../domain/cost-tree';
+} from '../../domain/kernelTimeShare';
+import type { SubjectResult } from '../../domain/subject';
+import { GROUP, groupOf } from '../../domain/cost-tree';
 
 export interface KernelStackFamily {
   group: string;

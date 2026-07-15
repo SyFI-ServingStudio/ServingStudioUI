@@ -56,6 +56,7 @@ features/
   run-overview/       model/simulation/trace overview 与 masthead KPI
   system-map/         cluster → pool → worker 拓扑导航
   timeline/           run cursor 与真实 worker iteration index
+  metrics/            cluster/pool 共用的 scope-aware 指标投影与业务图表
   cluster/            whole-deployment 指标与 conservation
   pool/               pool resource、batch、kernel composition 与 worker list
   worker/             worker evidence、CostTree、batch/time-share
