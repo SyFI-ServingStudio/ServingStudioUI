@@ -164,7 +164,6 @@ beforeEach(() => {
     leafId: null,
     parId: null,
     cursorMs: null,
-    focus: null,
   });
 });
 

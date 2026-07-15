@@ -1,9 +1,12 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 
 import { useViz } from '../store';
 import ChartCard from './ChartCard';
+import { useChartFocusDialog, type ChartFocusPayload } from './ChartFocusContext';
+import { ChartFocusProvider } from './ChartFocusProvider';
 
 const chartRender = vi.hoisted(() => vi.fn());
 
@@ -16,13 +19,27 @@ vi.mock('./EChart', () => ({
 
 beforeEach(() => {
   chartRender.mockClear();
-  useViz.setState({ cursorMs: null, focus: null });
+  useViz.setState({ cursorMs: null });
 });
+
+function renderWithFocus(ui: ReactNode, observe?: (focus: ChartFocusPayload | null) => void) {
+  function FocusObserver() {
+    const { focus } = useChartFocusDialog();
+    observe?.(focus);
+    return null;
+  }
+  return render(
+    <ChartFocusProvider>
+      {ui}
+      <FocusObserver />
+    </ChartFocusProvider>,
+  );
+}
 
 describe('ChartCard', () => {
   it('keeps the expand control visible when reached from the keyboard', async () => {
     const user = userEvent.setup();
-    render(<ChartCard title="Throughput" option={{ series: [] }} />);
+    renderWithFocus(<ChartCard title="Throughput" option={{ series: [] }} />);
 
     const expand = screen.getByRole('button', { name: 'Expand Throughput' });
     await user.tab();
@@ -31,17 +48,23 @@ describe('ChartCard', () => {
     expect(getComputedStyle(expand).opacity).toBe('1');
   });
 
-  it('subscribes only to openFocus and opens the shared dialog payload', async () => {
+  it('subscribes only to stable actions and opens the shared dialog payload', async () => {
     const user = userEvent.setup();
     const option = { series: [] };
-    render(<ChartCard title="GPU utilization" caption="GPU busy fraction" option={option} />);
+    let observed: ChartFocusPayload | null = null;
+    renderWithFocus(
+      <ChartCard title="GPU utilization" caption="GPU busy fraction" option={option} />,
+      (focus) => {
+        observed = focus;
+      },
+    );
     const initialChartRenders = chartRender.mock.calls.length;
 
     act(() => useViz.setState({ cursorMs: 1_000 }));
     expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
 
     await user.click(screen.getByRole('button', { name: 'Expand GPU utilization' }));
-    expect(useViz.getState().focus).toEqual({
+    expect(observed).toEqual({
       title: 'GPU utilization',
       caption: 'GPU busy fraction',
       option,

@@ -1,8 +1,8 @@
 import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import type { EChartsOption } from 'echarts';
-import { useViz } from '../store';
 import { tokens } from '../theme';
+import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
 
 /** Generic chart tile: header (idx · title · sub), a chart (or empty note), an
@@ -27,7 +27,7 @@ export default function ChartCard({
   empty?: string;
   height?: number;
 }) {
-  const openFocus = useViz((state) => state.openFocus);
+  const openFocus = useOpenChartFocus();
   return (
     <Paper
       sx={{

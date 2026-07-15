@@ -1,14 +1,12 @@
 import { Box, Dialog, IconButton, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { useViz } from '../store';
 import { tokens } from '../theme';
+import { useChartFocusDialog } from './ChartFocusContext';
 import EChart from './EChart';
 
-/** Zoomed single-chart dialog. Reads whatever chart snapshot was pushed via
- *  store.openFocus({ title, caption, option }) — scope-agnostic. */
+/** Zoomed single-chart dialog for the provider-owned, scope-agnostic snapshot. */
 export default function FocusDialog() {
-  const focus = useViz((state) => state.focus);
-  const closeFocus = useViz((state) => state.closeFocus);
+  const { focus, closeFocus } = useChartFocusDialog();
 
   return (
     <Dialog
@@ -59,22 +57,7 @@ export default function FocusDialog() {
             </IconButton>
           </Stack>
           <Box sx={{ height: 'min(60vh,540px)' }}>
-            {focus.option ? (
-              <EChart option={focus.option} ariaLabel={`${focus.title}. ${focus.caption}`} />
-            ) : (
-              <Box
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: tokens.sub,
-                  fontFamily: tokens.mono,
-                }}
-              >
-                no data
-              </Box>
-            )}
+            <EChart option={focus.option} ariaLabel={`${focus.title}. ${focus.caption}`} />
           </Box>
         </>
       )}

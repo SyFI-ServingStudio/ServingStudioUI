@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { theme } from './theme';
-import App from './App';
+import AppRoot from './AppRoot';
 import { AnalyzerRepositoryProvider } from './application/RepositoryProvider';
 import { ActiveRunProvider } from './application/ActiveRunProvider';
 import { configuredAnalyzerRepository } from './repositories/configuredAnalyzerRepository';
@@ -25,7 +25,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ActiveRunProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />
-            <App />
+            <AppRoot />
           </ThemeProvider>
         </ActiveRunProvider>
       </AnalyzerRepositoryProvider>
