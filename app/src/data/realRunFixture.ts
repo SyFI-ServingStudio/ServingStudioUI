@@ -9,6 +9,8 @@ import kvJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/pay
 import kernelTimeShareJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/kernel_time_share_composition.json';
 import batchJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/batch_scatter.json';
 import conservationJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/workload_conservation_checks.json';
+import { decodeAnalyzerV1KernelTimeSharePayload } from '../contracts/analyzer/v1/kernelTimeShare';
+import type { KernelTimeWorkerComposition } from '../domain/kernelTimeShare';
 import type {
   Arch,
   BatchSeries,
@@ -192,35 +194,6 @@ const kvSchema = z.object({
   t_start_ms: z.array(finiteNumber).min(1),
 });
 
-const kernelTimeShareSchema = z.object({
-  available: z.literal(true),
-  meta: z.object({
-    kernel_time_totals_exact: z.literal(true),
-    log_dir: nonEmptyString,
-    num_workers: positiveInteger,
-  }),
-  schema_version: z.literal(1),
-  workers: z
-    .array(
-      z.object({
-        kernel_time_ms: finiteNumber.nonnegative(),
-        pool_tag: nonEmptyString,
-        segments: z
-          .array(
-            z.object({
-              kernel_time_ms: finiteNumber.nonnegative(),
-              kind: nonEmptyString,
-              position: nonEmptyString,
-              share_pct: finiteNumber,
-            }),
-          )
-          .min(1),
-        worker_id: nonNegativeInteger,
-      }),
-    )
-    .min(1),
-});
-
 const batchSchema = z.object({
   available: z.literal(true),
   meta: z.object({ log_dir: nonEmptyString }),
@@ -329,11 +302,16 @@ const rawUtilization = parseFixture(
   utilizationJson,
 );
 const rawKv = parseFixture('payloads/kv_occupancy_series.json', kvSchema, kvJson);
-const rawKernelTimeShare = parseFixture(
-  'payloads/kernel_time_share_composition.json',
-  kernelTimeShareSchema,
-  kernelTimeShareJson,
-);
+const kernelTimeShareResult = decodeAnalyzerV1KernelTimeSharePayload(kernelTimeShareJson, {
+  expectedLogDir: ARTIFACT_LOG_DIR,
+});
+if (kernelTimeShareResult.status !== 'ready') {
+  invariant(
+    false,
+    `payloads/kernel_time_share_composition.json is ${kernelTimeShareResult.status}: ${kernelTimeShareResult.reason}`,
+  );
+}
+const kernelTimeShare = kernelTimeShareResult.payload;
 const rawBatch = parseFixture('payloads/batch_scatter.json', batchSchema, batchJson);
 const rawConservation = parseFixture(
   'payloads/workload_conservation_checks.json',
@@ -346,7 +324,6 @@ const rawConservation = parseFixture(
   ['throughput', rawThroughput.meta.log_dir],
   ['utilization', rawUtilization.meta.log_dir],
   ['KV', rawKv.meta.log_dir],
-  ['kernel time share', rawKernelTimeShare.meta.log_dir],
   ['batch', rawBatch.meta.log_dir],
   ['conservation', rawConservation.meta.log_dir],
 ].forEach(([label, logDir]) => checkArtifactFolder(label, logDir));
@@ -361,7 +338,7 @@ invariant(
   'throughput and run_meta disagree on num_gpus',
 );
 invariant(
-  rawKernelTimeShare.meta.num_workers === rawRunMeta.workers.length,
+  kernelTimeShare.workers.length === rawRunMeta.workers.length,
   'kernel time share and run_meta disagree on worker count',
 );
 invariant(
@@ -514,27 +491,16 @@ invariant(topologyGpuTotal === rawRunMeta.num_gpus, 'topology GPU total does not
  * Every leaf base is the analyzer's real per-worker `kernel_time_ms` for that
  * position over the full run; the flat sum intentionally preserves that unit.
  */
-function buildAggregateKernelTree(
-  worker: z.infer<typeof kernelTimeShareSchema>['workers'][number],
-): CostNode {
-  const segmentTotal = worker.segments.reduce(
-    (total, segment) => total + segment.kernel_time_ms,
-    0,
-  );
-  const tolerance = Math.max(1e-6, worker.kernel_time_ms * 1e-12);
-  invariant(
-    Math.abs(segmentTotal - worker.kernel_time_ms) <= tolerance,
-    `kernel segments do not sum to worker ${worker.pool_tag}/${worker.worker_id} total`,
-  );
+function buildAggregateKernelTree(worker: KernelTimeWorkerComposition): CostNode {
   return annotate(
     sum(
-      `run aggregate · ${worker.pool_tag}/${worker.worker_id}`,
+      `run aggregate · ${worker.ref.poolTag}/${worker.ref.workerId}`,
       ...worker.segments.map((segment) =>
         leaf(
           segment.position,
           segment.kind,
-          `run aggregate · share_pct=${segment.share_pct}`,
-          segment.kernel_time_ms,
+          `run aggregate · share_pct=${segment.sharePct}`,
+          segment.kernelTimeMs,
         ),
       ),
     ),
@@ -542,8 +508,8 @@ function buildAggregateKernelTree(
 }
 
 const trees = {} as Record<WorkerKey, CostNode>;
-rawKernelTimeShare.workers.forEach((worker) => {
-  const key = makeWorkerKey(worker.pool_tag, worker.worker_id);
+kernelTimeShare.workers.forEach((worker) => {
+  const key = worker.key;
   invariant(trees[key] === undefined, `kernel time share repeats worker ${key}`);
   trees[key] = buildAggregateKernelTree(worker);
 });
@@ -754,10 +720,7 @@ const realRun: Run = {
   payloads: {
     batchByPool: adaptBatch(),
     conservation: adaptConservation(),
-    // Keep the complete validated analyzer-v1 envelope available to the
-    // subject-specific UI adapter; the CostNode trees above are only its
-    // current aggregate-composition projection.
-    kernelTimeShare: kernelTimeShareJson,
+    kernelTimeShare,
     kv: adaptKv(),
     slo,
     throughput: adaptThroughput(),

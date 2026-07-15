@@ -1,3 +1,15 @@
+import type { KernelTimeShare } from './kernelTimeShare';
+import type {
+  BatchSubject,
+  Concurrency,
+  Conservation,
+  KvSeries,
+  PendingQueue,
+  Slo,
+  Throughput,
+  UtilSeries,
+} from './run';
+
 /**
  * Analyzer subjects known by the UI domain.
  *
@@ -30,7 +42,7 @@ export interface SubjectPayloadByName {
   batch: BatchSubject;
   conservation: Conservation;
   kernelInputDistribution: unknown;
-  kernelTimeShare: unknown;
+  kernelTimeShare: KernelTimeShare;
 }
 
 /** `incompatible` is produced by the UI adapter, never by analyzer itself. */
@@ -70,13 +82,3 @@ export type SubjectResult<Name extends SubjectName = SubjectName> =
       reason: string;
       receivedSchemaVersion?: number;
     });
-import type {
-  BatchSubject,
-  Concurrency,
-  Conservation,
-  KvSeries,
-  PendingQueue,
-  Slo,
-  Throughput,
-  UtilSeries,
-} from './run';

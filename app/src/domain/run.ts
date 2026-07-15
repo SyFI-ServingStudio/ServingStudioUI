@@ -1,4 +1,5 @@
 import type { CostNode } from '../data/tree';
+import type { KernelTimeShare } from './kernelTimeShare';
 import type { WorkerKey, WorkerRef } from './worker';
 
 // Analyzer-derived metric models. Transport DTOs remain snake_case in
@@ -76,10 +77,9 @@ export interface Payloads {
   pendingQueue?: PendingQueue;
   batchByPool?: Readonly<Record<string, BatchSeries>>;
   conservation?: Conservation;
-  /** Raw analyzer-v1 subject payloads stay opaque until their UI adapters own
-   * a subject-specific schema. Presence still controls availability honestly. */
+  /** Raw analyzer-v1 payload stays opaque until its subject adapter lands. */
   kernelInputDistribution?: unknown;
-  kernelTimeShare?: unknown;
+  kernelTimeShare?: KernelTimeShare;
 }
 
 export interface RunSource {
