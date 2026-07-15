@@ -29,7 +29,7 @@
 ## P2 · 工程质量护栏
 
 - [x] 配置 ESLint、Prettier 和显式 UI 文件范围的格式检查
-- [x] 配置 Vitest + Testing Library（descriptor、active-run assembler、Provider lifecycle 共 13 个测试）
+- [x] 配置 Vitest + Testing Library（descriptor、active-run assembler、Provider lifecycle、fixture loader 共 15 个测试）
 - [x] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
 - [x] 增加 axe 可访问性检查
 - [x] 增加 GitHub Actions：format、typecheck、lint、unit、build、size、browser smoke
@@ -86,10 +86,11 @@
 
 ## 已验证的已知问题
 
-- Worker/Motion 已在 worker drill 边界按需加载；production 入口约 1.30 MB /
-  416 KB gzip，worker chunk 约 160 KB / 52 KB gzip，所有 chunks 合计约 468 KB
-  gzip。真实 fixture 仍在入口 eager 加载；Size Limit 当前约束入口 ≤500 kB、
-  全部 JS chunks ≤590 kB（gzip）。
+- Worker/Motion 和真实 fixture 已分别在 drill 与 repository 边界按需导入；
+  production 入口约 1.08 MB / 352 KB gzip，fixture chunk 约 220 KB / 65 KB gzip，
+  worker chunk 约 160 KB / 52 KB gzip，所有 chunks 合计约 468 KB gzip。当前默认
+  run 会在 catalog bootstrap 后立即加载 fixture；真正的 per-run 数据按需加载属于 P4。
+  Size Limit 当前约束入口 ≤500 kB、全部 JS chunks ≤590 kB（gzip）。
 - desktop 冷启动、390 px 冷启动及 desktop→390 px 实时缩放均已由 Playwright
   overflow 回归保护；检查会等待 ResizeObserver/ECharts 重排稳定后再判定。
 - npm 当前报告 2 个 moderate、1 个 high 依赖漏洞；P2 先审计依赖链，禁止直接运行破坏性 `npm audit fix --force`。

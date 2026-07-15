@@ -12,13 +12,18 @@ import {
   type SubjectResult,
 } from '../domain/subject';
 import { makeWorkerKey, type WorkerRef } from '../domain/worker';
-import { REAL_RUNS } from '../data/realRunFixture';
 import { iterationsFor, type Iteration, type IterTimeline } from '../data/iterations';
 import { batchFor, conservationFor } from '../data/scopeData';
 import type { CostNode } from '../data/tree';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 
 const FIXTURE_SCHEMA_VERSION = 1;
+type FixtureRunLoader = () => Promise<readonly Run[]>;
+
+async function loadBundledRuns(): Promise<readonly Run[]> {
+  const fixtureModule = await import('../data/realRunFixture');
+  return fixtureModule.REAL_RUNS;
+}
 
 /**
  * Async facade over checked-in deterministic fixtures. A fixture may be a
@@ -26,10 +31,18 @@ const FIXTURE_SCHEMA_VERSION = 1;
  * hand-authored synthetic development data.
  */
 export class FixtureAnalyzerRepository implements AnalyzerRepository {
-  constructor(private readonly runs: readonly Run[] = REAL_RUNS) {}
+  private runsPromise: Promise<readonly Run[]> | null;
+
+  constructor(
+    configuredRuns?: readonly Run[],
+    private readonly runLoader: FixtureRunLoader = loadBundledRuns,
+  ) {
+    this.runsPromise = configuredRuns === undefined ? null : Promise.resolve(configuredRuns);
+  }
 
   async listRuns(): Promise<readonly RunListItem[]> {
-    return this.runs.map((run) => ({
+    const runs = await this.getRuns();
+    return runs.map((run) => ({
       runId: run.id,
       kind: 'simulation',
       displayName: run.name,
@@ -46,7 +59,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   }
 
   async getRunSummary(runId: string) {
-    const summary = this.requireRun(runId).summary;
+    const summary = (await this.requireRun(runId)).summary;
     return {
       totalTokS: summary.total_tok_s,
       numGpus: summary.num_gpus,
@@ -56,11 +69,11 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   }
 
   async getRunTopology(runId: string) {
-    return this.requireRun(runId).topology;
+    return (await this.requireRun(runId)).topology;
   }
 
   async getRunDescriptor(runId: string): Promise<RunDescriptor> {
-    const run = this.requireRun(runId);
+    const run = await this.requireRun(runId);
     const payloads = this.subjectPayloads(run);
     const subjects: RunDescriptor['subjects'] = {};
     for (const subject of SUBJECT_NAMES) {
@@ -115,7 +128,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     runId: string,
     subject: Name,
   ): Promise<SubjectResult<Name>> {
-    const run = this.requireRun(runId);
+    const run = await this.requireRun(runId);
     const payloads = this.subjectPayloads(run);
     const payload = payloads[subject];
     if (payload === undefined) {
@@ -134,7 +147,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   }
 
   async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode> {
-    const run = this.requireRun(runId);
+    const run = await this.requireRun(runId);
     const tree = run.trees[makeWorkerKey(worker)];
     if (!tree)
       throw new Error(`Unknown worker ${worker.poolTag}/${worker.workerId} in run ${runId}`);
@@ -142,7 +155,7 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   }
 
   async getWorkerTimeline(runId: string, worker: WorkerRef): Promise<IterTimeline> {
-    const run = this.requireRun(runId);
+    const run = await this.requireRun(runId);
     if (run.source.kind !== 'synthetic' || !run.capabilities.workerIterations) {
       throw new Error(`Simulation folder ${runId} has no worker-iteration artifact.`);
     }
@@ -170,8 +183,22 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     );
   }
 
-  private requireRun(runId: string): Run {
-    const run = this.runs.find((candidate) => candidate.id === runId);
+  /** StrictMode and concurrent queries share one module request. A rejected
+   * import is evicted so React Query can perform a real retry. */
+  private getRuns(): Promise<readonly Run[]> {
+    if (this.runsPromise !== null) return this.runsPromise;
+
+    this.runsPromise = this.runLoader().catch((error: unknown) => {
+      this.runsPromise = null;
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Could not load bundled analyzer fixtures: ${detail}`);
+    });
+    return this.runsPromise;
+  }
+
+  private async requireRun(runId: string): Promise<Run> {
+    const runs = await this.getRuns();
+    const run = runs.find((candidate) => candidate.id === runId);
     if (!run) throw new Error(`Unknown fixture run id: ${runId}`);
     return run;
   }
