@@ -1,6 +1,15 @@
-import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, ButtonBase, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from 'react';
+import type { Theme } from '@mui/material/styles';
+import type { SystemStyleObject } from '@mui/system';
 import { useViz } from '../store';
 import { currentWorker, currentIter } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
@@ -27,6 +36,49 @@ interface NodeProps<Node extends CostNode = CostNode> {
   onRoot?: () => void;
   parSel?: number | null;
   onPar?: (id: number) => void;
+}
+
+/** Keep presentation-only nodes out of the tab order while giving every
+ * drillable CostTree surface native button semantics and focus behavior. */
+function NodeControl({
+  ariaLabel,
+  pressed,
+  onActivate,
+  sx,
+  children,
+}: {
+  ariaLabel: string;
+  pressed: boolean;
+  onActivate?: () => void;
+  sx: SystemStyleObject<Theme>;
+  children: ReactNode;
+}) {
+  if (!onActivate) return <Box sx={sx}>{children}</Box>;
+
+  return (
+    <ButtonBase
+      type="button"
+      disableRipple
+      aria-label={ariaLabel}
+      aria-pressed={pressed}
+      onClick={(event) => {
+        event.stopPropagation();
+        onActivate();
+      }}
+      sx={[
+        sx,
+        {
+          color: 'inherit',
+          '&:focus-visible': {
+            outline: `2px solid ${tokens.ink}`,
+            outlineOffset: 2,
+          },
+        },
+      ]}
+    >
+      {children}
+    </ButtonBase>
+  );
 }
 
 function SelectionBoundary({ color }: { color: string }) {
@@ -331,12 +383,16 @@ function LeafCard({ node, selId, onSelect }: NodeProps<LeafNode>) {
     </Box>
   );
   return (
-    <Tooltip title={title} arrow placement="top" enterDelay={120}>
+    <Tooltip title={title} arrow placement="top" enterDelay={120} describeChild>
       <Box
+        component={onSelect ? 'button' : 'div'}
+        type={onSelect ? 'button' : undefined}
+        aria-label={onSelect ? `Inspect kernel ${s.name}` : undefined}
+        aria-pressed={onSelect ? selected : undefined}
         onClick={
           onSelect
-            ? (e) => {
-                e.stopPropagation();
+            ? (event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
                 onSelect(node.id);
               }
             : undefined
@@ -345,6 +401,12 @@ function LeafCard({ node, selId, onSelect }: NodeProps<LeafNode>) {
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
+          alignItems: 'stretch',
+          justifyContent: 'flex-start',
+          textAlign: 'left',
+          appearance: 'none',
+          font: 'inherit',
+          color: 'inherit',
           gap: '2px',
           minWidth: 120,
           maxWidth: 160,
@@ -364,6 +426,10 @@ function LeafCard({ node, selId, onSelect }: NodeProps<LeafNode>) {
               ? tokens.shadowLift
               : `inset 2px 0 0 ${color}, ${tokens.shadowLift}`,
             zIndex: 5,
+          },
+          '&:focus-visible': {
+            outline: `2px solid ${tokens.ink}`,
+            outlineOffset: 2,
           },
           '@media (prefers-reduced-motion: reduce)': {
             transition: 'none',
@@ -447,16 +513,13 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
           background: 'rgba(247,242,231,.55)',
         }}
       >
-        <Box
-          onClick={
-            isRoot
-              ? (e) => {
-                  e.stopPropagation();
-                  onRoot?.();
-                }
-              : undefined
-          }
+        <NodeControl
+          ariaLabel="Scope to worker CostTree root"
+          pressed={isRoot && !subSel}
+          onActivate={isRoot ? onRoot : undefined}
           sx={{
+            display: 'block',
+            textAlign: 'left',
             mx: -0.5,
             px: 0.5,
             py: 0.25,
@@ -472,7 +535,7 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             node={node}
             extra={isRoot ? (subSel ? '← back to worker' : 'arch root') : undefined}
           />
-        </Box>
+        </NodeControl>
         <Box
           sx={{
             display: 'flex',
@@ -506,7 +569,6 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
   }
 
   if (node.kind === 'max') {
-    const ov = node.overlap;
     const selected = parSel != null && parSel === node.id;
     const clickable = !!onPar;
     return (
@@ -523,16 +585,13 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             'repeating-linear-gradient(-45deg, rgba(122,92,255,.07) 0 7px, rgba(122,92,255,.015) 7px 14px)',
         }}
       >
-        <Box
-          onClick={
-            clickable
-              ? (e) => {
-                  e.stopPropagation();
-                  onPar?.(node.id);
-                }
-              : undefined
-          }
+        <NodeControl
+          ariaLabel={`Inspect parallel critical path ${node.label ?? 'max'}`}
+          pressed={selected}
+          onActivate={clickable ? () => onPar?.(node.id) : undefined}
           sx={{
+            display: 'block',
+            textAlign: 'left',
             mx: -0.5,
             px: 0.5,
             py: 0.25,
@@ -546,9 +605,9 @@ function FlowNode({ node, selId, onSelect, onRoot, parSel, onPar }: NodeProps) {
             glyph="⇉"
             text="parallel"
             node={node}
-            extra={selected ? '▾ straggler' : clickable ? 'straggler ▸' : `ov ${ov.toFixed(2)}`}
+            extra={selected ? '▾ critical path' : clickable ? 'critical path ▸' : 'critical path'}
           />
-        </Box>
+        </NodeControl>
         <Box
           sx={{
             position: 'relative',
@@ -730,7 +789,7 @@ export default function CostTreeFlow() {
             component="span"
             sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2, ml: 0.5 }}
           >
-            → seq · ⇉ overlap · ×N repeat
+            → sequential · ⇉ parallel critical path · ×N repeat
           </Box>
         </Stack>
       </Stack>

@@ -175,7 +175,7 @@ export default function ParallelDetail() {
             background: 'rgba(122,92,255,.12)',
           }}
         >
-          {imb.label} · overlap {imb.overlap.toFixed(2)}
+          {imb.label} · critical path
         </Box>
         <IconButton
           aria-label={`Back to worker ${w.ref.poolTag}/${w.ref.workerId}`}

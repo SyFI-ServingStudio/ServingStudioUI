@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
 import { useActiveRunData } from '../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
@@ -8,15 +7,14 @@ import { tokens } from '../theme';
 import EChart from './EChart';
 
 /** Wall-clock TIMELINE (run-level). The backdrop is the number of ACTIVE
- *  (in-flight) requests in the system over time. Click or drag to set the
- *  cursor; it lands a marker on every time-series chart AND the Iteration band
- *  snaps the current worker to the nearest step. "All" clears it. */
+ *  (in-flight) requests in the system over time. Drag, click, or use the range
+ *  control's arrow keys to set the cursor; it lands a marker on every
+ *  time-series chart AND the Iteration band snaps the current worker to the
+ *  nearest step. "All" clears it. */
 export default function TimelineBand() {
   const cursorMs = useViz((state) => state.cursorMs);
   const setTime = useViz((state) => state.setTime);
   const { subjects } = useActiveRunData();
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const [drag, setDrag] = useState(false);
   const concurrency = subjects.concurrency;
   if (concurrency.status !== 'ready') {
     return (
@@ -73,13 +71,7 @@ export default function TimelineBand() {
     return conc.active[best];
   };
   const activeNow = cur != null ? activeAt(cur) : null;
-  const setFromX = (clientX: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-    setTime(Math.round(f * spanMs));
-  };
+  const rangeValue = cur == null ? 0 : Math.round(Math.min(spanMs, Math.max(0, cur)));
 
   const allSel = cur == null;
   const pill = {
@@ -97,6 +89,10 @@ export default function TimelineBand() {
     '&:hover': {
       color: allSel ? tokens.teal : tokens.ink,
       borderColor: allSel ? tokens.teal : '#cabf9f',
+    },
+    '&:focus-visible': {
+      outline: `2px solid ${tokens.ink}`,
+      outlineOffset: 2,
     },
   };
 
@@ -138,22 +134,11 @@ export default function TimelineBand() {
             ? `t = ${(cur / 1000).toFixed(2)}s · ${activeNow ?? '—'} active`
             : `aggregate · peak ${conc.peak}`}
         </Box>
-        <Box onClick={() => setTime(null)} sx={pill}>
+        <ButtonBase type="button" aria-pressed={allSel} onClick={() => setTime(null)} sx={pill}>
           All
-        </Box>
+        </ButtonBase>
       </Stack>
       <Box
-        ref={trackRef}
-        onPointerDown={(e) => {
-          setDrag(true);
-          (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-          setFromX(e.clientX);
-        }}
-        onPointerMove={(e) => {
-          if (drag) setFromX(e.clientX);
-        }}
-        onPointerUp={() => setDrag(false)}
-        onPointerCancel={() => setDrag(false)}
         sx={{
           position: 'relative',
           height: 50,
@@ -163,8 +148,37 @@ export default function TimelineBand() {
           overflow: 'hidden',
           cursor: 'pointer',
           touchAction: 'none',
+          '&:has(> input:focus-visible)': {
+            outline: `2px solid ${tokens.ink}`,
+            outlineOffset: 2,
+          },
         }}
       >
+        <Box
+          component="input"
+          type="range"
+          min={0}
+          max={Math.round(spanMs)}
+          step={1}
+          value={rangeValue}
+          aria-label="Simulation time cursor"
+          aria-valuetext={
+            cur == null
+              ? 'Aggregate, no time selected'
+              : `${(rangeValue / 1000).toFixed(2)} seconds, ${activeNow ?? 'unknown'} active requests`
+          }
+          onChange={(event) => setTime(Number(event.currentTarget.value))}
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            m: 0,
+            opacity: 0,
+            cursor: 'ew-resize',
+            zIndex: 2,
+          }}
+        />
         <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <EChart
             option={concurrencySparkOption(conc, spanMs, CHART_THEME)}
@@ -208,7 +222,7 @@ export default function TimelineBand() {
         sx={{ mt: 0.4, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}
       >
         <span>0s</span>
-        <span>active requests in flight ↑ · drag to scrub</span>
+        <span>active requests in flight ↑ · drag or use arrow keys</span>
         <span>{(spanMs / 1000).toFixed(0)}s</span>
       </Stack>
     </Paper>

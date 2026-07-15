@@ -166,12 +166,9 @@ export default function IterationBand() {
         </Box>
       </Stack>
 
-      {/* minimap: whole run, downsampled, with a gliding viewport box + cursor */}
+      {/* The native range owns both pointer and keyboard selection. The visual
+       * minimap remains presentation-only below it. */}
       <Box
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          jumpToStep(Math.round(((e.clientX - r.left) / r.width) * (n - 1)));
-        }}
         sx={{
           position: 'relative',
           display: 'flex',
@@ -180,8 +177,33 @@ export default function IterationBand() {
           height: 26,
           mb: 0.9,
           cursor: 'pointer',
+          '&:has(> input:focus-visible)': {
+            outline: `2px solid ${tokens.ink}`,
+            outlineOffset: 2,
+          },
         }}
       >
+        <Box
+          component="input"
+          type="range"
+          min={0}
+          max={n - 1}
+          step={1}
+          value={sel?.id ?? 0}
+          aria-label={`Jump to an iteration for worker ${w.ref.poolTag}/${w.ref.workerId}`}
+          aria-valuetext={sel ? `Step ${sel.id} of ${n - 1}, ${sel.phase}` : 'No step selected'}
+          onChange={(event) => jumpToStep(Number(event.currentTarget.value))}
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            m: 0,
+            opacity: 0,
+            cursor: 'ew-resize',
+            zIndex: 2,
+          }}
+        />
         {buckets.map((b, i) => (
           <Box
             key={i}
