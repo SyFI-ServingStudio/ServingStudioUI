@@ -10,8 +10,8 @@ export interface RunLifecycle {
   analysis: LifecycleStageStatus;
 }
 
-/** Artifact-faithful root summary fields. Latency percentiles belong to the
- * SLO subject and are merged only in the application view-model. */
+/** Artifact-faithful root summary fields. Latency percentiles remain owned by
+ * the independently queried SLO subject. */
 export interface RunSummaryArtifact {
   totalTokS: number;
   numGpus: number;

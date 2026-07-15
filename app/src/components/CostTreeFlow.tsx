@@ -719,8 +719,7 @@ export default function CostTreeFlow() {
     : treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
       ? 'worker detail'
       : 'full-run aggregate';
-  const canInspectKernel =
-    run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
+  const canInspectKernel = run.capabilities.kernelPerformance;
 
   return (
     <Paper sx={{ borderRadius: 2, borderTop: `2px solid ${tokens.teal}`, overflow: 'hidden' }}>

@@ -1,20 +1,25 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 
 import type { RunDescriptor } from '../domain/artifacts';
 import type { Run } from '../domain/run';
+import type { SubjectName, SubjectResult } from '../domain/subject';
 import { useViz } from '../store';
-import { assembleActiveRunData, type ActiveRunData } from './loadActiveRun';
 import {
   useActiveRunCoreQuery,
-  useActiveRunSubjectResults,
+  useDescriptorSubjectQuery,
   useRunDescriptorQuery,
   useRunListQuery,
 } from './queries';
 
 export type ActiveRunState =
-  | { status: 'selecting' | 'loading' | 'empty'; data: null; run: null; error: null }
-  | { status: 'error'; data: null; run: null; error: Error }
-  | { status: 'ready'; data: ActiveRunData; run: Run; error: null };
+  | {
+      status: 'selecting' | 'loading' | 'empty';
+      descriptor: null;
+      run: null;
+      error: null;
+    }
+  | { status: 'error'; descriptor: null; run: null; error: Error }
+  | { status: 'ready'; descriptor: RunDescriptor; run: Run; error: null };
 
 const ActiveRunContext = createContext<ActiveRunState | null>(null);
 
@@ -22,30 +27,10 @@ function asError(error: unknown, fallback: string): Error {
   return error instanceof Error ? error : new Error(fallback);
 }
 
-type DescriptorReadiness =
-  | { status: 'loading' }
-  | { status: 'error'; error: Error }
-  | { status: 'ready'; descriptor: RunDescriptor };
-
-/** Simulation completion is the only lifecycle barrier for the bounded core.
- * Analysis can still be pending or failed while summary/topology remain useful;
- * its subject states stay local to their cards. */
-function descriptorReadiness(descriptor: RunDescriptor): DescriptorReadiness {
-  const simulation = descriptor.lifecycle.simulation;
-  if (simulation === 'failed') {
-    return {
-      status: 'error',
-      error: new Error(`Simulation stage failed for ${descriptor.runId}.`),
-    };
-  }
-  if (simulation !== 'complete') return { status: 'loading' };
-
-  return { status: 'ready', descriptor };
-}
-
 /** Owns catalog bootstrap and active-run data outside Zustand. Zustand keeps
  * only the requested folder id and local drill selection; React Query owns all
- * repository results, caching and errors. */
+ * repository results, caching and errors. The context stops at bounded core
+ * facts; optional subjects are subscribed independently by name. */
 export function ActiveRunProvider({ children }: { children: ReactNode }) {
   const requestedRunId = useViz((state) => state.runId);
   const setRun = useViz((state) => state.setRun);
@@ -60,48 +45,77 @@ export function ActiveRunProvider({ children }: { children: ReactNode }) {
   }, [requestedRunId, resolvedRunId, setRun]);
 
   const descriptor = useRunDescriptorQuery(resolvedRunId ?? '');
-  const readiness = descriptor.data === undefined ? null : descriptorReadiness(descriptor.data);
-  const readyDescriptor = readiness?.status === 'ready' ? readiness.descriptor : undefined;
+  // Simulation completion is the only lifecycle barrier for summary/topology.
+  // Analysis may still be pending or failed while optional subject cards work.
+  const readyDescriptor =
+    descriptor.data?.lifecycle.simulation === 'complete' ? descriptor.data : undefined;
   const core = useActiveRunCoreQuery(readyDescriptor);
-  const subjects = useActiveRunSubjectResults(readyDescriptor);
-  const activeData =
-    core.data === undefined ? undefined : assembleActiveRunData(core.data, subjects);
-
-  let state: ActiveRunState;
-  if (catalog.isError && catalog.data === undefined) {
-    state = {
-      status: 'error',
-      data: null,
-      run: null,
-      error: asError(catalog.error, 'Could not load the simulation-folder catalog.'),
+  const state = useMemo<ActiveRunState>(() => {
+    if (catalog.isError && catalog.data === undefined) {
+      return {
+        status: 'error',
+        descriptor: null,
+        run: null,
+        error: asError(catalog.error, 'Could not load the simulation-folder catalog.'),
+      };
+    }
+    if (catalog.isPending) {
+      return { status: 'selecting', descriptor: null, run: null, error: null };
+    }
+    if (resolvedRunId === null) {
+      return { status: 'empty', descriptor: null, run: null, error: null };
+    }
+    if (descriptor.isError) {
+      return {
+        status: 'error',
+        descriptor: null,
+        run: null,
+        error: asError(descriptor.error, `Could not load descriptor for ${resolvedRunId}.`),
+      };
+    }
+    if (descriptor.data?.lifecycle.simulation === 'failed') {
+      return {
+        status: 'error',
+        descriptor: null,
+        run: null,
+        error: new Error(`Simulation stage failed for ${descriptor.data.runId}.`),
+      };
+    }
+    if (descriptor.data === undefined || readyDescriptor === undefined || core.isPending) {
+      return { status: 'loading', descriptor: null, run: null, error: null };
+    }
+    if (core.isError) {
+      return {
+        status: 'error',
+        descriptor: null,
+        run: null,
+        error: asError(core.error, `Could not assemble core data for ${resolvedRunId}.`),
+      };
+    }
+    if (core.data === undefined) {
+      return { status: 'loading', descriptor: null, run: null, error: null };
+    }
+    return {
+      status: 'ready',
+      descriptor: core.data.descriptor,
+      run: core.data.run,
+      error: null,
     };
-  } else if (catalog.isPending) {
-    state = { status: 'selecting', data: null, run: null, error: null };
-  } else if (resolvedRunId === null) {
-    state = { status: 'empty', data: null, run: null, error: null };
-  } else if (descriptor.isError) {
-    state = {
-      status: 'error',
-      data: null,
-      run: null,
-      error: asError(descriptor.error, `Could not load descriptor for ${resolvedRunId}.`),
-    };
-  } else if (readiness?.status === 'error') {
-    state = { status: 'error', data: null, run: null, error: readiness.error };
-  } else if (descriptor.data === undefined || readiness?.status === 'loading' || core.isPending) {
-    state = { status: 'loading', data: null, run: null, error: null };
-  } else if (core.isError) {
-    state = {
-      status: 'error',
-      data: null,
-      run: null,
-      error: asError(core.error, `Could not assemble core data for ${resolvedRunId}.`),
-    };
-  } else if (activeData === undefined) {
-    state = { status: 'loading', data: null, run: null, error: null };
-  } else {
-    state = { status: 'ready', data: activeData, run: activeData.run, error: null };
-  }
+  }, [
+    catalog.data,
+    catalog.error,
+    catalog.isError,
+    catalog.isPending,
+    core.data,
+    core.error,
+    core.isError,
+    core.isPending,
+    descriptor.data,
+    descriptor.error,
+    descriptor.isError,
+    readyDescriptor,
+    resolvedRunId,
+  ]);
 
   return <ActiveRunContext.Provider value={state}>{children}</ActiveRunContext.Provider>;
 }
@@ -118,8 +132,19 @@ export function useActiveRun(): Run {
   return state.run;
 }
 
-export function useActiveRunData(): ActiveRunData {
+export function useActiveRunDescriptor(): RunDescriptor {
   const state = useActiveRunState();
-  if (state.status !== 'ready') throw new Error(`Active run data is not ready (${state.status}).`);
-  return state.data;
+  if (state.status !== 'ready') {
+    throw new Error(`Active run descriptor is not ready (${state.status}).`);
+  }
+  return state.descriptor;
+}
+
+/** Components subscribe only to the subject they render. The hook is total:
+ * before core readiness it returns an explicit pending result, and once ready
+ * it preserves descriptor/non-ready/error/incompatible states independently. */
+export function useActiveRunSubject<Name extends SubjectName>(subject: Name): SubjectResult<Name> {
+  const state = useActiveRunState();
+  const descriptor = state.status === 'ready' ? state.descriptor : undefined;
+  return useDescriptorSubjectQuery(descriptor, subject);
 }

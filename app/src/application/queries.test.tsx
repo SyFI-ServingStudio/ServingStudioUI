@@ -1,5 +1,5 @@
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,7 +7,12 @@ import type { RunDescriptor } from '../domain/artifacts';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 import { createTestRepository, makeTestDescriptor } from '../test/analyzerRepositoryFixture';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
-import { analyzerQueryKeys, useRunDescriptorQuery, useRunListQuery } from './queries';
+import {
+  analyzerQueryKeys,
+  useDescriptorSubjectQuery,
+  useRunDescriptorQuery,
+  useRunListQuery,
+} from './queries';
 
 const queryClients = new Set<QueryClient>();
 
@@ -112,5 +117,44 @@ describe('run lifecycle queries', () => {
     await flushImmediateQueryWork();
     expect(listRuns).toHaveBeenCalledTimes(3);
     expect(getRunDescriptor).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('subject queries', () => {
+  it('does not perform I/O for a descriptor-declared non-ready subject', () => {
+    const descriptor = makeTestDescriptor();
+    descriptor.subjects.slo = {
+      status: 'unavailable',
+      code: 'missing_request_events',
+      reason: 'Request lifecycle events were not logged.',
+    };
+    const { repository, calls } = createTestRepository({ descriptor });
+    const { Wrapper } = queryWrapper(repository);
+
+    const { result } = renderHook(() => useDescriptorSubjectQuery(descriptor, 'slo'), {
+      wrapper: Wrapper,
+    });
+
+    expect(result.current).toEqual({ subject: 'slo', ...descriptor.subjects.slo });
+    expect(calls.subjects).toBe(0);
+  });
+
+  it('loads one ready subject into its revision/schema-scoped cache entry', async () => {
+    const descriptor = makeTestDescriptor();
+    const { repository, calls } = createTestRepository({ descriptor });
+    const { queryClient, Wrapper } = queryWrapper(repository);
+
+    const { result } = renderHook(() => useDescriptorSubjectQuery(descriptor, 'slo'), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(calls.subjects).toBe(1);
+    expect(
+      queryClient.getQueryData(analyzerQueryKeys.subject('test-run', 'slo', 1, 'test-revision-v1')),
+    ).toEqual(result.current);
+    expect(analyzerQueryKeys.subject('test-run', 'slo', 1, 'revision-a')).not.toEqual(
+      analyzerQueryKeys.subject('test-run', 'slo', 1, 'revision-b'),
+    );
   });
 });

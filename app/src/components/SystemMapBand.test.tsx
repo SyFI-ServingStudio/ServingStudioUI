@@ -3,16 +3,23 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useActiveRun } from '../application/ActiveRunProvider';
-import { REAL_RUNS } from '../data/realRunFixture';
+import { assembleActiveRunCore } from '../application/loadActiveRun';
 import { useViz } from '../store';
+import { makeTestDescriptor, makeTestTopology } from '../test/analyzerRepositoryFixture';
 import SystemMapBand from './SystemMapBand';
 
 vi.mock('../application/ActiveRunProvider', () => ({ useActiveRun: vi.fn() }));
 
+const testRun = assembleActiveRunCore(
+  makeTestDescriptor(),
+  { totalTokS: 10, numGpus: 2, requestsFinished: 5 },
+  makeTestTopology(),
+).run;
+
 beforeEach(() => {
-  vi.mocked(useActiveRun).mockReturnValue(REAL_RUNS[0]);
+  vi.mocked(useActiveRun).mockReturnValue(testRun);
   useViz.setState({
-    runId: REAL_RUNS[0].id,
+    runId: testRun.id,
     scope: 'cluster',
     poolRole: null,
     workerKey: null,
@@ -37,7 +44,7 @@ describe('SystemMapBand store subscription', () => {
 
     expect(onRender).toHaveBeenCalledTimes(initialRenderCount);
 
-    const selectedRole = REAL_RUNS[0].topology.pools[0].role;
+    const selectedRole = testRun.topology.pools[0].role;
     fireEvent.click(screen.getByRole('button', { name: `Scope to pool ${selectedRole}` }));
 
     expect(useViz.getState()).toMatchObject({ scope: 'pool', poolRole: selectedRole });

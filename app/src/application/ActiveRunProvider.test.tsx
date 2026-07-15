@@ -12,7 +12,7 @@ import {
   makeTestDescriptor,
   makeTestSubjectResults,
 } from '../test/analyzerRepositoryFixture';
-import { ActiveRunProvider, useActiveRunState } from './ActiveRunProvider';
+import { ActiveRunProvider, useActiveRunState, useActiveRunSubject } from './ActiveRunProvider';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
 
 vi.mock('../components/EChart', () => ({
@@ -40,6 +40,11 @@ function ReadyGate({ children }: { children?: ReactNode }) {
       {state.status === 'ready' ? children : null}
     </>
   );
+}
+
+function SloSubjectProbe() {
+  const slo = useActiveRunSubject('slo');
+  return <div data-testid="slo-subject">{slo.status}</div>;
 }
 
 function renderProvider(repository: AnalyzerRepository, readyChildren?: ReactNode) {
@@ -92,7 +97,7 @@ describe('ActiveRunProvider', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
-    await waitFor(() => expect(calls.subjects).toBe(4));
+    expect(calls.subjects).toBe(0);
     expect(calls.trees).toBe(0);
   });
 
@@ -106,7 +111,7 @@ describe('ActiveRunProvider', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
-    await waitFor(() => expect(calls.subjects).toBe(4));
+    expect(calls.subjects).toBe(0);
   });
 
   it('keeps the bounded core available when analysis failed', async () => {
@@ -125,7 +130,7 @@ describe('ActiveRunProvider', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
-    await waitFor(() => expect(calls.subjects).toBe(4));
+    expect(calls.subjects).toBe(0);
   });
 
   it('keeps an incomplete simulation as the core lifecycle barrier', async () => {
@@ -160,7 +165,7 @@ describe('ActiveRunProvider', () => {
     expect(calls.subjects).toBe(0);
   });
 
-  it('publishes a bounded ready run without reading worker trees', async () => {
+  it('publishes a bounded ready run without prefetching subjects or worker trees', async () => {
     const { repository, calls } = createTestRepository();
 
     renderProvider(repository);
@@ -168,8 +173,17 @@ describe('ActiveRunProvider', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
     expect(calls.summary).toBe(1);
     expect(calls.topology).toBe(1);
-    await waitFor(() => expect(calls.subjects).toBe(5));
+    expect(calls.subjects).toBe(0);
     expect(calls.trees).toBe(0);
+  });
+
+  it('loads only a subject whose consumer is mounted', async () => {
+    const { repository, calls } = createTestRepository();
+
+    renderProvider(repository, <SloSubjectProbe />);
+
+    await waitFor(() => expect(screen.getByTestId('slo-subject')).toHaveTextContent('ready'));
+    expect(calls.subjects).toBe(1);
   });
 
   it('keeps the page ready and renders an incompatible SLO payload on its card', async () => {
@@ -228,6 +242,6 @@ describe('ActiveRunProvider', () => {
         'Analyzer subject kv is unavailable. [missing_kv_capacity] The run did not persist a usable KV capacity snapshot.',
       ),
     ).toBeVisible();
-    await waitFor(() => expect(calls.subjects).toBe(4));
+    await waitFor(() => expect(calls.subjects).toBe(2));
   });
 });

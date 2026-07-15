@@ -33,6 +33,6 @@ CI 使用 `.nvmrc` 固定 Node.js 22，并把工程质量与 Chromium 浏览器�
 
 ## 数据接入原则
 
-组件不直接拼接 analyzer 路径；旧 `fakeData.ts` 已删除。当前由 application active-run assembler 通过 `AnalyzerRepository` 读取可验证的真实 fixture，下一步实现 artifact/HTTP repository。异步数据、加载/失败/不可用状态由 repository/query 层处理；Zustand 只保留目录 ID 和本地交互选择。
+组件不直接拼接 analyzer 路径；旧 fake repository/data 已删除。application active-run assembler 只通过 `AnalyzerRepository` 读取 descriptor、summary 和 topology；每个 analyzer subject 由实际 consumer 独立订阅带版本 identity 的 Query cache。普通开发模式读取可验证的真实 artifact fixture，live 模式读取 HTTP repository。异步数据、加载/失败/不可用状态由 repository/query 层处理；Zustand 只保留目录 ID 和本地交互选择。
 
 完整工作计划和 analyzer 协议分别见 [`../WORKPLAN.md`](../WORKPLAN.md) 与 [`../docs/data-protocol.md`](../docs/data-protocol.md)。

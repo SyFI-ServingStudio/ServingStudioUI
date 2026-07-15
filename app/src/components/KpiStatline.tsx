@@ -1,13 +1,14 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { useActiveRunData } from '../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../application/ActiveRunProvider';
 import { subjectStatusMessage } from '../application/subjectStatus';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
 
 export default function KpiStatline() {
-  const { run, subjects } = useActiveRunData();
+  const run = useActiveRun();
+  const sloSubject = useActiveRunSubject('slo');
   const s = run.summary;
-  const slo = subjects.slo.status === 'ready' ? subjects.slo.payload : null;
+  const slo = sloSubject.status === 'ready' ? sloSubject.payload : null;
   const stats = [
     { fig: fmtInt(s.total_tok_s), u: 'tok/s', lab: 'Throughput', accent: true },
     { fig: String(s.num_gpus), u: '', lab: 'GPUs' },
@@ -67,12 +68,12 @@ export default function KpiStatline() {
           </Box>
         ))}
       </Stack>
-      {subjects.slo.status !== 'ready' && (
+      {sloSubject.status !== 'ready' && (
         <Typography
           role="status"
           sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}
         >
-          Latency KPIs unavailable · {subjectStatusMessage(subjects.slo)}
+          Latency KPIs unavailable · {subjectStatusMessage(sloSubject)}
         </Typography>
       )}
     </Box>

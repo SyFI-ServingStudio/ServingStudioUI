@@ -1,9 +1,9 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import type { RunDescriptor } from '../domain/artifacts';
-import { SUBJECT_NAMES, type SubjectName, type SubjectResult } from '../domain/subject';
+import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
-import { loadActiveRunCore, type SubjectResults } from './loadActiveRun';
+import { loadActiveRunCore } from './loadActiveRun';
 import {
   CATALOG_POLL_INTERVAL_MS,
   descriptorPollInterval,
@@ -88,20 +88,6 @@ export function useRunDescriptorQuery(runId: string) {
   });
 }
 
-export function useSubjectQuery<Name extends SubjectName>(
-  runId: string,
-  subject: Name,
-  schemaVersion: number,
-  analysisRevision: string,
-) {
-  const repository = useAnalyzerRepository();
-  return useQuery({
-    queryKey: analyzerQueryKeys.subject(runId, subject, schemaVersion, analysisRevision),
-    queryFn: () => repository.getSubject(runId, subject),
-    enabled: runId.length > 0,
-  });
-}
-
 export function useActiveRunCoreQuery(descriptor: RunDescriptor | undefined) {
   const repository = useAnalyzerRepository();
   const runId = descriptor?.runId ?? '';
@@ -117,8 +103,8 @@ export function useActiveRunCoreQuery(descriptor: RunDescriptor | undefined) {
   });
 }
 
-interface SubjectQuerySnapshot {
-  data: SubjectResult | undefined;
+interface SubjectQuerySnapshot<Name extends SubjectName> {
+  data: SubjectResult<Name> | undefined;
   error: unknown;
   isError: boolean;
 }
@@ -136,11 +122,11 @@ function errorReason(error: unknown, subject: SubjectName): string {
   return error instanceof Error ? error.message : `Could not load analyzer subject ${subject}.`;
 }
 
-function resolveSubjectResult(
+function resolveSubjectResult<Name extends SubjectName>(
   descriptor: RunDescriptor | undefined,
-  subject: SubjectName,
-  query: SubjectQuerySnapshot,
-): SubjectResult {
+  subject: Name,
+  query: SubjectQuerySnapshot<Name>,
+): SubjectResult<Name> {
   if (descriptor === undefined) {
     return { subject, status: 'pending', reason: 'Waiting for run descriptor.' };
   }
@@ -153,7 +139,7 @@ function resolveSubjectResult(
       reason: 'Run descriptor does not declare this analyzer subject.',
     };
   }
-  if (artifact.status !== 'ready') return { subject, ...artifact } as SubjectResult;
+  if (artifact.status !== 'ready') return { subject, ...artifact };
 
   if (descriptor.analysis?.revision === undefined) {
     return {
@@ -192,54 +178,56 @@ function resolveSubjectResult(
   return query.data;
 }
 
-/** Every analyzer subject owns an immutable revision/schema-scoped query. The
- * returned record is total even while individual artifacts load or fail. */
-export function useActiveRunSubjectResults(descriptor: RunDescriptor | undefined): SubjectResults {
+/** Subscribe to exactly one revision/schema-scoped subject. Descriptor states
+ * are returned without I/O; a ready artifact owns one independent Query cache
+ * entry, so unrelated subject completion cannot fan out through run context. */
+export function useDescriptorSubjectQuery<Name extends SubjectName>(
+  descriptor: RunDescriptor | undefined,
+  subject: Name,
+): SubjectResult<Name> {
   const repository = useAnalyzerRepository();
-  const queries = useQueries({
-    queries: SUBJECT_NAMES.map((subject) => {
-      const artifact = descriptor?.subjects[subject];
-      const analysisRevision = descriptor?.analysis?.revision;
-      const runId = descriptor?.runId;
-      const canLoad =
-        runId !== undefined && artifact?.status === 'ready' && analysisRevision !== undefined;
-      return {
-        queryKey: canLoad
-          ? analyzerQueryKeys.subject(runId, subject, artifact.schemaVersion, analysisRevision)
-          : [
-              ...analyzerQueryKeys.runs(),
-              descriptor?.runId ?? 'no-run',
-              'subject',
-              subject,
-              'descriptor-status',
-            ],
-        queryFn: async (): Promise<SubjectResult> => {
-          if (!runId || artifact?.status !== 'ready' || !analysisRevision) {
-            throw new Error(`Subject query ${subject} is not loadable from this descriptor.`);
-          }
-          return repository.getSubject(runId, subject);
-        },
-        enabled: canLoad,
-        staleTime: Infinity,
-      };
-    }),
+  const artifact = descriptor?.subjects[subject];
+  const analysisRevision = descriptor?.analysis?.revision;
+  const request =
+    descriptor !== undefined && artifact?.status === 'ready' && analysisRevision !== undefined
+      ? {
+          runId: descriptor.runId,
+          schemaVersion: artifact.schemaVersion,
+          analysisRevision,
+        }
+      : null;
+  const query = useQuery({
+    queryKey:
+      request === null
+        ? [
+            ...analyzerQueryKeys.runs(),
+            descriptor?.runId ?? 'no-run',
+            'subject',
+            subject,
+            'descriptor-status',
+            JSON.stringify(artifact ?? null),
+          ]
+        : analyzerQueryKeys.subject(
+            request.runId,
+            subject,
+            request.schemaVersion,
+            request.analysisRevision,
+          ),
+    queryFn: (): Promise<SubjectResult<Name>> => {
+      if (request === null) {
+        throw new Error(`Subject query ${subject} is not loadable from this descriptor.`);
+      }
+      return repository.getSubject(request.runId, subject);
+    },
+    enabled: request !== null,
+    staleTime: Infinity,
   });
 
-  // The subject name is used both as the record key and the query closure
-  // argument; this construction boundary preserves the mapped-name invariant.
-  return Object.fromEntries(
-    SUBJECT_NAMES.map((subject, index) => {
-      const query = queries[index];
-      return [
-        subject,
-        resolveSubjectResult(descriptor, subject, {
-          data: query.data,
-          error: query.error,
-          isError: query.isError,
-        }),
-      ];
-    }),
-  ) as SubjectResults;
+  return resolveSubjectResult(descriptor, subject, {
+    data: query.data,
+    error: query.error,
+    isError: query.isError,
+  });
 }
 
 /** High-cardinality hierarchical worker detail stays outside active-run assembly. The

@@ -1,4 +1,3 @@
-import type { KernelTimeShare } from './kernelTimeShare';
 import type { WorkerKey, WorkerRef } from './worker';
 import type { Deployment } from './deployment';
 
@@ -75,20 +74,6 @@ export interface BatchSeries {
 export interface BatchSubject {
   pools: Readonly<Record<string, BatchSeries>>;
 }
-export interface Payloads {
-  slo?: Slo;
-  throughput?: Throughput;
-  utilization?: UtilSeries;
-  kv?: KvSeries;
-  concurrency?: Concurrency;
-  pendingQueue?: PendingQueue;
-  batchByPool?: Readonly<Record<string, BatchSeries>>;
-  conservation?: Conservation;
-  /** Raw analyzer-v1 payload stays opaque until its subject adapter lands. */
-  kernelInputDistribution?: unknown;
-  kernelTimeShare?: KernelTimeShare;
-}
-
 export interface RunSource {
   kind: 'synthetic' | 'analyzer_fixture' | 'analyzer_http';
   simulationFolder: string;
@@ -96,14 +81,12 @@ export interface RunSource {
   simulationReexecuted: boolean | null;
 }
 
-/** Explicit capability gates prevent a missing analyzer artifact from quietly
- * falling back to a synthetic generator in production-facing components. */
+/** Gates for detail protocols that are not represented by aggregate subjects.
+ * Subject readiness must be consumed from SubjectResult instead of duplicated
+ * here; these flags prevent unfinished detail views from fabricating data. */
 export interface RunCapabilities {
-  traceOverview: boolean;
-  concurrencyTimeline: boolean;
   workerIterations: boolean;
   kernelPerformance: boolean;
-  kernelInputDistribution: boolean;
   loadImbalance: boolean;
   perfettoTrace: boolean;
 }
@@ -149,10 +132,6 @@ export interface Summary {
   num_gpus: number;
   requests: number;
   requests_total?: number;
-  /** Latency percentiles are projections of the optional SLO subject. */
-  ttft_p50?: number;
-  tpot_p50?: number;
-  e2e_p50?: number;
 }
 export interface WorkerRow {
   key: WorkerKey;
@@ -169,11 +148,9 @@ export interface WorkerRow {
   worker: WorkerCfg;
 }
 
-/**
- * Transitional assembled view of one run. Repositories will eventually load
- * its descriptor and subjects independently; keeping this type explicit makes
- * the current synchronous fixture path removable without leaking wire JSON.
- */
+/** Bounded run facts assembled only from descriptor, summary, and topology.
+ * Optional analyzer subjects keep their own query/status identity and must not
+ * be copied into this long-lived core model. */
 export interface Run {
   id: string;
   name: string;
@@ -182,7 +159,6 @@ export interface Run {
   gpu: string;
   summary: Summary;
   topology: Topology;
-  payloads: Payloads;
   workerList: WorkerRow[];
   gpuTotal: number;
   source: RunSource;

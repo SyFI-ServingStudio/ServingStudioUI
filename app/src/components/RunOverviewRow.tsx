@@ -1,10 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import EChart from './EChart';
-import { arrivalPatternOption, lengthDistributionOption } from '../charts/overviewOptions';
-import { CHART_THEME } from '../charts/options';
-import { traceOverviewFor } from '../data/runOverview';
-import { useActiveRunData } from '../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { fmtInt } from '../util';
 import type { Deployment } from '../domain/deployment';
@@ -170,50 +166,16 @@ function OverviewCard({
   );
 }
 
-function Figure({ title, note, children }: { title: string; note: string; children: ReactNode }) {
-  return (
-    <Box component="figure" sx={{ m: 0, pt: 0.75, borderTop: `1px solid ${tokens.hair}` }}>
-      <Stack
-        direction="row"
-        alignItems="baseline"
-        justifyContent="space-between"
-        spacing={2}
-        sx={{ mb: 0.25 }}
-      >
-        <Typography
-          component="figcaption"
-          sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 14 }}
-        >
-          {title}
-        </Typography>
-        <Typography
-          sx={{ fontFamily: tokens.mono, fontSize: 8, color: tokens.sub, textAlign: 'right' }}
-        >
-          {note}
-        </Typography>
-      </Stack>
-      {children}
-    </Box>
-  );
-}
-
 export default function RunOverviewRow() {
-  const { run, subjects } = useActiveRunData();
-  const throughput = subjects.throughput.status === 'ready' ? subjects.throughput.payload : null;
+  const run = useActiveRun();
+  const throughputSubject = useActiveRunSubject('throughput');
+  const throughput = throughputSubject.status === 'ready' ? throughputSubject.payload : null;
   const overview = useMemo(() => {
     const param = (key: string, fallback = 'n/a') =>
       distinct(
         run.workerList.map((worker) => worker.arch.params[key]),
         fallback,
       );
-    // traceOverviewFor is an explicitly synthetic layout fixture. Real runs
-    // stay unavailable until an offered-workload subject is adapted.
-    const trace =
-      run.source.kind === 'synthetic' && run.capabilities.traceOverview
-        ? throughput === null
-          ? null
-          : traceOverviewFor(run, throughput)
-        : null;
     const traceEndMs = throughput?.t_end_ms[throughput.t_end_ms.length - 1];
     const traceSpan =
       traceEndMs === undefined
@@ -228,10 +190,7 @@ export default function RunOverviewRow() {
     const experts = param('experts', hasMoeArch ? 'n/a' : 'dense');
     const topK = param('top_k', 'n/a');
     return {
-      trace,
       traceSpan,
-      lengthOption: trace ? lengthDistributionOption(trace, CHART_THEME) : null,
-      arrivalOption: trace ? arrivalPatternOption(trace, CHART_THEME) : null,
       modelKind: hasMoeArch ? 'mixture of experts' : 'dense transformer',
       modelProperties: [
         { label: 'Parameters', value: param('parameters') },
@@ -353,7 +312,7 @@ export default function RunOverviewRow() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {overview.trace ? `burst peak ${overview.trace.peakToMean}× mean` : 'not generated'}
+              not generated
             </Typography>
           </Stack>
           <Typography sx={{ mt: 0.3, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
@@ -362,58 +321,40 @@ export default function RunOverviewRow() {
           </Typography>
         </Box>
 
-        {overview.trace && overview.lengthOption && overview.arrivalOption ? (
-          <>
-            <Figure title="Length distribution" note="split violin · input ↑ output ↓">
-              <Box sx={{ height: { xs: 125, md: 138 } }}>
-                <EChart
-                  option={overview.lengthOption}
-                  ariaLabel="Input and output length distribution"
-                />
-              </Box>
-            </Figure>
-            <Figure title="Arrival pattern" note="requests per bucket · local mean">
-              <Box sx={{ height: { xs: 115, md: 134 } }}>
-                <EChart option={overview.arrivalOption} ariaLabel="Request arrival pattern" />
-              </Box>
-            </Figure>
-          </>
-        ) : (
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 220,
-              display: 'grid',
-              placeItems: 'center',
-              border: `1px dashed ${tokens.hair}`,
-              borderRadius: 1.5,
-              background: tokens.tile2,
-              p: 3,
-              textAlign: 'center',
-            }}
-          >
-            <Box>
-              <Typography
-                sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, color: tokens.ink }}
-              >
-                Trace distribution not generated
-              </Typography>
-              <Typography
-                sx={{
-                  mt: 0.75,
-                  maxWidth: 470,
-                  fontFamily: tokens.mono,
-                  fontSize: 10.5,
-                  lineHeight: 1.6,
-                  color: tokens.sub,
-                }}
-              >
-                This simulation folder has no offered-workload summary for input/output lengths or
-                arrival burstiness. The UI will not substitute synthetic distributions.
-              </Typography>
-            </Box>
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 220,
+            display: 'grid',
+            placeItems: 'center',
+            border: `1px dashed ${tokens.hair}`,
+            borderRadius: 1.5,
+            background: tokens.tile2,
+            p: 3,
+            textAlign: 'center',
+          }}
+        >
+          <Box>
+            <Typography
+              sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, color: tokens.ink }}
+            >
+              Trace distribution not generated
+            </Typography>
+            <Typography
+              sx={{
+                mt: 0.75,
+                maxWidth: 470,
+                fontFamily: tokens.mono,
+                fontSize: 10.5,
+                lineHeight: 1.6,
+                color: tokens.sub,
+              }}
+            >
+              This simulation folder has no offered-workload summary for input/output lengths or
+              arrival burstiness. The UI will not substitute synthetic distributions.
+            </Typography>
           </Box>
-        )}
+        </Box>
       </Paper>
     </Box>
   );

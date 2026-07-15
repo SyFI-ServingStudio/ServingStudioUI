@@ -4,11 +4,10 @@ import { makeWorkerKey } from '../domain/worker';
 import {
   createTestRepository,
   makeTestDescriptor,
-  makeTestSubjectResults,
   makeTestTopology,
   TEST_WORKERS,
 } from '../test/analyzerRepositoryFixture';
-import { assembleActiveRunData, loadActiveRunCore } from './loadActiveRun';
+import { loadActiveRunCore } from './loadActiveRun';
 
 describe('active-run core assembly', () => {
   it('assembles one run while preserving same-numbered workers in different pools', async () => {
@@ -16,17 +15,14 @@ describe('active-run core assembly', () => {
     const { repository, calls } = createTestRepository({ descriptor });
 
     const core = await loadActiveRunCore(repository, descriptor);
-    const active = assembleActiveRunData(core, makeTestSubjectResults());
 
-    expect(active.run.workerList.map((worker) => worker.key)).toEqual([
+    expect(core.run.workerList.map((worker) => worker.key)).toEqual([
       makeWorkerKey(TEST_WORKERS[0]),
       makeWorkerKey(TEST_WORKERS[1]),
     ]);
-    expect(active.run.workerList.map((worker) => worker.id)).toEqual(['0', '0']);
-    expect(active.subjects.backpressure).toMatchObject({ status: 'not_generated' });
-    expect(active.run.payloads.pendingQueue).toBeUndefined();
-    expect(active.run.source.simulationFolder).toBe('test-run');
-    expect(active.run.source.simulationReexecuted).toBeNull();
+    expect(core.run.workerList.map((worker) => worker.id)).toEqual(['0', '0']);
+    expect(core.run.source.simulationFolder).toBe('test-run');
+    expect(core.run.source.simulationReexecuted).toBeNull();
     expect(calls.subjects).toBe(0);
     expect(calls.trees).toBe(0);
   });
@@ -78,24 +74,13 @@ describe('active-run core assembly', () => {
     );
   });
 
-  it('preserves an unavailable SLO subject without rejecting the core run', async () => {
-    const subjects = makeTestSubjectResults();
-    subjects.slo = {
-      subject: 'slo',
-      status: 'unavailable',
-      code: 'missing_request_events',
-      reason: 'Request lifecycle events were not logged.',
-    };
+  it('does not read optional subjects while assembling the core run', async () => {
     const descriptor = makeTestDescriptor();
-    const { repository, calls } = createTestRepository({ descriptor, subjects });
+    const { repository, calls } = createTestRepository({ descriptor });
 
     const core = await loadActiveRunCore(repository, descriptor);
-    const active = assembleActiveRunData(core, subjects);
 
-    expect(active.run.id).toBe('test-run');
-    expect(active.subjects.slo).toEqual(subjects.slo);
-    expect(active.run.payloads.slo).toBeUndefined();
-    expect(active.run.summary.ttft_p50).toBeUndefined();
+    expect(core.run.id).toBe('test-run');
     expect(calls.subjects).toBe(0);
   });
 });

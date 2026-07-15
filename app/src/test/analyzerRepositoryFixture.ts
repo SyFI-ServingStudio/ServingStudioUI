@@ -10,7 +10,10 @@ import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
 import { annotate, leaf, type CostTree } from '../data/tree';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
-import type { SubjectResults } from '../application/loadActiveRun';
+
+export type TestSubjectResults = {
+  [Name in SubjectName]: SubjectResult<Name>;
+};
 
 export interface RepositoryCallCounts {
   list: number;
@@ -127,7 +130,7 @@ function metric(label: string): Slo['ttft'] {
   };
 }
 
-export function makeTestSubjectResults(): SubjectResults {
+export function makeTestSubjectResults(): TestSubjectResults {
   const slo: Slo = { ttft: metric('TTFT'), tpot: metric('TPOT'), e2e: metric('E2E') };
   const throughput: Throughput = {
     t_start_ms: [0],
@@ -255,7 +258,7 @@ export function createTestRepository(
     descriptor?: RunDescriptor;
     summary?: RunSummaryArtifact;
     topology?: Topology;
-    subjects?: SubjectResults;
+    subjects?: TestSubjectResults;
     subjectErrors?: Partial<Record<SubjectName, Error>>;
     trees?: Record<WorkerKey, CostTree>;
     treeErrors?: Partial<Record<WorkerKey, Error>>;

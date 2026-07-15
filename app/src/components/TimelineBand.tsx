@@ -1,6 +1,6 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
-import { useActiveRunData } from '../application/ActiveRunProvider';
+import { useActiveRunSubject } from '../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
 import { concurrencySparkOption, CHART_THEME } from '../charts/options';
 import { tokens } from '../theme';
@@ -14,8 +14,7 @@ import EChart from './EChart';
 export default function TimelineBand() {
   const cursorMs = useViz((state) => state.cursorMs);
   const setTime = useViz((state) => state.setTime);
-  const { subjects } = useActiveRunData();
-  const concurrency = subjects.concurrency;
+  const concurrency = useActiveRunSubject('concurrency');
   if (concurrency.status !== 'ready') {
     return (
       <Paper sx={{ p: '12px 16px', borderRadius: 2 }}>

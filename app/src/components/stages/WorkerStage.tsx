@@ -1,7 +1,7 @@
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
 import { currentWorker, cursorSeconds } from '../../application/runSelection';
-import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import {
   useActiveWorkerTreeState,
   type ActiveWorkerTreeState,
@@ -44,11 +44,11 @@ function WorkerBottom() {
   const workerKey = useViz((state) => state.workerKey);
   const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
-  const activeData = useActiveRunData();
+  const backpressureSubject = useActiveRunSubject('backpressure');
   const tree = useProjectedWorkerTree();
   const selection = { scope, poolRole, workerKey, cursorMs };
   const worker = currentWorker(run, { workerKey });
-  const backpressure = metricView(activeData.subjects.backpressure, run, selection);
+  const backpressure = metricView(backpressureSubject, run, selection);
   const batch = workerBatchFor(run, worker.key);
   const lt = leafTotals(tree);
   const locs: KernelLoc[] = lt.positions.slice(0, 10).flatMap((p) => {

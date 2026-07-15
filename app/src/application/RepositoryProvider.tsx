@@ -5,7 +5,7 @@ import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 const AnalyzerRepositoryContext = createContext<AnalyzerRepository | null>(null);
 
 /** Dependency injection boundary: features depend on the repository contract,
- * never on fixture/HTTP implementations or analyzer paths. */
+ * never on artifact/HTTP implementations or analyzer paths. */
 export function AnalyzerRepositoryProvider({
   repository,
   children,

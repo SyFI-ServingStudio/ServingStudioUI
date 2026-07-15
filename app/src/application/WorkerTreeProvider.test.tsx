@@ -15,7 +15,7 @@ import {
   TEST_WORKERS,
   type RepositoryCallCounts,
 } from '../test/analyzerRepositoryFixture';
-import { ActiveRunProvider, useActiveRunState } from './ActiveRunProvider';
+import { ActiveRunProvider, useActiveRunState, useActiveRunSubject } from './ActiveRunProvider';
 import { analyzerQueryKeys } from './queries';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
 import {
@@ -117,13 +117,14 @@ function TreeStateProbe() {
 
 function ReadyRunHarness({ showWorkerStage }: { showWorkerStage: boolean }) {
   const active = useActiveRunState();
+  const aggregateKernelTimeShare = useActiveRunSubject('kernelTimeShare');
   if (active.status !== 'ready') return <div data-testid="run-state">{active.status}</div>;
   return (
     <ActiveWorkerTreeProvider
       run={active.run}
-      workerCostTreeDetail={active.data.descriptor.details['worker-cost-tree']}
-      aggregateKernelTimeShare={active.data.subjects.kernelTimeShare}
-      analysisRevision={active.data.descriptor.analysis?.revision}
+      workerCostTreeDetail={active.descriptor.details['worker-cost-tree']}
+      aggregateKernelTimeShare={aggregateKernelTimeShare}
+      analysisRevision={active.descriptor.analysis?.revision}
     >
       <div data-testid="run-state">ready:{active.run.id}</div>
       <TreeStateProbe />

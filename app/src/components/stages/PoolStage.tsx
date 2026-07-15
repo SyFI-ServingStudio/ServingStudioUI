@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { cursorSeconds, poolInScope } from '../../application/runSelection';
-import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import { batchOption, CHART_THEME } from '../../charts/options';
@@ -17,16 +17,19 @@ export default function PoolStage() {
   const workerKey = useViz((state) => state.workerKey);
   const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
-  const activeData = useActiveRunData();
+  const utilizationSubject = useActiveRunSubject('utilization');
+  const kvSubject = useActiveRunSubject('kv');
+  const backpressureSubject = useActiveRunSubject('backpressure');
+  const batchSubject = useActiveRunSubject('batch');
+  const kernelTimeShare = useActiveRunSubject('kernelTimeShare');
   const metricSelection = useMemo(
     () => ({ scope, poolRole, workerKey, cursorMs }),
     [scope, poolRole, workerKey, cursorMs],
   );
   const role = poolInScope(run, metricSelection) ?? poolRole ?? '—';
-  const util = metricView(activeData.subjects.utilization, run, metricSelection);
-  const kv = metricView(activeData.subjects.kv, run, metricSelection);
-  const backpressure = metricView(activeData.subjects.backpressure, run, metricSelection);
-  const batchSubject = activeData.subjects.batch;
+  const util = metricView(utilizationSubject, run, metricSelection);
+  const kv = metricView(kvSubject, run, metricSelection);
+  const backpressure = metricView(backpressureSubject, run, metricSelection);
   const batch = batchSubject.status === 'ready' ? batchSubject.payload.pools[role] : undefined;
   const batchSub =
     batchSubject.status === 'ready'
@@ -89,7 +92,7 @@ export default function PoolStage() {
       <KernelTimeBreakdownCard
         idx="e"
         title={`Kernel time breakdown · ${role}`}
-        subject={activeData.subjects.kernelTimeShare}
+        subject={kernelTimeShare}
         scope={{ kind: 'pool', poolTag: role }}
       />
       <WorkersInPool idx="f" role={role} />

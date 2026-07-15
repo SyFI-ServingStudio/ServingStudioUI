@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
-import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import ChartCard from '../ChartCard';
@@ -16,15 +16,19 @@ export default function ClusterStage() {
   const workerKey = useViz((state) => state.workerKey);
   const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
-  const activeData = useActiveRunData();
+  const sloSubject = useActiveRunSubject('slo');
+  const throughputSubject = useActiveRunSubject('throughput');
+  const utilizationSubject = useActiveRunSubject('utilization');
+  const backpressureSubject = useActiveRunSubject('backpressure');
+  const conservation = useActiveRunSubject('conservation');
+  const kernelTimeShare = useActiveRunSubject('kernelTimeShare');
   const metricSelection = useMemo(
     () => ({ scope, poolRole, workerKey, cursorMs }),
     [scope, poolRole, workerKey, cursorMs],
   );
-  const slo = metricView(activeData.subjects.slo, run, metricSelection);
-  const tp = metricView(activeData.subjects.throughput, run, metricSelection);
-  const backpressure = metricView(activeData.subjects.backpressure, run, metricSelection);
-  const conservation = activeData.subjects.conservation;
+  const slo = metricView(sloSubject, run, metricSelection);
+  const tp = metricView(throughputSubject, run, metricSelection);
+  const backpressure = metricView(backpressureSubject, run, metricSelection);
 
   const pools = run.topology.pools;
 
@@ -70,7 +74,7 @@ export default function ClusterStage() {
         }}
       >
         {pools.map((p) => {
-          const poolUtil = metricView(activeData.subjects.utilization, run, metricSelection, {
+          const poolUtil = metricView(utilizationSubject, run, metricSelection, {
             poolRole: p.role,
           });
           return (
@@ -79,7 +83,7 @@ export default function ClusterStage() {
               idx="d"
               title={`GPU utilization · ${p.role}`}
               sub={
-                activeData.subjects.utilization.status === 'ready'
+                utilizationSubject.status === 'ready'
                   ? `${p.groups.reduce((a, g) => a + g.numGpus, 0)} GPU`
                   : poolUtil.sub
               }
@@ -94,7 +98,7 @@ export default function ClusterStage() {
       <KernelTimeBreakdownCard
         idx="e"
         title="Cluster kernel time breakdown"
-        subject={activeData.subjects.kernelTimeShare}
+        subject={kernelTimeShare}
         scope={{ kind: 'cluster' }}
       />
 

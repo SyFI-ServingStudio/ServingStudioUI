@@ -257,7 +257,7 @@ interface AnalyzerRepository {
 }
 ```
 
-`getRunSummary` 与 `getRunTopology` 是有界、typed artifact read；它们不能返回组件用的整页 `Run` view-model。application 层负责把 descriptor、typed reads、各 subject 的 `SubjectResult` 和当前确实需要的 worker cost tree 组装为兼容视图。这样 HTTP repository 不会被迫 eager 返回所有 subject、worker tree 或 iteration 数据，且 unavailable/failed/incompatible 状态不会在组装前丢失。
+`getRunSummary` 与 `getRunTopology` 是有界、typed artifact read；它们不能返回组件用的整页 `Run` view-model。application 层只把 descriptor、summary 和 topology 组装为稳定的 core `Run`。每个 feature 通过 `useActiveRunSubject(name)` 单独订阅带 run id、schema version 和 analysis revision 的 Query cache entry；subject 不复制到 `Run`、Zustand 或一个全量 subjects context。这样 HTTP repository 不会被迫 eager 返回所有 subject、worker tree 或 iteration 数据，且 unavailable/failed/incompatible 状态不会在组装前丢失或牵连无关 feature 重绘。
 
 active-run provider 自己拥有 run catalog bootstrap、默认目录选择、加载和错误状态。Zustand 只保存可空的 `runId` 与本地钻取选择，不能保存 fetched `Run` 对象，也不能通过反向解析序列化 worker key 恢复领域身份。
 
@@ -273,10 +273,10 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 后，必须精确验证 decoded `descriptor.runId === requestedRunId`；不得从
 `descriptor_href` 反解或推断 run id。
 
-实现顺序：
+实现边界：
 
-1. `FixtureAnalyzerRepository`：可重复的开发和测试数据。
-2. `ArtifactAnalyzerRepository`：验证本地导出的 descriptor/artifact 目录。
+1. `src/test/analyzerRepositoryFixture.ts`：只为测试提供 contract-faithful repository，不进入生产 bundle。
+2. `ArtifactAnalyzerRepository`：验证本地导出的 descriptor/artifact 目录，也是普通开发模式的确定性数据源。
 3. `HttpAnalyzerRepository`：通过 Rust 服务发现 run、加载 artifact，并按需查询高基数数据。
 
 ## 7. 加载策略
@@ -299,7 +299,7 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 - worker、pool、cluster pending queue/backpressure 时间序列
 - 面向交互的 worker iteration index 和 iteration detail
 
-在数据补齐前，fixture 可以用于开发布局，但 fixture 字段必须标明来源为 synthetic，不能在真实 run 页面伪装成分析结果。
+在数据补齐前，真实 run 页面显示对应的 `not_generated`/`unavailable` 状态，不生成替代曲线。checked-in fixture 只裁剪真实 analyzer artifact 或覆盖 transport/status 合同；若协议测试必须使用 synthetic provenance，也必须显式标记，且不能成为生产组件的指标来源。
 
 ## 9. 演进规则
 

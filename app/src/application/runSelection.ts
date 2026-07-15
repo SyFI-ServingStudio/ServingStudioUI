@@ -163,8 +163,8 @@ export const currentIter = (run: Run, state: IterationSelection): Iteration | nu
 // reuse a projection from stale input. Weak ownership also lets old runs be GC'd.
 const treeCache = new WeakMap<CostTree, Map<string, CostTree>>();
 
-/** Project a repository-owned visual tree at the current synthetic
- * iteration. The base tree is an explicit argument so Run never becomes a
+/** Project a repository-owned visual tree at the current selected iteration.
+ * The base tree is an explicit argument so Run never becomes a
  * high-cardinality detail cache. */
 export const projectWorkerTree = (
   run: Run,

@@ -1,19 +1,10 @@
 import type { RunDescriptor, RunSummaryArtifact } from '../domain/artifacts';
-import type { Payloads, Run, Topology, WorkerRow } from '../domain/run';
-import type { SubjectName, SubjectResult } from '../domain/subject';
+import type { Run, Topology, WorkerRow } from '../domain/run';
 import { makeWorkerKey, makeWorkerRef, type WorkerRef } from '../domain/worker';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 
-export type SubjectResults = { [Name in SubjectName]: SubjectResult<Name> };
-
 export interface ActiveRunCoreData {
   descriptor: RunDescriptor;
-  run: Run;
-}
-
-export interface ActiveRunData {
-  descriptor: RunDescriptor;
-  subjects: SubjectResults;
   run: Run;
 }
 
@@ -144,7 +135,6 @@ export function assembleActiveRunCore(
           : { requests_total: rootSummary.requestsTotal }),
       },
       topology,
-      payloads: {},
       workerList,
       gpuTotal,
       source: {
@@ -155,70 +145,10 @@ export function assembleActiveRunCore(
         simulationReexecuted: null,
       },
       capabilities: {
-        traceOverview: false,
-        concurrencyTimeline: false,
         workerIterations: false,
         kernelPerformance: false,
-        kernelInputDistribution: false,
         loadImbalance: false,
         perfettoTrace: descriptor.traces.perfetto?.status === 'ready',
-      },
-    },
-  };
-}
-
-/** Project independently loaded subject results onto a ready core. Non-ready
- * subjects remain explicit in `subjects` and are never replaced by empty data. */
-export function assembleActiveRunData(
-  core: ActiveRunCoreData,
-  subjects: SubjectResults,
-): ActiveRunData {
-  const payloads: Payloads = {
-    ...(subjects.slo.status === 'ready' ? { slo: subjects.slo.payload } : {}),
-    ...(subjects.throughput.status === 'ready' ? { throughput: subjects.throughput.payload } : {}),
-    ...(subjects.utilization.status === 'ready'
-      ? { utilization: subjects.utilization.payload }
-      : {}),
-    ...(subjects.kv.status === 'ready' ? { kv: subjects.kv.payload } : {}),
-    ...(subjects.concurrency.status === 'ready'
-      ? { concurrency: subjects.concurrency.payload }
-      : {}),
-    ...(subjects.backpressure.status === 'ready'
-      ? { pendingQueue: subjects.backpressure.payload }
-      : {}),
-    ...(subjects.batch.status === 'ready' ? { batchByPool: subjects.batch.payload.pools } : {}),
-    ...(subjects.conservation.status === 'ready'
-      ? { conservation: subjects.conservation.payload }
-      : {}),
-    ...(subjects.kernelInputDistribution.status === 'ready'
-      ? { kernelInputDistribution: subjects.kernelInputDistribution.payload }
-      : {}),
-    ...(subjects.kernelTimeShare.status === 'ready'
-      ? { kernelTimeShare: subjects.kernelTimeShare.payload }
-      : {}),
-  };
-  const slo = subjects.slo.status === 'ready' ? subjects.slo.payload : null;
-
-  return {
-    descriptor: core.descriptor,
-    subjects,
-    run: {
-      ...core.run,
-      summary: {
-        ...core.run.summary,
-        ...(slo === null
-          ? {}
-          : {
-              ttft_p50: slo.ttft.markers.p50,
-              tpot_p50: slo.tpot.markers.p50,
-              e2e_p50: slo.e2e.markers.p50,
-            }),
-      },
-      payloads,
-      capabilities: {
-        ...core.run.capabilities,
-        concurrencyTimeline: subjects.concurrency.status === 'ready',
-        kernelInputDistribution: subjects.kernelInputDistribution.status === 'ready',
       },
     },
   };

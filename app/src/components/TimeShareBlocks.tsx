@@ -152,8 +152,7 @@ export default function TimeShareBlocks() {
   const run = useActiveRun();
   const tree = useProjectedWorkerTree();
   const lt = leafTotals(tree);
-  const canInspectKernel =
-    run.capabilities.kernelPerformance || run.capabilities.kernelInputDistribution;
+  const canInspectKernel = run.capabilities.kernelPerformance;
 
   const groupSegs: Seg[] = lt.groups.map((g) => ({
     label: g.label,
