@@ -12,19 +12,27 @@ import { iterationsFor } from './iterations';
 
 // integer hash → [0,1); stable, no Date/Math.random (matches kernel.ts)
 function hsh(n: number): number {
-  let x = (Math.imul(n, 2654435761)) >>> 0;
-  x ^= x >>> 15; x = (Math.imul(x, 2246822519)) >>> 0; x ^= x >>> 13;
+  let x = Math.imul(n, 2654435761) >>> 0;
+  x ^= x >>> 15;
+  x = Math.imul(x, 2246822519) >>> 0;
+  x ^= x >>> 13;
   return (x >>> 0) / 4294967296;
 }
 function strHash(s: string): number {
   let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
 }
 
 export function collectLeaves(node: CostNode): CostNode[] {
   const out: CostNode[] = [];
-  (function walk(n: CostNode) { if (n.kind === 'leaf') out.push(n); else (n.children ?? []).forEach(walk); })(node);
+  (function walk(n: CostNode) {
+    if (n.kind === 'leaf') out.push(n);
+    else (n.children ?? []).forEach(walk);
+  })(node);
   return out;
 }
 export function heaviestLeaf(node: CostNode): CostNode {
@@ -32,17 +40,24 @@ export function heaviestLeaf(node: CostNode): CostNode {
   return ls.reduce((a, b) => (b.ms > a.ms ? b : a), ls[0]);
 }
 /** Is this node worth a parallel/straggler inspection? (a Max with ≥2 branches) */
-export const isParallelNode = (node: CostNode): boolean => node.kind === 'max' && (node.children?.length ?? 0) >= 2;
+export const isParallelNode = (node: CostNode): boolean =>
+  node.kind === 'max' && (node.children?.length ?? 0) >= 2;
 
 type Dim = 'expert' | 'rank' | 'branch';
-interface LaneSpec { lanes: number; label: string; dim: Dim; }
+interface LaneSpec {
+  lanes: number;
+  label: string;
+  dim: Dim;
+}
 
 /** How many concurrent lanes this Max spans, and what they represent — inferred
  *  from the worker's parallelism (EP experts / TP ranks) and the node's kernels. */
 function laneSpec(w: WorkerRow, node: CostNode): LaneSpec {
   const p = w.arch.params as Record<string, number | string>;
   const kinds = new Set(collectLeaves(node).map((l) => l.slot!.kind));
-  const hasGrouped = [...kinds].some((k) => k === 'grouped_gemm' || k === 'moe_router' || k.startsWith('p2p'));
+  const hasGrouped = [...kinds].some(
+    (k) => k === 'grouped_gemm' || k === 'moe_router' || k.startsWith('p2p'),
+  );
   const hasAttn = [...kinds].some((k) => k.includes('attn') || k === 'all_reduce');
   const ep = Number(p.ep) || 0;
   const tp = Number(p.attn_tp) || 0;
@@ -53,17 +68,24 @@ function laneSpec(w: WorkerRow, node: CostNode): LaneSpec {
 }
 
 export interface Imbalance {
-  label: string; dim: Dim; lanes: number;
-  overlap: number;                 // the Max node's overlap factor
-  nodeMs: number;                  // straggler-set wall-time of the node (aggregate)
+  label: string;
+  dim: Dim;
+  lanes: number;
+  overlap: number; // the Max node's overlap factor
+  nodeMs: number; // straggler-set wall-time of the node (aggregate)
   t_ms: number[];
-  maxLoad: number[]; meanLoad: number[]; minLoad: number[]; imbalancePct: number[];
-  perLaneAvg: number[];            // per-lane mean load, normalised so mean lane = 1
+  maxLoad: number[];
+  meanLoad: number[];
+  minLoad: number[];
+  imbalancePct: number[];
+  perLaneAvg: number[]; // per-lane mean load, normalised so mean lane = 1
   laneLabels: string[];
-  stragglerLane: number;           // index of the slowest lane
-  stragglerFactor: number;         // straggler load ÷ mean lane
-  maxImbalancePct: number; avgImbalancePct: number;
-  stragglerLeafId: number; stragglerName: string;
+  stragglerLane: number; // index of the slowest lane
+  stragglerFactor: number; // straggler load ÷ mean lane
+  maxImbalancePct: number;
+  avgImbalancePct: number;
+  stragglerLeafId: number;
+  stragglerName: string;
 }
 
 /** Per-lane load over the run for a Max node, plus straggler identification. */
@@ -90,30 +112,50 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
   const laneLabels: string[] = [];
   for (let k = 0; k < P; k++) {
     let wgt = 1;
-    if (spec.dim === 'expert') { const r = hsh(seed + k * 97 + 3); wgt = 0.55 + Math.pow(r, 3) * 2.8; laneLabels.push(`e${k}`); }
-    else if (spec.dim === 'rank') { const r = hsh(seed + k * 57 + 3); wgt = 0.9 + r * 0.34; laneLabels.push(`r${k}`); }
-    else { wgt = (branchMs[k] ?? branchMsMean) / branchMsMean; laneLabels.push((collectLeaves(kids[k])[0]?.slot!.name.split('.').pop()) ?? `b${k}`); }
+    if (spec.dim === 'expert') {
+      const r = hsh(seed + k * 97 + 3);
+      wgt = 0.55 + Math.pow(r, 3) * 2.8;
+      laneLabels.push(`e${k}`);
+    } else if (spec.dim === 'rank') {
+      const r = hsh(seed + k * 57 + 3);
+      wgt = 0.9 + r * 0.34;
+      laneLabels.push(`r${k}`);
+    } else {
+      wgt = (branchMs[k] ?? branchMsMean) / branchMsMean;
+      laneLabels.push(collectLeaves(kids[k])[0]?.slot!.name.split('.').pop() ?? `b${k}`);
+    }
     laneWeight.push(wgt);
   }
   let stragglerLane = 0;
   for (let k = 1; k < P; k++) if (laneWeight[k] > laneWeight[stragglerLane]) stragglerLane = k;
 
   const N = Math.min(72, tl.iters.length);
-  const t_ms: number[] = [], maxLoad: number[] = [], meanLoad: number[] = [], minLoad: number[] = [], imbalancePct: number[] = [];
+  const t_ms: number[] = [],
+    maxLoad: number[] = [],
+    meanLoad: number[] = [],
+    minLoad: number[] = [],
+    imbalancePct: number[] = [];
   const laneSum = new Array(P).fill(0);
   let steps = 0;
   for (let s = 0; s < N; s++) {
-    const it = tl.iters[Math.min(tl.iters.length - 1, Math.floor(((s + 0.5) / N) * tl.iters.length))];
+    const it =
+      tl.iters[Math.min(tl.iters.length - 1, Math.floor(((s + 0.5) / N) * tl.iters.length))];
     const intensity = it.batchTokens / refBatch;
-    let mx = -Infinity, mn = Infinity, sum = 0;
+    let mx = -Infinity,
+      mn = Infinity,
+      sum = 0;
     for (let k = 0; k < P; k++) {
       let load: number;
       if (spec.dim === 'branch') {
-        const drv = branchDriver[k] === 'prefill' ? it.prefillTokens / refPrefill
-          : branchDriver[k] === 'decode' ? it.decodeRequests / refDecode : intensity;
+        const drv =
+          branchDriver[k] === 'prefill'
+            ? it.prefillTokens / refPrefill
+            : branchDriver[k] === 'decode'
+              ? it.decodeRequests / refDecode
+              : intensity;
         load = laneWeight[k] * drv;
       } else {
-        const noise = 1 + (hsh(seed + k * 131 + s * 7) - 0.5) * 0.30;
+        const noise = 1 + (hsh(seed + k * 131 + s * 7) - 0.5) * 0.3;
         load = laneWeight[k] * intensity * noise;
       }
       laneSum[k] += load;
@@ -124,7 +166,9 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
     steps++;
     const mean = sum / P;
     t_ms.push(it.timeMs);
-    maxLoad.push(+mx.toFixed(3)); meanLoad.push(+mean.toFixed(3)); minLoad.push(+mn.toFixed(3));
+    maxLoad.push(+mx.toFixed(3));
+    meanLoad.push(+mean.toFixed(3));
+    minLoad.push(+mn.toFixed(3));
     imbalancePct.push(mean > 0 ? +(((mx - mean) / mean) * 100).toFixed(1) : 0);
   }
 
@@ -132,16 +176,28 @@ export function imbalanceFor(run: Run, w: WorkerRow, node: CostNode): Imbalance 
   const overall = perLaneRaw.reduce((a, b) => a + b, 0) / P || 1;
   const perLaneAvg = perLaneRaw.map((x) => +(x / overall).toFixed(3));
   const maxImbalancePct = imbalancePct.reduce((a, b) => Math.max(a, b), 0);
-  const avgImbalancePct = imbalancePct.reduce((a, b) => a + b, 0) / Math.max(1, imbalancePct.length);
+  const avgImbalancePct =
+    imbalancePct.reduce((a, b) => a + b, 0) / Math.max(1, imbalancePct.length);
   const sLeaf = heaviestLeaf(node);
 
   return {
-    label: spec.label, dim: spec.dim, lanes: P,
-    overlap: node.overlap == null ? 1 : node.overlap, nodeMs: node.ms,
-    t_ms, maxLoad, meanLoad, minLoad, imbalancePct,
-    perLaneAvg, laneLabels,
-    stragglerLane, stragglerFactor: +perLaneAvg[stragglerLane].toFixed(2),
-    maxImbalancePct: +maxImbalancePct.toFixed(0), avgImbalancePct: +avgImbalancePct.toFixed(0),
-    stragglerLeafId: sLeaf.id, stragglerName: sLeaf.slot!.name,
+    label: spec.label,
+    dim: spec.dim,
+    lanes: P,
+    overlap: node.overlap == null ? 1 : node.overlap,
+    nodeMs: node.ms,
+    t_ms,
+    maxLoad,
+    meanLoad,
+    minLoad,
+    imbalancePct,
+    perLaneAvg,
+    laneLabels,
+    stragglerLane,
+    stragglerFactor: +perLaneAvg[stragglerLane].toFixed(2),
+    maxImbalancePct: +maxImbalancePct.toFixed(0),
+    avgImbalancePct: +avgImbalancePct.toFixed(0),
+    stragglerLeafId: sLeaf.id,
+    stragglerName: sLeaf.slot!.name,
   };
 }

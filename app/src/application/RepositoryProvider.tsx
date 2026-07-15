@@ -22,6 +22,7 @@ export function AnalyzerRepositoryProvider({
 
 export function useAnalyzerRepository(): AnalyzerRepository {
   const repository = useContext(AnalyzerRepositoryContext);
-  if (!repository) throw new Error('AnalyzerRepositoryProvider is missing from the application root.');
+  if (!repository)
+    throw new Error('AnalyzerRepositoryProvider is missing from the application root.');
   return repository;
 }

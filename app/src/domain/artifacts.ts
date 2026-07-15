@@ -73,10 +73,7 @@ type ReadySubjectArtifactBase = {
 
 /** A ready subject must expose at least its report or its plot payload. */
 export type ReadySubjectArtifact = ReadySubjectArtifactBase &
-  (
-    | { report: ArtifactRef; payload?: ArtifactRef }
-    | { report?: ArtifactRef; payload: ArtifactRef }
-  );
+  ({ report: ArtifactRef; payload?: ArtifactRef } | { report?: ArtifactRef; payload: ArtifactRef });
 
 export type SubjectArtifact =
   | ReadySubjectArtifact

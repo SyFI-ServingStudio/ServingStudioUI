@@ -51,13 +51,16 @@ function movingAverage(values: number[], radius = 2): number[] {
  *  layout makes the eventual payload handoff a one-file replacement. */
 export function traceOverviewFor(run: Run): TraceOverviewData {
   const random = rng(strHash(run.id) ^ 0xa511e9b3);
-  const tokenLengths = Array.from({ length: 72 }, (_, index) => Math.round(4 * Math.pow(8192, index / 71)));
+  const tokenLengths = Array.from({ length: 72 }, (_, index) =>
+    Math.round(4 * Math.pow(8192, index / 71)),
+  );
   const moeScale = run.summary.num_gpus > 1 ? 1.35 : 1;
   const inputDensity = normalizedDensity(tokenLengths, 850 * moeScale, 1.02);
   const outputDensity = normalizedDensity(tokenLengths, 180 * moeScale, 0.82);
 
   const bucketCount = 72;
-  const traceEndMs = run.payloads.throughput.t_end_ms[run.payloads.throughput.t_end_ms.length - 1] ?? 1;
+  const traceEndMs =
+    run.payloads.throughput.t_end_ms[run.payloads.throughput.t_end_ms.length - 1] ?? 1;
   const burstCenters = [0.18 + random() * 0.05, 0.52 + random() * 0.06, 0.8 + random() * 0.04];
   const raw = Array.from({ length: bucketCount }, (_, index) => {
     const x = (index + 0.5) / bucketCount;
@@ -82,7 +85,10 @@ export function traceOverviewFor(run: Run): TraceOverviewData {
     tokenLengths,
     inputDensity,
     outputDensity,
-    arrivalSeconds: Array.from({ length: bucketCount }, (_, index) => +(((index + 0.5) / bucketCount) * traceEndMs / 1000).toFixed(2)),
+    arrivalSeconds: Array.from(
+      { length: bucketCount },
+      (_, index) => +((((index + 0.5) / bucketCount) * traceEndMs) / 1000).toFixed(2),
+    ),
     arrivals,
     arrivalTrend: movingAverage(arrivals),
     peakToMean: +(Math.max(...arrivals) / mean).toFixed(1),

@@ -18,10 +18,12 @@ export function makeWorkerRef(poolTag: string, workerId: string | number): Worke
 /** Encode both components so the separator remains unambiguous. */
 export function makeWorkerKey(poolTag: string, workerId: string | number): WorkerKey;
 export function makeWorkerKey(worker: WorkerRef): WorkerKey;
-export function makeWorkerKey(poolOrWorker: string | WorkerRef, workerId?: string | number): WorkerKey {
-  const worker = typeof poolOrWorker === 'string'
-    ? makeWorkerRef(poolOrWorker, workerId ?? '')
-    : poolOrWorker;
+export function makeWorkerKey(
+  poolOrWorker: string | WorkerRef,
+  workerId?: string | number,
+): WorkerKey {
+  const worker =
+    typeof poolOrWorker === 'string' ? makeWorkerRef(poolOrWorker, workerId ?? '') : poolOrWorker;
   return `${encodeURIComponent(worker.poolTag)}/${encodeURIComponent(worker.workerId)}` as WorkerKey;
 }
 

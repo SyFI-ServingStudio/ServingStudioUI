@@ -2,11 +2,26 @@ import { Box, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
 import { workerTree, currentWorker, cursorSeconds } from '../../application/runSelection';
 import { useActiveRun } from '../../application/ActiveRunProvider';
-import { leafTotals, leafByName, leafById, nodeById, colorOf, type CostNode } from '../../data/tree';
+import {
+  leafTotals,
+  leafByName,
+  leafById,
+  nodeById,
+  colorOf,
+  type CostNode,
+} from '../../data/tree';
 import { kernelPerf, inputDist } from '../../data/kernel';
 import { imbalanceFor } from '../../data/imbalance';
 import { workerBatchFor } from '../../data/scopeData';
-import { batchOption, kernelThroughputOption, rooflineOption, inputDistOption, imbalanceOverTimeOption, CHART_THEME, type KernelLoc } from '../../charts/options';
+import {
+  batchOption,
+  kernelThroughputOption,
+  rooflineOption,
+  inputDistOption,
+  imbalanceOverTimeOption,
+  CHART_THEME,
+  type KernelLoc,
+} from '../../charts/options';
 import { metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../charts/metricOption';
 import CostTreeFlow from '../CostTreeFlow';
 import TimeShareBlocks from '../TimeShareBlocks';
@@ -27,7 +42,16 @@ function WorkerBottom() {
   const locs: KernelLoc[] = lt.positions.slice(0, 10).map((p) => {
     const node = leafByName(tree, p.name)!;
     const perf = kernelPerf(node);
-    return { name: p.name, kind: p.kind, color: colorOf(p.kind), tflops: perf.tflops, gbps: perf.gbps, computeUtil: perf.computeUtil, memUtil: perf.memUtil, pct: p.pct };
+    return {
+      name: p.name,
+      kind: p.kind,
+      color: colorOf(p.kind),
+      tflops: perf.tflops,
+      gbps: perf.gbps,
+      computeUtil: perf.computeUtil,
+      memUtil: perf.memUtil,
+      pct: p.pct,
+    };
   });
   return (
     <>
@@ -50,7 +74,9 @@ function WorkerBottom() {
       />
       <TimeShareBlocks />
       <ChartCard
-        idx="c" title="Kernel throughput" sub={`achieved vs H200 peak · top ${locs.length}`}
+        idx="c"
+        title="Kernel throughput"
+        sub={`achieved vs H200 peak · top ${locs.length}`}
         option={kernelThroughputOption(locs, CHART_THEME)}
         height={Math.max(210, locs.length * 26 + 46)}
         note="click a leaf in the cost tree above to inspect one kernel"
@@ -70,17 +96,27 @@ function KernelBottom({ node }: { node: CostNode }) {
   return (
     <>
       <KernelDetail />
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}>
+      <Box
+        sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
+      >
         <ChartCard
-          idx="a" title="Roofline" sub={`${perf.boundedBy}-bound`}
+          idx="a"
+          title="Roofline"
+          sub={`${perf.boundedBy}-bound`}
           option={rooflineOption(perf, name, CHART_THEME)}
           note={`${perf.tflops} TFLOP/s · ${perf.gbps} GB/s · AI ${perf.intensity} FLOP/byte`}
           caption="Where this kernel sits against the H200 roofline. Points left of the ridge are memory-bandwidth-bound; points on the flat ceiling are compute-bound."
         />
         <ChartCard
-          idx="b" title="Input distribution" sub={multi ? `backend selection · ${dist.backends.length} candidates` : 'single backend'}
+          idx="b"
+          title="Input distribution"
+          sub={multi ? `backend selection · ${dist.backends.length} candidates` : 'single backend'}
           option={inputDistOption(dist, CHART_THEME)}
-          note={multi ? 'each point = a sampled call, colored by the backend the cost model selected' : 'only one backend is registered for this kernel — no selection to visualize'}
+          note={
+            multi
+              ? 'each point = a sampled call, colored by the backend the cost model selected'
+              : 'only one backend is registered for this kernel — no selection to visualize'
+          }
           caption="Sampled calls plotted over two input features. Color shows which backend the cost model selected — clusters reveal the decision boundary across the input space."
         />
       </Box>
@@ -103,24 +139,40 @@ function ParallelBottom({ node }: { node: CostNode }) {
     <>
       <ParallelDetail />
       <ChartCard
-        idx="a" title="Load imbalance over time" sub={`${imb.lanes} ${imb.dim} lanes · straggler sets wall-time`}
+        idx="a"
+        title="Load imbalance over time"
+        sub={`${imb.lanes} ${imb.dim} lanes · straggler sets wall-time`}
         option={imbalanceOverTimeOption(imb, CHART_THEME)}
         height={240}
         note={`the straggler runs +${imb.maxImbalancePct}% over the mean lane at peak — that gap is idle time on the other lanes`}
         caption="Per-lane load across the parallel node over the run. The band is the min–max spread across lanes; the terra line is the straggler (the slowest lane, which the Max takes as the node's cost). A wide gap between straggler and mean is wasted concurrency from load imbalance."
       />
       {perf && dist && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}>
+        <Box
+          sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
+        >
           <ChartCard
-            idx="b" title="Straggler roofline" sub={`${perf.boundedBy}-bound · ${sName.split('.').pop()}`}
+            idx="b"
+            title="Straggler roofline"
+            sub={`${perf.boundedBy}-bound · ${sName.split('.').pop()}`}
             option={rooflineOption(perf, sName, CHART_THEME)}
             note={`${perf.tflops} TFLOP/s · ${perf.gbps} GB/s · AI ${perf.intensity} FLOP/byte`}
             caption="Achieved compute/bandwidth of the straggler lane's kernel against the H200 roofline — what the slowest lane is actually bounded by."
           />
           <ChartCard
-            idx="c" title="Straggler input distribution" sub={dist.backends.length > 1 ? `backend selection · ${dist.backends.length} candidates` : 'single backend'}
+            idx="c"
+            title="Straggler input distribution"
+            sub={
+              dist.backends.length > 1
+                ? `backend selection · ${dist.backends.length} candidates`
+                : 'single backend'
+            }
             option={inputDistOption(dist, CHART_THEME)}
-            note={dist.backends.length > 1 ? 'each point = a sampled call on the straggler kernel, colored by selected backend' : 'only one backend is registered for this kernel'}
+            note={
+              dist.backends.length > 1
+                ? 'each point = a sampled call on the straggler kernel, colored by selected backend'
+                : 'only one backend is registered for this kernel'
+            }
             caption="Sampled calls on the straggler's kernel over two input features — how the slowest lane's work is distributed across the input space."
           />
         </Box>
@@ -146,8 +198,18 @@ export default function WorkerStage() {
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
             Aggregate worker evidence only
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 10.5, lineHeight: 1.6, color: tokens.sub }}>
-            This folder provides run-aggregate kernel time share, but no interactive worker iteration index, batch detail, pending queue, kernel input distribution, or per-call roofline data. Missing subjects remain unavailable.
+          <Typography
+            sx={{
+              mt: 0.5,
+              fontFamily: tokens.mono,
+              fontSize: 10.5,
+              lineHeight: 1.6,
+              color: tokens.sub,
+            }}
+          >
+            This folder provides run-aggregate kernel time share, but no interactive worker
+            iteration index, batch detail, pending queue, kernel input distribution, or per-call
+            roofline data. Missing subjects remain unavailable.
           </Typography>
         </Paper>
         <CostTreeFlow />
@@ -162,7 +224,13 @@ export default function WorkerStage() {
   return (
     <Stack spacing={2}>
       <CostTreeFlow />
-      {leaf ? <KernelBottom node={leaf} /> : par && par.kind === 'max' ? <ParallelBottom node={par} /> : <WorkerBottom />}
+      {leaf ? (
+        <KernelBottom node={leaf} />
+      ) : par && par.kind === 'max' ? (
+        <ParallelBottom node={par} />
+      ) : (
+        <WorkerBottom />
+      )}
     </Stack>
   );
 }

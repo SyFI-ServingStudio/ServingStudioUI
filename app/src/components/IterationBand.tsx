@@ -12,7 +12,7 @@ import { fmtInt } from '../util';
 const WIDE_WINDOW = 41; // fewer columns keep adjacent steps individually targetable
 const COMPACT_WINDOW = 13; // keeps touch targets near the 24px minimum on phones
 const MARGIN = 12; // deadzone: the window only follows once the step is this close to an edge
-const BUF = 60;    // extra steps rendered each side of the window so shifts translate smoothly
+const BUF = 60; // extra steps rendered each side of the window so shifts translate smoothly
 const BUCKETS = 180; // minimap columns
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -66,82 +66,207 @@ export default function IterationBand() {
   const buckets = Array.from({ length: Math.min(BUCKETS, n) }, (_, b) => {
     const lo = Math.floor(b * bw);
     const hi = Math.max(lo + 1, Math.floor((b + 1) * bw));
-    let sum = 0, cnt = 0;
+    let sum = 0,
+      cnt = 0;
     const ph: Record<Iteration['phase'], number> = { prefill: 0, mixed: 0, decode: 0 };
-    for (let i = lo; i < hi && i < n; i++) { sum += tl.iters[i].batchTokens; cnt++; ph[tl.iters[i].phase]++; }
-    const phase = (['prefill', 'mixed', 'decode'] as const).reduce((a, p) => (ph[p] > ph[a] ? p : a), 'decode' as Iteration['phase']);
+    for (let i = lo; i < hi && i < n; i++) {
+      sum += tl.iters[i].batchTokens;
+      cnt++;
+      ph[tl.iters[i].phase]++;
+    }
+    const phase = (['prefill', 'mixed', 'decode'] as const).reduce(
+      (a, p) => (ph[p] > ph[a] ? p : a),
+      'decode' as Iteration['phase'],
+    );
     return { avg: cnt ? sum / cnt : 0, phase };
   });
   const maxBucket = Math.max(...buckets.map((b) => b.avg), 1);
 
-  const jumpToStep = (ix: number) => { const it = tl.iters[clamp(ix, 0, n - 1)]; st.setTime(it.timeMs); };
+  const jumpToStep = (ix: number) => {
+    const it = tl.iters[clamp(ix, 0, n - 1)];
+    st.setTime(it.timeMs);
+  };
   const moveSelection = (delta: -1 | 1) => {
     if (!sel) return;
     jumpToStep(sel.id + delta);
   };
 
   const stepControlSx = {
-    width: 26, height: 26, borderRadius: 1, border: `1px solid ${tokens.hair}`,
-    color: tokens.sub, background: tokens.tile2,
+    width: 26,
+    height: 26,
+    borderRadius: 1,
+    border: `1px solid ${tokens.hair}`,
+    color: tokens.sub,
+    background: tokens.tile2,
     '&:hover': { color: tokens.ink, borderColor: '#cabf9f', background: tokens.leafbg },
     '&.Mui-disabled': { color: tokens.hair, borderColor: tokens.hair },
   };
 
   return (
     <Paper sx={{ p: '12px 16px 10px', borderRadius: 2 }}>
-      <Stack direction="row" alignItems="center" flexWrap="wrap" useFlexGap sx={{ gap: 1.5, mb: 0.9 }}>
+      <Stack
+        direction="row"
+        alignItems="center"
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ gap: 1.5, mb: 0.9 }}
+      >
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
           Iteration
-          <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 10.5, color: tokens.teal, ml: 1.25, fontWeight: 400 }}>{w.id}</Box>
-          <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub, ml: 1, fontWeight: 400 }}>
+          <Box
+            component="span"
+            sx={{
+              fontFamily: tokens.mono,
+              fontSize: 10.5,
+              color: tokens.teal,
+              ml: 1.25,
+              fontWeight: 400,
+            }}
+          >
+            {w.id}
+          </Box>
+          <Box
+            component="span"
+            sx={{
+              fontFamily: tokens.mono,
+              fontSize: 10.5,
+              color: tokens.sub,
+              ml: 1,
+              fontWeight: 400,
+            }}
+          >
             · {fmtInt(n)} steps · scrub the timeline to scroll · click a step to pin
           </Box>
         </Typography>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Stack direction="row" spacing={1.1}>
             {(['prefill', 'mixed', 'decode'] as const).map((p) => (
-              <Box key={p} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
-                <Box sx={{ width: 9, height: 9, borderRadius: 0.5, background: PHASE_COLOR[p] }} />{p}
+              <Box
+                key={p}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  fontFamily: tokens.mono,
+                  fontSize: 9.5,
+                  color: tokens.sub,
+                }}
+              >
+                <Box sx={{ width: 9, height: 9, borderRadius: 0.5, background: PHASE_COLOR[p] }} />
+                {p}
               </Box>
             ))}
           </Stack>
-          <Box sx={{ fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>window {fmtInt(start)}–{fmtInt(start + vis - 1)}</Box>
+          <Box sx={{ fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>
+            window {fmtInt(start)}–{fmtInt(start + vis - 1)}
+          </Box>
         </Box>
       </Stack>
 
       {/* minimap: whole run, downsampled, with a gliding viewport box + cursor */}
       <Box
-        onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); jumpToStep(Math.round(((e.clientX - r.left) / r.width) * (n - 1))); }}
-        sx={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: 26, mb: 0.9, cursor: 'pointer' }}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          jumpToStep(Math.round(((e.clientX - r.left) / r.width) * (n - 1)));
+        }}
+        sx={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'flex-end',
+          gap: '1px',
+          height: 26,
+          mb: 0.9,
+          cursor: 'pointer',
+        }}
       >
         {buckets.map((b, i) => (
-          <Box key={i} sx={{ flex: 1, minWidth: 0, height: `${Math.max(10, (b.avg / maxBucket) * 100)}%`, background: PHASE_COLOR[b.phase], opacity: 0.5, borderRadius: '1px 1px 0 0' }} />
+          <Box
+            key={i}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              height: `${Math.max(10, (b.avg / maxBucket) * 100)}%`,
+              background: PHASE_COLOR[b.phase],
+              opacity: 0.5,
+              borderRadius: '1px 1px 0 0',
+            }}
+          />
         ))}
-        <Box sx={{ position: 'absolute', top: -2, bottom: -2, left: `${(start / n) * 100}%`, width: `${(vis / n) * 100}%`, border: `1.5px solid ${tokens.ink}`, borderRadius: 0.75, background: 'rgba(42,38,34,.05)', pointerEvents: 'none', transition: `left .18s ${tokens.ease}` }} />
-        {sel && <Box sx={{ position: 'absolute', top: -2, bottom: -2, left: `${((sel.id + 0.5) / n) * 100}%`, width: '2px', background: tokens.terra, pointerEvents: 'none', transition: `left .12s ${tokens.ease}` }} />}
+        <Box
+          sx={{
+            position: 'absolute',
+            top: -2,
+            bottom: -2,
+            left: `${(start / n) * 100}%`,
+            width: `${(vis / n) * 100}%`,
+            border: `1.5px solid ${tokens.ink}`,
+            borderRadius: 0.75,
+            background: 'rgba(42,38,34,.05)',
+            pointerEvents: 'none',
+            transition: `left .18s ${tokens.ease}`,
+          }}
+        />
+        {sel && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -2,
+              bottom: -2,
+              left: `${((sel.id + 0.5) / n) * 100}%`,
+              width: '2px',
+              background: tokens.terra,
+              pointerEvents: 'none',
+              transition: `left .12s ${tokens.ease}`,
+            }}
+          />
+        )}
       </Box>
 
       {/* readout + exact one-step controls for dense neighborhoods */}
       <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.6 }}>
-        <Typography sx={{ flex: 1, minWidth: 0, fontFamily: tokens.mono, fontSize: 11, color: sel ? tokens.ink : tokens.sub }}>
-          {sel
-            ? <>
-                <b style={{ color: tokens.terra }}>step {fmtInt(sel.id)}</b> / {fmtInt(n)} · {(sel.timeMs / 1000).toFixed(2)}s ·{' '}
-                <span style={{ color: PHASE_COLOR[sel.phase] }}>{sel.phase}</span> ·{' '}
-                {fmtInt(sel.prefillTokens)} prefill tok + {fmtInt(sel.decodeRequests)} decode req = {fmtInt(sel.batchTokens)} batched
-              </>
-            : <>aggregate — pick a step below, then use the arrow controls for exact navigation</>}
+        <Typography
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: tokens.mono,
+            fontSize: 11,
+            color: sel ? tokens.ink : tokens.sub,
+          }}
+        >
+          {sel ? (
+            <>
+              <b style={{ color: tokens.terra }}>step {fmtInt(sel.id)}</b> / {fmtInt(n)} ·{' '}
+              {(sel.timeMs / 1000).toFixed(2)}s ·{' '}
+              <span style={{ color: PHASE_COLOR[sel.phase] }}>{sel.phase}</span> ·{' '}
+              {fmtInt(sel.prefillTokens)} prefill tok + {fmtInt(sel.decodeRequests)} decode req ={' '}
+              {fmtInt(sel.batchTokens)} batched
+            </>
+          ) : (
+            <>aggregate — pick a step below, then use the arrow controls for exact navigation</>
+          )}
         </Typography>
         <Tooltip title="Previous step" arrow>
           <span>
-            <IconButton aria-label="Previous step" size="small" disabled={!sel || sel.id === 0} onClick={() => moveSelection(-1)} sx={stepControlSx}>
+            <IconButton
+              aria-label="Previous step"
+              size="small"
+              disabled={!sel || sel.id === 0}
+              onClick={() => moveSelection(-1)}
+              sx={stepControlSx}
+            >
               <ChevronLeftIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Next step" arrow>
           <span>
-            <IconButton aria-label="Next step" size="small" disabled={!sel || sel.id === n - 1} onClick={() => moveSelection(1)} sx={stepControlSx}>
+            <IconButton
+              aria-label="Next step"
+              size="small"
+              disabled={!sel || sel.id === n - 1}
+              onClick={() => moveSelection(1)}
+              sx={stepControlSx}
+            >
               <ChevronRightIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </span>
@@ -149,13 +274,37 @@ export default function IterationBand() {
       </Stack>
 
       {/* scrolling detail window — a translated buffer track slides smoothly */}
-      <Box sx={{ position: 'relative', overflow: 'hidden', height: 58, WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent)', maskImage: 'linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', height: '100%', width: `${(trackCount / vis) * 100}%`, transform: `translateX(${translatePct}%)`, transition: reanchor ? 'none' : `transform .22s ${tokens.ease}`, willChange: 'transform' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          overflow: 'hidden',
+          height: 58,
+          WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent)',
+          maskImage: 'linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent)',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            height: '100%',
+            width: `${(trackCount / vis) * 100}%`,
+            transform: `translateX(${translatePct}%)`,
+            transition: reanchor ? 'none' : `transform .22s ${tokens.ease}`,
+            willChange: 'transform',
+          }}
+        >
           {trackIters.map((it) => {
             const active = sel?.id === it.id;
             const dim = sel != null && !active;
             return (
-              <Tooltip key={it.id} arrow placement="top" enterDelay={80} title={`step ${fmtInt(it.id)} · ${(it.timeMs / 1000).toFixed(2)}s · ${it.phase} · ${fmtInt(it.batchTokens)} tok`}>
+              <Tooltip
+                key={it.id}
+                arrow
+                placement="top"
+                enterDelay={80}
+                title={`step ${fmtInt(it.id)} · ${(it.timeMs / 1000).toFixed(2)}s · ${it.phase} · ${fmtInt(it.batchTokens)} tok`}
+              >
                 <Box
                   component="button"
                   type="button"
@@ -163,37 +312,78 @@ export default function IterationBand() {
                   aria-pressed={active}
                   onClick={() => st.setTime(active ? null : it.timeMs)}
                   onKeyDown={(event) => {
-                    if (event.key === 'ArrowLeft') { event.preventDefault(); jumpToStep(it.id - 1); }
-                    if (event.key === 'ArrowRight') { event.preventDefault(); jumpToStep(it.id + 1); }
+                    if (event.key === 'ArrowLeft') {
+                      event.preventDefault();
+                      jumpToStep(it.id - 1);
+                    }
+                    if (event.key === 'ArrowRight') {
+                      event.preventDefault();
+                      jumpToStep(it.id + 1);
+                    }
                   }}
                   sx={{
-                    appearance: 'none', flex: '1 1 0', minWidth: 0, height: '100%', p: '0 2px',
-                    border: 0, borderRadius: 0.75, background: active ? 'rgba(194,92,58,.11)' : 'transparent',
-                    display: 'flex', alignItems: 'flex-end', position: 'relative', cursor: 'pointer',
+                    appearance: 'none',
+                    flex: '1 1 0',
+                    minWidth: 0,
+                    height: '100%',
+                    p: '0 2px',
+                    border: 0,
+                    borderRadius: 0.75,
+                    background: active ? 'rgba(194,92,58,.11)' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    position: 'relative',
+                    cursor: 'pointer',
                     transition: `background .15s ${tokens.ease}`,
-                    '&:hover': { background: active ? 'rgba(194,92,58,.15)' : 'rgba(42,38,34,.055)' },
+                    '&:hover': {
+                      background: active ? 'rgba(194,92,58,.15)' : 'rgba(42,38,34,.055)',
+                    },
                     '&:focus-visible': { outline: `2px solid ${tokens.ink}`, outlineOffset: -2 },
                   }}
                 >
                   {/* The full-height column owns interaction; this inner bar only encodes batch size. */}
-                  <Box sx={{
-                    width: '100%', height: `${Math.max(10, (it.batchTokens / maxBatch) * 100)}%`,
-                    borderRadius: '3px 3px 1px 1px', background: PHASE_COLOR[it.phase],
-                    boxShadow: `inset 0 0 0 1px ${tokens.leafbg}`,
-                    opacity: dim ? 0.34 : 0.94,
-                    outline: active ? `2px solid ${tokens.ink}` : 'none', outlineOffset: -1,
-                    transition: `opacity .15s ${tokens.ease}`,
-                  }} />
-                  {active && <Box sx={{ position: 'absolute', left: 2, right: 2, bottom: 0, height: 3, background: tokens.terra }} />}
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: `${Math.max(10, (it.batchTokens / maxBatch) * 100)}%`,
+                      borderRadius: '3px 3px 1px 1px',
+                      background: PHASE_COLOR[it.phase],
+                      boxShadow: `inset 0 0 0 1px ${tokens.leafbg}`,
+                      opacity: dim ? 0.34 : 0.94,
+                      outline: active ? `2px solid ${tokens.ink}` : 'none',
+                      outlineOffset: -1,
+                      transition: `opacity .15s ${tokens.ease}`,
+                    }}
+                  />
+                  {active && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        left: 2,
+                        right: 2,
+                        bottom: 0,
+                        height: 3,
+                        background: tokens.terra,
+                      }}
+                    />
+                  )}
                 </Box>
               </Tooltip>
             );
           })}
         </Box>
       </Box>
-      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.4, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        sx={{ mt: 0.4, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}
+      >
         <span>step {fmtInt(start)}</span>
-        <span>{compact ? `${vis} of ${fmtInt(n)} · tap or use arrows` : `${vis} of ${fmtInt(n)} steps · separated columns · arrow keys move one step`}</span>
+        <span>
+          {compact
+            ? `${vis} of ${fmtInt(n)} · tap or use arrows`
+            : `${vis} of ${fmtInt(n)} steps · separated columns · arrow keys move one step`}
+        </span>
         <span>step {fmtInt(start + vis - 1)}</span>
       </Stack>
     </Paper>

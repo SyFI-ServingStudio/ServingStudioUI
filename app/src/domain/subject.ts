@@ -35,12 +35,7 @@ export interface SubjectPayloadByName {
 
 /** `incompatible` is produced by the UI adapter, never by analyzer itself. */
 export type SubjectStatus =
-  | 'pending'
-  | 'ready'
-  | 'unavailable'
-  | 'not_generated'
-  | 'failed'
-  | 'incompatible';
+  'pending' | 'ready' | 'unavailable' | 'not_generated' | 'failed' | 'incompatible';
 
 interface SubjectResultBase<Name extends SubjectName> {
   subject: Name;

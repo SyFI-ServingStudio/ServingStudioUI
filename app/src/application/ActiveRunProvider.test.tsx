@@ -13,7 +13,12 @@ const testQueryClients = new Set<QueryClient>();
 function StateProbe() {
   const state = useActiveRunState();
   const detail = state.status === 'ready' ? state.run.id : state.error?.message;
-  return <div role="status">{state.status}{detail ? `: ${detail}` : ''}</div>;
+  return (
+    <div role="status">
+      {state.status}
+      {detail ? `: ${detail}` : ''}
+    </div>
+  );
 }
 
 function renderProvider(repository: AnalyzerRepository) {
@@ -90,9 +95,11 @@ describe('ActiveRunProvider', () => {
 
     renderProvider(repository);
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
-      'error: Analyzer analysis stage failed for test-run.',
-    ));
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'error: Analyzer analysis stage failed for test-run.',
+      ),
+    );
     expect(calls.summary).toBe(0);
     expect(calls.subjects).toBe(0);
   });

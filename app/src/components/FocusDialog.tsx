@@ -20,19 +20,60 @@ export default function FocusDialog() {
     >
       {focus && (
         <>
-          <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2.5} sx={{ mb: 2 }}>
+          <Stack
+            direction="row"
+            alignItems="flex-start"
+            justifyContent="space-between"
+            spacing={2.5}
+            sx={{ mb: 2 }}
+          >
             <Box>
-              <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 28, letterSpacing: '-.02em', lineHeight: 1.02 }}>{focus.title}</Typography>
-              {focus.caption && <Typography sx={{ fontSize: 13, color: tokens.sub, mt: 1, maxWidth: 680 }}>{focus.caption}</Typography>}
+              <Typography
+                sx={{
+                  fontFamily: tokens.serif,
+                  fontWeight: 600,
+                  fontSize: 28,
+                  letterSpacing: '-.02em',
+                  lineHeight: 1.02,
+                }}
+              >
+                {focus.title}
+              </Typography>
+              {focus.caption && (
+                <Typography sx={{ fontSize: 13, color: tokens.sub, mt: 1, maxWidth: 680 }}>
+                  {focus.caption}
+                </Typography>
+              )}
             </Box>
-            <IconButton onClick={() => st.closeFocus()} sx={{ border: `1px solid ${tokens.hair}`, background: tokens.tile2, borderRadius: 1.5, '&:hover': { background: tokens.terra, color: '#fff' } }}>
+            <IconButton
+              onClick={() => st.closeFocus()}
+              sx={{
+                border: `1px solid ${tokens.hair}`,
+                background: tokens.tile2,
+                borderRadius: 1.5,
+                '&:hover': { background: tokens.terra, color: '#fff' },
+              }}
+            >
               <CloseIcon />
             </IconButton>
           </Stack>
           <Box sx={{ height: 'min(60vh,540px)' }}>
-            {focus.option
-              ? <EChart option={focus.option} />
-              : <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: tokens.sub, fontFamily: tokens.mono }}>no data</Box>}
+            {focus.option ? (
+              <EChart option={focus.option} />
+            ) : (
+              <Box
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: tokens.sub,
+                  fontFamily: tokens.mono,
+                }}
+              >
+                no data
+              </Box>
+            )}
           </Box>
         </>
       )}

@@ -40,7 +40,9 @@ describe('loadActiveRunData', () => {
     const descriptor = makeTestDescriptor({ workers: undefined });
     const { repository, calls } = createTestRepository({ descriptor, topology: { pools: [] } });
 
-    await expect(loadActiveRunData(repository, descriptor)).rejects.toThrow('Run topology has no workers.');
+    await expect(loadActiveRunData(repository, descriptor)).rejects.toThrow(
+      'Run topology has no workers.',
+    );
     expect(calls.trees).toBe(0);
   });
 

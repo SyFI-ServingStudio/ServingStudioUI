@@ -16,23 +16,41 @@ export default function ClusterStage() {
   const slo = metricView('slo', run, st);
   const tp = metricView('throughput', run, st);
   const backpressure = metricView('backpressure', run, st);
-  const cons = run.payloads.conservation
-    ?? (run.source.kind === 'synthetic' ? conservationFor(run) : null);
+  const cons =
+    run.payloads.conservation ?? (run.source.kind === 'synthetic' ? conservationFor(run) : null);
   const kbreak = clusterKernelBreakdown(run);
 
   const util = run.payloads.utilization;
   const pools = run.topology.pools;
   const poolUtilOption = (role: string) => {
-    const series = util.series.filter((item) => item.poolTag === role
-      || (item.poolTag === undefined && `${item.key} ${item.label}`.toLowerCase().includes(role.toLowerCase())));
+    const series = util.series.filter(
+      (item) =>
+        item.poolTag === role ||
+        (item.poolTag === undefined &&
+          `${item.key} ${item.label}`.toLowerCase().includes(role.toLowerCase())),
+    );
     return series.length ? utilizationOption({ t_ms: util.t_ms, series }, CHART_THEME) : null;
   };
 
   return (
     <Stack spacing={2}>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}>
-        <ChartCard idx="a" title={METRIC_TITLES.slo} sub={slo.sub} option={slo.option} caption={METRIC_CAPTIONS.slo} />
-        <ChartCard idx="b" title={METRIC_TITLES.throughput} sub={tp.sub} option={tp.option} caption={METRIC_CAPTIONS.throughput} />
+      <Box
+        sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
+      >
+        <ChartCard
+          idx="a"
+          title={METRIC_TITLES.slo}
+          sub={slo.sub}
+          option={slo.option}
+          caption={METRIC_CAPTIONS.slo}
+        />
+        <ChartCard
+          idx="b"
+          title={METRIC_TITLES.throughput}
+          sub={tp.sub}
+          option={tp.option}
+          caption={METRIC_CAPTIONS.throughput}
+        />
       </Box>
 
       <ChartCard
@@ -46,7 +64,13 @@ export default function ClusterStage() {
       />
 
       {/* per-pool GPU utilization — one figure per pool */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: pools.length > 1 ? 'repeat(2,1fr)' : '1fr' }, gap: 2 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: pools.length > 1 ? 'repeat(2,1fr)' : '1fr' },
+          gap: 2,
+        }}
+      >
         {pools.map((p) => (
           <ChartCard
             key={p.role}
@@ -74,7 +98,9 @@ export default function ClusterStage() {
         <ConservationCard idx="f" data={cons} />
       ) : (
         <Paper sx={{ borderRadius: 2, p: 2 }}>
-          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>Workload conservation</Typography>
+          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
+            Workload conservation
+          </Typography>
           <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
             Subject not generated for this simulation folder.
           </Typography>

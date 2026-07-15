@@ -4,7 +4,13 @@ import type { CSSProperties } from 'react';
 
 /** Thin wrapper around echarts-for-react — fills its parent, canvas renderer,
  *  replaces (not merges) options so scope changes redraw cleanly. */
-export default function EChart({ option, style }: { option: EChartsOption; style?: CSSProperties }) {
+export default function EChart({
+  option,
+  style,
+}: {
+  option: EChartsOption;
+  style?: CSSProperties;
+}) {
   return (
     <ReactECharts
       option={option}

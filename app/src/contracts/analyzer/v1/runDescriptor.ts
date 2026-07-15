@@ -18,7 +18,10 @@ const artifactRefSchema = z
     media_type: nonEmptyString.optional(),
     schema_version: z.number().int().positive().optional(),
     byte_length: z.number().int().nonnegative().optional(),
-    sha256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+    sha256: z
+      .string()
+      .regex(/^[a-fA-F0-9]{64}$/)
+      .optional(),
   })
   .strict();
 
@@ -79,7 +82,10 @@ const traceResourceSchema = z.discriminatedUnion('status', [
       href: nonEmptyString,
       media_type: nonEmptyString.optional(),
       byte_length: z.number().int().nonnegative().optional(),
-      sha256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional(),
+      sha256: z
+        .string()
+        .regex(/^[a-fA-F0-9]{64}$/)
+        .optional(),
     })
     .strict(),
   pendingSchema,
@@ -88,28 +94,33 @@ const traceResourceSchema = z.discriminatedUnion('status', [
   failedSchema,
 ]);
 
-const provenanceSchema = z.discriminatedUnion('source', [
-  z
-    .object({
-      source: z.literal('analyzer'),
-      synthetic: z.literal(false),
-      generated_at: nonEmptyString.optional(),
-      generator_version: nonEmptyString.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      source: z.literal('fixture'),
-      synthetic: z.boolean(),
-      fixture_id: nonEmptyString,
-      source_run: nonEmptyString.optional(),
-      generated_at: nonEmptyString.optional(),
-    })
-    .strict(),
-]).refine(
-  (provenance) => provenance.source !== 'fixture' || provenance.synthetic || provenance.source_run !== undefined,
-  { message: 'a non-synthetic fixture requires source_run' },
-);
+const provenanceSchema = z
+  .discriminatedUnion('source', [
+    z
+      .object({
+        source: z.literal('analyzer'),
+        synthetic: z.literal(false),
+        generated_at: nonEmptyString.optional(),
+        generator_version: nonEmptyString.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        source: z.literal('fixture'),
+        synthetic: z.boolean(),
+        fixture_id: nonEmptyString,
+        source_run: nonEmptyString.optional(),
+        generated_at: nonEmptyString.optional(),
+      })
+      .strict(),
+  ])
+  .refine(
+    (provenance) =>
+      provenance.source !== 'fixture' ||
+      provenance.synthetic ||
+      provenance.source_run !== undefined,
+    { message: 'a non-synthetic fixture requires source_run' },
+  );
 
 const workerRefSchema = z
   .object({
@@ -170,7 +181,8 @@ function toSubjectArtifact(resource: WireSubjectArtifact): SubjectArtifact {
   const report = resource.report_href === undefined ? undefined : { href: resource.report_href };
   const payload = resource.payload_href === undefined ? undefined : { href: resource.payload_href };
 
-  if (report !== undefined) return { ...common, report, ...(payload === undefined ? {} : { payload }) };
+  if (report !== undefined)
+    return { ...common, report, ...(payload === undefined ? {} : { payload }) };
   // Reaching this guard would mean the schema and mapper invariants diverged.
   if (payload === undefined) throw new Error('Validated ready subject has no artifact href');
   return { ...common, payload };
@@ -203,7 +215,9 @@ function toProvenance(provenance: WireProvenance): ArtifactProvenance {
     source: 'analyzer',
     synthetic: false,
     ...(provenance.generated_at === undefined ? {} : { generatedAt: provenance.generated_at }),
-    ...(provenance.generator_version === undefined ? {} : { generatorVersion: provenance.generator_version }),
+    ...(provenance.generator_version === undefined
+      ? {}
+      : { generatorVersion: provenance.generator_version }),
   };
 }
 
@@ -215,7 +229,10 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
   }
 
   const traces = Object.fromEntries(
-    Object.entries(wire.traces).map(([traceName, resource]) => [traceName, toTraceResource(resource)]),
+    Object.entries(wire.traces).map(([traceName, resource]) => [
+      traceName,
+      toTraceResource(resource),
+    ]),
   );
 
   return {
@@ -231,7 +248,9 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
     ...(wire.topology === undefined ? {} : { topology: toArtifactRef(wire.topology) }),
     ...(wire.workers === undefined
       ? {}
-      : { workers: wire.workers.map((worker) => makeWorkerRef(worker.pool_tag, worker.worker_id)) }),
+      : {
+          workers: wire.workers.map((worker) => makeWorkerRef(worker.pool_tag, worker.worker_id)),
+        }),
     subjects,
     traces,
     ...(wire.provenance === undefined ? {} : { provenance: toProvenance(wire.provenance) }),

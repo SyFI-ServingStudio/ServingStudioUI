@@ -34,19 +34,34 @@ export interface CostNode {
 // ---- authoring DSL (used by validated fixture adapters) --------------------
 type Raw = Omit<CostNode, 'id' | 'depth' | 'ms' | 'pct'>;
 
-export const leaf = (name: string, kind: string, config: string, base: number, backend?: string): Raw => ({
+export const leaf = (
+  name: string,
+  kind: string,
+  config: string,
+  base: number,
+  backend?: string,
+): Raw => ({
   kind: 'leaf',
   slot: { name, kind, config: config || '', backend: backend ?? null },
   base,
 });
-export const sum = (label: string, ...children: Raw[]): Raw => ({ kind: 'sum', label, children: children as CostNode[] });
+export const sum = (label: string, ...children: Raw[]): Raw => ({
+  kind: 'sum',
+  label,
+  children: children as CostNode[],
+});
 export const max = (label: string, overlap: number, ...children: Raw[]): Raw => ({
   kind: 'max',
   label,
   overlap,
   children: children as CostNode[],
 });
-export const scale = (label: string, n: number, child: Raw): Raw => ({ kind: 'scale', label, n, children: [child as CostNode] });
+export const scale = (label: string, n: number, child: Raw): Raw => ({
+  kind: 'scale',
+  label,
+  n,
+  children: [child as CostNode],
+});
 
 // ---- kernel-kind taxonomy --------------------------------------------------
 export const KIND: Record<string, { group: string; label: string }> = {
@@ -136,7 +151,14 @@ export function leafTotals(root: CostNode): LeafTotals {
       const ms = mult * (node.base ?? 0);
       const name = node.slot!.name;
       const g = groupOf(node.slot!.kind);
-      const cur = byName.get(name) ?? { name, kind: node.slot!.kind, group: g, ms: 0, calls: 0, pct: 0 };
+      const cur = byName.get(name) ?? {
+        name,
+        kind: node.slot!.kind,
+        group: g,
+        ms: 0,
+        calls: 0,
+        pct: 0,
+      };
       cur.ms += ms;
       cur.calls += mult;
       byName.set(name, cur);
@@ -151,13 +173,20 @@ export function leafTotals(root: CostNode): LeafTotals {
     .map((p) => ({ ...p, pct: (p.ms / totMs) * 100 }))
     .sort((a, b) => b.ms - a.ms);
   const groups = [...byGroup.entries()]
-    .map(([g, ms]) => ({ group: g, label: GROUP[g].label, color: GROUP[g].color, ms, pct: (ms / totMs) * 100 }))
+    .map(([g, ms]) => ({
+      group: g,
+      label: GROUP[g].label,
+      color: GROUP[g].color,
+      ms,
+      pct: (ms / totMs) * 100,
+    }))
     .sort((a, b) => b.ms - a.ms);
   return { positions, groups, totalMs: totMs };
 }
 
 // ---- formatting ------------------------------------------------------------
-export const fmtMs = (ms: number): string => (ms >= 1 ? ms.toFixed(2) + ' ms' : (ms * 1000).toFixed(1) + ' µs');
+export const fmtMs = (ms: number): string =>
+  ms >= 1 ? ms.toFixed(2) + ' ms' : (ms * 1000).toFixed(1) + ' µs';
 export const fmtPct = (p: number): string => (p >= 9.95 ? p.toFixed(0) : p.toFixed(1)) + '%';
 
 export function leafById(root: CostNode, id: number | null): CostNode | null {
@@ -165,7 +194,10 @@ export function leafById(root: CostNode, id: number | null): CostNode | null {
   let f: CostNode | null = null;
   (function walk(n: CostNode) {
     if (f) return;
-    if (n.id === id && n.kind === 'leaf') { f = n; return; }
+    if (n.id === id && n.kind === 'leaf') {
+      f = n;
+      return;
+    }
     (n.children ?? []).forEach(walk);
   })(root);
   return f;
@@ -175,7 +207,10 @@ export function nodeById(root: CostNode, id: number | null): CostNode | null {
   let f: CostNode | null = null;
   (function walk(n: CostNode) {
     if (f) return;
-    if (n.id === id) { f = n; return; }
+    if (n.id === id) {
+      f = n;
+      return;
+    }
     (n.children ?? []).forEach(walk);
   })(root);
   return f;
@@ -184,7 +219,10 @@ export function leafByName(root: CostNode, name: string): CostNode | null {
   let f: CostNode | null = null;
   (function walk(n: CostNode) {
     if (f) return;
-    if (n.kind === 'leaf' && n.slot!.name === name) { f = n; return; }
+    if (n.kind === 'leaf' && n.slot!.name === name) {
+      f = n;
+      return;
+    }
     (n.children ?? []).forEach(walk);
   })(root);
   return f;

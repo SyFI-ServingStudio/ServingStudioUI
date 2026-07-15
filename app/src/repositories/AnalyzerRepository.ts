@@ -1,4 +1,9 @@
-import type { RunDescriptor, RunListItem, RunSummaryArtifact, TraceResource } from '../domain/artifacts';
+import type {
+  RunDescriptor,
+  RunListItem,
+  RunSummaryArtifact,
+  TraceResource,
+} from '../domain/artifacts';
 import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';

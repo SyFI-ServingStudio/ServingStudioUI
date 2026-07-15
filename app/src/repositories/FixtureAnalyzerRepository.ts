@@ -1,6 +1,16 @@
-import type { RunDescriptor, RunListItem, SubjectArtifact, TraceResource } from '../domain/artifacts';
+import type {
+  RunDescriptor,
+  RunListItem,
+  SubjectArtifact,
+  TraceResource,
+} from '../domain/artifacts';
 import type { BatchSubject, Run } from '../domain/run';
-import { SUBJECT_NAMES, type SubjectName, type SubjectPayloadByName, type SubjectResult } from '../domain/subject';
+import {
+  SUBJECT_NAMES,
+  type SubjectName,
+  type SubjectPayloadByName,
+  type SubjectResult,
+} from '../domain/subject';
 import { makeWorkerKey, type WorkerRef } from '../domain/worker';
 import { REAL_RUNS } from '../data/realRunFixture';
 import { iterationsFor, type Iteration, type IterTimeline } from '../data/iterations';
@@ -54,13 +64,14 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     const payloads = this.subjectPayloads(run);
     const subjects: RunDescriptor['subjects'] = {};
     for (const subject of SUBJECT_NAMES) {
-      subjects[subject] = payloads[subject] === undefined
-        ? this.missingSubject(run, subject)
-        : {
-            status: 'ready',
-            schemaVersion: FIXTURE_SCHEMA_VERSION,
-            payload: { href: `fixture://${encodeURIComponent(runId)}/payloads/${subject}.json` },
-          };
+      subjects[subject] =
+        payloads[subject] === undefined
+          ? this.missingSubject(run, subject)
+          : {
+              status: 'ready',
+              schemaVersion: FIXTURE_SCHEMA_VERSION,
+              payload: { href: `fixture://${encodeURIComponent(runId)}/payloads/${subject}.json` },
+            };
     }
 
     return {
@@ -77,15 +88,19 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
       workers: run.workerList.map((worker) => worker.ref),
       subjects,
       traces: {
-        perfetto: run.source.kind === 'synthetic' && run.capabilities.perfettoTrace
-          ? {
-              status: 'ready',
-              artifact: {
-                href: run.deployment === 'afd' ? 'afd_smoke.pftrace.gz' : 'pd_smoke.pftrace.gz',
-                mediaType: 'application/gzip',
+        perfetto:
+          run.source.kind === 'synthetic' && run.capabilities.perfettoTrace
+            ? {
+                status: 'ready',
+                artifact: {
+                  href: run.deployment === 'afd' ? 'afd_smoke.pftrace.gz' : 'pd_smoke.pftrace.gz',
+                  mediaType: 'application/gzip',
+                },
+              }
+            : {
+                status: 'not_generated',
+                reason: 'This simulation folder has no Perfetto trace artifact.',
               },
-            }
-          : { status: 'not_generated', reason: 'This simulation folder has no Perfetto trace artifact.' },
       },
       provenance: {
         source: 'fixture',
@@ -96,7 +111,10 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     };
   }
 
-  async getSubject<Name extends SubjectName>(runId: string, subject: Name): Promise<SubjectResult<Name>> {
+  async getSubject<Name extends SubjectName>(
+    runId: string,
+    subject: Name,
+  ): Promise<SubjectResult<Name>> {
     const run = this.requireRun(runId);
     const payloads = this.subjectPayloads(run);
     const payload = payloads[subject];
@@ -118,7 +136,8 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   async getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostNode> {
     const run = this.requireRun(runId);
     const tree = run.trees[makeWorkerKey(worker)];
-    if (!tree) throw new Error(`Unknown worker ${worker.poolTag}/${worker.workerId} in run ${runId}`);
+    if (!tree)
+      throw new Error(`Unknown worker ${worker.poolTag}/${worker.workerId} in run ${runId}`);
     return tree;
   }
 
@@ -134,17 +153,21 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
     const timeline = await this.getWorkerTimeline(runId, worker);
     const iteration = timeline.iters.find((candidate) => String(candidate.id) === iterationId);
     if (!iteration) {
-      throw new Error(`Unknown iteration ${iterationId} for ${worker.poolTag}/${worker.workerId} in run ${runId}`);
+      throw new Error(
+        `Unknown iteration ${iterationId} for ${worker.poolTag}/${worker.workerId} in run ${runId}`,
+      );
     }
     return iteration;
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {
     const descriptor = await this.getRunDescriptor(runId);
-    return descriptor.traces[traceName] ?? {
-      status: 'not_generated',
-      reason: `Simulation folder ${runId} does not provide trace ${traceName}.`,
-    };
+    return (
+      descriptor.traces[traceName] ?? {
+        status: 'not_generated',
+        reason: `Simulation folder ${runId} does not provide trace ${traceName}.`,
+      }
+    );
   }
 
   private requireRun(runId: string): Run {
@@ -154,13 +177,18 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
   }
 
   private subjectPayloads(run: Run): Partial<SubjectPayloadByName> {
-    const batchByPool = run.payloads.batchByPool
-      ?? (run.source.kind === 'synthetic'
-        ? Object.fromEntries(run.topology.pools.map((pool) => [pool.role, batchFor(run, pool.role)]))
+    const batchByPool =
+      run.payloads.batchByPool ??
+      (run.source.kind === 'synthetic'
+        ? Object.fromEntries(
+            run.topology.pools.map((pool) => [pool.role, batchFor(run, pool.role)]),
+          )
         : undefined);
-    const batch: BatchSubject | undefined = batchByPool === undefined ? undefined : { pools: batchByPool };
-    const conservation = run.payloads.conservation
-      ?? (run.source.kind === 'synthetic' ? conservationFor(run) : undefined);
+    const batch: BatchSubject | undefined =
+      batchByPool === undefined ? undefined : { pools: batchByPool };
+    const conservation =
+      run.payloads.conservation ??
+      (run.source.kind === 'synthetic' ? conservationFor(run) : undefined);
 
     return {
       slo: run.payloads.slo,
@@ -168,13 +196,17 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
       utilization: run.payloads.utilization,
       kv: run.payloads.kv,
       ...(run.payloads.concurrency === undefined ? {} : { concurrency: run.payloads.concurrency }),
-      ...(run.payloads.pendingQueue === undefined ? {} : { backpressure: run.payloads.pendingQueue }),
+      ...(run.payloads.pendingQueue === undefined
+        ? {}
+        : { backpressure: run.payloads.pendingQueue }),
       ...(batch === undefined ? {} : { batch }),
       ...(conservation === undefined ? {} : { conservation }),
       ...(run.payloads.kernelInputDistribution === undefined
         ? {}
         : { kernelInputDistribution: run.payloads.kernelInputDistribution }),
-      ...(run.payloads.kernelTimeShare === undefined ? {} : { kernelTimeShare: run.payloads.kernelTimeShare }),
+      ...(run.payloads.kernelTimeShare === undefined
+        ? {}
+        : { kernelTimeShare: run.payloads.kernelTimeShare }),
     };
   }
 
@@ -183,7 +215,8 @@ export class FixtureAnalyzerRepository implements AnalyzerRepository {
       return {
         status: 'unavailable',
         code: 'missing_kernel_input_columns',
-        reason: 'The source run did not log slot_backend/slot_input, so this analyzer subject is unavailable.',
+        reason:
+          'The source run did not log slot_backend/slot_input, so this analyzer subject is unavailable.',
       };
     }
     return {

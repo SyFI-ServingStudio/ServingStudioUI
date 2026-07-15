@@ -12,15 +12,25 @@ export const analyzerQueryKeys = {
   summary: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'summary'] as const,
   topology: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'topology'] as const,
   descriptor: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'descriptor'] as const,
-  subject: (runId: string, subject: string, schemaVersion?: number) => [
-    ...analyzerQueryKeys.runs(), runId, 'subject', subject, schemaVersion ?? 'unknown-version',
-  ] as const,
-  workerTree: (runId: string, worker: WorkerRef) => [
-    ...analyzerQueryKeys.runs(), runId, 'worker', worker.poolTag, worker.workerId, 'cost-tree',
-  ] as const,
-  active: (runId: string, descriptorFingerprint: string) => [
-    ...analyzerQueryKeys.runs(), runId, 'active-view', descriptorFingerprint,
-  ] as const,
+  subject: (runId: string, subject: string, schemaVersion?: number) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'subject',
+      subject,
+      schemaVersion ?? 'unknown-version',
+    ] as const,
+  workerTree: (runId: string, worker: WorkerRef) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      worker.poolTag,
+      worker.workerId,
+      'cost-tree',
+    ] as const,
+  active: (runId: string, descriptorFingerprint: string) =>
+    [...analyzerQueryKeys.runs(), runId, 'active-view', descriptorFingerprint] as const,
 };
 
 function descriptorFingerprint(descriptor: RunDescriptor): string {
@@ -57,7 +67,11 @@ export function useRunDescriptorQuery(runId: string) {
   });
 }
 
-export function useSubjectQuery<Name extends SubjectName>(runId: string, subject: Name, schemaVersion?: number) {
+export function useSubjectQuery<Name extends SubjectName>(
+  runId: string,
+  subject: Name,
+  schemaVersion?: number,
+) {
   const repository = useAnalyzerRepository();
   return useQuery({
     queryKey: analyzerQueryKeys.subject(runId, subject, schemaVersion),

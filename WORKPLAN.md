@@ -28,7 +28,7 @@
 
 ## P2 · 工程质量护栏
 
-- [~] 配置 ESLint、Prettier 和按文件运行的格式检查（ESLint 9 已启用，Prettier 基线待独立提交）
+- [x] 配置 ESLint、Prettier 和显式 UI 文件范围的格式检查
 - [x] 配置 Vitest + Testing Library（descriptor、active-run assembler、Provider lifecycle 共 13 个测试）
 - [ ] 配置官方 Playwright，并增加核心导航和响应式 smoke tests
 - [ ] 增加 axe 可访问性检查

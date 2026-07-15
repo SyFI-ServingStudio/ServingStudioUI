@@ -71,28 +71,32 @@ export function makeTestTopology(): Topology {
       {
         role: 'attn',
         placement: 'packed',
-        groups: [{
-          gpu: 'NVIDIA H200',
-          replicas: 1,
-          gpusPerReplica: 1,
-          numGpus: 1,
-          arch: { type: 'test_attn', model: 'model/test.json', params: { tp: 1 } },
-          worker: { type: 'test_attn_worker' },
-          workers: [{ id: '0', gpus: [0] }],
-        }],
+        groups: [
+          {
+            gpu: 'NVIDIA H200',
+            replicas: 1,
+            gpusPerReplica: 1,
+            numGpus: 1,
+            arch: { type: 'test_attn', model: 'model/test.json', params: { tp: 1 } },
+            worker: { type: 'test_attn_worker' },
+            workers: [{ id: '0', gpus: [0] }],
+          },
+        ],
       },
       {
         role: 'ffn',
         placement: 'packed',
-        groups: [{
-          gpu: 'NVIDIA H200',
-          replicas: 1,
-          gpusPerReplica: 1,
-          numGpus: 1,
-          arch: { type: 'test_ffn', model: 'model/test.json', params: { tp: 1 } },
-          worker: { type: 'test_ffn_worker' },
-          workers: [{ id: '0', gpus: [1] }],
-        }],
+        groups: [
+          {
+            gpu: 'NVIDIA H200',
+            replicas: 1,
+            gpusPerReplica: 1,
+            numGpus: 1,
+            arch: { type: 'test_ffn', model: 'model/test.json', params: { tp: 1 } },
+            worker: { type: 'test_ffn_worker' },
+            workers: [{ id: '0', gpus: [1] }],
+          },
+        ],
       },
     ],
   };
@@ -134,7 +138,12 @@ export function makeTestSubjectResults(): SubjectResults {
   return {
     slo: { subject: 'slo', status: 'ready', schemaVersion: 1, payload: slo },
     throughput: { subject: 'throughput', status: 'ready', schemaVersion: 1, payload: throughput },
-    utilization: { subject: 'utilization', status: 'ready', schemaVersion: 1, payload: utilization },
+    utilization: {
+      subject: 'utilization',
+      status: 'ready',
+      schemaVersion: 1,
+      payload: utilization,
+    },
     kv: { subject: 'kv', status: 'ready', schemaVersion: 1, payload: kv },
     concurrency: missing('concurrency'),
     backpressure: missing('backpressure'),
@@ -146,19 +155,23 @@ export function makeTestSubjectResults(): SubjectResults {
 }
 
 function makeTrees(workers: readonly WorkerRef[]): Record<WorkerKey, CostNode> {
-  return Object.fromEntries(workers.map((worker) => [
-    makeWorkerKey(worker),
-    annotate(leaf(`${worker.poolTag}.kernel`, 'single_gemm', '{}', 1)),
-  ])) as Record<WorkerKey, CostNode>;
+  return Object.fromEntries(
+    workers.map((worker) => [
+      makeWorkerKey(worker),
+      annotate(leaf(`${worker.poolTag}.kernel`, 'single_gemm', '{}', 1)),
+    ]),
+  ) as Record<WorkerKey, CostNode>;
 }
 
-export function createTestRepository(options: {
-  descriptor?: RunDescriptor;
-  summary?: RunSummaryArtifact;
-  topology?: Topology;
-  subjects?: SubjectResults;
-  trees?: Record<WorkerKey, CostNode>;
-} = {}): { repository: AnalyzerRepository; calls: RepositoryCallCounts } {
+export function createTestRepository(
+  options: {
+    descriptor?: RunDescriptor;
+    summary?: RunSummaryArtifact;
+    topology?: Topology;
+    subjects?: SubjectResults;
+    trees?: Record<WorkerKey, CostNode>;
+  } = {},
+): { repository: AnalyzerRepository; calls: RepositoryCallCounts } {
   const descriptor = options.descriptor ?? makeTestDescriptor();
   const summary = options.summary ?? { totalTokS: 10, numGpus: 2, requestsFinished: 5 };
   const topology = options.topology ?? makeTestTopology();
@@ -176,15 +189,17 @@ export function createTestRepository(options: {
   const repository: AnalyzerRepository = {
     async listRuns() {
       calls.list += 1;
-      return [{
-        runId: descriptor.runId,
-        kind: descriptor.kind,
-        displayName: descriptor.displayName,
-        modelName: descriptor.modelName,
-        deployment: descriptor.deployment,
-        lifecycle: descriptor.lifecycle,
-        provenance: descriptor.provenance,
-      }];
+      return [
+        {
+          runId: descriptor.runId,
+          kind: descriptor.kind,
+          displayName: descriptor.displayName,
+          modelName: descriptor.modelName,
+          deployment: descriptor.deployment,
+          lifecycle: descriptor.lifecycle,
+          provenance: descriptor.provenance,
+        },
+      ];
     },
     async getRunDescriptor() {
       calls.descriptor += 1;
@@ -198,7 +213,10 @@ export function createTestRepository(options: {
       calls.topology += 1;
       return topology;
     },
-    async getSubject<Name extends SubjectName>(_runId: string, subject: Name): Promise<SubjectResult<Name>> {
+    async getSubject<Name extends SubjectName>(
+      _runId: string,
+      subject: Name,
+    ): Promise<SubjectResult<Name>> {
       calls.subjects += 1;
       return subjects[subject];
     },

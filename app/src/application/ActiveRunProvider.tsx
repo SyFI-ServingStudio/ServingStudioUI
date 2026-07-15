@@ -29,7 +29,10 @@ type DescriptorReadiness =
 function descriptorReadiness(descriptor: RunDescriptor): DescriptorReadiness {
   for (const [stage, status] of Object.entries(descriptor.lifecycle)) {
     if (status === 'failed') {
-      return { status: 'error', error: new Error(`Analyzer ${stage} stage failed for ${descriptor.runId}.`) };
+      return {
+        status: 'error',
+        error: new Error(`Analyzer ${stage} stage failed for ${descriptor.runId}.`),
+      };
     }
     if (status !== 'complete') return { status: 'loading' };
   }
@@ -39,7 +42,9 @@ function descriptorReadiness(descriptor: RunDescriptor): DescriptorReadiness {
     if (artifact === undefined) {
       return {
         status: 'error',
-        error: new Error(`Run descriptor ${descriptor.runId} is missing required subject ${subjectName}.`),
+        error: new Error(
+          `Run descriptor ${descriptor.runId} is missing required subject ${subjectName}.`,
+        ),
       };
     }
     if (artifact.status === 'pending') return { status: 'loading' };
@@ -63,9 +68,9 @@ export function ActiveRunProvider({ children }: { children: ReactNode }) {
   const setRun = useViz((state) => state.setRun);
   const catalog = useRunListQuery();
   const catalogRuns = catalog.data ?? [];
-  const requestedExists = requestedRunId !== null
-    && catalogRuns.some((run) => run.runId === requestedRunId);
-  const resolvedRunId = requestedExists ? requestedRunId : catalogRuns[0]?.runId ?? null;
+  const requestedExists =
+    requestedRunId !== null && catalogRuns.some((run) => run.runId === requestedRunId);
+  const resolvedRunId = requestedExists ? requestedRunId : (catalogRuns[0]?.runId ?? null);
 
   useEffect(() => {
     if (resolvedRunId !== null && resolvedRunId !== requestedRunId) setRun(resolvedRunId);
@@ -73,23 +78,44 @@ export function ActiveRunProvider({ children }: { children: ReactNode }) {
 
   const descriptor = useRunDescriptorQuery(resolvedRunId ?? '');
   const readiness = descriptor.data === undefined ? null : descriptorReadiness(descriptor.data);
-  const activeData = useActiveRunDataQuery(readiness?.status === 'ready' ? readiness.descriptor : undefined);
+  const activeData = useActiveRunDataQuery(
+    readiness?.status === 'ready' ? readiness.descriptor : undefined,
+  );
 
   let state: ActiveRunState;
   if (catalog.isError && catalog.data === undefined) {
-    state = { status: 'error', data: null, run: null, error: asError(catalog.error, 'Could not load the simulation-folder catalog.') };
+    state = {
+      status: 'error',
+      data: null,
+      run: null,
+      error: asError(catalog.error, 'Could not load the simulation-folder catalog.'),
+    };
   } else if (catalog.isPending) {
     state = { status: 'selecting', data: null, run: null, error: null };
   } else if (resolvedRunId === null) {
     state = { status: 'empty', data: null, run: null, error: null };
   } else if (descriptor.isError) {
-    state = { status: 'error', data: null, run: null, error: asError(descriptor.error, `Could not load descriptor for ${resolvedRunId}.`) };
+    state = {
+      status: 'error',
+      data: null,
+      run: null,
+      error: asError(descriptor.error, `Could not load descriptor for ${resolvedRunId}.`),
+    };
   } else if (readiness?.status === 'error') {
     state = { status: 'error', data: null, run: null, error: readiness.error };
-  } else if (descriptor.data === undefined || readiness?.status === 'loading' || activeData.isPending) {
+  } else if (
+    descriptor.data === undefined ||
+    readiness?.status === 'loading' ||
+    activeData.isPending
+  ) {
     state = { status: 'loading', data: null, run: null, error: null };
   } else if (activeData.isError) {
-    state = { status: 'error', data: null, run: null, error: asError(activeData.error, `Could not assemble ${resolvedRunId}.`) };
+    state = {
+      status: 'error',
+      data: null,
+      run: null,
+      error: asError(activeData.error, `Could not assemble ${resolvedRunId}.`),
+    };
   } else if (activeData.data === undefined) {
     state = { status: 'loading', data: null, run: null, error: null };
   } else {

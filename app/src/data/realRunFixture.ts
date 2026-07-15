@@ -42,32 +42,43 @@ const summarySchema = z.object({
   total_tok_s: finiteNumber.nonnegative(),
 });
 
-const archSchema = z.object({
-  type: nonEmptyString,
-  model_config: nonEmptyString,
-  attn_tp_size: positiveInteger,
-  ep_size: positiveInteger.optional(),
-  nvl_num_gpu: positiveInteger.optional(),
-  routing: nonEmptyString.optional(),
-  fp8: z.boolean(),
-}).catchall(scalar);
+const archSchema = z
+  .object({
+    type: nonEmptyString,
+    model_config: nonEmptyString,
+    attn_tp_size: positiveInteger,
+    ep_size: positiveInteger.optional(),
+    nvl_num_gpu: positiveInteger.optional(),
+    routing: nonEmptyString.optional(),
+    fp8: z.boolean(),
+  })
+  .catchall(scalar);
 
-const workerConfigSchema = z.object({
-  type: nonEmptyString,
-  attn_gpu_memory_gb: finiteNumber.positive().optional(),
-}).catchall(scalar);
+const workerConfigSchema = z
+  .object({
+    type: nonEmptyString,
+    attn_gpu_memory_gb: finiteNumber.positive().optional(),
+  })
+  .catchall(scalar);
 
 const paramsSchema = z.object({
   deployment: z.literal('afd'),
-  pools: z.record(nonEmptyString, z.object({
-    placement: nonEmptyString,
-    groups: z.array(z.object({
-      arch: archSchema,
-      gpu: nonEmptyString,
-      replicas: positiveInteger,
-      worker: workerConfigSchema,
-    })).min(1),
-  })),
+  pools: z.record(
+    nonEmptyString,
+    z.object({
+      placement: nonEmptyString,
+      groups: z
+        .array(
+          z.object({
+            arch: archSchema,
+            gpu: nonEmptyString,
+            replicas: positiveInteger,
+            worker: workerConfigSchema,
+          }),
+        )
+        .min(1),
+    }),
+  ),
 });
 
 const metaWorkerSchema = z.object({
@@ -78,17 +89,25 @@ const metaWorkerSchema = z.object({
 });
 
 const runMetaSchema = z.object({
-  comm_groups: z.array(z.object({
-    gpu_ids: z.array(nonNegativeInteger).min(1),
-    owner_pool: nonEmptyString,
-    owner_worker_id: nonNegativeInteger,
-  })).min(1),
-  gpus: z.array(z.object({
-    id: nonNegativeInteger,
-    name: nonEmptyString,
-    pool: nonNegativeInteger,
-    worker_id: nonNegativeInteger,
-  })).min(1),
+  comm_groups: z
+    .array(
+      z.object({
+        gpu_ids: z.array(nonNegativeInteger).min(1),
+        owner_pool: nonEmptyString,
+        owner_worker_id: nonNegativeInteger,
+      }),
+    )
+    .min(1),
+  gpus: z
+    .array(
+      z.object({
+        id: nonNegativeInteger,
+        name: nonEmptyString,
+        pool: nonNegativeInteger,
+        worker_id: nonNegativeInteger,
+      }),
+    )
+    .min(1),
   num_gpus: positiveInteger,
   schema_version: z.literal(3),
   workers: z.array(metaWorkerSchema).min(1),
@@ -117,11 +136,15 @@ const throughputSchema = z.object({
     num_gpus: positiveInteger,
     unit: z.literal('tokens/s per GPU'),
   }),
-  series: z.array(z.object({
-    key: nonEmptyString,
-    label: nonEmptyString,
-    per_gpu: z.array(finiteNumber).min(1),
-  })).min(1),
+  series: z
+    .array(
+      z.object({
+        key: nonEmptyString,
+        label: nonEmptyString,
+        per_gpu: z.array(finiteNumber).min(1),
+      }),
+    )
+    .min(1),
   schema_version: z.literal(1),
   t_end_ms: z.array(finiteNumber).min(1),
   t_start_ms: z.array(finiteNumber).min(1),
@@ -132,12 +155,16 @@ const utilizationSchema = z.object({
     log_dir: nonEmptyString,
     unit: z.literal('fraction of pool workers busy (0-1)'),
   }),
-  series: z.array(z.object({
-    key: nonEmptyString,
-    label: nonEmptyString,
-    pool_tag: nonEmptyString,
-    util: z.array(finiteNumber).min(1),
-  })).min(1),
+  series: z
+    .array(
+      z.object({
+        key: nonEmptyString,
+        label: nonEmptyString,
+        pool_tag: nonEmptyString,
+        util: z.array(finiteNumber).min(1),
+      }),
+    )
+    .min(1),
   schema_version: z.literal(1),
   t_end_ms: z.array(finiteNumber).min(1),
   t_start_ms: z.array(finiteNumber).min(1),
@@ -149,13 +176,17 @@ const kvSchema = z.object({
     log_dir: nonEmptyString,
     unit: z.literal('KV tokens (per shard); fraction = tokens / capacity_tokens'),
   }),
-  series: z.array(z.object({
-    active: z.object({ mean: z.array(finiteNumber).min(1) }),
-    capacity_tokens: finiteNumber.positive(),
-    key: nonEmptyString,
-    label: nonEmptyString,
-    pool_tag: nonEmptyString,
-  })).min(1),
+  series: z
+    .array(
+      z.object({
+        active: z.object({ mean: z.array(finiteNumber).min(1) }),
+        capacity_tokens: finiteNumber.positive(),
+        key: nonEmptyString,
+        label: nonEmptyString,
+        pool_tag: nonEmptyString,
+      }),
+    )
+    .min(1),
   schema_version: z.literal(1),
   t_end_ms: z.array(finiteNumber).min(1),
   t_start_ms: z.array(finiteNumber).min(1),
@@ -169,43 +200,61 @@ const kernelTimeShareSchema = z.object({
     num_workers: positiveInteger,
   }),
   schema_version: z.literal(1),
-  workers: z.array(z.object({
-    kernel_time_ms: finiteNumber.nonnegative(),
-    pool_tag: nonEmptyString,
-    segments: z.array(z.object({
-      kernel_time_ms: finiteNumber.nonnegative(),
-      kind: nonEmptyString,
-      position: nonEmptyString,
-      share_pct: finiteNumber,
-    })).min(1),
-    worker_id: nonNegativeInteger,
-  })).min(1),
+  workers: z
+    .array(
+      z.object({
+        kernel_time_ms: finiteNumber.nonnegative(),
+        pool_tag: nonEmptyString,
+        segments: z
+          .array(
+            z.object({
+              kernel_time_ms: finiteNumber.nonnegative(),
+              kind: nonEmptyString,
+              position: nonEmptyString,
+              share_pct: finiteNumber,
+            }),
+          )
+          .min(1),
+        worker_id: nonNegativeInteger,
+      }),
+    )
+    .min(1),
 });
 
 const batchSchema = z.object({
   available: z.literal(true),
   meta: z.object({ log_dir: nonEmptyString }),
-  pools: z.array(z.object({
-    plotted_points: positiveInteger,
-    pool: nonEmptyString,
-    series: z.array(z.object({
-      key: nonEmptyString,
-      values: z.array(finiteNumber).min(1),
-    })).min(1),
-    time_ms: z.array(finiteNumber).min(1),
-  })).min(1),
+  pools: z
+    .array(
+      z.object({
+        plotted_points: positiveInteger,
+        pool: nonEmptyString,
+        series: z
+          .array(
+            z.object({
+              key: nonEmptyString,
+              values: z.array(finiteNumber).min(1),
+            }),
+          )
+          .min(1),
+        time_ms: z.array(finiteNumber).min(1),
+      }),
+    )
+    .min(1),
   schema_version: z.literal(1),
 });
 
 const conservationSchema = z.object({
-  checks: z.array(z.object({
-    actual: finiteNumber,
-    delta_pct: finiteNumber,
-    description: nonEmptyString,
-    expected: finiteNumber,
-    name: nonEmptyString,
-    status: z.enum(['OK', 'WARN', 'FAIL']),
-  })),
+  checks: z.array(
+    z.object({
+      actual: finiteNumber,
+      delta_pct: finiteNumber,
+      description: nonEmptyString,
+      expected: finiteNumber,
+      name: nonEmptyString,
+      status: z.enum(['OK', 'WARN', 'FAIL']),
+    }),
+  ),
   meta: z.object({
     all_ok: z.boolean(),
     available: z.literal(true),
@@ -234,18 +283,27 @@ function invariant(condition: unknown, message: string): asserts condition {
 }
 
 function checkArtifactFolder(label: string, logDir: string): void {
-  invariant(logDir === ARTIFACT_LOG_DIR, `${label} belongs to ${logDir}, expected ${ARTIFACT_LOG_DIR}`);
+  invariant(
+    logDir === ARTIFACT_LOG_DIR,
+    `${label} belongs to ${logDir}, expected ${ARTIFACT_LOG_DIR}`,
+  );
 }
 
 function requireUniqueByKey<T extends { key: string }>(items: T[], key: string, label: string): T {
   const matches = items.filter((item) => item.key === key);
-  invariant(matches.length === 1, `${label} must contain exactly one ${key} series, found ${matches.length}`);
+  invariant(
+    matches.length === 1,
+    `${label} must contain exactly one ${key} series, found ${matches.length}`,
+  );
   return matches[0];
 }
 
 function checkParallelLengths(label: string, expectedLength: number, arrays: number[][]): void {
   arrays.forEach((values, index) => {
-    invariant(values.length === expectedLength, `${label} array ${index} has ${values.length} points, expected ${expectedLength}`);
+    invariant(
+      values.length === expectedLength,
+      `${label} array ${index} has ${values.length} points, expected ${expectedLength}`,
+    );
   });
 }
 
@@ -260,8 +318,16 @@ const rawSummary = parseFixture('summary.json', summarySchema, summaryJson);
 const rawParams = parseFixture('raw/params.json', paramsSchema, paramsJson);
 const rawRunMeta = parseFixture('raw/run_meta.json', runMetaSchema, runMetaJson);
 const rawSlo = parseFixture('payloads/slo_general_cdf.json', sloSchema, sloJson);
-const rawThroughput = parseFixture('payloads/throughput_segments.json', throughputSchema, throughputJson);
-const rawUtilization = parseFixture('payloads/utilization_series.json', utilizationSchema, utilizationJson);
+const rawThroughput = parseFixture(
+  'payloads/throughput_segments.json',
+  throughputSchema,
+  throughputJson,
+);
+const rawUtilization = parseFixture(
+  'payloads/utilization_series.json',
+  utilizationSchema,
+  utilizationJson,
+);
 const rawKv = parseFixture('payloads/kv_occupancy_series.json', kvSchema, kvJson);
 const rawKernelTimeShare = parseFixture(
   'payloads/kernel_time_share_composition.json',
@@ -286,15 +352,30 @@ const rawConservation = parseFixture(
 ].forEach(([label, logDir]) => checkArtifactFolder(label, logDir));
 
 invariant(rawRunMeta.num_gpus === rawSummary.num_gpus, 'summary and run_meta disagree on num_gpus');
-invariant(rawRunMeta.gpus.length === rawRunMeta.num_gpus, 'run_meta.gpus length does not match num_gpus');
-invariant(rawThroughput.meta.num_gpus === rawRunMeta.num_gpus, 'throughput and run_meta disagree on num_gpus');
-invariant(rawKernelTimeShare.meta.num_workers === rawRunMeta.workers.length, 'kernel time share and run_meta disagree on worker count');
-invariant(rawSummary.requests_finished <= rawSummary.requests_total, 'finished requests exceed offered requests');
+invariant(
+  rawRunMeta.gpus.length === rawRunMeta.num_gpus,
+  'run_meta.gpus length does not match num_gpus',
+);
+invariant(
+  rawThroughput.meta.num_gpus === rawRunMeta.num_gpus,
+  'throughput and run_meta disagree on num_gpus',
+);
+invariant(
+  rawKernelTimeShare.meta.num_workers === rawRunMeta.workers.length,
+  'kernel time share and run_meta disagree on worker count',
+);
+invariant(
+  rawSummary.requests_finished <= rawSummary.requests_total,
+  'finished requests exceed offered requests',
+);
 
 const gpuIds = new Set(rawRunMeta.gpus.map((gpu) => gpu.id));
 invariant(gpuIds.size === rawRunMeta.gpus.length, 'run_meta contains duplicate GPU ids');
 const gpuNames = new Set(rawRunMeta.gpus.map((gpu) => gpu.name));
-invariant(gpuNames.size === 1, `Run domain supports one GPU model, found ${[...gpuNames].join(', ')}`);
+invariant(
+  gpuNames.size === 1,
+  `Run domain supports one GPU model, found ${[...gpuNames].join(', ')}`,
+);
 const gpuName = [...gpuNames][0];
 invariant(rawThroughput.meta.gpu_name === gpuName, 'throughput GPU model disagrees with run_meta');
 
@@ -307,8 +388,10 @@ interface ResolvedMetaWorker {
 }
 
 const resolvedMetaWorkers: ResolvedMetaWorker[] = rawRunMeta.workers.map((worker) => {
-  const matchingCommGroups = rawRunMeta.comm_groups.filter((group) =>
-    group.owner_worker_id === worker.worker_id && sameNumberSet(group.gpu_ids, worker.gpu_ids));
+  const matchingCommGroups = rawRunMeta.comm_groups.filter(
+    (group) =>
+      group.owner_worker_id === worker.worker_id && sameNumberSet(group.gpu_ids, worker.gpu_ids),
+  );
   invariant(
     matchingCommGroups.length === 1,
     `worker pool=${worker.pool} id=${worker.worker_id} has ${matchingCommGroups.length} matching comm groups`,
@@ -335,8 +418,14 @@ invariant(
   'run_meta contains duplicate composite worker identities',
 );
 const placedGpuIds = resolvedMetaWorkers.flatMap((worker) => worker.gpuIds);
-invariant(placedGpuIds.length === rawRunMeta.num_gpus, 'worker placement does not cover exactly num_gpus entries');
-invariant(new Set(placedGpuIds).size === rawRunMeta.num_gpus, 'worker placement contains duplicated or missing GPUs');
+invariant(
+  placedGpuIds.length === rawRunMeta.num_gpus,
+  'worker placement does not cover exactly num_gpus entries',
+);
+invariant(
+  new Set(placedGpuIds).size === rawRunMeta.num_gpus,
+  'worker placement contains duplicated or missing GPUs',
+);
 
 function archFromParams(rawArch: z.infer<typeof archSchema>): Arch {
   const normalizedParallelism: Record<string, number | string> = {
@@ -353,9 +442,7 @@ function archFromParams(rawArch: z.infer<typeof archSchema>): Arch {
   };
 }
 
-function workerConfigFromParams(
-  rawWorker: z.infer<typeof workerConfigSchema>,
-): WorkerCfg {
+function workerConfigFromParams(rawWorker: z.infer<typeof workerConfigSchema>): WorkerCfg {
   return rawWorker.attn_gpu_memory_gb === undefined
     ? { type: rawWorker.type }
     : { type: rawWorker.type, memGb: rawWorker.attn_gpu_memory_gb };
@@ -366,9 +453,18 @@ function validateGpuPlacement(worker: ResolvedMetaWorker, expectedGpuName: strin
     const matchingGpus = rawRunMeta.gpus.filter((gpu) => gpu.id === gpuId);
     invariant(matchingGpus.length === 1, `worker ${worker.key} references missing GPU ${gpuId}`);
     const gpu = matchingGpus[0];
-    invariant(gpu.name === expectedGpuName, `GPU ${gpuId} model ${gpu.name} disagrees with ${expectedGpuName}`);
-    invariant(gpu.pool === worker.numericPool, `GPU ${gpuId} pool disagrees with worker ${worker.key}`);
-    invariant(gpu.worker_id === worker.workerId, `GPU ${gpuId} owner disagrees with worker ${worker.key}`);
+    invariant(
+      gpu.name === expectedGpuName,
+      `GPU ${gpuId} model ${gpu.name} disagrees with ${expectedGpuName}`,
+    );
+    invariant(
+      gpu.pool === worker.numericPool,
+      `GPU ${gpuId} pool disagrees with worker ${worker.key}`,
+    );
+    invariant(
+      gpu.worker_id === worker.workerId,
+      `GPU ${gpuId} owner disagrees with worker ${worker.key}`,
+    );
   });
 }
 
@@ -376,10 +472,16 @@ const topology: Topology = {
   pools: Object.entries(rawParams.pools).map(([poolTag, poolParams]) => {
     // run_meta v3 does not identify an intra-pool group, so this adapter fails
     // rather than guessing if a future fixture introduces multiple groups.
-    invariant(poolParams.groups.length === 1, `${poolTag} has multiple groups but run_meta has no group identity`);
+    invariant(
+      poolParams.groups.length === 1,
+      `${poolTag} has multiple groups but run_meta has no group identity`,
+    );
     const groupParams = poolParams.groups[0];
     const poolWorkers = resolvedMetaWorkers.filter((worker) => worker.poolTag === poolTag);
-    invariant(poolWorkers.length === groupParams.replicas, `${poolTag} replicas disagree with run_meta workers`);
+    invariant(
+      poolWorkers.length === groupParams.replicas,
+      `${poolTag} replicas disagree with run_meta workers`,
+    );
     poolWorkers.forEach((worker) => validateGpuPlacement(worker, groupParams.gpu));
     const workerGpuCounts = new Set(poolWorkers.map((worker) => worker.gpuIds.length));
     invariant(workerGpuCounts.size === 1, `${poolTag} workers do not have a uniform GPU count`);
@@ -391,14 +493,18 @@ const topology: Topology = {
       numGpus: poolWorkers.reduce((total, worker) => total + worker.gpuIds.length, 0),
       replicas: groupParams.replicas,
       worker: workerConfigFromParams(groupParams.worker),
-      workers: poolWorkers.map((worker) => ({ id: String(worker.workerId), gpus: [...worker.gpuIds] })),
+      workers: poolWorkers.map((worker) => ({
+        id: String(worker.workerId),
+        gpus: [...worker.gpuIds],
+      })),
     };
     return { role: poolTag, placement: poolParams.placement, groups: [group] };
   }),
 };
 
 const topologyGpuTotal = topology.pools.reduce(
-  (poolTotal, pool) => poolTotal + pool.groups.reduce((groupTotal, group) => groupTotal + group.numGpus, 0),
+  (poolTotal, pool) =>
+    poolTotal + pool.groups.reduce((groupTotal, group) => groupTotal + group.numGpus, 0),
   0,
 );
 invariant(topologyGpuTotal === rawRunMeta.num_gpus, 'topology GPU total does not match run_meta');
@@ -411,21 +517,28 @@ invariant(topologyGpuTotal === rawRunMeta.num_gpus, 'topology GPU total does not
 function buildAggregateKernelTree(
   worker: z.infer<typeof kernelTimeShareSchema>['workers'][number],
 ): CostNode {
-  const segmentTotal = worker.segments.reduce((total, segment) => total + segment.kernel_time_ms, 0);
+  const segmentTotal = worker.segments.reduce(
+    (total, segment) => total + segment.kernel_time_ms,
+    0,
+  );
   const tolerance = Math.max(1e-6, worker.kernel_time_ms * 1e-12);
   invariant(
     Math.abs(segmentTotal - worker.kernel_time_ms) <= tolerance,
     `kernel segments do not sum to worker ${worker.pool_tag}/${worker.worker_id} total`,
   );
-  return annotate(sum(
-    `run aggregate · ${worker.pool_tag}/${worker.worker_id}`,
-    ...worker.segments.map((segment) => leaf(
-      segment.position,
-      segment.kind,
-      `run aggregate · share_pct=${segment.share_pct}`,
-      segment.kernel_time_ms,
-    )),
-  ));
+  return annotate(
+    sum(
+      `run aggregate · ${worker.pool_tag}/${worker.worker_id}`,
+      ...worker.segments.map((segment) =>
+        leaf(
+          segment.position,
+          segment.kind,
+          `run aggregate · share_pct=${segment.share_pct}`,
+          segment.kernel_time_ms,
+        ),
+      ),
+    ),
+  );
 }
 
 const trees = {} as Record<WorkerKey, CostNode>;
@@ -434,31 +547,39 @@ rawKernelTimeShare.workers.forEach((worker) => {
   invariant(trees[key] === undefined, `kernel time share repeats worker ${key}`);
   trees[key] = buildAggregateKernelTree(worker);
 });
-invariant(Object.keys(trees).length === resolvedMetaWorkers.length, 'kernel time share worker set is incomplete');
-resolvedMetaWorkers.forEach((worker) => invariant(trees[worker.key] !== undefined, `missing kernel tree for ${worker.key}`));
+invariant(
+  Object.keys(trees).length === resolvedMetaWorkers.length,
+  'kernel time share worker set is incomplete',
+);
+resolvedMetaWorkers.forEach((worker) =>
+  invariant(trees[worker.key] !== undefined, `missing kernel tree for ${worker.key}`),
+);
 
-const workerList: WorkerRow[] = topology.pools.flatMap((pool) => pool.groups.flatMap((group) =>
-  group.workers.map((worker) => {
-    const ref = makeWorkerRef(pool.role, worker.id);
-    const key = makeWorkerKey(ref);
-    const tree = trees[key];
-    invariant(tree !== undefined, `missing aggregate kernel tree for ${key}`);
-    return {
-      arch: group.arch,
-      archType: group.arch.type,
-      dp: null,
-      gpu: group.gpu,
-      gpuCount: worker.gpus.length,
-      gpus: [...worker.gpus],
-      id: worker.id,
-      key,
-      pool: pool.role,
-      ref,
-      tree,
-      worker: group.worker,
-      workerType: group.worker.type,
-    };
-  })));
+const workerList: WorkerRow[] = topology.pools.flatMap((pool) =>
+  pool.groups.flatMap((group) =>
+    group.workers.map((worker) => {
+      const ref = makeWorkerRef(pool.role, worker.id);
+      const key = makeWorkerKey(ref);
+      const tree = trees[key];
+      invariant(tree !== undefined, `missing aggregate kernel tree for ${key}`);
+      return {
+        arch: group.arch,
+        archType: group.arch.type,
+        dp: null,
+        gpu: group.gpu,
+        gpuCount: worker.gpus.length,
+        gpus: [...worker.gpus],
+        id: worker.id,
+        key,
+        pool: pool.role,
+        ref,
+        tree,
+        worker: group.worker,
+        workerType: group.worker.type,
+      };
+    }),
+  ),
+);
 
 function adaptSlo(): Slo {
   const ttft = requireUniqueByKey(rawSlo.series, 'ttft', 'SLO');
@@ -468,7 +589,10 @@ function adaptSlo(): Slo {
   invariant(tpot.unit === 'ms/token', `TPOT unit is ${tpot.unit}, expected ms/token`);
   invariant(e2e.unit === 'ms', `E2E unit is ${e2e.unit}, expected ms`);
   [ttft, tpot, e2e].forEach((series) => {
-    invariant(series.n === rawSummary.requests_finished, `${series.key} sample count disagrees with finished requests`);
+    invariant(
+      series.n === rawSummary.requests_finished,
+      `${series.key} sample count disagrees with finished requests`,
+    );
     checkParallelLengths(`${series.key} CDF`, series.x.length, [series.y_pct]);
   });
   const adapt = (series: typeof ttft) => ({
@@ -487,10 +611,17 @@ function adaptThroughput(): Throughput {
   const total = requireUniqueByKey(rawThroughput.series, 'total', 'throughput');
   const prefill = requireUniqueByKey(rawThroughput.series, 'prefill', 'throughput');
   const decode = requireUniqueByKey(rawThroughput.series, 'decode', 'throughput');
-  checkParallelLengths('throughput series', pointCount, [total.per_gpu, prefill.per_gpu, decode.per_gpu]);
+  checkParallelLengths('throughput series', pointCount, [
+    total.per_gpu,
+    prefill.per_gpu,
+    decode.per_gpu,
+  ]);
   total.per_gpu.forEach((value, index) => {
     const componentTotal = prefill.per_gpu[index] + decode.per_gpu[index];
-    invariant(Math.abs(value - componentTotal) <= 1e-9, `throughput bin ${index} total is not prefill + decode`);
+    invariant(
+      Math.abs(value - componentTotal) <= 1e-9,
+      `throughput bin ${index} total is not prefill + decode`,
+    );
   });
   // The analyzer payload is explicitly per GPU. Existing Run.Throughput is a
   // cluster tok/s series, so the exact run_meta GPU count supplies the unit conversion.
@@ -511,7 +642,9 @@ function binMidpoints(start: number[], end: number[], label: string): number[] {
 
 function adaptUtilization(): UtilSeries {
   const tMs = binMidpoints(rawUtilization.t_start_ms, rawUtilization.t_end_ms, 'utilization bins');
-  rawUtilization.series.forEach((series) => checkParallelLengths(`${series.key} utilization`, tMs.length, [series.util]));
+  rawUtilization.series.forEach((series) =>
+    checkParallelLengths(`${series.key} utilization`, tMs.length, [series.util]),
+  );
   return {
     t_ms: tMs,
     // Fractions intentionally remain 0-1 and are not clamped; the chart owns percentage display.
@@ -526,7 +659,9 @@ function adaptUtilization(): UtilSeries {
 
 function adaptKv(): KvSeries {
   const tMs = binMidpoints(rawKv.t_start_ms, rawKv.t_end_ms, 'KV bins');
-  rawKv.series.forEach((series) => checkParallelLengths(`${series.key} active KV`, tMs.length, [series.active.mean]));
+  rawKv.series.forEach((series) =>
+    checkParallelLengths(`${series.key} active KV`, tMs.length, [series.active.mean]),
+  );
   return {
     t_ms: tMs,
     series: rawKv.series.map((series) => ({
@@ -542,10 +677,17 @@ function adaptBatch(): Readonly<Record<string, BatchSeries>> {
   const pools: Record<string, BatchSeries> = {};
   rawBatch.pools.forEach((pool) => {
     invariant(pools[pool.pool] === undefined, `batch payload repeats pool ${pool.pool}`);
-    invariant(pool.plotted_points === pool.time_ms.length, `batch ${pool.pool} plotted_points mismatch`);
+    invariant(
+      pool.plotted_points === pool.time_ms.length,
+      `batch ${pool.pool} plotted_points mismatch`,
+    );
     const batchTokens = requireUniqueByKey(pool.series, 'batch_tokens', `batch ${pool.pool}`);
     const prefillTokens = requireUniqueByKey(pool.series, 'prefill_tokens', `batch ${pool.pool}`);
-    const decodeRequests = requireUniqueByKey(pool.series, 'decode_request_count', `batch ${pool.pool}`);
+    const decodeRequests = requireUniqueByKey(
+      pool.series,
+      'decode_request_count',
+      `batch ${pool.pool}`,
+    );
     checkParallelLengths(`batch ${pool.pool}`, pool.time_ms.length, [
       batchTokens.values,
       prefillTokens.values,
@@ -576,13 +718,21 @@ function adaptConservation(): Conservation {
     name: check.name,
     status: checkStatus(check.status),
   }));
-  invariant(rawConservation.meta.all_ok === checks.every((check) => check.status === 'ok'), 'conservation all_ok is inconsistent');
+  invariant(
+    rawConservation.meta.all_ok === checks.every((check) => check.status === 'ok'),
+    'conservation all_ok is inconsistent',
+  );
   return { allOk: rawConservation.meta.all_ok, checks };
 }
 
 const slo = adaptSlo();
-const modelConfigs = new Set(topology.pools.flatMap((pool) => pool.groups.map((group) => group.arch.model)));
-invariant(modelConfigs.size === 1, `Run domain supports one model config, found ${[...modelConfigs].join(', ')}`);
+const modelConfigs = new Set(
+  topology.pools.flatMap((pool) => pool.groups.map((group) => group.arch.model)),
+);
+invariant(
+  modelConfigs.size === 1,
+  `Run domain supports one model config, found ${[...modelConfigs].join(', ')}`,
+);
 const modelConfig = [...modelConfigs][0];
 
 const realRun: Run = {

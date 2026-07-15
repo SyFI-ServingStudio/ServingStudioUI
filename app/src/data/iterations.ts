@@ -27,12 +27,18 @@ export interface IterTimeline {
 
 function strHash(s: string): number {
   let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
 }
 function rng(seed: number): () => number {
   let s = seed >>> 0;
-  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
 }
 
 const tlCache = new Map<string, IterTimeline>();
@@ -62,19 +68,29 @@ export function iterationsFor(run: Run, workerKey: WorkerKey): IterTimeline {
   const iters: Iteration[] = [];
   for (let i = 0; i < n; i++) {
     const f = i / (n - 1);
-    const warm = f < 0.14;                          // initial burst of chunked prefill
-    const admit = warm || i % admitEvery === 0;     // periodic new-request admission
-    const prefillTokens = Math.round((admit
-      ? (warm ? 1600 * (1 - f * 2) + 300 : 700 * r() + 120)
-      : 30 * r()) * tokScale);
-    const decodeRequests = Math.round(Math.min(decodeCap, 16 + f * (decodeCap - 24)) * (1 + (r() - 0.5) * 0.18));
+    const warm = f < 0.14; // initial burst of chunked prefill
+    const admit = warm || i % admitEvery === 0; // periodic new-request admission
+    const prefillTokens = Math.round(
+      (admit ? (warm ? 1600 * (1 - f * 2) + 300 : 700 * r() + 120) : 30 * r()) * tokScale,
+    );
+    const decodeRequests = Math.round(
+      Math.min(decodeCap, 16 + f * (decodeCap - 24)) * (1 + (r() - 0.5) * 0.18),
+    );
     const pf = Math.max(0, prefillTokens);
     const dc = Math.max(0, decodeRequests);
     const batchTokens = Math.max(1, pf + dc);
     const phase: Iteration['phase'] = pf > dc ? 'prefill' : pf < dc * 0.25 ? 'decode' : 'mixed';
-    iters.push({ id: i, timeMs: +(((i + 0.5) / n) * spanMs).toFixed(0), prefillTokens: pf, decodeRequests: dc, batchTokens, phase });
+    iters.push({
+      id: i,
+      timeMs: +(((i + 0.5) / n) * spanMs).toFixed(0),
+      prefillTokens: pf,
+      decodeRequests: dc,
+      batchTokens,
+      phase,
+    });
   }
-  const mean = (sel: (it: Iteration) => number) => iters.reduce((a, it) => a + sel(it), 0) / iters.length;
+  const mean = (sel: (it: Iteration) => number) =>
+    iters.reduce((a, it) => a + sel(it), 0) / iters.length;
   const ref = {
     prefillTokens: mean((it) => it.prefillTokens) || 1,
     decodeRequests: mean((it) => it.decodeRequests) || 1,
@@ -89,12 +105,14 @@ export function iterationsFor(run: Run, workerKey: WorkerKey): IterTimeline {
  *  binary-search — this runs over thousands of steps on every cursor move. */
 export function nearestIter(tl: IterTimeline, ms: number): Iteration {
   const a = tl.iters;
-  let lo = 0, hi = a.length - 1;
+  let lo = 0,
+    hi = a.length - 1;
   if (ms <= a[0].timeMs) return a[0];
   if (ms >= a[hi].timeMs) return a[hi];
   while (lo < hi) {
     const mid = (lo + hi) >> 1;
-    if (a[mid].timeMs < ms) lo = mid + 1; else hi = mid;
+    if (a[mid].timeMs < ms) lo = mid + 1;
+    else hi = mid;
   }
   const hiIt = a[lo];
   const loIt = a[lo - 1];
@@ -116,7 +134,11 @@ function cloneScaled(node: CostNode, f: (n: CostNode) => number): CostNode {
 }
 
 /** Cost tree as evaluated at one iteration (or the base tree when it === null). */
-export function treeAtIter(tree: CostNode, it: Iteration | null, ref: IterTimeline['ref']): CostNode {
+export function treeAtIter(
+  tree: CostNode,
+  it: Iteration | null,
+  ref: IterTimeline['ref'],
+): CostNode {
   if (!it) return tree;
   const factor = (n: CostNode): number => {
     const kind = n.slot!.kind;

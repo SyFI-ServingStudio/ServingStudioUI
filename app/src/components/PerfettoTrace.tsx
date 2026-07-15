@@ -47,17 +47,22 @@ export default function PerfettoTrace() {
     const postTrace = async () => {
       setStatus('loading');
       try {
-        const buffer = await (await fetch(`${import.meta.env.BASE_URL}${trace.file}`)).arrayBuffer();
+        const buffer = await (
+          await fetch(`${import.meta.env.BASE_URL}${trace.file}`)
+        ).arrayBuffer();
         if (disposed || iframeRef.current !== iframe || iframe.contentWindow !== w) return;
-        w.postMessage({
-          perfetto: {
-            buffer,
-            title: trace.title,
-            fileName: trace.file,
-            keepApiOpen: true,
-            localOnly: false,
+        w.postMessage(
+          {
+            perfetto: {
+              buffer,
+              title: trace.title,
+              fileName: trace.file,
+              keepApiOpen: true,
+              localOnly: false,
+            },
           },
-        }, '*');
+          '*',
+        );
         setStatus('loaded');
       } catch {
         if (!disposed) setStatus('error');
@@ -89,21 +94,45 @@ export default function PerfettoTrace() {
     };
   }, [expanded, reloadKey, traceName]);
 
-  const statusText = status === 'connecting'
-    ? 'connecting to Perfetto…'
-    : status === 'loading'
-      ? `loading ${traceName}…`
-      : status === 'loaded'
-        ? `loaded ${traceName}`
-        : status === 'error'
-          ? `could not load ${traceName}`
-          : '';
+  const statusText =
+    status === 'connecting'
+      ? 'connecting to Perfetto…'
+      : status === 'loading'
+        ? `loading ${traceName}…`
+        : status === 'loaded'
+          ? `loaded ${traceName}`
+          : status === 'error'
+            ? `could not load ${traceName}`
+            : '';
 
   return (
-    <Paper sx={{ width: '100%', borderRadius: 2, p: '15px 16px 16px', border: `1px solid ${tokens.hair}`, boxShadow: tokens.shadow, transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`, '&:hover': { borderColor: tokens.sub2, boxShadow: tokens.shadowLift } }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} useFlexGap sx={{ gap: 1.5 }}>
+    <Paper
+      sx={{
+        width: '100%',
+        borderRadius: 2,
+        p: '15px 16px 16px',
+        border: `1px solid ${tokens.hair}`,
+        boxShadow: tokens.shadow,
+        transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`,
+        '&:hover': { borderColor: tokens.sub2, boxShadow: tokens.shadowLift },
+      }}
+    >
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ xs: 'stretch', md: 'center' }}
+        useFlexGap
+        sx={{ gap: 1.5 }}
+      >
         <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', color: tokens.ink }}>
+          <Typography
+            sx={{
+              fontFamily: tokens.serif,
+              fontWeight: 600,
+              fontSize: 16,
+              letterSpacing: '-.01em',
+              color: tokens.ink,
+            }}
+          >
             Execution trace
           </Typography>
           <Typography sx={{ mt: 0.2, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
@@ -132,7 +161,11 @@ export default function PerfettoTrace() {
                     fontFamily: tokens.mono,
                     fontSize: 10.5,
                     lineHeight: 1.4,
-                    '&:hover': { borderColor: tokens.teal, background: tokens.leafbg, color: tokens.teal },
+                    '&:hover': {
+                      borderColor: tokens.teal,
+                      background: tokens.leafbg,
+                      color: tokens.teal,
+                    },
                   }}
                 >
                   {name}
@@ -152,7 +185,11 @@ export default function PerfettoTrace() {
               border: `1px solid ${tokens.hair}`,
               borderRadius: 1.5,
               color: tokens.sub,
-              '&:hover': { borderColor: tokens.teal, background: tokens.leafbg, color: tokens.teal },
+              '&:hover': {
+                borderColor: tokens.teal,
+                background: tokens.leafbg,
+                color: tokens.teal,
+              },
               '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
             }}
           >
@@ -171,7 +208,10 @@ export default function PerfettoTrace() {
               color: expanded ? tokens.leafbg : tokens.teal,
               fontFamily: tokens.mono,
               fontSize: 10.5,
-              '&:hover': { background: expanded ? tokens.ink : tokens.tile2, borderColor: expanded ? tokens.ink : tokens.teal },
+              '&:hover': {
+                background: expanded ? tokens.ink : tokens.tile2,
+                borderColor: expanded ? tokens.ink : tokens.teal,
+              },
             }}
           >
             {expanded ? 'Close ▾' : 'Open trace ▸'}
@@ -184,12 +224,29 @@ export default function PerfettoTrace() {
           {statusText && (
             <Typography
               role="status"
-              sx={{ mb: 0.7, fontFamily: tokens.mono, fontSize: 10, color: status === 'error' ? tokens.terra : status === 'loaded' ? tokens.teal : tokens.sub }}
+              sx={{
+                mb: 0.7,
+                fontFamily: tokens.mono,
+                fontSize: 10,
+                color:
+                  status === 'error'
+                    ? tokens.terra
+                    : status === 'loaded'
+                      ? tokens.teal
+                      : tokens.sub,
+              }}
             >
               {statusText}
             </Typography>
           )}
-          <Box sx={{ overflow: 'hidden', borderRadius: 1.5, border: `1px solid ${tokens.hair}`, background: tokens.tile2 }}>
+          <Box
+            sx={{
+              overflow: 'hidden',
+              borderRadius: 1.5,
+              border: `1px solid ${tokens.hair}`,
+              background: tokens.tile2,
+            }}
+          >
             <Box
               ref={iframeRef}
               component="iframe"

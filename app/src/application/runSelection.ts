@@ -1,6 +1,12 @@
 import type { KvSeries, PendingQueueSeries, Run, UtilSeries, WorkerRow } from '../domain/run';
 import type { CostNode } from '../data/tree';
-import { iterationsFor, nearestIter, treeAtIter, type Iteration, type IterTimeline } from '../data/iterations';
+import {
+  iterationsFor,
+  nearestIter,
+  treeAtIter,
+  type Iteration,
+  type IterTimeline,
+} from '../data/iterations';
 import type { VizState } from '../store';
 
 export interface ScopedPendingQueueSeries {
@@ -18,7 +24,8 @@ export interface ScopedPendingQueue {
 }
 
 export const currentWorker = (run: Run, state: VizState): WorkerRow => {
-  const worker = run.workerList.find((candidate) => candidate.key === state.workerKey) ?? run.workerList[0];
+  const worker =
+    run.workerList.find((candidate) => candidate.key === state.workerKey) ?? run.workerList[0];
   if (!worker) throw new Error(`Run ${run.id} has no workers.`);
   return worker;
 };
@@ -31,7 +38,12 @@ export const poolInScope = (run: Run, state: VizState): string | null => {
   return null;
 };
 
-function matchesPool(key: string | undefined, label: string | undefined, role: string, poolTag?: string): boolean {
+function matchesPool(
+  key: string | undefined,
+  label: string | undefined,
+  role: string,
+  poolTag?: string,
+): boolean {
   if (poolTag !== undefined) return poolTag === role;
   const normalizedKey = (key ?? '').toLowerCase();
   const normalizedLabel = (label ?? '').toLowerCase();
@@ -44,7 +56,9 @@ export const scopedUtil = (run: Run, state: VizState): UtilSeries => {
   if (!role) return utilization;
   return {
     t_ms: utilization.t_ms,
-    series: utilization.series.filter((series) => matchesPool(series.key, series.label, role, series.poolTag)),
+    series: utilization.series.filter((series) =>
+      matchesPool(series.key, series.label, role, series.poolTag),
+    ),
   };
 };
 
@@ -54,13 +68,16 @@ export const scopedKv = (run: Run, state: VizState): KvSeries => {
   if (!role) return kv;
   return {
     t_ms: kv.t_ms,
-    series: kv.series.filter((series) => matchesPool(undefined, series.label, role, series.poolTag)),
+    series: kv.series.filter((series) =>
+      matchesPool(undefined, series.label, role, series.poolTag),
+    ),
   };
 };
 
 function sumPendingQueue(series: PendingQueueSeries[], sampleCount: number): number[] {
   return Array.from({ length: sampleCount }, (_, index) =>
-    series.reduce((sum, worker) => sum + (worker.pending[index] ?? 0), 0));
+    series.reduce((sum, worker) => sum + (worker.pending[index] ?? 0), 0),
+  );
 }
 
 /** Queue payloads are stored per worker. This selector is the only owner of
@@ -77,7 +94,9 @@ export const scopedPendingQueue = (run: Run, state: VizState): ScopedPendingQueu
       t_ms: queue.t_ms,
       totalLabel: selectedWorker.id,
       total: worker?.pending ?? [],
-      series: worker ? [{ key: worker.key, label: worker.worker.workerId, pending: worker.pending }] : [],
+      series: worker
+        ? [{ key: worker.key, label: worker.worker.workerId, pending: worker.pending }]
+        : [],
       stacked: false,
     };
   }
@@ -89,7 +108,11 @@ export const scopedPendingQueue = (run: Run, state: VizState): ScopedPendingQueu
       t_ms: queue.t_ms,
       totalLabel: `${role ?? 'unknown'} pool total`,
       total: sumPendingQueue(workers, sampleCount),
-      series: workers.map((worker) => ({ key: worker.key, label: worker.worker.workerId, pending: worker.pending })),
+      series: workers.map((worker) => ({
+        key: worker.key,
+        label: worker.worker.workerId,
+        pending: worker.pending,
+      })),
       stacked: true,
     };
   }

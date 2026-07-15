@@ -9,6 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src vite.config.ts vitest.config.ts --max-warnings 0",
     "lint:fix": "eslint src vite.config.ts vitest.config.ts --fix",
+    "format": "prettier --write src vite.config.ts vitest.config.ts",
+    "format:check": "prettier --check src vite.config.ts vitest.config.ts",
     "test": "vitest",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",

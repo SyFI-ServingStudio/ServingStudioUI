@@ -15,25 +15,43 @@ import { leafTotals, GROUP } from './tree';
 
 function strHash(s: string): number {
   let h = 2166136261 >>> 0;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
   return h >>> 0;
 }
 function rng(seed: number): () => number {
   let s = seed >>> 0;
-  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
 }
 
 // ---- workload conservation (cluster) ---------------------------------------
 export function conservationFor(run: Run): Conservation {
   const r = rng(strHash(run.id) ^ 0x9e3779b9);
   const reqs = run.summary.requests;
-  const mk = (name: string, description: string, base: number, jitter: number): ConservationCheck => {
+  const mk = (
+    name: string,
+    description: string,
+    base: number,
+    jitter: number,
+  ): ConservationCheck => {
     const expected = base;
     const actual = base * (1 + (r() - 0.5) * jitter);
     const deltaPct = ((actual - expected) / expected) * 100;
     const ad = Math.abs(deltaPct);
     const status: CheckStatus = ad < 0.5 ? 'ok' : ad < 5 ? 'warn' : 'fail';
-    return { name, description, actual: Math.round(actual), expected: Math.round(expected), deltaPct: +deltaPct.toFixed(2), status };
+    return {
+      name,
+      description,
+      actual: Math.round(actual),
+      expected: Math.round(expected),
+      deltaPct: +deltaPct.toFixed(2),
+      status,
+    };
   };
   const checks = [
     mk('prefill_tokens', 'Σ cost_log prefill vs Σ request prompt_len', reqs * 512, 0.002),
@@ -53,7 +71,10 @@ export function batchFor(run: Run, poolRole: string): BatchSeries {
   const isAttn = poolRole.indexOf('attn') >= 0;
   const avgBatch = isFfn ? 3600 : isAttn ? 2400 : 3000;
   const prefillFrac = isFfn ? 0.42 : 0.36;
-  const t: number[] = []; const bt: number[] = []; const pf: number[] = []; const dr: number[] = [];
+  const t: number[] = [];
+  const bt: number[] = [];
+  const pf: number[] = [];
+  const dr: number[] = [];
   for (let i = 0; i < n; i++) {
     const f = i / (n - 1);
     const ramp = Math.min(1, f * 3.2);
@@ -82,9 +103,20 @@ export function workerBatchFor(run: Run, workerKey: WorkerKey): BatchSeries {
 }
 
 // ---- cluster kernel time breakdown (cluster scope) -------------------------
-export interface KernelStackFamily { group: string; label: string; color: string; }
-export interface KernelStackRow { label: string; total: number; byGroup: Record<string, number>; }
-export interface ClusterKernelBreakdown { families: KernelStackFamily[]; rows: KernelStackRow[]; }
+export interface KernelStackFamily {
+  group: string;
+  label: string;
+  color: string;
+}
+export interface KernelStackRow {
+  label: string;
+  total: number;
+  byGroup: Record<string, number>;
+}
+export interface ClusterKernelBreakdown {
+  families: KernelStackFamily[];
+  rows: KernelStackRow[];
+}
 
 /** Kernel time by family across ALL GPUs in the cluster: each worker's
  *  per-iteration batch cost is weighted by its GPU count (kernels run on every
@@ -97,7 +129,11 @@ export function clusterKernelBreakdown(run: Run): ClusterKernelBreakdown {
   const order: string[] = [];
   for (const w of run.workerList) {
     let acc = perPool.get(w.pool);
-    if (!acc) { acc = {}; perPool.set(w.pool, acc); order.push(w.pool); }
+    if (!acc) {
+      acc = {};
+      perPool.set(w.pool, acc);
+      order.push(w.pool);
+    }
     const gpus = w.gpuCount; // count the kernel on every GPU of this worker
     for (const g of leafTotals(w.tree).groups) {
       cluster[g.group] = (cluster[g.group] ?? 0) + g.ms * gpus;
@@ -108,7 +144,9 @@ export function clusterKernelBreakdown(run: Run): ClusterKernelBreakdown {
     .sort((a, b) => cluster[b] - cluster[a])
     .map((g) => ({ group: g, label: GROUP[g].label, color: GROUP[g].color }));
   const rowOf = (label: string, m: Record<string, number>): KernelStackRow => ({
-    label, total: Object.values(m).reduce((a, b) => a + b, 0), byGroup: m,
+    label,
+    total: Object.values(m).reduce((a, b) => a + b, 0),
+    byGroup: m,
   });
   const rows: KernelStackRow[] = [rowOf('cluster', cluster)];
   if (order.length > 1) for (const p of order) rows.push(rowOf(p, perPool.get(p)!));
