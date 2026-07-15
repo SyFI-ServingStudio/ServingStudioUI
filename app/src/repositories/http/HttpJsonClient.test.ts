@@ -104,14 +104,14 @@ describe('HttpJsonClient', () => {
     vi.useFakeTimers();
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(artifactBusyResponse('1'))
+      .mockResolvedValueOnce(artifactBusyResponse('5'))
       .mockResolvedValueOnce(jsonResponse({ ready: true }));
     const client = new HttpJsonClient('/api/v1/', fetchImpl);
 
     const read = client.readJson(client.endpoint('resource'));
     await vi.advanceTimersByTimeAsync(0);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(999);
+    await vi.advanceTimersByTimeAsync(4_999);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
 
@@ -180,7 +180,8 @@ describe('HttpJsonClient', () => {
     );
   });
 
-  it('keeps the cached ETag and body when a busy retry returns 304', async () => {
+  it('uses the latest cached ETag and body when a busy retry returns 304', async () => {
+    vi.useFakeTimers();
     const requestHeaders: Headers[] = [];
     const fetchImpl = vi.fn<typeof fetch>((_input, init) => {
       requestHeaders.push(new Headers(init?.headers));
@@ -195,23 +196,39 @@ describe('HttpJsonClient', () => {
             }),
           );
         case 2:
-          return Promise.resolve(artifactBusyResponse());
+          return Promise.resolve(artifactBusyResponse('1'));
+        case 3:
+          return Promise.resolve(
+            new Response(JSON.stringify({ generation: 2 }), {
+              headers: {
+                'Content-Type': 'application/json',
+                ETag: '"resource-v2"',
+              },
+            }),
+          );
         default:
           return Promise.resolve(
-            new Response(null, { status: 304, headers: { ETag: '"resource-v1"' } }),
+            new Response(null, { status: 304, headers: { ETag: '"resource-v2"' } }),
           );
       }
     });
     const client = new HttpJsonClient('/api/v1/', fetchImpl);
     const address = client.endpoint('resource');
 
-    const first = await client.readJson(address);
-    await expect(client.readJson(address)).resolves.toEqual(first);
+    await expect(client.readJson(address)).resolves.toEqual({ generation: 1 });
+    const retryingRead = client.readJson(address);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
 
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    await expect(client.readJson(address)).resolves.toEqual({ generation: 2 });
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(retryingRead).resolves.toEqual({ generation: 2 });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
     expect(requestHeaders[0]?.get('If-None-Match')).toBeNull();
     expect(requestHeaders[1]?.get('If-None-Match')).toBe('"resource-v1"');
     expect(requestHeaders[2]?.get('If-None-Match')).toBe('"resource-v1"');
+    expect(requestHeaders[3]?.get('If-None-Match')).toBe('"resource-v2"');
   });
 
   it('does not retry a non-retryable service error', async () => {
@@ -236,6 +253,32 @@ describe('HttpJsonClient', () => {
     await expect(client.readJson(client.endpoint('resource'))).rejects.toMatchObject({
       code: 'artifact_read_failed',
       status: 503,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry artifact_read_busy with a status other than 503', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          status: 429,
+          code: 'artifact_read_busy',
+          detail: 'This is not the Analyzer saturation response.',
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/problem+json',
+            'Retry-After': '0',
+          },
+        },
+      ),
+    );
+    const client = new HttpJsonClient('/api/v1/', fetchImpl);
+
+    await expect(client.readJson(client.endpoint('resource'))).rejects.toMatchObject({
+      code: 'artifact_read_busy',
+      status: 429,
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -292,6 +335,52 @@ describe('HttpJsonClient', () => {
 
     for (let index = 1; index < addresses.length; index += 1) {
       pending[index]?.resolve(jsonResponse({ index }));
+    }
+    await expect(Promise.all(reads.slice(1))).resolves.toEqual(
+      addresses.slice(1).map((_, index) => ({ index: index + 1 })),
+    );
+  });
+
+  it('holds a slot through response parsing and releases it when JSON parsing throws', async () => {
+    const started: string[] = [];
+    const pendingFetches: PendingFetch[] = [];
+    let rejectJson = (_error: unknown) => {};
+    const pendingJson = new Promise<unknown>((_resolve, reject) => {
+      rejectJson = reject;
+    });
+    const parsingResponse = {
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: () => pendingJson,
+      ok: true,
+      status: 200,
+    } as Response;
+    let callIndex = 0;
+    const fetchImpl = vi.fn<typeof fetch>((input) => {
+      started.push(String(input));
+      if (callIndex === 0) {
+        callIndex += 1;
+        return Promise.resolve(parsingResponse);
+      }
+      callIndex += 1;
+      return new Promise<Response>((resolve, reject) => {
+        pendingFetches.push({ reject, resolve });
+      });
+    });
+    const client = new HttpJsonClient('/api/v1/', fetchImpl);
+    const addresses = Array.from({ length: 5 }, (_, index) =>
+      client.endpoint(`resources/${index}`),
+    );
+    const reads = addresses.map((address) => client.readJson(address));
+
+    await vi.waitFor(() => expect(started).toHaveLength(4));
+    expect(started).toEqual(addresses.slice(0, 4).map(String));
+    rejectJson(new Error('malformed response body'));
+    await expect(reads[0]).rejects.toMatchObject({ code: 'invalid_json' });
+    await vi.waitFor(() => expect(started).toHaveLength(5));
+    expect(started[4]).toBe(String(addresses[4]));
+
+    for (let index = 0; index < pendingFetches.length; index += 1) {
+      pendingFetches[index]?.resolve(jsonResponse({ index: index + 1 }));
     }
     await expect(Promise.all(reads.slice(1))).resolves.toEqual(
       addresses.slice(1).map((_, index) => ({ index: index + 1 })),

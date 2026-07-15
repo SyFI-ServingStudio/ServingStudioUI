@@ -232,7 +232,7 @@ HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览�
   decoder 异常都必须释放客户端许可。这个限制是单 client 的背压边界，不能替代服务端
   对其他 client 和 trace stream 的全局限制。
 - 只有 `503`、Problem Details `code = artifact_read_busy` 且带有效 `Retry-After` 的响应
-  可以由 HTTP JSON client 重试。client 按 delta-seconds 或 IMF-fixdate HTTP-date 等待，每次等待时
+  可以由 HTTP JSON client 重试。client 按 delta-seconds 或标准 IMF-fixdate 格式等待，每次等待时
   不占用并发许可，之后从 FIFO 队尾重新进入；最多额外尝试 2 次（总计 3 次），且只接受
   最长 5 秒的建议等待。缺失、无效或更长的 `Retry-After` 直接保留原 transport error，
   不能为了本地上限而提前请求。其他 network/HTTP/JSON 错误不在该层重试。
