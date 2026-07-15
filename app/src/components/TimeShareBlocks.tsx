@@ -63,17 +63,17 @@ function Bar({
         {segs.map((s, i) => {
           const selected =
             clickable && st.scope === 'kernel' && s.nodeId != null && s.nodeId === st.leafId;
+          const interactive = clickable && s.nodeId != null;
+          const accessibleLabel = `${s.full} — ${fmtMs(s.ms)} · ${fmtPct(s.pct)}`;
           return (
-            <Tooltip
-              key={i}
-              title={`${s.full} — ${fmtMs(s.ms)} · ${fmtPct(s.pct)}`}
-              arrow
-              placement="top"
-            >
+            <Tooltip key={i} title={accessibleLabel} arrow placement="top" describeChild>
               <Box
-                onClick={
-                  clickable && s.nodeId != null ? () => st.selectKernel(s.nodeId!) : undefined
-                }
+                component={interactive ? 'button' : 'div'}
+                type={interactive ? 'button' : undefined}
+                role={interactive ? undefined : 'img'}
+                aria-label={accessibleLabel}
+                aria-pressed={interactive ? selected : undefined}
+                onClick={interactive ? () => st.selectKernel(s.nodeId!) : undefined}
                 sx={{
                   position: 'relative',
                   height: '100%',
@@ -84,7 +84,13 @@ function Bar({
                   px: 1.4,
                   overflow: 'hidden',
                   whiteSpace: 'nowrap',
-                  cursor: clickable && s.nodeId != null ? 'pointer' : 'default',
+                  appearance: 'none',
+                  font: 'inherit',
+                  textAlign: 'left',
+                  borderTop: 0,
+                  borderBottom: 0,
+                  borderLeft: 0,
+                  cursor: interactive ? 'pointer' : 'default',
                   background: s.color,
                   borderRight: '1.5px solid rgba(250,247,240,.65)',
                   outline: selected ? `2.5px solid ${tokens.ink}` : 'none',
@@ -114,7 +120,7 @@ function Bar({
                     sx={{
                       fontFamily: tokens.mono,
                       fontSize: 9,
-                      color: s.other ? tokens.sub : 'rgba(255,255,255,.9)',
+                      color: s.other ? tokens.sub : '#fff',
                     }}
                   >
                     {fmtPct(s.pct)}

@@ -79,12 +79,14 @@ export const KIND: Record<string, { group: string; label: string }> = {
 };
 
 export const GROUP: Record<string, { label: string; color: string }> = {
-  gemm: { label: 'Dense GEMM', color: '#f5a623' },
-  attn: { label: 'Attention', color: '#3ec6c6' },
-  comm: { label: 'Collectives', color: '#e0508a' },
-  norm: { label: 'Norm / EW', color: '#8bb04f' },
-  route: { label: 'Routing', color: '#9b8cff' },
-  misc: { label: 'Other', color: '#8493a8' },
+  // These colors serve as both rails on light cards and filled time-share
+  // blocks carrying white labels, so each must clear AA in both contexts.
+  gemm: { label: 'Dense GEMM', color: '#8a5700' },
+  attn: { label: 'Attention', color: '#176a6d' },
+  comm: { label: 'Collectives', color: '#922554' },
+  norm: { label: 'Norm / EW', color: '#4b651f' },
+  route: { label: 'Routing', color: '#5940c4' },
+  misc: { label: 'Other', color: '#526173' },
 };
 
 export const groupOf = (kind: string): string => KIND[kind]?.group ?? 'misc';

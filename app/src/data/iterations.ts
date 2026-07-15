@@ -151,7 +151,7 @@ export function treeAtIter(
 }
 
 export const PHASE_COLOR: Record<Iteration['phase'], string> = {
-  prefill: '#c25c3a',
-  mixed: '#b08900',
+  prefill: '#a84b2e',
+  mixed: '#806600',
   decode: '#1f6f6b',
 };
