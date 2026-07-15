@@ -709,7 +709,8 @@ export default function CostTreeFlow() {
   const w = currentWorker(run, { workerKey });
   const tree = useProjectedWorkerTree();
   const treeState = useActiveWorkerTreeState();
-  const atIter = currentIter(run, { workerKey, cursorMs }) != null;
+  const atIter =
+    run.capabilities.workerIterations && currentIter(run, { workerKey, cursorMs }) !== null;
   const selId = scope === 'kernel' ? leafId : null;
   const parSel = scope === 'parallel' ? parId : null;
   const timeBasis = run.capabilities.workerIterations

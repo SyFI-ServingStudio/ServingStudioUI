@@ -271,6 +271,11 @@ describe('ActiveWorkerTreeProvider', () => {
     );
     expect(calls.trees).toBe(0);
     expect(screen.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
+
+    act(() => useViz.getState().setTime(1_000));
+    expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(
+      'ready:attn/0:aggregate-projection',
+    );
   });
 
   it('renders a valid zero-time worker as a neutral empty state', async () => {
