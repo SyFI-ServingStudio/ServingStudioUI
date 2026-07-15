@@ -11,7 +11,7 @@ cd app
 # Node.js 22
 npm ci
 npx playwright install chromium
-npm run dev -- --host 0.0.0.0 --port 5177
+npm run dev
 ```
 
 读取 `main/logs` 的实时 analyzer 服务时，从 `MLSim_workspace/` 在两个终端分别运行：
@@ -29,8 +29,22 @@ npm run dev:live
 `dev:live` 让浏览器使用同源 `/api/v1/`，Vite 默认代理到
 `http://127.0.0.1:8787`。需要不同后端时设置服务端环境变量
 `ANALYZER_PROXY_TARGET`；production build 可通过 `VITE_ANALYZER_API_BASE`
-显式选择同源 HTTP 根。普通 `npm run dev` 和 E2E 继续读取可复现的
-checked-in analyzer artifact。
+显式选择同源 HTTP 根。proxy 会把 `Host` 重写为目标 host，使 Rust 服务仍能执行
+自己的 allowlist。普通 `npm run dev` 和 E2E 继续读取可复现的 checked-in analyzer
+artifact。
+
+开发服务器默认只绑定 `127.0.0.1`，这也是 Codex Playwright MCP 和 SSH 端口转发的
+推荐方式。确需直接从可信远端访问时，显式给出监听地址和允许的 browser-facing
+hostname，不能使用 `allowedHosts: true`：
+
+```bash
+VIBESIM_UI_HOST=0.0.0.0 \
+VIBESIM_UI_ALLOWED_HOSTS=ui.example.internal \
+npm run dev:live
+```
+
+若 `ANALYZER_PROXY_TARGET` 不是 loopback hostname，还需给 Rust 服务传对应的
+`--allow-host <target-hostname>`。
 
 验证当前应用：
 
