@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
@@ -10,12 +11,22 @@ import KernelTimeBreakdownCard from '../KernelTimeBreakdownCard';
 /** Whole-deployment outcome: SLO + throughput, scheduler backpressure,
  *  per-pool GPU utilization, kernel-time breakdown, and conservation. */
 export default function ClusterStage() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
   const activeData = useActiveRunData();
-  const slo = metricView(activeData.subjects.slo, run, st);
-  const tp = metricView(activeData.subjects.throughput, run, st);
-  const backpressure = metricView(activeData.subjects.backpressure, run, st);
+  // metricView's scope projection consumes exactly these four selection fields.
+  // Keep a type-complete, memoized snapshot for its existing VizState contract
+  // without subscribing this stage to unrelated dialog or drill-detail state.
+  const metricSelection = useMemo(
+    () => ({ ...useViz.getState(), scope, poolRole, workerKey, cursorMs }),
+    [scope, poolRole, workerKey, cursorMs],
+  );
+  const slo = metricView(activeData.subjects.slo, run, metricSelection);
+  const tp = metricView(activeData.subjects.throughput, run, metricSelection);
+  const backpressure = metricView(activeData.subjects.backpressure, run, metricSelection);
   const conservation = activeData.subjects.conservation;
 
   const pools = run.topology.pools;
@@ -62,7 +73,7 @@ export default function ClusterStage() {
         }}
       >
         {pools.map((p) => {
-          const poolUtil = metricView(activeData.subjects.utilization, run, st, {
+          const poolUtil = metricView(activeData.subjects.utilization, run, metricSelection, {
             poolRole: p.role,
           });
           return (

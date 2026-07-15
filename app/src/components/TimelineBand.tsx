@@ -12,7 +12,8 @@ import EChart from './EChart';
  *  cursor; it lands a marker on every time-series chart AND the Iteration band
  *  snaps the current worker to the nearest step. "All" clears it. */
 export default function TimelineBand() {
-  const st = useViz();
+  const cursorMs = useViz((state) => state.cursorMs);
+  const setTime = useViz((state) => state.setTime);
   const { subjects } = useActiveRunData();
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState(false);
@@ -55,7 +56,7 @@ export default function TimelineBand() {
       </Paper>
     );
   }
-  const cur = st.cursorMs;
+  const cur = cursorMs;
   const frac = cur == null ? null : Math.min(1, Math.max(0, cur / spanMs));
 
   // active requests at an arbitrary wall-clock ms (nearest sample)
@@ -77,7 +78,7 @@ export default function TimelineBand() {
     if (!el) return;
     const r = el.getBoundingClientRect();
     const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-    st.setTime(Math.round(f * spanMs));
+    setTime(Math.round(f * spanMs));
   };
 
   const allSel = cur == null;
@@ -137,7 +138,7 @@ export default function TimelineBand() {
             ? `t = ${(cur / 1000).toFixed(2)}s · ${activeNow ?? '—'} active`
             : `aggregate · peak ${conc.peak}`}
         </Box>
-        <Box onClick={() => st.setTime(null)} sx={pill}>
+        <Box onClick={() => setTime(null)} sx={pill}>
           All
         </Box>
       </Stack>

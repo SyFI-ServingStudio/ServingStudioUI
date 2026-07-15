@@ -7,13 +7,13 @@ import EChart from './EChart';
 /** Zoomed single-chart dialog. Reads whatever chart snapshot was pushed via
  *  store.openFocus({ title, caption, option }) — scope-agnostic. */
 export default function FocusDialog() {
-  const st = useViz();
-  const focus = st.focus;
+  const focus = useViz((state) => state.focus);
+  const closeFocus = useViz((state) => state.closeFocus);
 
   return (
     <Dialog
       open={focus != null}
-      onClose={() => st.closeFocus()}
+      onClose={closeFocus}
       maxWidth="lg"
       fullWidth
       PaperProps={{ sx: { borderRadius: 3, p: '24px 26px 22px', background: tokens.tile } }}
@@ -47,7 +47,7 @@ export default function FocusDialog() {
             </Box>
             <IconButton
               aria-label="Close expanded chart"
-              onClick={() => st.closeFocus()}
+              onClick={closeFocus}
               sx={{
                 border: `1px solid ${tokens.hair}`,
                 background: tokens.tile2,

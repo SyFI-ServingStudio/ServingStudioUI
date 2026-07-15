@@ -1,6 +1,5 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
-import { currentWorker } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
 import { shortName } from '../util';
@@ -133,11 +132,17 @@ function WorkerChip({
 }
 
 export default function SystemMapBand() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const setCluster = useViz((state) => state.setCluster);
+  const selectPool = useViz((state) => state.selectPool);
+  const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
-  const w = currentWorker(run, st);
+  const w = run.workerList.find((candidate) => candidate.key === workerKey) ?? run.workerList[0];
+  if (!w) throw new Error(`Run ${run.id} has no workers.`);
 
-  const clusterSel = st.scope === 'cluster';
+  const clusterSel = scope === 'cluster';
 
   return (
     <Paper sx={{ p: 1.9, borderRadius: 2 }}>
@@ -146,7 +151,7 @@ export default function SystemMapBand() {
         type="button"
         aria-label="Scope to whole deployment"
         aria-pressed={clusterSel}
-        onClick={() => st.setCluster()}
+        onClick={setCluster}
         sx={{
           width: '100%',
           display: 'flex',
@@ -216,13 +221,12 @@ export default function SystemMapBand() {
       <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1.75 }}>
         {run.topology.pools.map((pool) => {
           const poolSel =
-            st.poolRole === pool.role ||
-            (st.scope !== 'cluster' && !st.poolRole && w.pool === pool.role);
+            poolRole === pool.role || (scope !== 'cluster' && !poolRole && w.pool === pool.role);
           const totGpus = pool.groups.reduce((a, g) => a + g.numGpus, 0);
           const totWk = pool.groups.reduce((a, g) => a + g.workers.length, 0);
           const roleColor =
             pool.role === 'attn' ? tokens.teal : pool.role === 'ffn' ? tokens.terra : tokens.sub;
-          const poolCurrent = st.scope === 'pool' && st.poolRole === pool.role;
+          const poolCurrent = scope === 'pool' && poolRole === pool.role;
           return (
             <Paper
               key={pool.role}
@@ -240,7 +244,7 @@ export default function SystemMapBand() {
                 type="button"
                 aria-label={`Scope to pool ${pool.role}`}
                 aria-pressed={poolCurrent}
-                onClick={() => st.selectPool(pool.role)}
+                onClick={() => selectPool(pool.role)}
                 sx={{
                   width: '100%',
                   display: 'block',
@@ -321,20 +325,18 @@ export default function SystemMapBand() {
                   </Stack>
                   <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
                     {gr.workers.map((wo) => {
-                      const workerKey = makeWorkerKey(pool.role, wo.id);
+                      const candidateWorkerKey = makeWorkerKey(pool.role, wo.id);
                       return (
                         <WorkerChip
-                          key={workerKey}
+                          key={candidateWorkerKey}
                           w={wo}
                           poolRole={pool.role}
                           type={gr.worker.type}
                           selected={
-                            st.workerKey === workerKey &&
-                            (st.scope === 'worker' ||
-                              st.scope === 'kernel' ||
-                              st.scope === 'parallel')
+                            workerKey === candidateWorkerKey &&
+                            (scope === 'worker' || scope === 'kernel' || scope === 'parallel')
                           }
-                          onClick={() => st.selectWorker(makeWorkerRef(pool.role, wo.id))}
+                          onClick={() => selectWorker(makeWorkerRef(pool.role, wo.id))}
                         />
                       );
                     })}

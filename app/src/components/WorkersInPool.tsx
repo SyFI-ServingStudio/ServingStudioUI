@@ -5,7 +5,7 @@ import { tokens } from '../theme';
 
 /** Compact drill affordance at pool scope: the pool's workers, click to descend. */
 export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?: string }) {
-  const st = useViz();
+  const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
   const workers = run.workerList.filter((w) => w.pool === role);
 
@@ -51,7 +51,7 @@ export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?:
             key={w.key}
             type="button"
             aria-label={`Scope to worker ${w.ref.poolTag}/${w.ref.workerId}`}
-            onClick={() => st.selectWorker(w.ref)}
+            onClick={() => selectWorker(w.ref)}
             sx={{
               display: 'block',
               textAlign: 'left',

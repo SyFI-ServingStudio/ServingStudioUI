@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Box, Stack } from '@mui/material';
 import { useViz } from '../../store';
 import { cursorSeconds, poolInScope } from '../../application/runSelection';
@@ -11,13 +12,23 @@ import WorkersInPool from '../WorkersInPool';
 
 /** Pool-level resource behaviour: utilization, KV, queue/batch, kernel mix, then drill. */
 export default function PoolStage() {
-  const st = useViz();
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
   const run = useActiveRun();
   const activeData = useActiveRunData();
-  const role = poolInScope(run, st) ?? st.poolRole ?? '—';
-  const util = metricView(activeData.subjects.utilization, run, st);
-  const kv = metricView(activeData.subjects.kv, run, st);
-  const backpressure = metricView(activeData.subjects.backpressure, run, st);
+  // metricView and the pool helpers share this four-field selection contract.
+  // Memoizing a type-complete snapshot preserves that API without making this
+  // stage observe focus, leaf, parallel, or run-switch state.
+  const metricSelection = useMemo(
+    () => ({ ...useViz.getState(), scope, poolRole, workerKey, cursorMs }),
+    [scope, poolRole, workerKey, cursorMs],
+  );
+  const role = poolInScope(run, metricSelection) ?? poolRole ?? '—';
+  const util = metricView(activeData.subjects.utilization, run, metricSelection);
+  const kv = metricView(activeData.subjects.kv, run, metricSelection);
+  const backpressure = metricView(activeData.subjects.backpressure, run, metricSelection);
   const batchSubject = activeData.subjects.batch;
   const batch = batchSubject.status === 'ready' ? batchSubject.payload.pools[role] : undefined;
   const batchSub =
@@ -30,7 +41,7 @@ export default function PoolStage() {
     batchSubject.status === 'ready'
       ? `The batch subject has no series for pool ${role}.`
       : subjectStatusMessage(batchSubject);
-  const cS = cursorSeconds(st);
+  const cS = cursorSeconds(metricSelection);
 
   return (
     <Stack spacing={2}>

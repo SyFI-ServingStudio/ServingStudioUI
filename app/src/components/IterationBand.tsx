@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Box, IconButton, Paper, Stack, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -22,12 +22,21 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  *  the cursor's step. The window is STICKY (stays put until the step nears an
  *  edge) and slides SMOOTHLY via a translated buffer track. */
 export default function IterationBand() {
-  const st = useViz();
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
+  const setTime = useViz((state) => state.setTime);
   const run = useActiveRun();
-  const w = currentWorker(run, st);
-  const tl = iterTimeline(run, st);
+  // Iteration projection only depends on worker identity and wall-clock cursor.
+  // The memoized full shape keeps the shared runSelection API type-safe while
+  // leaving unrelated store updates outside this dense component's render path.
+  const iterationSelection = useMemo(
+    () => ({ ...useViz.getState(), workerKey, cursorMs }),
+    [workerKey, cursorMs],
+  );
+  const w = currentWorker(run, iterationSelection);
+  const tl = iterTimeline(run, iterationSelection);
   const n = tl.iters.length;
-  const sel = currentIter(run, st);
+  const sel = currentIter(run, iterationSelection);
   const compact = useMediaQuery('(max-width:600px)');
 
   const vis = Math.min(compact ? COMPACT_WINDOW : WIDE_WINDOW, n);
@@ -84,7 +93,7 @@ export default function IterationBand() {
 
   const jumpToStep = (ix: number) => {
     const it = tl.iters[clamp(ix, 0, n - 1)];
-    st.setTime(it.timeMs);
+    setTime(it.timeMs);
   };
   const moveSelection = (delta: -1 | 1) => {
     if (!sel) return;
@@ -310,7 +319,7 @@ export default function IterationBand() {
                   type="button"
                   aria-label={`Step ${fmtInt(it.id)}, ${it.phase}, ${fmtInt(it.batchTokens)} tokens`}
                   aria-pressed={active}
-                  onClick={() => st.setTime(active ? null : it.timeMs)}
+                  onClick={() => setTime(active ? null : it.timeMs)}
                   onKeyDown={(event) => {
                     if (event.key === 'ArrowLeft') {
                       event.preventDefault();
