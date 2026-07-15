@@ -22,6 +22,8 @@ type FixtureRunLoader = () => Promise<readonly Run[]>;
 export type FixtureWorkerCostTreeIndex = ReadonlyMap<string, ReadonlyMap<WorkerKey, CostTree>>;
 
 export class FixtureDetailUnavailableError extends Error {
+  readonly status = 'unavailable' as const;
+
   constructor(
     readonly runId: string,
     readonly workerKey: WorkerKey,

@@ -101,6 +101,23 @@ describe('CostTree annotation', () => {
     expect(totals.positions[1]?.pct).toBeCloseTo(100 / 3);
   });
 
+  it('keeps preorder selection ids stable across value-only reannotation', () => {
+    const build = (leftMs: number, rightMs: number) =>
+      annotate(
+        sum(
+          'root',
+          leaf('left', 'single_gemm', '{}', leftMs),
+          leaf('right', 'all_reduce', '{}', rightMs),
+        ),
+      );
+    const first = build(1, 2);
+    const reweighted = build(4, 1);
+
+    expect(leafByName(first, 'left')?.id).toBe(leafByName(reweighted, 'left')?.id);
+    expect(leafByName(first, 'right')?.id).toBe(leafByName(reweighted, 'right')?.id);
+    expect(first.totalMs).not.toBe(reweighted.totalMs);
+  });
+
   it('keeps zero-cost trees finite instead of manufacturing a denominator', () => {
     const tree = annotate(leaf('zero', 'single_gemm', '{}', 0));
     const totals = leafTotals(tree);

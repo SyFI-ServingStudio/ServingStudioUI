@@ -76,8 +76,9 @@ describe('FixtureAnalyzerRepository fixture loading', () => {
     if (worker === undefined) throw new Error('The checked-in fixture must contain a worker.');
     const repository = new FixtureAnalyzerRepository([run]);
 
-    await expect(repository.getWorkerCostTree(run.id, worker.ref)).rejects.toBeInstanceOf(
-      FixtureDetailUnavailableError,
-    );
+    await expect(repository.getWorkerCostTree(run.id, worker.ref)).rejects.toMatchObject({
+      name: FixtureDetailUnavailableError.name,
+      status: 'unavailable',
+    });
   });
 });
