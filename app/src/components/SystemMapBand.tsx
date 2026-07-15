@@ -1,4 +1,4 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
 import { currentWorker } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
@@ -38,11 +38,13 @@ function archChips(g: Group): string[] {
 
 function WorkerChip({
   w,
+  poolRole,
   type,
   selected,
   onClick,
 }: {
   w: WorkerInstance;
+  poolRole: string;
   type: string;
   selected: boolean;
   onClick: () => void;
@@ -50,13 +52,18 @@ function WorkerChip({
   const ng = w.gpus.length;
   const shown = Math.min(ng, 8);
   return (
-    <Box
+    <ButtonBase
+      type="button"
+      aria-label={`Scope to worker ${poolRole}/${w.id}`}
+      aria-pressed={selected}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
       sx={{
         display: 'flex',
+        alignItems: 'stretch',
+        textAlign: 'left',
         flexDirection: 'column',
         gap: 0.6,
         minWidth: 118,
@@ -121,7 +128,7 @@ function WorkerChip({
           </Box>
         )}
       </Stack>
-    </Box>
+    </ButtonBase>
   );
 }
 
@@ -135,10 +142,16 @@ export default function SystemMapBand() {
   return (
     <Paper sx={{ p: 1.9, borderRadius: 2 }}>
       {/* whole-deployment selector — click to scope back up to the cluster */}
-      <Box
+      <ButtonBase
+        type="button"
+        aria-label="Scope to whole deployment"
+        aria-pressed={clusterSel}
         onClick={() => st.setCluster()}
         sx={{
+          width: '100%',
           display: 'flex',
+          justifyContent: 'flex-start',
+          textAlign: 'left',
           alignItems: 'center',
           gap: 1.5,
           mb: 1.9,
@@ -199,7 +212,7 @@ export default function SystemMapBand() {
           {run.gpuTotal} GPU ·{' '}
           {clusterSel ? 'selected — cluster metrics' : 'click for cluster metrics'}
         </Box>
-      </Box>
+      </ButtonBase>
       <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1.75 }}>
         {run.topology.pools.map((pool) => {
           const poolSel =
@@ -209,57 +222,70 @@ export default function SystemMapBand() {
           const totWk = pool.groups.reduce((a, g) => a + g.workers.length, 0);
           const roleColor =
             pool.role === 'attn' ? tokens.teal : pool.role === 'ffn' ? tokens.terra : tokens.sub;
+          const poolCurrent = st.scope === 'pool' && st.poolRole === pool.role;
           return (
             <Paper
               key={pool.role}
-              onClick={() => st.selectPool(pool.role)}
               sx={{
                 flex: '1 1 300px',
                 minWidth: 260,
                 p: '12px 13px',
                 borderRadius: 1.5,
-                cursor: 'pointer',
                 background: poolSel ? 'rgba(31,111,107,.05)' : tokens.tile2,
                 border: `1px solid ${poolSel ? tokens.teal : tokens.hair}`,
                 boxShadow: poolSel ? `inset 0 0 0 1px ${tokens.teal}` : 'none',
-                transition: `all .3s ${tokens.ease}`,
-                '&:hover': { borderColor: poolSel ? tokens.teal : '#d3c8ad' },
               }}
             >
-              <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 1.25 }}>
-                <Typography
-                  sx={{
-                    fontFamily: tokens.serif,
-                    fontWeight: 600,
-                    fontSize: 15,
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {pool.role}
-                </Typography>
-                <Box
-                  component="span"
-                  sx={{
-                    fontFamily: tokens.mono,
-                    fontSize: 9.5,
-                    letterSpacing: '.1em',
-                    textTransform: 'uppercase',
-                    color: roleColor,
-                    px: 1,
-                    py: '2px',
-                    borderRadius: 0.75,
-                    border: `1px solid ${tokens.hair}`,
-                    background: tokens.tile,
-                  }}
-                >
-                  {pool.placement}
-                </Box>
-                <Typography
-                  sx={{ ml: 'auto', fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
-                >
-                  {totWk} {totWk === 1 ? 'worker' : 'workers'} · {totGpus} GPU
-                </Typography>
-              </Stack>
+              <ButtonBase
+                type="button"
+                aria-label={`Scope to pool ${pool.role}`}
+                aria-pressed={poolCurrent}
+                onClick={() => st.selectPool(pool.role)}
+                sx={{
+                  width: '100%',
+                  display: 'block',
+                  textAlign: 'left',
+                  borderRadius: 1,
+                  mb: 1.25,
+                  transition: `background .24s ${tokens.ease}`,
+                  '&:hover': { background: 'rgba(31,111,107,.07)' },
+                }}
+              >
+                <Stack direction="row" alignItems="center" spacing={1.25}>
+                  <Typography
+                    sx={{
+                      fontFamily: tokens.serif,
+                      fontWeight: 600,
+                      fontSize: 15,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {pool.role}
+                  </Typography>
+                  <Box
+                    component="span"
+                    sx={{
+                      fontFamily: tokens.mono,
+                      fontSize: 9.5,
+                      letterSpacing: '.1em',
+                      textTransform: 'uppercase',
+                      color: roleColor,
+                      px: 1,
+                      py: '2px',
+                      borderRadius: 0.75,
+                      border: `1px solid ${tokens.hair}`,
+                      background: tokens.tile,
+                    }}
+                  >
+                    {pool.placement}
+                  </Box>
+                  <Typography
+                    sx={{ ml: 'auto', fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+                  >
+                    {totWk} {totWk === 1 ? 'worker' : 'workers'} · {totGpus} GPU
+                  </Typography>
+                </Stack>
+              </ButtonBase>
               {pool.groups.map((gr, gi) => (
                 <Box key={gi} sx={{ mb: 1.25, '&:last-child': { mb: 0 } }}>
                   <Stack
@@ -300,6 +326,7 @@ export default function SystemMapBand() {
                         <WorkerChip
                           key={workerKey}
                           w={wo}
+                          poolRole={pool.role}
                           type={gr.worker.type}
                           selected={
                             st.workerKey === workerKey &&

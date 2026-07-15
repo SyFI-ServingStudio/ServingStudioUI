@@ -7,17 +7,21 @@ import type { CSSProperties } from 'react';
 export default function EChart({
   option,
   style,
+  ariaLabel,
 }: {
   option: EChartsOption;
   style?: CSSProperties;
+  ariaLabel: string;
 }) {
   return (
-    <ReactECharts
-      option={option}
-      notMerge
-      lazyUpdate
-      opts={{ renderer: 'canvas' }}
-      style={{ height: '100%', width: '100%', ...style }}
-    />
+    <div role="img" aria-label={ariaLabel} style={{ height: '100%', width: '100%', ...style }}>
+      <ReactECharts
+        option={option}
+        notMerge
+        lazyUpdate
+        opts={{ renderer: 'canvas' }}
+        style={{ height: '100%', width: '100%' }}
+      />
+    </div>
   );
 }

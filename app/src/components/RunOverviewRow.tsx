@@ -355,12 +355,15 @@ export default function RunOverviewRow() {
           <>
             <Figure title="Length distribution" note="split violin · input ↑ output ↓">
               <Box sx={{ height: { xs: 125, md: 138 } }}>
-                <EChart option={overview.lengthOption} />
+                <EChart
+                  option={overview.lengthOption}
+                  ariaLabel="Input and output length distribution"
+                />
               </Box>
             </Figure>
             <Figure title="Arrival pattern" note="requests per bucket · local mean">
               <Box sx={{ height: { xs: 115, md: 134 } }}>
-                <EChart option={overview.arrivalOption} />
+                <EChart option={overview.arrivalOption} ariaLabel="Request arrival pattern" />
               </Box>
             </Figure>
           </>

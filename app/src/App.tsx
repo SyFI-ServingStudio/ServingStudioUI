@@ -18,7 +18,17 @@ import PoolStage from './components/stages/PoolStage';
 import WorkerStage from './components/stages/WorkerStage';
 import FocusDialog from './components/FocusDialog';
 
-function SectionHead({ idx, title, sub }: { idx: string; title: string; sub?: string }) {
+function SectionHead({
+  id,
+  idx,
+  title,
+  sub,
+}: {
+  id: string;
+  idx: string;
+  title: string;
+  sub?: string;
+}) {
   return (
     <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mx: 0.25, mb: 1.25 }}>
       <Box
@@ -28,6 +38,8 @@ function SectionHead({ idx, title, sub }: { idx: string; title: string; sub?: st
         {idx}
       </Box>
       <Typography
+        id={id}
+        component="h2"
         sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 17, letterSpacing: '-.01em' }}
       >
         {title}
@@ -60,9 +72,10 @@ function Section({
   sub?: string;
   children: ReactNode;
 }) {
+  const headingId = `run-section-${idx}`;
   return (
-    <Box sx={{ mt: 2 }}>
-      <SectionHead idx={idx} title={title} sub={sub} />
+    <Box component="section" aria-labelledby={headingId} sx={{ mt: 2 }}>
+      <SectionHead id={headingId} idx={idx} title={title} sub={sub} />
       {children}
     </Box>
   );
@@ -144,7 +157,10 @@ export default function App() {
   const st = useViz();
   if (!run) {
     return (
-      <Box sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}>
+      <Box
+        component="main"
+        sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
+      >
         <Masthead hasRun={false} />
         <Box
           role="status"
@@ -209,7 +225,10 @@ export default function App() {
   const meta = stage[st.scope];
 
   return (
-    <Box sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}>
+    <Box
+      component="main"
+      sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
+    >
       <Masthead hasRun />
 
       <ScopeBreadcrumbs />

@@ -1,4 +1,4 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
 import { currentWorker, workerTree } from '../application/runSelection';
 import { useActiveRun } from '../application/ActiveRunProvider';
@@ -12,6 +12,23 @@ interface Crumb {
   here: boolean;
   onClick?: () => void;
 }
+
+const crumbSx = (here: boolean) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 0.9,
+  px: 1.5,
+  py: 0.6,
+  borderRadius: 1.75,
+  fontSize: 12.5,
+  fontWeight: 600,
+  border: `1px solid ${here ? tokens.hair : 'transparent'}`,
+  color: here ? tokens.ink : tokens.sub,
+  background: here ? tokens.tile : 'transparent',
+  boxShadow: here ? tokens.shadow : 'none',
+  transition: `all .28s ${tokens.ease}`,
+  '&:hover': here ? {} : { color: tokens.ink, background: 'rgba(42,38,34,.04)' },
+});
 
 export default function ScopeBreadcrumbs() {
   const st = useViz();
@@ -69,48 +86,47 @@ export default function ScopeBreadcrumbs() {
       useFlexGap
       sx={{ gap: 1.1, my: 2.2 }}
     >
-      {parts.map((p, i) => (
-        <Stack key={i} direction="row" alignItems="center" spacing={1.1}>
-          {i > 0 && (
-            <Box
-              component="span"
-              sx={{
-                color: tokens.sub,
-                opacity: 0.5,
-                fontFamily: tokens.serif,
-                fontStyle: 'italic',
-              }}
-            >
-              /
-            </Box>
-          )}
-          <Box
-            onClick={p.here ? undefined : p.onClick}
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.9,
-              px: 1.5,
-              py: 0.6,
-              borderRadius: 1.75,
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: p.here ? 'default' : 'pointer',
-              border: `1px solid ${p.here ? tokens.hair : 'transparent'}`,
-              color: p.here ? tokens.ink : tokens.sub,
-              background: p.here ? tokens.tile : 'transparent',
-              boxShadow: p.here ? tokens.shadow : 'none',
-              transition: `all .28s ${tokens.ease}`,
-              '&:hover': p.here ? {} : { color: tokens.ink, background: 'rgba(42,38,34,.04)' },
-            }}
-          >
+      {parts.map((p, i) => {
+        const content = (
+          <>
             <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 11, opacity: 0.7 }}>
               {p.g}
             </Box>
             {p.lab}
-          </Box>
-        </Stack>
-      ))}
+          </>
+        );
+        return (
+          <Stack key={`${p.g}-${p.lab}`} direction="row" alignItems="center" spacing={1.1}>
+            {i > 0 && (
+              <Box
+                component="span"
+                sx={{
+                  color: tokens.sub,
+                  opacity: 0.5,
+                  fontFamily: tokens.serif,
+                  fontStyle: 'italic',
+                }}
+              >
+                /
+              </Box>
+            )}
+            {p.here ? (
+              <Box component="span" aria-current="page" sx={crumbSx(true)}>
+                {content}
+              </Box>
+            ) : (
+              <ButtonBase
+                type="button"
+                aria-label={`Scope to ${p.g} ${p.lab}`}
+                onClick={p.onClick}
+                sx={crumbSx(false)}
+              >
+                {content}
+              </ButtonBase>
+            )}
+          </Stack>
+        );
+      })}
       <Typography
         sx={{
           ml: 'auto',

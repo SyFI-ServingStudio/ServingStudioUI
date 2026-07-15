@@ -133,7 +133,10 @@ export default function TimelineBand() {
       >
         {conc && (
           <Box sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <EChart option={concurrencySparkOption(conc, spanMs, CHART_THEME)} />
+            <EChart
+              option={concurrencySparkOption(conc, spanMs, CHART_THEME)}
+              ariaLabel="Request concurrency over simulation time"
+            />
           </Box>
         )}
         {frac != null && (

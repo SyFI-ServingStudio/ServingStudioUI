@@ -46,6 +46,7 @@ export default function FocusDialog() {
               )}
             </Box>
             <IconButton
+              aria-label="Close expanded chart"
               onClick={() => st.closeFocus()}
               sx={{
                 border: `1px solid ${tokens.hair}`,
@@ -59,7 +60,7 @@ export default function FocusDialog() {
           </Stack>
           <Box sx={{ height: 'min(60vh,540px)' }}>
             {focus.option ? (
-              <EChart option={focus.option} />
+              <EChart option={focus.option} ariaLabel={`${focus.title}. ${focus.caption}`} />
             ) : (
               <Box
                 sx={{

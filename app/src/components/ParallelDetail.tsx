@@ -174,6 +174,7 @@ export default function ParallelDetail() {
           {imb.label} · overlap {imb.overlap.toFixed(2)}
         </Box>
         <IconButton
+          aria-label={`Back to worker ${w.ref.poolTag}/${w.ref.workerId}`}
           size="small"
           onClick={() => st.selectWorker(w.ref)}
           sx={{

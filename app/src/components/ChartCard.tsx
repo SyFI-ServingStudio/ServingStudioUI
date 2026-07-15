@@ -42,6 +42,7 @@ export default function ChartCard({
       {option && (
         <IconButton
           className="expand"
+          aria-label={`Expand ${title}`}
           size="small"
           onClick={() => st.openFocus({ title, caption: caption ?? note ?? '', option })}
           sx={{
@@ -107,7 +108,7 @@ export default function ChartCard({
       </Stack>
       <Box sx={{ height }}>
         {option ? (
-          <EChart option={option} />
+          <EChart option={option} ariaLabel={`${title}. ${caption ?? note ?? ''}`} />
         ) : (
           <Box
             sx={{

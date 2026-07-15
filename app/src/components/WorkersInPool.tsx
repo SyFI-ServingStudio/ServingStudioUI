@@ -1,4 +1,4 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../store';
 import { useActiveRun } from '../application/ActiveRunProvider';
 import { tokens } from '../theme';
@@ -47,10 +47,14 @@ export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?:
       </Stack>
       <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1.25 }}>
         {workers.map((w) => (
-          <Box
-            key={w.id}
+          <ButtonBase
+            key={w.key}
+            type="button"
+            aria-label={`Scope to worker ${w.ref.poolTag}/${w.ref.workerId}`}
             onClick={() => st.selectWorker(w.ref)}
             sx={{
+              display: 'block',
+              textAlign: 'left',
               cursor: 'pointer',
               p: '10px 14px',
               borderRadius: 1.25,
@@ -72,7 +76,7 @@ export default function WorkersInPool({ role, idx = 'd' }: { role: string; idx?:
             <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
               {w.archType} · {w.gpuCount} GPU{w.dp ? ` · dp${w.dp}` : ''}
             </Typography>
-          </Box>
+          </ButtonBase>
         ))}
       </Stack>
     </Paper>

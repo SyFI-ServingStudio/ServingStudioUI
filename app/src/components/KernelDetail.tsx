@@ -95,6 +95,7 @@ export default function KernelDetail() {
           {kindLabel(s.kind)}
         </Box>
         <IconButton
+          aria-label={`Back to worker ${w.ref.poolTag}/${w.ref.workerId}`}
           size="small"
           onClick={() => st.selectWorker(w.ref)}
           sx={{
