@@ -1,4 +1,10 @@
-import { expectNoHorizontalOverflow, openRealRun, scopeToPool, scopeToWorker } from './helpers';
+import {
+  expectKernelShareGeometry,
+  expectNoHorizontalOverflow,
+  openRealRun,
+  scopeToPool,
+  scopeToWorker,
+} from './helpers';
 import { test } from './quality.fixture';
 
 test('cluster, pool and worker scopes stay inside the current viewport', async ({ page }) => {
@@ -9,6 +15,7 @@ test('cluster, pool and worker scopes stay inside the current viewport', async (
   await expectNoHorizontalOverflow(page);
 
   await scopeToWorker(page, 'attn/0');
+  await expectKernelShareGeometry(page);
   await expectNoHorizontalOverflow(page);
 });
 

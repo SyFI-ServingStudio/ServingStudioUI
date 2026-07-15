@@ -22,11 +22,7 @@ test('cluster overview meets automated WCAG A/AA checks', async ({ page }) => {
   await expectNoA11yViolations(page);
 });
 
-test('desktop worker aggregate meets automated WCAG A/AA checks', async ({ page }, testInfo) => {
-  test.skip(
-    testInfo.project.name !== 'chromium-desktop',
-    'The narrow cluster scan runs separately.',
-  );
+test('worker aggregate meets automated WCAG A/AA checks', async ({ page }) => {
   await openRealRun(page);
   await scopeToWorker(page, 'attn/0');
   await expectNoA11yViolations(page);

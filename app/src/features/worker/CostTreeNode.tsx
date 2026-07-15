@@ -122,6 +122,10 @@ function WrapLabel({
             px: 0.75,
             py: '1px',
             borderRadius: 0.75,
+            width: 72,
+            flexShrink: 0,
+            boxSizing: 'border-box',
+            textAlign: 'center',
             textTransform: 'none',
             letterSpacing: 0,
           }}
@@ -409,7 +413,7 @@ export default function CostTreeNode({ node, selId, onSelect, onRoot, parSel, on
             text="sequential"
             glyph="→"
             node={node}
-            extra={isRoot ? (subSel ? '← back to worker' : 'arch root') : undefined}
+            extra={isRoot ? (subSel ? '← worker' : 'arch root') : undefined}
           />
         </NodeControl>
         <Box

@@ -1,4 +1,10 @@
-import { expectRenderedCharts, openRealRun, scopeToPool, scopeToWorker } from './helpers';
+import {
+  expectKernelShareSelectionStable,
+  expectRenderedCharts,
+  openRealRun,
+  scopeToPool,
+  scopeToWorker,
+} from './helpers';
 import { expect, test } from './quality.fixture';
 
 test('loads the real analyzer folder and drills through a composite worker identity', async ({
@@ -17,6 +23,7 @@ test('loads the real analyzer folder and drills through a composite worker ident
   await expect(page.getByRole('heading', { name: 'Pool · attn', level: 2 })).toBeVisible();
 
   await scopeToWorker(page, 'attn/0');
+  await expectKernelShareSelectionStable(page);
 
   await page.getByRole('button', { name: 'Scope to whole deployment' }).click();
   await expect(page.getByRole('heading', { name: 'Cluster outcome', level: 2 })).toBeVisible();

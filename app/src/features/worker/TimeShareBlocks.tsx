@@ -14,6 +14,11 @@ interface Seg {
   other?: boolean;
 }
 
+// The supported 390 px layout leaves this bar more than 300 px wide, so an
+// 8% share is a real >=24 px target. Responsive E2E locks that geometry; smaller
+// shares stay proportional and use the equivalent CostTree leaf-card action.
+const MIN_INTERACTIVE_SHARE_PCT = 8;
+
 function Bar({
   title,
   note,
@@ -50,6 +55,8 @@ function Bar({
         </Box>
       </Stack>
       <Box
+        role={clickable ? 'group' : undefined}
+        aria-label={clickable ? 'Kernel position time share' : undefined}
         sx={{
           position: 'relative',
           display: 'flex',
@@ -64,7 +71,8 @@ function Bar({
         {segs.map((s, i) => {
           const selected =
             clickable && scope === 'kernel' && s.nodeId != null && s.nodeId === leafId;
-          const interactive = clickable && s.nodeId != null;
+          const tinyShare = clickable && s.pct < MIN_INTERACTIVE_SHARE_PCT;
+          const interactive = clickable && s.nodeId != null && !tinyShare;
           const accessibleLabel = `${s.full} — ${fmtMs(s.ms)} · ${fmtPct(s.pct)}`;
           return (
             <Tooltip key={i} title={accessibleLabel} arrow placement="top" describeChild>
@@ -84,11 +92,14 @@ function Bar({
                 sx={{
                   position: 'relative',
                   height: '100%',
-                  width: `${Math.max(0.4, s.pct)}%`,
+                  width: `${s.pct}%`,
+                  boxSizing: 'border-box',
+                  flex: '0 0 auto',
+                  minWidth: 0,
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'center',
-                  px: 1.4,
+                  px: tinyShare ? 0 : 1.4,
                   overflow: 'hidden',
                   whiteSpace: 'nowrap',
                   appearance: 'none',
@@ -99,18 +110,21 @@ function Bar({
                   borderLeft: 0,
                   cursor: interactive ? 'pointer' : 'default',
                   background: s.color,
-                  borderRight: '1.5px solid rgba(250,247,240,.65)',
+                  borderRight: 0,
+                  boxShadow: 'inset -1.5px 0 rgba(250,247,240,.65)',
                   outline: selected ? `2.5px solid ${tokens.ink}` : 'none',
                   outlineOffset: -2.5,
                   zIndex: selected ? 4 : 1,
                   transition: `filter .18s ${tokens.ease}`,
-                  '&:hover': { filter: 'brightness(1.07) saturate(1.05)' },
+                  ...(interactive
+                    ? { '&:hover': { filter: 'brightness(1.07) saturate(1.05)' } }
+                    : {}),
                   '&:focus-visible': {
                     outline: `2.5px solid ${tokens.ink}`,
                     outlineOffset: -2.5,
                     zIndex: 5,
                   },
-                  '&:last-of-type': { borderRight: 'none' },
+                  '&:last-of-type': { boxShadow: 'none' },
                 }}
               >
                 {s.pct >= 5 && (
@@ -205,7 +219,7 @@ export default function TimeShareBlocks() {
         />
         <Bar
           title="by kernel position"
-          note="click a block to inspect CostTree facts"
+          note="large shares select · tiny shares use CostTree cards"
           segs={posSegs}
           clickable
         />

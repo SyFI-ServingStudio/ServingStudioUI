@@ -1,10 +1,12 @@
-import { Box } from '@mui/material';
-import { animate, motion, useMotionValue, useReducedMotion } from 'motion/react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Box, useMediaQuery } from '@mui/material';
+import { animate } from 'motion/react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 export default function SelectionBoundary({ color }: { color: string }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)', { noSsr: true });
   const svgRef = useRef<SVGSVGElement>(null);
+  const topPathRef = useRef<SVGPathElement>(null);
+  const bottomPathRef = useRef<SVGPathElement>(null);
   const [boundaryGeometry, setBoundaryGeometry] = useState({ width: 0, height: 0, radius: 0 });
 
   useLayoutEffect(() => {
@@ -47,21 +49,26 @@ export default function SelectionBoundary({ color }: { color: string }) {
   const leftPath = `M ${leftX + radius} ${topY} Q ${leftX} ${topY} ${leftX} ${topY + radius} L ${leftX} ${bottomY - radius} Q ${leftX} ${bottomY} ${leftX + radius} ${bottomY}`;
   const topPath = `M ${leftX + radius} ${topY} L ${rightX - radius} ${topY} Q ${rightX} ${topY} ${rightX} ${topY + radius} L ${rightX} ${middleY}`;
   const bottomPath = `M ${leftX + radius} ${bottomY} L ${rightX - radius} ${bottomY} Q ${rightX} ${bottomY} ${rightX} ${bottomY - radius} L ${rightX} ${middleY}`;
-  const boundaryProgress = useMotionValue(0);
-
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (width <= 0 || height <= 0) return undefined;
+    const paths = [topPathRef.current, bottomPathRef.current].filter(
+      (path): path is SVGPathElement => path !== null,
+    );
+    const setProgress = (progress: number) => {
+      for (const path of paths) path.setAttribute('stroke-dashoffset', String(1 - progress));
+    };
     if (reduceMotion) {
-      boundaryProgress.set(1);
+      setProgress(1);
       return undefined;
     }
-    boundaryProgress.set(0);
-    const animation = animate(boundaryProgress, 1, {
+    setProgress(0);
+    const animation = animate(0, 1, {
       duration: 0.9,
       ease: [0.4, 0, 0.2, 1],
+      onUpdate: setProgress,
     });
     return () => animation.stop();
-  }, [boundaryProgress, height, reduceMotion, width]);
+  }, [height, reduceMotion, width]);
 
   return (
     <Box
@@ -88,25 +95,33 @@ export default function SelectionBoundary({ color }: { color: string }) {
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
-          <motion.path
+          <path
+            ref={topPathRef}
             d={topPath}
             fill="none"
             stroke={color}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            pathLength="1"
+            strokeDasharray="1 1"
+            strokeDashoffset="1"
             vectorEffect="non-scaling-stroke"
-            style={{ pathLength: boundaryProgress, filter: `drop-shadow(0 0 3px ${color}55)` }}
+            style={{ filter: `drop-shadow(0 0 3px ${color}55)` }}
           />
-          <motion.path
+          <path
+            ref={bottomPathRef}
             d={bottomPath}
             fill="none"
             stroke={color}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            pathLength="1"
+            strokeDasharray="1 1"
+            strokeDashoffset="1"
             vectorEffect="non-scaling-stroke"
-            style={{ pathLength: boundaryProgress, filter: `drop-shadow(0 0 3px ${color}55)` }}
+            style={{ filter: `drop-shadow(0 0 3px ${color}55)` }}
           />
         </>
       )}

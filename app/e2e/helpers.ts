@@ -52,6 +52,110 @@ export async function expectRenderedCharts(page: Page): Promise<void> {
   expect(invalidCanvases, JSON.stringify(invalidCanvases, null, 2)).toEqual([]);
 }
 
+export async function expectKernelShareGeometry(page: Page): Promise<void> {
+  const bar = page.getByRole('group', { name: 'Kernel position time share' });
+  await expect(bar).toBeVisible();
+  const geometry = await bar.evaluate((element) => {
+    const barElement = element as HTMLElement;
+    const barRect = barElement.getBoundingClientRect();
+    const contentLeft = barRect.left + barElement.clientLeft;
+    const segments = [...barElement.children].filter(
+      (child): child is HTMLElement => child instanceof HTMLElement,
+    );
+    const segmentRects = segments.map((segment) => segment.getBoundingClientRect());
+    return {
+      contentWidth: barElement.clientWidth,
+      segmentCount: segments.length,
+      startError: segmentRects[0]?.left - contentLeft,
+      endError:
+        segmentRects.length === 0
+          ? undefined
+          : contentLeft + barElement.clientWidth - segmentRects.at(-1)!.right,
+      widthError:
+        segmentRects.reduce((total, rect) => total + rect.width, 0) - barElement.clientWidth,
+      continuityErrors: segmentRects.slice(1).map((rect, index) => {
+        return rect.left - segmentRects[index].right;
+      }),
+      buttonWidths: segments
+        .filter((segment) => segment.tagName === 'BUTTON')
+        .map((segment) => segment.getBoundingClientRect().width),
+      tinySegmentLabels: segments
+        .filter((segment) => segment.tagName !== 'BUTTON' && segment.getAttribute('role') === 'img')
+        .map((segment) => segment.getAttribute('aria-label'))
+        .filter((label): label is string => label !== null),
+    };
+  });
+
+  expect(geometry.contentWidth).toBeGreaterThanOrEqual(300);
+  expect(geometry.segmentCount).toBeGreaterThan(1);
+  expect(Math.abs(geometry.startError ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(0.75);
+  expect(Math.abs(geometry.endError ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(0.75);
+  expect(Math.abs(geometry.widthError)).toBeLessThanOrEqual(0.75);
+  for (const continuityError of geometry.continuityErrors) {
+    expect(Math.abs(continuityError)).toBeLessThanOrEqual(0.75);
+  }
+  expect(geometry.buttonWidths.length).toBeGreaterThan(0);
+  for (const width of geometry.buttonWidths) expect(width).toBeGreaterThanOrEqual(24);
+
+  const tinyKernelName = geometry.tinySegmentLabels[0]?.split(' — ', 1)[0];
+  expect(tinyKernelName).toBeTruthy();
+  const equivalentCard = page.getByRole('button', {
+    name: `Inspect kernel ${tinyKernelName}`,
+  });
+  await expect(equivalentCard).toBeVisible();
+  const equivalentCardRect = await equivalentCard.boundingBox();
+  expect(equivalentCardRect).not.toBeNull();
+  expect(equivalentCardRect!.width).toBeGreaterThanOrEqual(24);
+  expect(equivalentCardRect!.height).toBeGreaterThanOrEqual(24);
+}
+
+export async function expectKernelShareSelectionStable(page: Page): Promise<void> {
+  const bar = page.getByRole('group', { name: 'Kernel position time share' });
+  const segment = bar.getByRole('button').first();
+  const segmentLabel = await segment.getAttribute('aria-label');
+  const kernelName = segmentLabel?.split(' — ', 1)[0];
+  expect(kernelName).toBeTruthy();
+  const kernelCard = page.getByRole('button', { name: `Inspect kernel ${kernelName}` });
+  await expect(kernelCard).toBeVisible();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+  });
+  const geometry = async () =>
+    kernelCard.evaluate((element) => {
+      const card = element as HTMLElement;
+      let scroller: HTMLElement | null = card.parentElement;
+      while (scroller && getComputedStyle(scroller).overflowX !== 'auto') {
+        scroller = scroller.parentElement;
+      }
+      if (!scroller) throw new Error('CostTree card has no local horizontal scroller.');
+      const cardRect = card.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+      return {
+        x: cardRect.x - scrollerRect.x + scroller.scrollLeft,
+        y: cardRect.y - scrollerRect.y + scroller.scrollTop,
+        width: cardRect.width,
+        height: cardRect.height,
+      };
+    });
+  const before = await geometry();
+
+  await segment.click();
+
+  await expect(segment).toHaveAttribute('aria-pressed', 'true');
+  await expect(kernelCard).toHaveAttribute('aria-pressed', 'true');
+  await expect(kernelCard.locator('svg')).toHaveCount(1);
+  const after = await geometry();
+  for (const coordinate of ['x', 'y', 'width', 'height'] as const) {
+    expect(
+      Math.abs(after[coordinate] - before[coordinate]),
+      `${coordinate} moved: ${JSON.stringify({ before, after })}`,
+    ).toBeLessThanOrEqual(0.5);
+  }
+}
+
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   await expect(async () => {
     const geometry = await page.evaluate(async () => {
