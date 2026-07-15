@@ -152,7 +152,7 @@ describe('CostTree malformed boundaries', () => {
     [
       {
         kind: 'max',
-        overlap: 2,
+        overlap: 1.01,
         children: [
           { kind: 'leaf', slot, base: 1 },
           { kind: 'leaf', slot: { ...slot, name: 'b' }, base: 1 },
