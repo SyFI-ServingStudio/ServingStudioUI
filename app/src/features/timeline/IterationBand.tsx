@@ -2,12 +2,13 @@ import { useMemo, useRef } from 'react';
 import { Box, IconButton, Paper, Stack, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useViz } from '../store';
-import { currentWorker, iterTimeline, currentIter } from '../application/runSelection';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { PHASE_COLOR, type Iteration } from '../data/iterations';
-import { tokens } from '../theme';
-import { fmtInt } from '../util';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import { currentWorker, iterTimeline, currentIter } from '../../application/runSelection';
+import type { Iteration } from '../../data/iterations';
+import { useViz } from '../../store';
+import { tokens } from '../../theme';
+import { fmtInt } from '../../util';
+import { PHASE_COLOR } from './iterationView';
 
 const WIDE_WINDOW = 41; // fewer columns keep adjacent steps individually targetable
 const COMPACT_WINDOW = 13; // keeps touch targets near the 24px minimum on phones

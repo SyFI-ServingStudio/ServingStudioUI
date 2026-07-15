@@ -1,10 +1,10 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
-import { useViz } from '../store';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { tokens } from '../theme';
-import { shortName } from '../util';
-import type { Group, WorkerInstance } from '../domain/run';
-import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import type { Group, WorkerInstance } from '../../domain/run';
+import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
+import { useViz } from '../../store';
+import { tokens } from '../../theme';
+import { shortName } from '../../util';
 
 const chip = (label: string) => (
   <Box

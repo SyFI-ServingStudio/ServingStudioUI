@@ -1,10 +1,11 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
-import { useViz } from '../store';
-import { useActiveRunSubject } from '../application/ActiveRunProvider';
-import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
-import { concurrencySparkOption, CHART_THEME } from '../charts/options';
-import { tokens } from '../theme';
-import EChart from './EChart';
+import { useActiveRunSubject } from '../../application/ActiveRunProvider';
+import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
+import { CHART_THEME } from '../../charts/platform';
+import EChart from '../../components/EChart';
+import { useViz } from '../../store';
+import { tokens } from '../../theme';
+import { concurrencySparkOption } from './timelineOptions';
 
 /** Wall-clock TIMELINE (run-level). The backdrop is the number of ACTIVE
  *  (in-flight) requests in the system over time. Drag, click, or use the range

@@ -1,12 +1,12 @@
 import type { EChartsOption } from 'echarts';
-import type { TraceOverviewData } from '../data/runOverview';
+import type { TraceOverviewData } from './model';
 import {
   chartAxisLine,
   chartGrid,
   richTextTooltip,
   tooltipLines,
   type ChartTheme,
-} from './platform';
+} from '../../charts/platform';
 
 function tokenLabel(value: number): string {
   if (value >= 1024) return `${+(value / 1024).toFixed(value >= 10240 ? 0 : 1)}K`;

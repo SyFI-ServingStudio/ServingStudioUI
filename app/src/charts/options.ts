@@ -3,14 +3,7 @@
  * Each returns an EChartsOption consumed by <EChart option={...} />.
  */
 import type { EChartsOption } from 'echarts';
-import type {
-  BatchSeries,
-  Slo,
-  Throughput,
-  UtilSeries,
-  KvSeries,
-  Concurrency,
-} from '../domain/run';
+import type { BatchSeries, Slo, Throughput, UtilSeries, KvSeries } from '../domain/run';
 import type { KernelPerf, InputDist } from '../data/kernel';
 import type { Imbalance } from '../data/imbalance';
 import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
@@ -517,31 +510,6 @@ export function timelineSparkOption(tp: Throughput, t: ChartTheme): EChartsOptio
         data: tp.total.map((v, i) => [x[i], v]),
         lineStyle: { width: 1.5, color: t.palette[0], opacity: 0.5 },
         areaStyle: { color: 'rgba(31,111,107,.10)' },
-      },
-    ],
-  };
-}
-
-// ---- active-requests backdrop for the timeline scrubber --------------------
-export function concurrencySparkOption(
-  c: Concurrency,
-  spanMs: number,
-  t: ChartTheme,
-): EChartsOption {
-  const x = c.t_ms.map((v) => +(v / 1000).toFixed(2));
-  return {
-    grid: chartGrid({ left: 0, right: 0, top: 8, bottom: 2 }),
-    xAxis: { type: 'value', show: false, min: 0, max: +(spanMs / 1000).toFixed(2) },
-    yAxis: { type: 'value', show: false, min: 0, max: Math.ceil(c.peak * 1.14) },
-    series: [
-      {
-        type: 'line',
-        smooth: true,
-        symbol: 'none',
-        silent: true,
-        data: c.active.map((v, i) => [x[i], v]),
-        lineStyle: { width: 1.6, color: t.palette[0], opacity: 0.6 },
-        areaStyle: { color: 'rgba(31,111,107,.13)' },
       },
     ],
   };

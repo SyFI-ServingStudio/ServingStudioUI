@@ -1,8 +1,8 @@
 import { Box, Stack, Typography } from '@mui/material';
-import { useActiveRun, useActiveRunSubject } from '../application/ActiveRunProvider';
-import { subjectStatusMessage } from '../application/subjectStatus';
-import { tokens } from '../theme';
-import { fmtInt } from '../util';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
+import { subjectStatusMessage } from '../../application/subjectStatus';
+import { tokens } from '../../theme';
+import { fmtInt } from '../../util';
 
 export default function KpiStatline() {
   const run = useActiveRun();

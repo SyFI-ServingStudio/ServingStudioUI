@@ -5,8 +5,12 @@ import type { ScopedPendingQueue } from '../application/runSelection';
 import type { Imbalance } from '../data/imbalance';
 import type { InputDist, KernelPerf } from '../data/kernel';
 import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
-import type { TraceOverviewData } from '../data/runOverview';
 import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../domain/run';
+import {
+  arrivalPatternOption,
+  lengthDistributionOption,
+  type TraceOverviewData,
+} from '../features/run-overview';
 import {
   batchOption,
   imbalanceOverTimeOption,
@@ -20,7 +24,6 @@ import {
   throughputOption,
   utilizationOption,
 } from './options';
-import { arrivalPatternOption, lengthDistributionOption } from './overviewOptions';
 import { CHART_THEME, safeChartText } from './platform';
 
 const ATTACK = '<img src=x onerror=alert(1)>{owned|payload}&';

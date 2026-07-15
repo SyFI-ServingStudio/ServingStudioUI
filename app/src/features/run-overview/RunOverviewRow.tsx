@@ -1,9 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useActiveRun, useActiveRunSubject } from '../application/ActiveRunProvider';
-import { tokens } from '../theme';
-import { fmtInt } from '../util';
-import type { Deployment } from '../domain/deployment';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
+import type { Deployment } from '../../domain/deployment';
+import { tokens } from '../../theme';
+import { fmtInt } from '../../util';
 
 interface Property {
   label: string;

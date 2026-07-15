@@ -2,13 +2,13 @@ import { Profiler } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { assembleActiveRunCore } from '../application/loadActiveRun';
-import { useViz } from '../store';
-import { makeTestDescriptor, makeTestTopology } from '../test/analyzerRepositoryFixture';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import { assembleActiveRunCore } from '../../application/loadActiveRun';
+import { useViz } from '../../store';
+import { makeTestDescriptor, makeTestTopology } from '../../test/analyzerRepositoryFixture';
 import SystemMapBand from './SystemMapBand';
 
-vi.mock('../application/ActiveRunProvider', () => ({ useActiveRun: vi.fn() }));
+vi.mock('../../application/ActiveRunProvider', () => ({ useActiveRun: vi.fn() }));
 
 const testRun = assembleActiveRunCore(
   makeTestDescriptor(),

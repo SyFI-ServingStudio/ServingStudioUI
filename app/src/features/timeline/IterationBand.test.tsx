@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useViz } from '../store';
+import { useViz } from '../../store';
 import IterationBand from './IterationBand';
 
 const iterationFixture = vi.hoisted(() => {
@@ -42,9 +42,9 @@ const iterationFixture = vi.hoisted(() => {
   };
 });
 
-vi.mock('../application/ActiveRunProvider', () => ({ useActiveRun: () => ({}) }));
+vi.mock('../../application/ActiveRunProvider', () => ({ useActiveRun: () => ({}) }));
 
-vi.mock('../application/runSelection', () => ({
+vi.mock('../../application/runSelection', () => ({
   currentWorker: () => iterationFixture.worker,
   iterTimeline: () => iterationFixture.timeline,
   currentIter: (_run: unknown, selection: { cursorMs: number | null }) => {

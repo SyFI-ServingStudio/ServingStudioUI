@@ -45,6 +45,21 @@ export default tseslint.config(
         'error',
         { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/features/run-overview/*',
+                '**/features/system-map/*',
+                '**/features/timeline/*',
+              ],
+              message: 'Import this feature through its public index.ts entry.',
+            },
+          ],
+        },
+      ],
     },
   },
   {

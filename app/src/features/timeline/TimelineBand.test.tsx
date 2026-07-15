@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useViz } from '../store';
+import { useViz } from '../../store';
 import TimelineBand from './TimelineBand';
 
-vi.mock('../application/ActiveRunProvider', () => ({
+vi.mock('../../application/ActiveRunProvider', () => ({
   useActiveRunSubject: () => ({
     subject: 'concurrency',
     status: 'ready',
@@ -13,7 +13,7 @@ vi.mock('../application/ActiveRunProvider', () => ({
   }),
 }));
 
-vi.mock('./EChart', () => ({
+vi.mock('../../components/EChart', () => ({
   default: ({ ariaLabel }: { ariaLabel: string }) => <div role="img" aria-label={ariaLabel} />,
 }));
 

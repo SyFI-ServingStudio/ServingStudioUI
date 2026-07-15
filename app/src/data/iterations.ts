@@ -107,9 +107,3 @@ export function treeAtIter(
   };
   return annotate(cloneScaled(tree, factor));
 }
-
-export const PHASE_COLOR: Record<Iteration['phase'], string> = {
-  prefill: '#a84b2e',
-  mixed: '#806600',
-  decode: '#1f6f6b',
-};
