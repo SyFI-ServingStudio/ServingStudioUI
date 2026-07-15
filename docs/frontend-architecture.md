@@ -107,7 +107,9 @@ store/context。
 
 - 可点击 UI 使用原生 `button`、`a`、`input` 或 MUI 对应语义控件；不以
   `Box + onClick + 手写 keydown` 模拟控件。
-- ECharts 只能经共享平台入口按需注册，tooltip 的 Analyzer 文本必须 escape。
+- ECharts 只能经共享平台入口按需注册，tooltip 的 Analyzer 文本必须 escape。默认使用
+  SVG renderer，使坐标轴、图例和 annotation 保持为可缩放矢量文字；只有实测证明某张
+  有界高密度图需要 canvas 时，才在共享封装中增加显式例外。
 - 选择 Zustand 时订阅最小 primitive/tuple，不制造完整 store snapshot。
 - 大 feature 在 drill boundary lazy-load；不要为躲避入口预算把同一 eagerly-needed
   代码机械拆成 chunk。

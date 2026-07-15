@@ -6,7 +6,7 @@ import {
   TooltipComponent,
 } from 'echarts/components';
 import * as echarts from 'echarts/core';
-import { CanvasRenderer } from 'echarts/renderers';
+import { SVGRenderer } from 'echarts/renderers';
 
 import { ECHARTS_THEME, ECHARTS_THEME_NAME } from './platform';
 
@@ -21,7 +21,7 @@ echarts.use([
   LegendComponent,
   MarkLineComponent,
   TooltipComponent,
-  CanvasRenderer,
+  SVGRenderer,
 ]);
 echarts.registerTheme(ECHARTS_THEME_NAME, ECHARTS_THEME);
 

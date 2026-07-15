@@ -13,7 +13,7 @@ describe('chart platform', () => {
     expect(safe).toContain('｛owned|payload｝');
   });
 
-  it('forces canvas rich-text tooltips', () => {
+  it('forces renderer-native rich-text tooltips', () => {
     expect(richTextTooltip(CHART_THEME, 'axis').renderMode).toBe('richText');
   });
 });

@@ -102,7 +102,7 @@ const breakdown: ReadyKernelTimeBreakdown = {
 };
 
 describe('scope metric chart options', () => {
-  it('uses canvas rich-text mode for every popup tooltip', () => {
+  it('uses renderer-native rich-text mode for every popup tooltip', () => {
     const options = [
       sloOption(slo, CHART_THEME),
       throughputOption(throughput, CHART_THEME),

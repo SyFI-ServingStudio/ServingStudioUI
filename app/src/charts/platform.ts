@@ -82,8 +82,9 @@ export function safeChartText(value: unknown): string {
   }).join('');
 }
 
-/** Format custom tooltip content as canvas text. The final normalization is
- * deliberate even when a caller already sanitized individual identities. */
+/** Format custom tooltip content as renderer-native rich text. The final
+ * normalization is deliberate even when a caller already sanitized
+ * individual identities. */
 export function tooltipLines(lines: readonly unknown[]): string {
   return lines.map(safeChartText).join('\n');
 }

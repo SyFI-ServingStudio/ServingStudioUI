@@ -32,24 +32,32 @@ export async function scopeToWorker(page: Page, workerKey: string): Promise<void
 }
 
 export async function expectRenderedCharts(page: Page): Promise<void> {
-  const chartCanvases = page.locator('[role="img"] canvas');
-  await expect(chartCanvases.first()).toBeVisible();
-  const invalidCanvases = await chartCanvases.evaluateAll((canvases) =>
-    canvases
-      .map((element, index) => {
-        const canvas = element instanceof HTMLCanvasElement ? element : null;
-        return {
-          index,
-          bitmap: canvas ? [canvas.width, canvas.height] : [0, 0],
-          layout: [element.clientWidth, element.clientHeight],
-        };
-      })
-      .filter(
-        ({ bitmap, layout }) =>
-          bitmap[0] <= 0 || bitmap[1] <= 0 || layout[0] <= 0 || layout[1] <= 0,
-      ),
-  );
-  expect(invalidCanvases, JSON.stringify(invalidCanvases, null, 2)).toEqual([]);
+  const chartSvgs = page.locator('[role="img"] .echarts-for-react svg');
+  await expect(chartSvgs.first()).toBeVisible();
+  await expect(async () => {
+    const invalidCharts = await chartSvgs.evaluateAll((svgs) =>
+      svgs
+        .map((element, index) => {
+          const svg = element instanceof SVGSVGElement ? element : null;
+          const bounds = element.getBoundingClientRect();
+          return {
+            index,
+            layout: [bounds.width, bounds.height],
+            intrinsic: [svg?.width.baseVal.value ?? 0, svg?.height.baseVal.value ?? 0],
+            textNodes: svg?.querySelectorAll('text').length ?? 0,
+          };
+        })
+        .filter(
+          ({ layout, intrinsic, textNodes }) =>
+            layout[0] <= 0 ||
+            layout[1] <= 0 ||
+            intrinsic[0] <= 0 ||
+            intrinsic[1] <= 0 ||
+            textNodes <= 0,
+        ),
+    );
+    expect(invalidCharts, JSON.stringify(invalidCharts, null, 2)).toEqual([]);
+  }).toPass({ timeout: 5_000 });
 }
 
 export async function expectKernelShareGeometry(page: Page): Promise<void> {
