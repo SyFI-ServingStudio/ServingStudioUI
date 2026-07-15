@@ -8,7 +8,7 @@ import type { KvSeries, Slo, Throughput, Topology, UtilSeries } from '../domain/
 import type { KernelTimeShare } from '../domain/kernelTimeShare';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
-import { annotate, leaf, type CostTree } from '../data/tree';
+import { annotate, leaf, type CostTree } from '../domain/cost-tree';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 
 export type TestSubjectResults = {

@@ -11,7 +11,7 @@ import {
   scale,
   sum,
   CostTreeValidationError,
-} from './tree';
+} from './index';
 
 describe('CostTree annotation', () => {
   it('annotates all four node kinds with finite preorder metadata and costs', () => {
@@ -21,7 +21,6 @@ describe('CostTree annotation', () => {
         leaf('root.a', 'single_gemm', '{}', 2),
         max(
           'parallel',
-          1,
           leaf('root.b', 'all_reduce', '{}', 3),
           scale('layers', 2, leaf('root.c', 'rms_norm', '{}', 1)),
         ),
@@ -34,6 +33,7 @@ describe('CostTree annotation', () => {
     expect(leafA).toMatchObject({ kind: 'leaf', id: 1, depth: 1, ms: 2 });
     expect(leafA.pct).toBeCloseTo(40);
     expect(parallel).toMatchObject({ kind: 'max', id: 2, depth: 1, ms: 3 });
+    expect(parallel).not.toHaveProperty('overlap');
     expect(parallel.pct).toBeCloseTo(60);
     if (parallel.kind !== 'max') throw new Error('Expected the second child to be Max.');
     expect(parallel.children[0]).toMatchObject({ kind: 'leaf', id: 3, depth: 2, ms: 3 });
@@ -152,7 +152,7 @@ describe('CostTree malformed boundaries', () => {
     [
       {
         kind: 'max',
-        overlap: 1.01,
+        overlap: 2,
         children: [
           { kind: 'leaf', slot, base: 1 },
           { kind: 'leaf', slot: { ...slot, name: 'b' }, base: 1 },
@@ -193,22 +193,8 @@ describe('CostTree malformed boundaries', () => {
     ).toThrow(/derived numeric value overflowed/);
   });
 
-  it.each([0, 0.5, 1.01])(
-    'rejects unsupported overlap=%s as incompatible at the authoring boundary',
-    (overlap) => {
-      expect(() =>
-        max(
-          'unsupported overlap',
-          overlap,
-          leaf('a', 'single_gemm', '{}', 1),
-          leaf('b', 'single_gemm', '{}', 1),
-        ),
-      ).toThrow(/incompatible overlap: UI CostTree v1 supports only overlap = 1/);
-    },
-  );
-
   it('accepts a single-child Max emitted by a one-group fan-out', () => {
-    const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', '{}', 3)));
+    const tree = annotate(max('one group', leaf('a', 'single_gemm', '{}', 3)));
 
     expect(tree).toMatchObject({ kind: 'max', ms: 3, totalMs: 3 });
   });

@@ -1,7 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { useViz, type Scope } from './store';
-import { currentWorker } from './application/runSelection';
 import { useActiveRunState, useActiveRunSubject } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
@@ -9,7 +8,7 @@ import type { Deployment } from './domain/deployment';
 import RunSwitcher from './components/RunSwitcher';
 import { KpiStatline, RunOverviewRow } from './features/run-overview';
 import { ScopeBreadcrumbs, SystemMapBand } from './features/system-map';
-import { IterationBand, TimelineBand } from './features/timeline';
+import { TimelineBand } from './features/timeline';
 import { PerfettoTrace } from './features/trace';
 import { ClusterStage } from './features/cluster';
 import { PoolStage } from './features/pool';
@@ -17,7 +16,9 @@ import FocusDialog from './components/FocusDialog';
 
 // Worker, kernel, and parallel scopes share the cost-tree/Motion feature. Keep
 // that feature out of the cluster/pool entry path and load it at the drill edge.
-const WorkerStage = lazy(() => import('./components/stages/WorkerStage'));
+const WorkerStage = lazy(() =>
+  import('./features/worker').then((feature) => ({ default: feature.WorkerStage })),
+);
 
 function SectionHead({
   id,
@@ -231,8 +232,11 @@ export default function App() {
     );
   }
 
-  const w = currentWorker(run, { workerKey });
-  const role = poolRole ?? w.pool;
+  const inWorkerScope = scope === 'worker' || scope === 'kernel' || scope === 'parallel';
+  const worker = inWorkerScope
+    ? (run.workerList.find((candidate) => candidate.key === workerKey) ?? null)
+    : null;
+  const role = poolRole ?? worker?.pool ?? '—';
   const hasHierarchicalWorkerDetail =
     activeRun.descriptor.details['worker-cost-tree']?.status === 'ready';
 
@@ -246,24 +250,18 @@ export default function App() {
       sub: 'utilization · KV occupancy · batch composition · kernel time',
     },
     worker: {
-      title: `Worker · ${w.key}`,
-      sub: run.capabilities.workerIterations
-        ? 'batch composition · cost tree · kernel throughput'
-        : hasHierarchicalWorkerDetail
-          ? 'hierarchical worker CostTree · iteration detail not generated'
-          : 'full-run aggregate kernel time share · iteration detail not generated',
+      title: `Worker · ${worker?.key ?? 'invalid selection'}`,
+      sub: hasHierarchicalWorkerDetail
+        ? 'hierarchical worker CostTree · optional detail states'
+        : 'full-run aggregate kernel time share · optional detail states',
     },
     kernel: {
-      title: `Worker · ${w.key}`,
-      sub: run.capabilities.kernelPerformance
-        ? 'cost tree · selected kernel'
-        : 'kernel detail not generated',
+      title: `Worker · ${worker?.key ?? 'invalid selection'}`,
+      sub: 'CostTree leaf facts · Analyzer performance evidence',
     },
     parallel: {
-      title: `Worker · ${w.key}`,
-      sub: run.capabilities.loadImbalance
-        ? 'cost tree · parallel node · load imbalance + straggler'
-        : 'load-imbalance detail not generated',
+      title: `Worker · ${worker?.key ?? 'invalid selection'}`,
+      sub: 'pure Max critical path · load-imbalance detail not generated',
     },
   };
   const meta = stage[scope];
@@ -293,14 +291,11 @@ export default function App() {
           <SystemMapBand />
         </Section>
 
-        {/* TEMPORAL navigators — orthogonal to the structural drill. Timeline
-          (wall-clock) is always present; the worker-level Iteration band only
-          appears once you're inside a worker (no iteration selection at
-          cluster/pool scope). */}
+        {/* Wall-clock navigation is available from bounded run subjects. A
+          worker iteration band appears only after its versioned index endpoint
+          is implemented; no local steps are synthesized here. */}
         <Stack spacing={1.5} sx={{ mt: 2 }}>
           <TimelineBand />
-          {run.capabilities.workerIterations &&
-            (scope === 'worker' || scope === 'kernel' || scope === 'parallel') && <IterationBand />}
         </Stack>
 
         {/* execution trace — whole-run wall-clock view, only meaningful at

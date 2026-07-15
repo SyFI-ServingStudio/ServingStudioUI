@@ -17,8 +17,8 @@ import type {
 import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
-import type { Iteration, IterTimeline } from '../data/iterations';
-import type { CostTree } from '../data/tree';
+import type { Iteration, IterTimeline } from '../domain/iteration';
+import type { CostTree } from '../domain/cost-tree';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 import {
   HttpAnalyzerTransportError,

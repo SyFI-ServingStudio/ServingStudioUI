@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import WorkerStage from '../components/stages/WorkerStage';
+import { WorkerStage } from '../features/worker';
 import type { SubjectArtifact } from '../domain/artifacts';
 import type { SubjectResult } from '../domain/subject';
 import { makeWorkerKey } from '../domain/worker';
@@ -270,6 +270,11 @@ describe('ActiveWorkerTreeProvider', () => {
     );
     expect(calls.trees).toBe(0);
     expect(screen.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
+    expect(screen.getByText('Optional worker evidence', { exact: true })).toBeVisible();
+    expect(screen.getByText('Iteration index / batch composition', { exact: true })).toBeVisible();
+    expect(screen.getByText('Pending queue / backpressure', { exact: true })).toBeVisible();
+    expect(screen.getByText('Kernel input distribution', { exact: true })).toBeVisible();
+    expect(screen.getAllByText('not_generated', { exact: true })).toHaveLength(4);
 
     act(() => useViz.getState().setTime(1_000));
     expect(screen.getByTestId('worker-tree-state')).toHaveTextContent(

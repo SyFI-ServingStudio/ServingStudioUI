@@ -2,9 +2,8 @@ import { useMemo, useRef } from 'react';
 import { Box, IconButton, Paper, Stack, Tooltip, Typography, useMediaQuery } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { useActiveRun } from '../../application/ActiveRunProvider';
-import { currentWorker, iterTimeline, currentIter } from '../../application/runSelection';
-import type { Iteration } from '../../data/iterations';
+import { nearestIteration, type Iteration, type IterTimeline } from '../../domain/iteration';
+import type { WorkerRef } from '../../domain/worker';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { fmtInt } from '../../util';
@@ -22,16 +21,21 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  *  the whole run with a viewport box; a windowed detail strip below scrolls to
  *  the cursor's step. The window is STICKY (stays put until the step nears an
  *  edge) and slides SMOOTHLY via a translated buffer track. */
-export default function IterationBand() {
-  const workerKey = useViz((state) => state.workerKey);
+export interface IterationBandProps {
+  readonly worker: WorkerRef;
+  readonly timeline: IterTimeline;
+}
+
+/** Presentational view for a repository-owned iteration index. The caller must
+ * load and version that high-cardinality resource before rendering this band. */
+export default function IterationBand({ worker, timeline: tl }: IterationBandProps) {
   const cursorMs = useViz((state) => state.cursorMs);
   const setTime = useViz((state) => state.setTime);
-  const run = useActiveRun();
-  const iterationSelection = useMemo(() => ({ workerKey, cursorMs }), [workerKey, cursorMs]);
-  const w = currentWorker(run, iterationSelection);
-  const tl = iterTimeline(run, iterationSelection);
   const n = tl.iters.length;
-  const sel = currentIter(run, iterationSelection);
+  const sel = useMemo(
+    () => (cursorMs === null ? null : nearestIteration(tl, cursorMs)),
+    [cursorMs, tl],
+  );
   const compact = useMediaQuery('(max-width:600px)');
 
   const vis = Math.min(compact ? COMPACT_WINDOW : WIDE_WINDOW, n);
@@ -127,7 +131,7 @@ export default function IterationBand() {
               fontWeight: 400,
             }}
           >
-            {w.id}
+            {worker.workerId}
           </Box>
           <Box
             component="span"
@@ -191,7 +195,7 @@ export default function IterationBand() {
           max={n - 1}
           step={1}
           value={sel?.id ?? 0}
-          aria-label={`Jump to an iteration for worker ${w.ref.poolTag}/${w.ref.workerId}`}
+          aria-label={`Jump to an iteration for worker ${worker.poolTag}/${worker.workerId}`}
           aria-valuetext={sel ? `Step ${sel.id} of ${n - 1}, ${sel.phase}` : 'No step selected'}
           onChange={(event) => jumpToStep(Number(event.currentTarget.value))}
           sx={{

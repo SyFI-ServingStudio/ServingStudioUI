@@ -5,8 +5,8 @@ import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import type { Run, WorkerRow } from '../domain/run';
 import type { SubjectResult } from '../domain/subject';
 import { makeWorkerKey } from '../domain/worker';
-import { projectAggregateKernelVisualTree } from '../data/aggregateKernelComposition';
-import type { CostTree } from '../data/tree';
+import { projectAggregateKernelVisualTree } from './projectAggregateKernelVisualTree';
+import type { CostTree } from '../domain/cost-tree';
 import { useViz, type Scope } from '../store';
 import { useWorkerCostTreeDetailQuery } from './queries';
 

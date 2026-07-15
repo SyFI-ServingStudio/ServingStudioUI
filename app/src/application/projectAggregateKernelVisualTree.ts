@@ -3,10 +3,10 @@ import {
   type AggregateWorkerKernelComposition,
 } from '../domain/kernelTimeShare';
 import type { WorkerRef } from '../domain/worker';
-import { annotate, leaf, sum, type CostTree, type RawLeafNode } from './tree';
+import { annotate, leaf, sum, type CostTree, type RawLeafNode } from '../domain/cost-tree';
 
 /**
- * Explicit wrapper for a flat full-run projection. Keeping the evidence kind
+ * Application projection for a flat full-run composition. Keeping the evidence kind
  * beside the visual tree prevents callers from presenting it as the separately
  * versioned `worker-cost-tree` hierarchical detail resource.
  */

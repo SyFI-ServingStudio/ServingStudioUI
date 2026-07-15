@@ -2,19 +2,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
-import { annotate, leaf, max, sum } from '../data/tree';
-import { makeWorkerKey } from '../domain/worker';
-import { useViz } from '../store';
+import { annotate, leaf, max, sum } from '../../domain/cost-tree';
+import { makeWorkerKey } from '../../domain/worker';
+import { useViz } from '../../store';
 import CostTreeFlow from './CostTreeFlow';
 
-vi.mock('../application/ActiveRunProvider', () => ({
+const workerTreeMock = vi.hoisted(() => ({ state: vi.fn() }));
+
+vi.mock('../../application/ActiveRunProvider', () => ({
   useActiveRun: () => ({
     id: 'test-run',
     capabilities: {
-      kernelPerformance: true,
-      loadImbalance: true,
-      workerIterations: false,
       perfettoTrace: false,
     },
     workerList: [
@@ -29,21 +27,15 @@ vi.mock('../application/ActiveRunProvider', () => ({
   }),
 }));
 
-vi.mock('../application/WorkerTreeProvider', () => ({
-  useActiveWorkerTreeState: () => ({
-    status: 'ready',
-    evidence: 'hierarchical-detail',
-  }),
+vi.mock('../../application/WorkerTreeProvider', () => ({
+  useActiveWorkerTreeState: workerTreeMock.state,
 }));
-
-vi.mock('../application/useProjectedWorkerTree', () => ({ useProjectedWorkerTree: vi.fn() }));
 
 const tree = annotate(
   sum(
     'root',
     max(
       'attention branches',
-      1,
       leaf('attention.prefill', 'flashinfer_attn_prefill', '{}', 2),
       leaf('attention.decode', 'flashinfer_attn_decode', '{}', 1),
     ),
@@ -71,7 +63,11 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 beforeEach(() => {
-  vi.mocked(useProjectedWorkerTree).mockReturnValue(tree);
+  workerTreeMock.state.mockReturnValue({
+    status: 'ready',
+    evidence: 'hierarchical-detail',
+    tree,
+  });
   useViz.setState({
     scope: 'worker',
     workerKey: makeWorkerKey('attn', '0'),

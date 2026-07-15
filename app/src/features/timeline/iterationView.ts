@@ -1,4 +1,4 @@
-import type { Iteration } from '../../data/iterations';
+import type { Iteration } from '../../domain/iteration';
 
 /** Presentation-only phase palette. Iteration identity and selection remain in
  * the application/data boundary because CostTree consumers share them. */

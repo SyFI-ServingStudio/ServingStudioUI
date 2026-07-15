@@ -81,13 +81,9 @@ export interface RunSource {
   simulationReexecuted: boolean | null;
 }
 
-/** Gates for detail protocols that are not represented by aggregate subjects.
- * Subject readiness must be consumed from SubjectResult instead of duplicated
- * here; these flags prevent unfinished detail views from fabricating data. */
+/** Core-level resource gates. Optional Analyzer subjects and worker details
+ * keep their own explicit status instead of being duplicated as booleans. */
 export interface RunCapabilities {
-  workerIterations: boolean;
-  kernelPerformance: boolean;
-  loadImbalance: boolean;
   perfettoTrace: boolean;
 }
 

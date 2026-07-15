@@ -1,9 +1,8 @@
 import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
-import { useViz } from '../store';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
-import { tokens } from '../theme';
-import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../data/tree';
+import { useViz } from '../../store';
+import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
+import { tokens } from '../../theme';
+import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../../domain/cost-tree';
 
 interface Seg {
   label: string;
@@ -149,10 +148,14 @@ function Bar({
 }
 
 export default function TimeShareBlocks() {
-  const run = useActiveRun();
-  const tree = useProjectedWorkerTree();
+  const treeState = useActiveWorkerTreeState();
+  if (treeState.status !== 'ready') {
+    throw new Error(
+      `TimeShareBlocks requires ready worker evidence, received ${treeState.status}.`,
+    );
+  }
+  const tree = treeState.tree;
   const lt = leafTotals(tree);
-  const canInspectKernel = run.capabilities.kernelPerformance;
 
   const groupSegs: Seg[] = lt.groups.map((g) => ({
     label: g.label,
@@ -202,13 +205,9 @@ export default function TimeShareBlocks() {
         />
         <Bar
           title="by kernel position"
-          note={
-            canInspectKernel
-              ? 'click a block to inspect the leaf'
-              : 'aggregate composition · detail not generated'
-          }
+          note="click a block to inspect CostTree facts"
           segs={posSegs}
-          clickable={canInspectKernel}
+          clickable
         />
         <Stack
           direction="row"

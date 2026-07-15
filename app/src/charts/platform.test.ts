@@ -2,8 +2,6 @@ import type { EChartsOption, TooltipComponentOption } from 'echarts';
 import { describe, expect, it } from 'vitest';
 
 import type { ScopedPendingQueue } from '../application/runSelection';
-import type { Imbalance } from '../data/imbalance';
-import type { InputDist, KernelPerf } from '../data/kernel';
 import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
 import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../domain/run';
 import {
@@ -23,6 +21,9 @@ import {
   sloOption,
   throughputOption,
   utilizationOption,
+  type Imbalance,
+  type InputDist,
+  type KernelPerf,
 } from './options';
 import { CHART_THEME, safeChartText } from './platform';
 
@@ -146,7 +147,6 @@ const imbalance: Imbalance = {
   label: 'two lanes',
   dim: 'rank',
   lanes: 2,
-  overlap: 1,
   nodeMs: 1,
   t_ms: [0],
   maxLoad: [1.2],

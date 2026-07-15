@@ -24,8 +24,6 @@ export interface RawSumNode extends RawContainerNode {
 
 export interface RawMaxNode extends RawContainerNode {
   readonly kind: 'max';
-  /** UI detail protocol v1 intentionally supports only the pure Max case. */
-  readonly overlap: 1;
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
 }
 
@@ -57,7 +55,6 @@ export interface SumNode extends CostAnnotation, RawContainerNode {
 
 export interface MaxNode extends CostAnnotation, RawContainerNode {
   readonly kind: 'max';
-  readonly overlap: 1;
   readonly children: readonly [CostNode, ...CostNode[]];
 }
 

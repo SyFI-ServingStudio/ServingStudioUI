@@ -4,7 +4,7 @@
  * carrying stable preorder ids and finite derived costs. Keeping the two forms
  * distinct prevents transport-shaped partial objects from leaking into views.
  */
-import { parseRawCostNode } from './treeSchema';
+import { parseRawCostNode } from './schema';
 import {
   invalidCostTree,
   type CostNode,
@@ -15,9 +15,9 @@ import {
   type RawMaxNode,
   type RawScaleNode,
   type RawSumNode,
-} from './treeTypes';
+} from './types';
 
-export { CostTreeValidationError } from './treeTypes';
+export { CostTreeValidationError } from './types';
 export type {
   CostNode,
   CostTree,
@@ -32,7 +32,7 @@ export type {
   ScaleNode,
   Slot,
   SumNode,
-} from './treeTypes';
+} from './types';
 
 function requireFiniteNonNegative(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
@@ -103,26 +103,19 @@ export function sum(
 
 export function max(
   label: string | undefined,
-  overlap: number,
   first: RawCostNode,
   ...rest: RawCostNode[]
 ): RawMaxNode {
-  if (!Number.isFinite(overlap)) {
-    invalidCostTree('max.overlap', 'expected a finite overlap number');
-  }
-  if (overlap !== 1) {
-    invalidCostTree(
-      'max.overlap',
-      'incompatible overlap: UI CostTree v1 supports only overlap = 1',
-    );
-  }
   const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
-  return Object.freeze({
+  // The authoring API exposes pure Max only. Keep the v1 compatibility marker
+  // internal so the same strict decoder validates test fixtures and wire data.
+  const v1CompatibleMax = Object.freeze({
     kind: 'max',
     ...(label === undefined ? {} : { label }),
-    overlap: 1,
+    overlap: 1 as const,
     children: Object.freeze(children),
   });
+  return v1CompatibleMax;
 }
 
 export function scale(label: string | undefined, n: number, child: RawCostNode): RawScaleNode {
@@ -189,8 +182,8 @@ function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, nu
         (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
         firstCost,
       );
-      // Protocol v1 accepts only overlap=1, so Max is the pure critical-path
-      // maximum. Future overlap algebra needs its own versioned decoder.
+      // Domain Max is always a pure critical-path maximum. Protocol-specific
+      // compatibility checks happen before this transport-free algebra.
       nodeCost = maximum;
       break;
     }
@@ -266,7 +259,6 @@ function annotateNode(
       return Object.freeze({
         kind: 'max',
         ...(node.label === undefined ? {} : { label: node.label }),
-        overlap: node.overlap,
         children: Object.freeze(children),
         ...annotation,
       });

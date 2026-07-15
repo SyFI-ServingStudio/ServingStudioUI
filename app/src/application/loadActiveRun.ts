@@ -145,9 +145,6 @@ export function assembleActiveRunCore(
         simulationReexecuted: null,
       },
       capabilities: {
-        workerIterations: false,
-        kernelPerformance: false,
-        loadImbalance: false,
         perfettoTrace: descriptor.traces.perfetto?.status === 'ready',
       },
     },

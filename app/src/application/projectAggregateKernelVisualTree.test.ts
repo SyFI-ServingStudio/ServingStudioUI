@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { AggregateWorkerKernelComposition } from '../domain/kernelTimeShare';
 import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
-import { projectAggregateKernelVisualTree } from './aggregateKernelComposition';
-import { leafByName } from './tree';
+import { projectAggregateKernelVisualTree } from './projectAggregateKernelVisualTree';
+import { leafByName } from '../domain/cost-tree';
 
 function composition(
   segments: AggregateWorkerKernelComposition['segments'],

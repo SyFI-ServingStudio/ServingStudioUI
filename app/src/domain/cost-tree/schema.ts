@@ -1,6 +1,6 @@
 import { z, type ZodIssue } from 'zod';
 
-import { invalidCostTree, type RawCostNode, type Slot } from './treeTypes';
+import { invalidCostTree, type RawCostNode, type Slot } from './types';
 
 type ParsedRawCostNode =
   | { kind: 'leaf'; slot: Slot; base: number }
@@ -127,7 +127,6 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       return Object.freeze({
         kind: 'max',
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
-        overlap: 1,
         children: Object.freeze(children),
       });
     }

@@ -10,12 +10,11 @@ import {
 } from 'react';
 import type { Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
-import { useViz } from '../store';
-import { currentWorker, currentIter } from '../application/runSelection';
-import { useActiveRun } from '../application/ActiveRunProvider';
-import { useActiveWorkerTreeState } from '../application/WorkerTreeProvider';
-import { useProjectedWorkerTree } from '../application/useProjectedWorkerTree';
-import { tokens } from '../theme';
+import { useViz } from '../../store';
+import { currentWorker } from '../../application/runSelection';
+import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
+import { tokens } from '../../theme';
 import {
   GROUP,
   colorOf,
@@ -27,7 +26,7 @@ import {
   type MaxNode,
   type ScaleNode,
   type SumNode,
-} from '../data/tree';
+} from '../../domain/cost-tree';
 
 interface NodeProps<Node extends CostNode = CostNode> {
   node: Node;
@@ -701,26 +700,20 @@ export default function CostTreeFlow() {
   const workerKey = useViz((state) => state.workerKey);
   const leafId = useViz((state) => state.leafId);
   const parId = useViz((state) => state.parId);
-  const cursorMs = useViz((state) => state.cursorMs);
   const selectWorker = useViz((state) => state.selectWorker);
   const selectKernel = useViz((state) => state.selectKernel);
   const selectParallel = useViz((state) => state.selectParallel);
   const run = useActiveRun();
   const w = currentWorker(run, { workerKey });
-  const tree = useProjectedWorkerTree();
   const treeState = useActiveWorkerTreeState();
-  const atIter =
-    run.capabilities.workerIterations && currentIter(run, { workerKey, cursorMs }) !== null;
+  if (treeState.status !== 'ready') {
+    throw new Error(`CostTreeFlow requires ready worker evidence, received ${treeState.status}.`);
+  }
+  const tree = treeState.tree;
   const selId = scope === 'kernel' ? leafId : null;
   const parSel = scope === 'parallel' ? parId : null;
-  const timeBasis = run.capabilities.workerIterations
-    ? atIter
-      ? 'selected iter'
-      : 'iter mean'
-    : treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
-      ? 'worker detail'
-      : 'full-run aggregate';
-  const canInspectKernel = run.capabilities.kernelPerformance;
+  const timeBasis =
+    treeState.evidence === 'hierarchical-detail' ? 'worker detail' : 'full-run aggregate';
 
   return (
     <Paper sx={{ borderRadius: 2, borderTop: `2px solid ${tokens.teal}`, overflow: 'hidden' }}>
@@ -798,10 +791,10 @@ export default function CostTreeFlow() {
           <FlowNode
             node={tree}
             selId={selId}
-            onSelect={canInspectKernel ? selectKernel : undefined}
+            onSelect={selectKernel}
             onRoot={() => selectWorker(w.ref)}
             parSel={parSel}
-            onPar={run.capabilities.loadImbalance ? selectParallel : undefined}
+            onPar={selectParallel}
           />
         </Box>
       </Box>

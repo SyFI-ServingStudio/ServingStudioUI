@@ -6,14 +6,6 @@ import type {
   UtilSeries,
   WorkerRow,
 } from '../domain/run';
-import type { CostTree } from '../data/tree';
-import {
-  iterationsFor,
-  nearestIter,
-  treeAtIter,
-  type Iteration,
-  type IterTimeline,
-} from '../data/iterations';
 import type { Scope } from '../store';
 import type { WorkerKey } from '../domain/worker';
 
@@ -30,7 +22,6 @@ export interface RunSelection {
 type WorkerSelection = Pick<RunSelection, 'workerKey'>;
 type PoolSelection = Pick<RunSelection, 'scope' | 'poolRole' | 'workerKey'>;
 type CursorSelection = Pick<RunSelection, 'cursorMs'>;
-type IterationSelection = Pick<RunSelection, 'workerKey' | 'cursorMs'>;
 
 export interface ScopedPendingQueueSeries {
   key: string;
@@ -47,9 +38,13 @@ export interface ScopedPendingQueue {
 }
 
 export const currentWorker = (run: Run, state: WorkerSelection): WorkerRow => {
-  const worker =
-    run.workerList.find((candidate) => candidate.key === state.workerKey) ?? run.workerList[0];
-  if (!worker) throw new Error(`Run ${run.id} has no workers.`);
+  if (state.workerKey === null) {
+    throw new Error(`Run ${run.id} has no selected worker.`);
+  }
+  const worker = run.workerList.find((candidate) => candidate.key === state.workerKey);
+  if (!worker) {
+    throw new Error(`Selected worker ${state.workerKey} is not present in run ${run.id}.`);
+  }
   return worker;
 };
 
@@ -61,25 +56,13 @@ export const poolInScope = (run: Run, state: PoolSelection): string | null => {
   return null;
 };
 
-function matchesPool(
-  key: string | undefined,
-  label: string | undefined,
-  role: string,
-  poolTag?: string,
-): boolean {
-  if (poolTag !== undefined) return poolTag === role;
-  const normalizedKey = (key ?? '').toLowerCase();
-  const normalizedLabel = (label ?? '').toLowerCase();
-  return normalizedKey.includes(role) || normalizedLabel.includes(role);
-}
+const matchesPool = (poolTag: string | undefined, role: string): boolean => poolTag === role;
 
 export const scopedUtil = (utilization: UtilSeries, role: string | null): UtilSeries => {
   if (!role) return utilization;
   return {
     t_ms: utilization.t_ms,
-    series: utilization.series.filter((series) =>
-      matchesPool(series.key, series.label, role, series.poolTag),
-    ),
+    series: utilization.series.filter((series) => matchesPool(series.poolTag, role)),
   };
 };
 
@@ -87,9 +70,7 @@ export const scopedKv = (kv: KvSeries, role: string | null): KvSeries => {
   if (!role) return kv;
   return {
     t_ms: kv.t_ms,
-    series: kv.series.filter((series) =>
-      matchesPool(undefined, series.label, role, series.poolTag),
-    ),
+    series: kv.series.filter((series) => matchesPool(series.poolTag, role)),
   };
 };
 
@@ -152,38 +133,3 @@ export const scopedPendingQueue = (
 
 export const cursorSeconds = (state: CursorSelection): number | undefined =>
   state.cursorMs == null ? undefined : state.cursorMs / 1000;
-
-export const iterTimeline = (run: Run, state: WorkerSelection): IterTimeline =>
-  iterationsFor(run, currentWorker(run, state).key);
-
-export const currentIter = (run: Run, state: IterationSelection): Iteration | null =>
-  state.cursorMs == null ? null : nearestIter(iterTimeline(run, state), state.cursorMs);
-
-// Key by the repository-owned base tree so a refetch/version change cannot
-// reuse a projection from stale input. Weak ownership also lets old runs be GC'd.
-const treeCache = new WeakMap<CostTree, Map<string, CostTree>>();
-
-/** Project a repository-owned visual tree at the current selected iteration.
- * The base tree is an explicit argument so Run never becomes a
- * high-cardinality detail cache. */
-export const projectWorkerTree = (
-  run: Run,
-  state: IterationSelection,
-  baseTree: CostTree,
-): CostTree => {
-  const worker = currentWorker(run, state);
-  if (!run.capabilities.workerIterations) return baseTree;
-  const iteration = currentIter(run, state);
-  const key = `${worker.key}:${iteration ? iteration.id : 'all'}`;
-  let projections = treeCache.get(baseTree);
-  if (!projections) {
-    projections = new Map<string, CostTree>();
-    treeCache.set(baseTree, projections);
-  }
-  let tree = projections.get(key);
-  if (!tree) {
-    tree = treeAtIter(baseTree, iteration, iterTimeline(run, state).ref);
-    projections.set(key, tree);
-  }
-  return tree;
-};

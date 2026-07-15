@@ -4,8 +4,6 @@
  */
 import type { EChartsOption } from 'echarts';
 import type { BatchSeries, Slo, Throughput, UtilSeries, KvSeries } from '../domain/run';
-import type { KernelPerf, InputDist } from '../data/kernel';
-import type { Imbalance } from '../data/imbalance';
 import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
 import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import type { ScopedPendingQueue } from '../application/runSelection';
@@ -20,6 +18,47 @@ import {
   tooltipLines,
   type ChartTheme,
 } from './platform';
+
+/** Legacy option input shapes remain transport-neutral and contain no data
+ * generator. No production feature currently renders these charts without a
+ * typed Analyzer subject. */
+export interface KernelPerf {
+  tflops: number;
+  gbps: number;
+  peakTflops: number;
+  peakGbps: number;
+  computeUtil: number;
+  memUtil: number;
+  boundedBy: 'compute' | 'memory';
+  intensity: number;
+}
+
+export interface InputDist {
+  backends: string[];
+  feature: [string, string];
+  projection: 'raw' | 'pca';
+  points: { x: number; y: number; backend: number; count: number }[];
+}
+
+export interface Imbalance {
+  label: string;
+  dim: 'expert' | 'rank' | 'branch';
+  lanes: number;
+  nodeMs: number;
+  t_ms: number[];
+  maxLoad: number[];
+  meanLoad: number[];
+  minLoad: number[];
+  imbalancePct: number[];
+  perLaneAvg: number[];
+  laneLabels: string[];
+  stragglerLane: number;
+  stragglerFactor: number;
+  maxImbalancePct: number;
+  avgImbalancePct: number;
+  stragglerLeafId: number;
+  stragglerName: string;
+}
 
 // Transitional public export for existing chart call sites. The value itself
 // has one owner in platform.ts and is also the registered runtime theme source.

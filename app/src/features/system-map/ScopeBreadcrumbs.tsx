@@ -1,9 +1,8 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
-import { currentWorker, projectWorkerTree } from '../../application/runSelection';
 import { useActiveRun } from '../../application/ActiveRunProvider';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
-import { leafById, nodeById } from '../../data/tree';
+import { leafById, nodeById } from '../../domain/cost-tree';
 import { tokens } from '../../theme';
 import { shortName } from '../../util';
 
@@ -37,23 +36,22 @@ export default function ScopeBreadcrumbs() {
   const workerKey = useViz((state) => state.workerKey);
   const leafId = useViz((state) => state.leafId);
   const parId = useViz((state) => state.parId);
-  const cursorMs = useViz((state) => state.cursorMs);
   const setCluster = useViz((state) => state.setCluster);
   const selectPool = useViz((state) => state.selectPool);
   const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
   const treeState = useActiveWorkerTreeState();
-  const w = currentWorker(run, { workerKey });
-  const tree =
-    treeState.status === 'ready'
-      ? projectWorkerTree(run, { workerKey, cursorMs }, treeState.tree)
-      : null;
+  const inWorkerScope = scope === 'worker' || scope === 'kernel' || scope === 'parallel';
+  const worker = inWorkerScope
+    ? (run.workerList.find((candidate) => candidate.key === workerKey) ?? null)
+    : null;
+  const tree = treeState.status === 'ready' ? treeState.tree : null;
 
   const parts: Crumb[] = [
     { g: '▸', lab: shortName(run), here: scope === 'cluster', onClick: setCluster },
   ];
   if (scope !== 'cluster') {
-    const role = poolRole ?? w.pool;
+    const role = poolRole ?? worker?.pool ?? '—';
     parts.push({
       g: 'pool',
       lab: role,
@@ -64,9 +62,9 @@ export default function ScopeBreadcrumbs() {
   if (scope === 'worker' || scope === 'kernel' || scope === 'parallel') {
     parts.push({
       g: 'worker',
-      lab: w.id,
-      here: scope === 'worker',
-      onClick: () => selectWorker(w.ref),
+      lab: worker?.id ?? 'invalid selection',
+      here: scope === 'worker' || worker === null,
+      onClick: worker === null ? undefined : () => selectWorker(worker.ref),
     });
   }
   if (scope === 'kernel') {
@@ -89,17 +87,12 @@ export default function ScopeBreadcrumbs() {
   const hint: Record<string, string> = {
     cluster: 'cluster — SLO · throughput · conservation',
     pool: 'pool — utilization · KV · batch composition · kernel time',
-    worker: run.capabilities.workerIterations
-      ? 'worker — batch composition · cost tree · kernel throughput'
-      : treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
+    worker:
+      treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
         ? 'worker — hierarchical CostTree detail'
         : 'worker — full-run aggregate kernel time share',
-    kernel: run.capabilities.kernelPerformance
-      ? 'kernel — roofline · input distribution'
-      : 'kernel — detail not generated',
-    parallel: run.capabilities.loadImbalance
-      ? 'parallel — load imbalance · straggler'
-      : 'parallel — detail not generated',
+    kernel: 'kernel — CostTree facts · Analyzer evidence state',
+    parallel: 'parallel — pure Max critical path · imbalance not generated',
   };
 
   return (
