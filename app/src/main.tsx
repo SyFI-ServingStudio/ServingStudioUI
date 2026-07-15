@@ -6,7 +6,7 @@ import { theme } from './theme';
 import App from './App';
 import { AnalyzerRepositoryProvider } from './application/RepositoryProvider';
 import { ActiveRunProvider } from './application/ActiveRunProvider';
-import { bundledArtifactAnalyzerRepository } from './repositories/artifact/bundledAnalyzerArtifacts';
+import { configuredAnalyzerRepository } from './repositories/configuredAnalyzerRepository';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,7 +21,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AnalyzerRepositoryProvider repository={bundledArtifactAnalyzerRepository}>
+      <AnalyzerRepositoryProvider repository={configuredAnalyzerRepository}>
         <ActiveRunProvider>
           <ThemeProvider theme={theme}>
             <CssBaseline />

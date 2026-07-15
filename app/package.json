@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:live": "vite --mode live",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.playwright.json --noEmit",
     "lint": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
