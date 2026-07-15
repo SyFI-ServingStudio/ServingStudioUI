@@ -27,7 +27,7 @@ export default function ChartCard({
   empty?: string;
   height?: number;
 }) {
-  const st = useViz();
+  const openFocus = useViz((state) => state.openFocus);
   return (
     <Paper
       sx={{
@@ -36,7 +36,7 @@ export default function ChartCard({
         position: 'relative',
         transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`,
         '&:hover': { borderColor: '#d8cfb8', boxShadow: tokens.shadowLift },
-        '&:hover .expand': { opacity: 1 },
+        '&:hover .expand, &:focus-within .expand': { opacity: 1 },
       }}
     >
       {option && (
@@ -44,7 +44,7 @@ export default function ChartCard({
           className="expand"
           aria-label={`Expand ${title}`}
           size="small"
-          onClick={() => st.openFocus({ title, caption: caption ?? note ?? '', option })}
+          onClick={() => openFocus({ title, caption: caption ?? note ?? '', option })}
           sx={{
             position: 'absolute',
             top: 12,
@@ -53,6 +53,13 @@ export default function ChartCard({
             color: tokens.sub,
             transition: `all .28s ${tokens.ease}`,
             '&:hover': { color: '#fff', background: tokens.teal },
+            '&:focus-visible': {
+              opacity: 1,
+              color: tokens.teal,
+              background: tokens.tile2,
+              outline: `2px solid ${tokens.teal}`,
+              outlineOffset: 2,
+            },
             zIndex: 3,
           }}
         >

@@ -17,80 +17,20 @@ import type { ReadyKernelTimeBreakdown } from '../data/kernelTimeBreakdown';
 import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import type { ScopedPendingQueue } from '../application/runSelection';
 import { tokens } from '../theme';
+import {
+  baseChartOption,
+  chartAxisLine,
+  chartGrid,
+  cursorMarker,
+  richTextTooltip,
+  safeChartText,
+  tooltipLines,
+  type ChartTheme,
+} from './platform';
 
-export interface ChartTheme {
-  font: string;
-  text: string;
-  sub: string;
-  axis: string;
-  split: string;
-  bg: string;
-  tip: string;
-  palette: string[];
-}
-
-export const CHART_THEME: ChartTheme = {
-  font: tokens.body,
-  text: tokens.ink,
-  sub: tokens.sub,
-  axis: '#d9cfbb',
-  split: 'rgba(120,110,90,.15)',
-  bg: tokens.tile,
-  tip: 'rgba(42,38,34,.94)',
-  palette: [tokens.teal, tokens.terra, tokens.gold, tokens.olive, tokens.violet],
-};
-
-// vertical marker at the selected iteration's time (seconds) — dropped into any
-// time-axis chart's series list
-function cursorMarker(cursorS: number) {
-  return {
-    type: 'line' as const,
-    data: [] as number[][],
-    silent: true,
-    showSymbol: false,
-    animation: false,
-    markLine: {
-      silent: true,
-      symbol: ['none', 'none'] as [string, string],
-      lineStyle: { color: tokens.terra, width: 1.5, opacity: 0.85 },
-      label: { formatter: 'iter', color: tokens.terra, fontSize: 9, position: 'start' as const },
-      data: [{ xAxis: +cursorS.toFixed(2) }],
-    },
-  };
-}
-
-function base(t: ChartTheme): EChartsOption {
-  return {
-    textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 46, right: 16, top: 30, bottom: 30 },
-    legend: {
-      top: 0,
-      right: 0,
-      textStyle: { color: t.sub, fontSize: 11 },
-      itemWidth: 14,
-      itemHeight: 8,
-    },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
-    },
-    xAxis: {
-      type: 'value',
-      axisLine: { lineStyle: { color: t.axis } },
-      axisLabel: { color: t.sub, fontSize: 11 },
-      splitLine: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: t.sub, fontSize: 11 },
-      splitLine: { lineStyle: { color: t.split, type: 'dashed' } },
-    },
-  };
-}
+// Transitional public export for existing chart call sites. The value itself
+// has one owner in platform.ts and is also the registered runtime theme source.
+export { CHART_THEME } from './platform';
 
 export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
   const keys: (keyof Slo)[] = ['ttft', 'tpot', 'e2e'];
@@ -98,7 +38,7 @@ export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
     const s = slo[k];
     const col = t.palette[i % t.palette.length];
     return {
-      name: `${s.label} (${s.unit})`,
+      name: safeChartText(`${s.label} (${s.unit})`),
       type: 'line' as const,
       smooth: true,
       symbol: 'none',
@@ -113,7 +53,7 @@ export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
       },
     };
   });
-  const opt = base(t);
+  const opt = baseChartOption(t);
   return {
     ...opt,
     xAxis: {
@@ -146,7 +86,7 @@ export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number
     color: col,
     data: arr.map((v, i) => [x[i], v]),
   });
-  const opt = base(t);
+  const opt = baseChartOption(t);
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
@@ -169,7 +109,7 @@ export function utilizationOption(
   cursorS?: number,
 ): EChartsOption {
   const x = util.t_ms.map((v) => +(v / 1000).toFixed(1));
-  const opt = base(t);
+  const opt = baseChartOption(t);
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
@@ -181,7 +121,7 @@ export function utilizationOption(
     },
     series: [
       ...util.series.map((s, i) => ({
-        name: s.label,
+        name: safeChartText(s.label),
         type: 'line' as const,
         smooth: true,
         symbol: 'none',
@@ -197,7 +137,7 @@ export function utilizationOption(
 export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): EChartsOption {
   const x = kv.t_ms.map((v) => +(v / 1000).toFixed(1));
   const percentMode = kv.series.every((series) => series.capacity !== null);
-  const opt = base(t);
+  const opt = baseChartOption(t);
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
@@ -209,7 +149,7 @@ export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): ECharts
     },
     series: [
       ...kv.series.map((s, i) => ({
-        name: `${s.label} KV`,
+        name: safeChartText(`${s.label} KV`),
         type: 'line' as const,
         smooth: true,
         symbol: 'none',
@@ -244,41 +184,35 @@ export function pendingQueueOption(
             0,
           )
         ];
-  const opt = base(t);
+  const opt = baseChartOption(t);
+  const safeTotalLabel = safeChartText(queue.totalLabel);
   return {
     ...opt,
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
+    tooltip: richTextTooltip(t, 'axis', {
       formatter: (params: unknown) => {
         const rows = params as Array<{
           axisValue: string;
-          marker: string;
           seriesName: string;
           value: number;
         }>;
         const seconds = rows[0]?.axisValue ?? '0';
         const orderedRows = [...rows].sort(
           (a, b) =>
-            Number(b.seriesName === queue.totalLabel) - Number(a.seriesName === queue.totalLabel),
+            Number(b.seriesName === safeTotalLabel) - Number(a.seriesName === safeTotalLabel),
         );
-        return [
-          `<b>${Number(seconds).toFixed(2)}s</b>`,
-          ...orderedRows.map(
-            (row) => `${row.marker}${row.seriesName}: ${Math.round(row.value)} pending`,
-          ),
-        ].join('<br/>');
+        return tooltipLines([
+          `${Number(seconds).toFixed(2)}s`,
+          ...orderedRows.map((row) => `${row.seriesName}: ${Math.round(row.value)} pending`),
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'category',
       data: x,
       boundaryGap: false,
       name: 's',
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisTick: { show: false },
       axisLabel: {
         color: t.sub,
@@ -301,7 +235,7 @@ export function pendingQueueOption(
           ? componentPalette[index % componentPalette.length]
           : t.palette[1];
         return {
-          name: series.label,
+          name: safeChartText(series.label),
           type: 'line' as const,
           step: 'end' as const,
           stack: queue.stacked ? 'pending-workers' : undefined,
@@ -320,7 +254,7 @@ export function pendingQueueOption(
       ...(queue.stacked
         ? [
             {
-              name: queue.totalLabel,
+              name: safeTotalLabel,
               type: 'line' as const,
               step: 'end' as const,
               symbol: 'none',
@@ -377,7 +311,7 @@ export function batchOption(bs: BatchSeries, t: ChartTheme, cursorS?: number): E
         ];
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 62, right: 66, top: 34, bottom: 30 },
+    grid: chartGrid({ left: 62, right: 66, top: 34, bottom: 30 }),
     legend: {
       top: 0,
       right: 0,
@@ -386,31 +320,26 @@ export function batchOption(bs: BatchSeries, t: ChartTheme, cursorS?: number): E
       itemWidth: 14,
       itemHeight: 8,
     },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
+    tooltip: richTextTooltip(t, 'axis', {
       formatter: (params: unknown) => {
         const rows = params as Array<{
           axisValue: string;
-          marker: string;
           seriesName: string;
           value: number;
         }>;
-        return [
-          `<b>${Number(rows[0]?.axisValue ?? 0).toFixed(2)}s</b>`,
-          ...rows.map((row) => `${row.marker}${row.seriesName}: ${Math.round(row.value)}`),
-        ].join('<br/>');
+        return tooltipLines([
+          `${Number(rows[0]?.axisValue ?? 0).toFixed(2)}s`,
+          ...rows.map((row) => `${row.seriesName}: ${Math.round(row.value)}`),
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'category',
       data: x,
       boundaryGap: false,
       name: 's',
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisTick: { show: false },
       axisLabel: {
         color: t.sub,
@@ -527,10 +456,10 @@ export function kernelTimeStackOption(
     if (totalMs >= 1_000) return `${(totalMs / 1_000).toFixed(2)}K ms`;
     return `${totalMs.toFixed(2)} ms`;
   };
-  const cats = data.rows.map((r) => `${r.label} · ${formatTotal(r.total)}`);
+  const cats = data.rows.map((r) => safeChartText(`${r.label} · ${formatTotal(r.total)}`));
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 156, right: 22, top: 30, bottom: 28 },
+    grid: chartGrid({ left: 156, right: 22, top: 30, bottom: 28 }),
     legend: {
       top: 0,
       right: 0,
@@ -538,20 +467,16 @@ export function kernelTimeStackOption(
       itemWidth: 12,
       itemHeight: 8,
     },
-    tooltip: {
-      trigger: 'axis',
+    tooltip: richTextTooltip(t, 'axis', {
       axisPointer: { type: 'shadow' },
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
       valueFormatter: (v) => `${Number(v).toFixed(1)}%`,
-    },
+    }),
     xAxis: {
       type: 'value',
       max: 100,
       name: '% of CostTree root kernel time',
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisLabel: { color: t.sub, fontSize: 11, formatter: '{value}%' },
       splitLine: { lineStyle: { color: t.split, type: 'dashed' } },
     },
@@ -564,7 +489,7 @@ export function kernelTimeStackOption(
       axisLabel: { color: t.text, fontSize: 12, fontFamily: t.font, fontWeight: 600 },
     },
     series: data.families.map((f) => ({
-      name: f.label,
+      name: safeChartText(f.label),
       type: 'bar' as const,
       stack: 'kernel',
       data: data.rows.map((r) =>
@@ -580,7 +505,7 @@ export function kernelTimeStackOption(
 export function timelineSparkOption(tp: Throughput, t: ChartTheme): EChartsOption {
   const x = tp.t_end_ms.map((v) => +(v / 1000).toFixed(2));
   return {
-    grid: { left: 0, right: 0, top: 6, bottom: 2 },
+    grid: chartGrid({ left: 0, right: 0, top: 6, bottom: 2 }),
     xAxis: { type: 'value', show: false, min: 0, max: x[x.length - 1] },
     yAxis: { type: 'value', show: false },
     series: [
@@ -605,7 +530,7 @@ export function concurrencySparkOption(
 ): EChartsOption {
   const x = c.t_ms.map((v) => +(v / 1000).toFixed(2));
   return {
-    grid: { left: 0, right: 0, top: 8, bottom: 2 },
+    grid: chartGrid({ left: 0, right: 0, top: 8, bottom: 2 }),
     xAxis: { type: 'value', show: false, min: 0, max: +(spanMs / 1000).toFixed(2) },
     yAxis: { type: 'value', show: false, min: 0, max: Math.ceil(c.peak * 1.14) },
     series: [
@@ -635,10 +560,10 @@ export interface KernelLoc {
 }
 
 export function kernelThroughputOption(locs: KernelLoc[], t: ChartTheme): EChartsOption {
-  const cats = locs.map((l) => l.name.split('.').pop()!);
+  const cats = locs.map((l) => safeChartText(l.name.split('.').pop() ?? l.name));
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 112, right: 24, top: 26, bottom: 28 },
+    grid: chartGrid({ left: 112, right: 24, top: 26, bottom: 28 }),
     legend: {
       top: 0,
       right: 0,
@@ -647,24 +572,26 @@ export function kernelThroughputOption(locs: KernelLoc[], t: ChartTheme): EChart
       itemWidth: 14,
       itemHeight: 8,
     },
-    tooltip: {
-      trigger: 'axis',
+    tooltip: richTextTooltip(t, 'axis', {
       axisPointer: { type: 'shadow' },
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
       formatter: (ps: unknown) => {
         const arr = ps as Array<{ dataIndex: number }>;
-        const l = locs[arr[0].dataIndex];
-        return `<b>${l.name}</b><br/>${l.tflops} TFLOP/s · ${(l.computeUtil * 100).toFixed(0)}% peak<br/>${l.gbps} GB/s · ${(l.memUtil * 100).toFixed(0)}% peak<br/>${l.pct.toFixed(1)}% of iter`;
+        const location = locs[arr[0]?.dataIndex];
+        if (!location) return '';
+        return tooltipLines([
+          location.name,
+          `${location.tflops} TFLOP/s · ${(location.computeUtil * 100).toFixed(0)}% peak`,
+          `${location.gbps} GB/s · ${(location.memUtil * 100).toFixed(0)}% peak`,
+          `${location.pct.toFixed(1)}% of iter`,
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'value',
       max: 100,
       name: '% of H200 peak',
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisLabel: { color: t.sub, fontSize: 11 },
       splitLine: { lineStyle: { color: t.split, type: 'dashed' } },
     },
@@ -708,15 +635,17 @@ export function rooflineOption(perf: KernelPerf, name: string, t: ChartTheme): E
   const dot = perf.boundedBy === 'compute' ? t.palette[2] : t.palette[0];
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 56, right: 20, top: 26, bottom: 42 },
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
+    grid: chartGrid({ left: 56, right: 20, top: 26, bottom: 42 }),
+    tooltip: richTextTooltip(t, 'item', {
       formatter: () =>
-        `<b>${name}</b><br/>${perf.tflops} TFLOP/s<br/>${perf.gbps} GB/s<br/>AI ${perf.intensity} FLOP/byte<br/>${perf.boundedBy}-bound`,
-    },
+        tooltipLines([
+          name,
+          `${perf.tflops} TFLOP/s`,
+          `${perf.gbps} GB/s`,
+          `AI ${perf.intensity} FLOP/byte`,
+          `${perf.boundedBy}-bound`,
+        ]),
+    }),
     xAxis: {
       type: 'log',
       name: 'arithmetic intensity · FLOP/byte',
@@ -725,7 +654,7 @@ export function rooflineOption(perf: KernelPerf, name: string, t: ChartTheme): E
       nameTextStyle: { color: t.sub, fontSize: 10 },
       min: 0.25,
       max: 2048,
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisLabel: { color: t.sub, fontSize: 10 },
       splitLine: { show: false },
     },
@@ -782,7 +711,7 @@ export function imbalanceOverTimeOption(imb: Imbalance, t: ChartTheme): EChartsO
   const pt = (arr: number[]) => arr.map((v, i) => [x[i], v]);
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 46, right: 16, top: 30, bottom: 30 },
+    grid: chartGrid(),
     legend: {
       top: 0,
       right: 0,
@@ -791,22 +720,24 @@ export function imbalanceOverTimeOption(imb: Imbalance, t: ChartTheme): EChartsO
       itemWidth: 14,
       itemHeight: 8,
     },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
+    tooltip: richTextTooltip(t, 'axis', {
       formatter: (ps: unknown) => {
-        const i = (ps as Array<{ dataIndex: number }>)[0].dataIndex;
-        return `t = ${x[i]}s<br/>straggler · ${imb.maxLoad[i].toFixed(2)}×<br/>mean · ${imb.meanLoad[i].toFixed(2)}×<br/><b>imbalance · +${imb.imbalancePct[i].toFixed(0)}%</b>`;
+        const i = (ps as Array<{ dataIndex: number }>)[0]?.dataIndex;
+        if (i == null) return '';
+        return tooltipLines([
+          `t = ${x[i]}s`,
+          `straggler · ${imb.maxLoad[i].toFixed(2)}×`,
+          `mean · ${imb.meanLoad[i].toFixed(2)}×`,
+          `imbalance · +${imb.imbalancePct[i].toFixed(0)}%`,
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'value',
       min: 0,
       name: 's',
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisLabel: { color: t.sub, fontSize: 11 },
       splitLine: { show: false },
     },
@@ -867,8 +798,10 @@ export function imbalanceOverTimeOption(imb: Imbalance, t: ChartTheme): EChartsO
 // ---- input distribution / backend selection (kernel scope) -----------------
 export function inputDistOption(dist: InputDist, t: ChartTheme): EChartsOption {
   const palette = [t.palette[0], t.palette[1], t.palette[2], t.palette[3]];
+  const safeBackends = dist.backends.map(safeChartText);
+  const safeFeatures = dist.feature.map(safeChartText) as [string, string];
   const series = dist.backends.map((b, bi) => ({
-    name: b,
+    name: safeChartText(b),
     type: 'scatter' as const,
     data: dist.points.filter((p) => p.backend === bi).map((p) => [p.x, p.y, p.count]),
     symbolSize: (v: number[]) => 6 + Math.sqrt(v[2]) * 1.6,
@@ -881,34 +814,35 @@ export function inputDistOption(dist: InputDist, t: ChartTheme): EChartsOption {
   }));
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: { left: 46, right: 18, top: 28, bottom: 42 },
+    grid: chartGrid({ left: 46, right: 18, top: 28, bottom: 42 }),
     legend: {
       top: 0,
       right: 0,
-      data: dist.backends,
+      data: safeBackends,
       textStyle: { color: t.sub, fontSize: 11 },
       itemWidth: 12,
       itemHeight: 8,
     },
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: t.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: t.font, fontSize: 12 },
+    tooltip: richTextTooltip(t, 'item', {
       formatter: (p: unknown) => {
         const d = p as { data: number[]; seriesName: string };
-        return `${dist.feature[0]}: ${d.data[0]}<br/>${dist.feature[1]}: ${d.data[1]}<br/>backend · ${d.seriesName}<br/>${d.data[2]} samples`;
+        return tooltipLines([
+          `${safeFeatures[0]}: ${d.data[0]}`,
+          `${safeFeatures[1]}: ${d.data[1]}`,
+          `backend · ${d.seriesName}`,
+          `${d.data[2]} samples`,
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'value',
       min: 0,
       max: 1,
-      name: dist.feature[0],
+      name: safeFeatures[0],
       nameLocation: 'middle',
       nameGap: 26,
       nameTextStyle: { color: t.sub, fontSize: 10 },
-      axisLine: { lineStyle: { color: t.axis } },
+      axisLine: chartAxisLine(t),
       axisLabel: { color: t.sub, fontSize: 10 },
       splitLine: { show: false },
     },
@@ -916,7 +850,7 @@ export function inputDistOption(dist: InputDist, t: ChartTheme): EChartsOption {
       type: 'value',
       min: 0,
       max: 1,
-      name: dist.feature[1],
+      name: safeFeatures[1],
       nameTextStyle: { color: t.sub, fontSize: 10 },
       axisLine: { show: false },
       axisTick: { show: false },

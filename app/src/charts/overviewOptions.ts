@@ -1,6 +1,12 @@
 import type { EChartsOption } from 'echarts';
 import type { TraceOverviewData } from '../data/runOverview';
-import type { ChartTheme } from './options';
+import {
+  chartAxisLine,
+  chartGrid,
+  richTextTooltip,
+  tooltipLines,
+  type ChartTheme,
+} from './platform';
 
 function tokenLabel(value: number): string {
   if (value >= 1024) return `${+(value / 1024).toFixed(value >= 10240 ? 0 : 1)}K`;
@@ -16,7 +22,7 @@ export function lengthDistributionOption(
   return {
     animationDuration: 450,
     textStyle: { fontFamily: theme.font, color: theme.text },
-    grid: { left: 38, right: 16, top: 26, bottom: 34 },
+    grid: chartGrid({ left: 38, right: 16, top: 26, bottom: 34 }),
     legend: {
       top: 0,
       right: 0,
@@ -25,26 +31,20 @@ export function lengthDistributionOption(
       itemWidth: 12,
       itemHeight: 7,
     },
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: theme.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: theme.font, fontSize: 11 },
+    tooltip: richTextTooltip(theme, 'axis', {
+      textStyle: { fontSize: 11 },
       formatter: (params: unknown) => {
         const rows = params as Array<{
           seriesName: string;
           value: [number, number];
-          marker: string;
         }>;
         const tokens = rows[0]?.value[0] ?? 0;
-        return [
-          `<b>${tokenLabel(tokens)} tokens</b>`,
-          ...rows.map(
-            (row) => `${row.marker}${row.seriesName}: ${Math.abs(row.value[1]).toFixed(2)}`,
-          ),
-        ].join('<br/>');
+        return tooltipLines([
+          `${tokenLabel(tokens)} tokens`,
+          ...rows.map((row) => `${row.seriesName}: ${Math.abs(row.value[1]).toFixed(2)}`),
+        ]);
       },
-    },
+    }),
     xAxis: {
       type: 'log',
       min: 4,
@@ -53,7 +53,7 @@ export function lengthDistributionOption(
       nameLocation: 'middle',
       nameGap: 24,
       nameTextStyle: { color: theme.sub, fontSize: 9 },
-      axisLine: { lineStyle: { color: theme.axis } },
+      axisLine: chartAxisLine(theme),
       axisTick: { show: false },
       axisLabel: { color: theme.sub, fontSize: 9, formatter: tokenLabel },
       splitLine: { show: false },
@@ -99,7 +99,7 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
   return {
     animationDuration: 450,
     textStyle: { fontFamily: theme.font, color: theme.text },
-    grid: { left: 38, right: 16, top: 26, bottom: 34 },
+    grid: chartGrid({ left: 38, right: 16, top: 26, bottom: 34 }),
     legend: {
       top: 0,
       right: 0,
@@ -108,20 +108,17 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
       itemWidth: 12,
       itemHeight: 7,
     },
-    tooltip: {
-      trigger: 'axis',
+    tooltip: richTextTooltip(theme, 'axis', {
       axisPointer: { type: 'shadow' },
-      backgroundColor: theme.tip,
-      borderWidth: 0,
-      textStyle: { color: '#fff', fontFamily: theme.font, fontSize: 11 },
-    },
+      textStyle: { fontSize: 11 },
+    }),
     xAxis: {
       type: 'value',
       name: 'wall-clock · s',
       nameLocation: 'middle',
       nameGap: 24,
       nameTextStyle: { color: theme.sub, fontSize: 9 },
-      axisLine: { lineStyle: { color: theme.axis } },
+      axisLine: chartAxisLine(theme),
       axisTick: { show: false },
       axisLabel: { color: theme.sub, fontSize: 9 },
       splitLine: { show: false },

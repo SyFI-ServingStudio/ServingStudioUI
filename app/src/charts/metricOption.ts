@@ -5,8 +5,8 @@ import {
   utilizationOption,
   kvOption,
   pendingQueueOption,
-  CHART_THEME,
 } from './options';
+import { CHART_THEME } from './platform';
 import type { VizState, MetricKey } from '../store';
 import {
   cursorSeconds,
