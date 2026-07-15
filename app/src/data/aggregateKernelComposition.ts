@@ -1,4 +1,7 @@
-import type { AggregateWorkerKernelComposition } from '../domain/kernelTimeShare';
+import {
+  KERNEL_TIME_EPSILON_MS,
+  type AggregateWorkerKernelComposition,
+} from '../domain/kernelTimeShare';
 import type { WorkerRef } from '../domain/worker';
 import { annotate, leaf, sum, type CostTree, type RawLeafNode } from './tree';
 
@@ -27,6 +30,7 @@ function aggregateLeaf(segment: AggregateWorkerKernelComposition['segments'][num
 export function projectAggregateKernelVisualTree(
   worker: AggregateWorkerKernelComposition,
 ): AggregateKernelVisualTree | null {
+  if (worker.kernelTimeMs <= KERNEL_TIME_EPSILON_MS) return null;
   const [first, ...rest] = worker.segments;
   if (first === undefined) return null;
   const tree = annotate(

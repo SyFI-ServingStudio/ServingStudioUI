@@ -45,5 +45,17 @@ describe('aggregate worker kernel projection', () => {
 
   it('does not invent an invalid empty Sum for a zero-time worker', () => {
     expect(projectAggregateKernelVisualTree(composition([]))).toBeNull();
+    expect(
+      projectAggregateKernelVisualTree(
+        composition([
+          {
+            position: 'zero',
+            kind: 'single_gemm',
+            kernelTimeMs: 0,
+            sharePct: 0,
+          },
+        ]),
+      ),
+    ).toBeNull();
   });
 });

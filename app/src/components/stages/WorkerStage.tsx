@@ -2,7 +2,11 @@ import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import { useViz } from '../../store';
 import { currentWorker, cursorSeconds } from '../../application/runSelection';
 import { useActiveRun, useActiveRunData } from '../../application/ActiveRunProvider';
-import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
+import {
+  useActiveWorkerTreeState,
+  type ActiveWorkerTreeState,
+  type WorkerTreeNonReadyStatus,
+} from '../../application/WorkerTreeProvider';
 import { useProjectedWorkerTree } from '../../application/useProjectedWorkerTree';
 import {
   leafTotals,
@@ -252,6 +256,61 @@ function ReadyWorkerStage() {
 
 /** Local detail boundary: a missing worker artifact never replaces the
  * already-loaded overview, system map, or cluster/pool subjects. */
+type NonReadyWorkerTreeState = Extract<ActiveWorkerTreeState, { status: WorkerTreeNonReadyStatus }>;
+
+function nonReadyTitle(state: NonReadyWorkerTreeState): string {
+  if (state.status === 'failed') {
+    return state.evidence === 'hierarchical-detail'
+      ? 'Could not load worker CostTree detail'
+      : 'Could not load aggregate worker evidence';
+  }
+  const titles: Record<Exclude<WorkerTreeNonReadyStatus, 'failed'>, string> = {
+    empty: 'No reportable worker kernel time',
+    unavailable: 'Worker evidence unavailable',
+    not_generated: 'Worker evidence not generated',
+    incompatible: 'Worker evidence is incompatible',
+  };
+  return titles[state.status];
+}
+
+function NonReadyWorkerStage({ state }: { state: NonReadyWorkerTreeState }) {
+  const failed = state.status === 'failed';
+  return (
+    <Paper
+      role={failed ? 'alert' : 'status'}
+      sx={{
+        borderRadius: 2,
+        p: 3,
+        borderLeft: `3px solid ${failed ? tokens.terra : tokens.gold}`,
+      }}
+    >
+      <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
+        {nonReadyTitle(state)}
+      </Typography>
+      <Typography
+        sx={{
+          mt: 0.5,
+          fontFamily: tokens.mono,
+          fontSize: 11,
+          color: tokens.sub,
+          lineHeight: 1.6,
+        }}
+      >
+        {state.reason}
+      </Typography>
+      <Typography sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}>
+        evidence status · {state.status}
+        {state.code ? ` · ${state.code}` : ''}
+      </Typography>
+      {state.retry && (
+        <Button size="small" onClick={state.retry} sx={{ mt: 1.5 }}>
+          Retry worker detail
+        </Button>
+      )}
+    </Paper>
+  );
+}
+
 export default function WorkerStage() {
   const state = useActiveWorkerTreeState();
   if (state.status === 'loading' || state.status === 'idle') {
@@ -303,5 +362,6 @@ export default function WorkerStage() {
       </Paper>
     );
   }
+  if (state.status !== 'ready') return <NonReadyWorkerStage state={state} />;
   return <ReadyWorkerStage />;
 }

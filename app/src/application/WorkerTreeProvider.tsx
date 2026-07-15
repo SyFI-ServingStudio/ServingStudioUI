@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 import type { DetailArtifact } from '../domain/artifacts';
+import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import type { Run, WorkerRow } from '../domain/run';
 import type { SubjectResult } from '../domain/subject';
 import { makeWorkerKey } from '../domain/worker';
@@ -10,6 +11,19 @@ import { useViz, type Scope } from '../store';
 import { useWorkerCostTreeDetailQuery } from './queries';
 
 export type WorkerTreeEvidence = 'hierarchical-detail' | 'aggregate-projection';
+
+export type WorkerTreeNonReadyStatus =
+  'empty' | 'unavailable' | 'not_generated' | 'failed' | 'incompatible';
+
+interface WorkerTreeNonReadyState {
+  status: WorkerTreeNonReadyStatus;
+  evidence: WorkerTreeEvidence;
+  worker: WorkerRow;
+  tree: null;
+  reason: string;
+  code: string | null;
+  retry: (() => void) | null;
+}
 
 export type ActiveWorkerTreeState =
   | {
@@ -43,26 +57,45 @@ export type ActiveWorkerTreeState =
       tree: null;
       error: Error;
       retry: (() => void) | null;
-    };
+    }
+  | WorkerTreeNonReadyState;
 
 const WorkerTreeContext = createContext<ActiveWorkerTreeState | null>(null);
 
 const needsWorkerTree = (scope: Scope): boolean =>
   scope === 'worker' || scope === 'kernel' || scope === 'parallel';
 
-function asError(error: unknown, fallback: string): Error {
-  return error instanceof Error ? error : new Error(fallback);
+function errorReason(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
 
-function aggregateProjectionReason(
-  subject: SubjectResult<'kernelTimeShare'>,
-  workerKey: string,
-): string {
-  if (subject.status === 'ready') {
-    return `kernel-time-share has no reportable composition for ${workerKey}`;
+function errorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return null;
+  return typeof error.code === 'string' && error.code.length > 0 ? error.code : null;
+}
+
+function detailFailureStatus(error: unknown): Exclude<WorkerTreeNonReadyStatus, 'empty'> {
+  if (typeof error !== 'object' || error === null || !('status' in error)) return 'failed';
+  switch (error.status) {
+    case 'unavailable':
+    case 'not_generated':
+    case 'failed':
+    case 'incompatible':
+      return error.status;
+    default:
+      return 'failed';
   }
+}
+
+function artifactReason(subject: SubjectResult<'kernelTimeShare'>, fallback: string): string {
   if ('reason' in subject && subject.reason) return subject.reason;
-  return `kernel-time-share is ${subject.status}`;
+  return fallback;
+}
+
+function detailContext(detail: DetailArtifact | undefined): string {
+  const status = detail?.status ?? 'not_generated';
+  const reason = detail && 'reason' in detail && detail.reason ? `: ${detail.reason}` : '';
+  return `Hierarchical worker detail is ${status}${reason}.`;
 }
 
 /**
@@ -99,14 +132,20 @@ export function ActiveWorkerTreeProvider({
     enabled && worker !== undefined && detailReady,
   );
 
-  const aggregateProjection = useMemo(() => {
+  const aggregateComposition = useMemo(() => {
     if (!enabled || worker === undefined || detailReady) return null;
     if (aggregateKernelTimeShare.status !== 'ready') return null;
-    const composition = aggregateKernelTimeShare.payload.workers.find(
+    return aggregateKernelTimeShare.payload.workers.find(
       (candidate) => candidate.key === makeWorkerKey(worker.ref),
     );
-    return composition === undefined ? null : projectAggregateKernelVisualTree(composition);
   }, [aggregateKernelTimeShare, detailReady, enabled, worker]);
+  const aggregateProjection = useMemo(
+    () =>
+      aggregateComposition === null || aggregateComposition === undefined
+        ? null
+        : projectAggregateKernelVisualTree(aggregateComposition),
+    [aggregateComposition],
+  );
 
   const value: ActiveWorkerTreeState = (() => {
     if (!enabled) {
@@ -134,22 +173,28 @@ export function ActiveWorkerTreeProvider({
     if (detailReady) {
       if (analysisRevision === undefined) {
         return {
-          status: 'error',
+          status: 'incompatible',
           evidence: 'hierarchical-detail',
           worker,
           tree: null,
-          error: new Error(`Run ${run.id} has no analysis revision for worker detail caching.`),
+          reason: `Run ${run.id} has no analysis revision for worker detail cache identity.`,
+          code: null,
           retry: null,
         };
       }
       if (detailQuery.isError) {
+        const status = detailFailureStatus(detailQuery.error);
         return {
-          status: 'error',
+          status,
           evidence: 'hierarchical-detail',
           worker,
           tree: null,
-          error: asError(detailQuery.error, `Could not load cost tree detail for ${worker.key}.`),
-          retry: () => void detailQuery.refetch(),
+          reason: errorReason(
+            detailQuery.error,
+            `Could not load CostTree detail for ${worker.key}.`,
+          ),
+          code: errorCode(detailQuery.error),
+          retry: status === 'failed' ? () => void detailQuery.refetch() : null,
         };
       }
       if (detailQuery.data !== undefined) {
@@ -192,16 +237,55 @@ export function ActiveWorkerTreeProvider({
         retry: null,
       };
     }
+    if (aggregateKernelTimeShare.status === 'ready') {
+      if (aggregateComposition === null || aggregateComposition === undefined) {
+        return {
+          status: 'incompatible',
+          evidence: 'aggregate-projection',
+          worker,
+          tree: null,
+          reason: `Ready kernel-time-share does not contain composite worker ${worker.key}. ${detailContext(workerCostTreeDetail)}`,
+          code: null,
+          retry: null,
+        };
+      }
+      if (aggregateComposition.kernelTimeMs <= KERNEL_TIME_EPSILON_MS) {
+        return {
+          status: 'empty',
+          evidence: 'aggregate-projection',
+          worker,
+          tree: null,
+          reason: `Worker ${worker.key} has zero reportable kernel time in this run. ${detailContext(workerCostTreeDetail)}`,
+          code: null,
+          retry: null,
+        };
+      }
+      return {
+        status: 'incompatible',
+        evidence: 'aggregate-projection',
+        worker,
+        tree: null,
+        reason: `Worker ${worker.key} has positive kernel time but no projectable segments. ${detailContext(workerCostTreeDetail)}`,
+        code: null,
+        retry: null,
+      };
+    }
 
-    const detailStatus = workerCostTreeDetail?.status ?? 'not_generated';
     return {
-      status: 'error',
+      status: aggregateKernelTimeShare.status,
       evidence: 'aggregate-projection',
       worker,
       tree: null,
-      error: new Error(
-        `Run ${run.id} worker-cost-tree detail is ${detailStatus}; aggregate projection is unavailable: ${aggregateProjectionReason(aggregateKernelTimeShare, worker.key)}.`,
-      ),
+      reason: `${artifactReason(
+        aggregateKernelTimeShare,
+        `Aggregate kernel-time-share is ${aggregateKernelTimeShare.status}.`,
+      )} ${detailContext(workerCostTreeDetail)}`,
+      code:
+        aggregateKernelTimeShare.status === 'failed'
+          ? aggregateKernelTimeShare.code
+          : aggregateKernelTimeShare.status === 'unavailable'
+            ? (aggregateKernelTimeShare.code ?? null)
+            : null,
       retry: null,
     };
   })();
