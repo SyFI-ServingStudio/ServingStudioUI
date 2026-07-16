@@ -144,7 +144,15 @@ export function makeTestSubjectResults(): TestSubjectResults {
   };
   const utilization: UtilSeries = {
     t_ms: [0],
-    series: [{ key: 'attn/0', label: 'attn/0', poolTag: 'attn', util: [0.5] }],
+    series: [{ key: 'pool_0', label: 'Pool 0', poolTag: 'attn', util: [0.5] }],
+    workerSeries: [
+      {
+        key: makeWorkerKey('attn', '0'),
+        label: 'Worker 0',
+        worker: makeWorkerRef('attn', '0'),
+        util: [0.5],
+      },
+    ],
   };
   const kv: KvSeries = {
     t_ms: [0],

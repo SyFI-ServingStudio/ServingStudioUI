@@ -1,6 +1,6 @@
 import type { EChartsOption } from 'echarts';
 
-import type { Slo, Throughput } from '../../domain/run';
+import type { SloMetric, Throughput } from '../../domain/run';
 import {
   baseChartOption,
   cursorMarker,
@@ -8,27 +8,7 @@ import {
   type ChartTheme,
 } from '../../charts/platform';
 
-export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
-  const keys: (keyof Slo)[] = ['ttft', 'tpot', 'e2e'];
-  const series = keys.map((k, i) => {
-    const s = slo[k];
-    const col = t.palette[i % t.palette.length];
-    return {
-      name: safeChartText(`${s.label} (${s.unit})`),
-      type: 'line' as const,
-      smooth: true,
-      symbol: 'none',
-      data: s.x.map((x, j) => [x, s.y_pct[j]]),
-      lineStyle: { width: 2.4, color: col },
-      markLine: {
-        silent: true,
-        symbol: 'none',
-        lineStyle: { color: col, opacity: 0.5, type: 'dotted' as const },
-        label: { formatter: 'p90', color: t.sub, fontSize: 10 },
-        data: [{ xAxis: s.markers.p90 }],
-      },
-    };
-  });
+export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string): EChartsOption {
   const opt = baseChartOption(t);
   return {
     ...opt,
@@ -36,7 +16,7 @@ export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
       ...(opt.xAxis as object),
       type: 'log',
       min: 1,
-      name: 'latency',
+      name: `latency · ${safeChartText(metric.unit)}`,
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
     yAxis: {
@@ -45,7 +25,24 @@ export function sloOption(slo: Slo, t: ChartTheme): EChartsOption {
       name: 'CDF %',
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
-    series,
+    series: [
+      {
+        name: safeChartText(`${metric.label} (${metric.unit})`),
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        data: metric.x.map((x, index) => [x, metric.y_pct[index]]),
+        lineStyle: { width: 2.4, color },
+        areaStyle: { color, opacity: 0.08 },
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          lineStyle: { color, opacity: 0.5, type: 'dotted' },
+          label: { formatter: 'p90', color: t.sub, fontSize: 10 },
+          data: [{ xAxis: metric.markers.p90 }],
+        },
+      },
+    ],
   };
 }
 
@@ -65,7 +62,17 @@ export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number
   const opt = baseChartOption(t);
   return {
     ...opt,
-    xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
+    // The old end-positioned `s` label occupied the same bottom-right SVG
+    // edge as the final tick. Let ECharts contain tick labels and center the
+    // axis title so neither is clipped by the fixed chart viewport.
+    grid: { ...(opt.grid as object), containLabel: true },
+    xAxis: {
+      ...(opt.xAxis as object),
+      name: 'wall-clock · s',
+      nameLocation: 'middle',
+      nameGap: 24,
+      nameTextStyle: { color: t.sub, fontSize: 10 },
+    },
     yAxis: {
       ...(opt.yAxis as object),
       name: 'tok/s',

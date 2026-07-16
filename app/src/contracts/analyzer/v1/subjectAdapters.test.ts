@@ -53,7 +53,47 @@ describe('analyzer-v1 aggregate subject adapters', () => {
     expect(result.status).toBe('ready');
     if (result.status !== 'ready') return;
     expect(result.payload.series).toHaveLength(2);
+    expect(result.payload.workerSeries).toEqual([]);
     expect(result.payload.series[0].util[0]).toBe(1.05);
+  });
+
+  it('maps additive worker utilization with composite worker identity', () => {
+    const wire = structuredClone(utilizationJson) as typeof utilizationJson & {
+      meta: typeof utilizationJson.meta & { worker_unit: string };
+      worker_series: Array<{
+        key: string;
+        label: string;
+        pool_tag: string;
+        worker_id: number | string;
+        util: number[];
+      }>;
+    };
+    wire.meta.worker_unit = 'fraction of worker/GPU busy time (0-1)';
+    wire.worker_series = [
+      {
+        key: 'worker_0_0',
+        label: 'attn/0',
+        pool_tag: 'attn',
+        worker_id: 0,
+        util: [...wire.series[0].util],
+      },
+      {
+        key: 'worker_1_0',
+        label: 'ffn/0',
+        pool_tag: 'ffn',
+        worker_id: '0',
+        util: [...wire.series[1].util],
+      },
+    ];
+
+    const result = decodeAnalyzerV1UtilizationPayload(wire);
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') return;
+    expect(result.payload.workerSeries).toMatchObject([
+      { key: 'attn/0', worker: { poolTag: 'attn', workerId: '0' } },
+      { key: 'ffn/0', worker: { poolTag: 'ffn', workerId: '0' } },
+    ]);
   });
 
   it('maps the real KV payload with a stable series key', () => {
@@ -215,6 +255,30 @@ describe('analyzer-v1 aggregate subject adapters', () => {
     expect(decodeAnalyzerV1UtilizationPayload(badUtilization)).toMatchObject({
       status: 'incompatible',
       reason: expect.stringContaining('duplicate key'),
+    });
+
+    const badWorkerUtilization = {
+      ...structuredClone(utilizationJson),
+      worker_series: [
+        {
+          key: 'worker_0_0',
+          label: 'Worker 0',
+          pool_tag: 'attn',
+          worker_id: 0,
+          util: [...utilizationJson.series[0].util],
+        },
+        {
+          key: 'another-wire-key',
+          label: 'Same Worker 0',
+          pool_tag: 'attn',
+          worker_id: '0',
+          util: [...utilizationJson.series[0].util],
+        },
+      ],
+    };
+    expect(decodeAnalyzerV1UtilizationPayload(badWorkerUtilization)).toMatchObject({
+      status: 'incompatible',
+      reason: expect.stringContaining('worker_series.worker.1: duplicate key attn/0'),
     });
 
     const badKv = structuredClone(kvJson);

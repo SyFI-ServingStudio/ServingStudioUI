@@ -60,6 +60,12 @@ wire JSON 中的数值 `worker_id` 必须是 JavaScript safe integer，并由 re
 
 analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导致跨 pool 同号 worker 被覆盖或合并。该问题已在 2026-07-15 修复：SQL、roster、bin 聚合均使用 `(pool_tag, worker_id)`，真实重分析样例恢复为 10 个 worker（attn 8、ffn 2）。UI 保留 `pool_tag` 做精确筛选，也不通过 clamp 隐藏异常值。
 
+utilization schema v1 的顶层 `series` 保留逐时间 bin 的 pool average；新增的可选
+`worker_series` 提供 `{key, label, pool_tag, worker_id, util}` worker 曲线。UI 必须兼容
+没有 `worker_series` 的旧 v1 artifact；存在时以 worker 细线展示，并以同 pool 颜色的粗线
+突出 `series` 中的 pool average。`meta.avg` 仍是每个 pool 的 run-average 标量，不是另一条
+时序曲线。
+
 wire 层 subject id 使用 analyzer `registry::SUBJECTS` 的 canonical token；UI
 repository 必须通过显式表映射到领域名，不能从文件名或 camelCase 自动推断：
 

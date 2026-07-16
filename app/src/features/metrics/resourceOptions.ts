@@ -21,6 +21,14 @@ export function utilizationOption(
 ): EChartsOption {
   const x = util.t_ms.map((v) => +(v / 1000).toFixed(1));
   const opt = baseChartOption(t);
+  const poolIdentities = [
+    ...new Set([
+      ...util.series.map((series) => series.poolTag ?? series.key),
+      ...util.workerSeries.map((series) => series.worker.poolTag),
+    ]),
+  ].sort();
+  const colorFor = (identity: string): string =>
+    t.palette[poolIdentities.indexOf(identity) % t.palette.length];
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
@@ -31,15 +39,40 @@ export function utilizationOption(
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
     series: [
-      ...util.series.map((s, i) => ({
-        name: safeChartText(s.label),
-        type: 'line' as const,
-        smooth: true,
-        symbol: 'none',
-        data: s.util.map((v, j) => [x[j], +(v * 100).toFixed(1)]),
-        lineStyle: { width: 2.2, color: t.palette[i % t.palette.length] },
-        areaStyle: { opacity: 0.12, color: t.palette[i % t.palette.length] },
-      })),
+      ...util.workerSeries.map((series) => {
+        const color = colorFor(series.worker.poolTag);
+        const label =
+          series.label.startsWith(`${series.worker.poolTag}/`) ||
+          series.label.startsWith(`${series.worker.poolTag} ·`)
+            ? series.label
+            : `${series.worker.poolTag} · ${series.label}`;
+        return {
+          name: safeChartText(label),
+          type: 'line' as const,
+          smooth: true,
+          symbol: 'none',
+          data: series.util.map((value, index) => [x[index], +(value * 100).toFixed(1)]),
+          lineStyle: { width: 1.1, color, opacity: 0.42 },
+          emphasis: { focus: 'series' as const, lineStyle: { width: 2.1, opacity: 0.9 } },
+          z: 2,
+        };
+      }),
+      ...util.series.map((s) => {
+        const color = colorFor(s.poolTag ?? s.key);
+        const label =
+          s.poolTag === undefined || s.label.toLowerCase() === s.poolTag.toLowerCase()
+            ? s.label
+            : `${s.poolTag} · ${s.label}`;
+        return {
+          name: safeChartText(`${label} average`),
+          type: 'line' as const,
+          smooth: true,
+          symbol: 'none',
+          data: s.util.map((v, j) => [x[j], +(v * 100).toFixed(1)]),
+          lineStyle: { width: 3.4, color, opacity: 1 },
+          z: 4,
+        };
+      }),
       ...(cursorS != null ? [cursorMarker(cursorS)] : []),
     ],
   };

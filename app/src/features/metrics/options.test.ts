@@ -5,12 +5,13 @@ import type { ScopedPendingQueue } from '../../application/runSelection';
 import { CHART_THEME } from '../../charts/platform';
 import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../../domain/run';
 import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
+import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import {
   batchOption,
   kernelTimeStackOption,
   kvOption,
   pendingQueueOption,
-  sloOption,
+  sloMetricOption,
   throughputOption,
   utilizationOption,
 } from './options';
@@ -64,6 +65,29 @@ const slo: Slo = {
 const utilization: UtilSeries = {
   t_ms: [0],
   series: [{ key: 'worker', label: ATTACK, util: [0.5] }],
+  workerSeries: [],
+};
+
+const multiPoolUtilization: UtilSeries = {
+  t_ms: [0],
+  series: [
+    { key: 'pool_0', label: 'Pool 0', poolTag: 'attn', util: [0.5] },
+    { key: 'pool_1', label: 'Pool 1', poolTag: 'ffn', util: [0.75] },
+  ],
+  workerSeries: [
+    {
+      key: makeWorkerKey('attn', '0'),
+      label: 'Worker 0',
+      worker: makeWorkerRef('attn', '0'),
+      util: [0.4],
+    },
+    {
+      key: makeWorkerKey('ffn', '0'),
+      label: 'Worker 0',
+      worker: makeWorkerRef('ffn', '0'),
+      util: [0.8],
+    },
+  ],
 };
 
 const kv: KvSeries = {
@@ -104,7 +128,9 @@ const breakdown: ReadyKernelTimeBreakdown = {
 describe('scope metric chart options', () => {
   it('uses renderer-native rich-text mode for every popup tooltip', () => {
     const options = [
-      sloOption(slo, CHART_THEME),
+      sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]),
+      sloMetricOption(slo.tpot, CHART_THEME, CHART_THEME.palette[1]),
+      sloMetricOption(slo.e2e, CHART_THEME, CHART_THEME.palette[2]),
       throughputOption(throughput, CHART_THEME),
       utilizationOption(utilization, CHART_THEME),
       kvOption(kv, CHART_THEME),
@@ -118,7 +144,7 @@ describe('scope metric chart options', () => {
 
   it('sanitizes analyzer identities in series and category labels', () => {
     [
-      sloOption(slo, CHART_THEME),
+      sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]),
       utilizationOption(utilization, CHART_THEME),
       kvOption(kv, CHART_THEME),
       kernelTimeStackOption(breakdown, CHART_THEME),
@@ -126,6 +152,10 @@ describe('scope metric chart options', () => {
       const firstSeriesName = (option.series as Array<{ name?: string }>)[0]?.name ?? '';
       expectSafeText(firstSeriesName);
     });
+
+    expect(
+      (sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]).series as unknown[]).length,
+    ).toBe(1);
 
     const stackChart = kernelTimeStackOption(breakdown, CHART_THEME);
     const categoryAxis = stackChart.yAxis as { data?: string[] };
@@ -147,5 +177,50 @@ describe('scope metric chart options', () => {
       ),
     );
     expectSafeText(rendered);
+  });
+
+  it('keeps the throughput x-axis title and final tick inside the SVG viewport', () => {
+    const option = throughputOption(throughput, CHART_THEME);
+    expect(option.grid).toMatchObject({ containLabel: true });
+    expect(option.xAxis).toMatchObject({
+      name: 'wall-clock · s',
+      nameLocation: 'middle',
+      nameGap: 24,
+    });
+  });
+
+  it('renders worker utilization with identity-stable pool colors and bold pool averages', () => {
+    const option = utilizationOption(multiPoolUtilization, CHART_THEME);
+    const reordered = utilizationOption(
+      { ...multiPoolUtilization, series: [...multiPoolUtilization.series].reverse() },
+      CHART_THEME,
+    );
+    const series = option.series as Array<{
+      name: string;
+      lineStyle: { color: string; width: number; opacity: number };
+      z: number;
+    }>;
+    const reorderedSeries = reordered.series as Array<{
+      name: string;
+      lineStyle: { color: string };
+    }>;
+    const colors = new Map(series.map((item) => [item.name, item.lineStyle.color]));
+    const reorderedColors = new Map(
+      reorderedSeries.map((item) => [item.name, item.lineStyle.color]),
+    );
+
+    expect(series.map((item) => item.name)).toEqual([
+      'attn · Worker 0',
+      'ffn · Worker 0',
+      'attn · Pool 0 average',
+      'ffn · Pool 1 average',
+    ]);
+    expect(reorderedColors).toEqual(colors);
+    expect(new Set(colors.values()).size).toBe(2);
+    expect(series.slice(0, 2).every((item) => item.lineStyle.width === 1.1 && item.z === 2)).toBe(
+      true,
+    );
+    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(true);
+    expect(option.legend).toBeTruthy();
   });
 });

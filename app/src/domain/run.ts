@@ -25,6 +25,12 @@ export interface Throughput {
 export interface UtilSeries {
   t_ms: number[];
   series: { key: string; label: string; poolTag?: string; util: number[] }[];
+  workerSeries: {
+    key: WorkerKey;
+    label: string;
+    worker: WorkerRef;
+    util: number[];
+  }[];
 }
 export interface KvSeries {
   t_ms: number[];

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ActiveRunProvider, useActiveRunState } from '../../application/ActiveRunProvider';
 import { AnalyzerRepositoryProvider } from '../../application/RepositoryProvider';
 import { ChartFocusProvider } from '../../components/ChartFocusProvider';
+import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import type { AnalyzerRepository } from '../../repositories/AnalyzerRepository';
 import { createTestRepository, makeTestSubjectResults } from '../../test/analyzerRepositoryFixture';
 import ClusterStage from './ClusterStage';
@@ -60,9 +61,56 @@ describe('ClusterStage', () => {
     renderStage(repository);
 
     expect(
-      await screen.findByText(
+      await screen.findAllByText(
         'Analyzer subject slo is incompatible. Invalid analyzer-v1 SLO payload: ttft.x is malformed.',
       ),
-    ).toBeVisible();
+    ).toHaveLength(3);
+  });
+
+  it('renders ready TTFT, TPOT and E2E as three separate charts', async () => {
+    const { repository } = createTestRepository();
+
+    renderStage(repository);
+
+    expect(await screen.findByRole('img', { name: /TTFT latency/ })).toBeVisible();
+    expect(screen.getByRole('img', { name: /TPOT latency/ })).toBeVisible();
+    expect(screen.getByRole('img', { name: /E2E latency/ })).toBeVisible();
+  });
+
+  it('renders one cluster utilization chart for every payload pool', async () => {
+    const subjects = makeTestSubjectResults();
+    subjects.utilization = {
+      subject: 'utilization',
+      status: 'ready',
+      schemaVersion: 1,
+      payload: {
+        t_ms: [0],
+        series: [
+          { key: 'pool_0', label: 'Pool 0', poolTag: 'attn', util: [0.5] },
+          { key: 'pool_1', label: 'Pool 1', poolTag: 'ffn', util: [0.75] },
+        ],
+        workerSeries: [
+          {
+            key: makeWorkerKey('attn', '0'),
+            label: 'Worker 0',
+            worker: makeWorkerRef('attn', '0'),
+            util: [0.5],
+          },
+          {
+            key: makeWorkerKey('ffn', '0'),
+            label: 'Worker 0',
+            worker: makeWorkerRef('ffn', '0'),
+            util: [0.75],
+          },
+        ],
+      },
+    };
+    const { repository } = createTestRepository({ subjects });
+
+    renderStage(repository);
+
+    expect(await screen.findByText('GPU utilization · all pools')).toBeVisible();
+    expect(await screen.findByText('2 worker lines · 2 pool averages')).toBeVisible();
+    expect(screen.queryByText('GPU utilization · attn')).not.toBeInTheDocument();
   });
 });

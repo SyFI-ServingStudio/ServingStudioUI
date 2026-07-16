@@ -31,6 +31,20 @@ describe('run selection identity', () => {
           { key: 'also-opaque', label: 'not attn', poolTag: 'attn', util: [0.4] },
           { key: 'attn/forged', label: 'attn', poolTag: 'ffn', util: [0.6] },
         ],
+        workerSeries: [
+          {
+            key: makeWorkerKey('attn', '0'),
+            label: 'Worker 0',
+            worker: { poolTag: 'attn', workerId: '0' },
+            util: [0.5],
+          },
+          {
+            key: makeWorkerKey('ffn', '0'),
+            label: 'Worker 0',
+            worker: { poolTag: 'ffn', workerId: '0' },
+            util: [0.7],
+          },
+        ],
       },
       'attn',
     );
@@ -46,6 +60,9 @@ describe('run selection identity', () => {
     );
 
     expect(utilization.series.map((series) => series.key)).toEqual(['also-opaque']);
+    expect(utilization.workerSeries.map((series) => series.key)).toEqual([
+      makeWorkerKey('attn', '0'),
+    ]);
     expect(kv.series.map((series) => series.key)).toEqual(['also-opaque']);
   });
 });

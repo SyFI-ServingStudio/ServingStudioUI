@@ -63,6 +63,7 @@ export const scopedUtil = (utilization: UtilSeries, role: string | null): UtilSe
   return {
     t_ms: utilization.t_ms,
     series: utilization.series.filter((series) => matchesPool(series.poolTag, role)),
+    workerSeries: utilization.workerSeries.filter((series) => series.worker.poolTag === role),
   };
 };
 

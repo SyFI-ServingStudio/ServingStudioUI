@@ -1,11 +1,5 @@
 import type { EChartsOption } from 'echarts';
-import {
-  sloOption,
-  throughputOption,
-  utilizationOption,
-  kvOption,
-  pendingQueueOption,
-} from './options';
+import { throughputOption, utilizationOption, kvOption, pendingQueueOption } from './options';
 import { CHART_THEME } from '../../charts/platform';
 import {
   cursorSeconds,
@@ -19,7 +13,7 @@ import type { Run } from '../../domain/run';
 import type { SubjectResult } from '../../domain/subject';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 
-export type MetricKey = 'slo' | 'throughput' | 'utilization' | 'kv' | 'backpressure';
+export type MetricKey = 'throughput' | 'utilization' | 'kv' | 'backpressure';
 
 export interface MetricView {
   option: EChartsOption | null;
@@ -53,12 +47,6 @@ export function metricView(
 
   const role = projection.poolRole ?? poolInScope(run, s);
   const cS = cursorSeconds(s);
-  if (subject.subject === 'slo')
-    return {
-      option: sloOption(subject.payload, CHART_THEME),
-      note: null,
-      sub: 'TTFT · TPOT · E2E · CDF',
-    };
   if (subject.subject === 'throughput')
     return {
       option: throughputOption(subject.payload, CHART_THEME, cS),
@@ -67,7 +55,7 @@ export function metricView(
     };
   if (subject.subject === 'utilization') {
     const utilization = scopedUtil(subject.payload, role);
-    if (utilization.series.length === 0) {
+    if (utilization.series.length === 0 && utilization.workerSeries.length === 0) {
       return {
         option: null,
         note: null,
@@ -77,8 +65,12 @@ export function metricView(
     }
     return {
       option: utilizationOption(utilization, CHART_THEME, cS),
-      note: role ? `scoped to ${role} pool` : 'click a pool to scope',
-      sub: role ? `pool: ${role}` : 'all pools',
+      note: role
+        ? `scoped to ${role} pool; bold line is the pool average`
+        : 'worker lines with bold pool averages; click a pool to scope',
+      sub: role
+        ? `${utilization.workerSeries.length} workers · pool: ${role}`
+        : `${utilization.workerSeries.length} workers · ${utilization.series.length} pools`,
     };
   }
   if (subject.subject === 'backpressure') {
@@ -122,16 +114,14 @@ export function metricView(
 }
 
 export const METRIC_TITLES: Record<MetricKey, string> = {
-  slo: 'SLO latency',
   throughput: 'Throughput',
   utilization: 'GPU utilization',
   kv: 'KV occupancy',
   backpressure: 'Backpressure',
 };
 export const METRIC_CAPTIONS: Record<MetricKey, string> = {
-  slo: 'Cumulative distribution of TTFT, TPOT and end-to-end latency across all requests. Dotted markers show p90.',
   throughput: 'Prefill and decode tokens per second, stacked — warmup ramp then steady state.',
-  utilization: 'Per-pool GPU busy fraction over the run window.',
+  utilization: 'Per-worker GPU busy fraction over time, with bold pool-average lines.',
   kv: 'Active KV-cache tokens over time; shown as capacity percentage when metadata is available.',
   backpressure:
     'Pending scheduler-queue length over wall-clock time. Cluster and pool totals are stacked from their worker queues; the outline is the exact pointwise sum.',
