@@ -7,6 +7,10 @@ import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescri
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1Topology } from '../contracts/analyzer/v1/topology';
+import {
+  parseAnalyzerV1ModelResource,
+  parseAnalyzerV1WorkloadResource,
+} from '../contracts/analyzer/v1/overviewResources';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -159,6 +163,24 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
       this.readRunArtifact(binding, TOPOLOGY_RUN_META_HREF),
     ]);
     return parseAnalyzerV1Topology(params, runMeta, binding.descriptor.deployment);
+  }
+
+  async getRunModel(runId: string) {
+    const binding = await this.bindRun(runId);
+    const model = binding.descriptor.model;
+    if (model === undefined) {
+      throw new ArtifactRunBindingError(`Run ${runId} does not declare a model resource.`);
+    }
+    return parseAnalyzerV1ModelResource(await this.readRunArtifact(binding, model.href));
+  }
+
+  async getRunWorkload(runId: string) {
+    const binding = await this.bindRun(runId);
+    const workload = binding.descriptor.workload;
+    if (workload === undefined) {
+      throw new ArtifactRunBindingError(`Run ${runId} does not declare a workload resource.`);
+    }
+    return parseAnalyzerV1WorkloadResource(await this.readRunArtifact(binding, workload.href));
   }
 
   async getSubject<Name extends SubjectName>(

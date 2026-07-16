@@ -5,6 +5,7 @@ import type {
   TraceResource,
 } from '../domain/artifacts';
 import type { Topology } from '../domain/run';
+import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { Iteration, IterTimeline } from '../domain/iteration';
@@ -21,6 +22,10 @@ export interface AnalyzerRepository {
   getRunSummary(runId: string): Promise<RunSummaryArtifact>;
 
   getRunTopology(runId: string): Promise<Topology>;
+
+  getRunModel(runId: string): Promise<ModelConfigResource>;
+
+  getRunWorkload(runId: string): Promise<WorkloadOverviewResource>;
 
   getRunDescriptor(runId: string): Promise<RunDescriptor>;
 

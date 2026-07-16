@@ -1,9 +1,17 @@
 import { useMemo, type ReactNode } from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
+import {
+  useActiveRun,
+  useActiveRunModel,
+  useActiveRunWorkload,
+} from '../../application/ActiveRunProvider';
+import { CHART_THEME } from '../../charts/platform';
+import EChart from '../../components/EChart';
+import type { JsonValue } from '../../domain/overviewResources';
 import type { Deployment } from '../../domain/deployment';
 import { tokens } from '../../theme';
 import { fmtInt } from '../../util';
+import { arrivalPatternOption, lengthDistributionOption } from './overviewOptions';
 
 interface Property {
   label: string;
@@ -19,6 +27,25 @@ function deploymentHeadline(deployment: Deployment): string {
   if (deployment === 'afd') return 'AFD deployment';
   if (deployment === 'pd') return 'Prefill / decode deployment';
   return 'Unified deployment';
+}
+
+function configNumber(config: Readonly<Record<string, JsonValue>>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = config[key];
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return undefined;
+}
+
+function modelCount(value: number | undefined): string {
+  if (value === undefined) return 'n/a';
+  if (value >= 1e9) return `${+(value / 1e9).toFixed(1)}B`;
+  if (value >= 1e6) return `${+(value / 1e6).toFixed(1)}M`;
+  return fmtInt(value);
+}
+
+function resourceStatusLabel(status: string): string {
+  return status.replace('_', ' ');
 }
 
 function PropertyGrid({ properties }: { properties: Property[] }) {
@@ -168,39 +195,52 @@ function OverviewCard({
 
 export default function RunOverviewRow() {
   const run = useActiveRun();
-  const throughputSubject = useActiveRunSubject('throughput');
-  const throughput = throughputSubject.status === 'ready' ? throughputSubject.payload : null;
+  const modelResource = useActiveRunModel();
+  const workloadResource = useActiveRunWorkload();
   const overview = useMemo(() => {
     const param = (key: string, fallback = 'n/a') =>
       distinct(
         run.workerList.map((worker) => worker.arch.params[key]),
         fallback,
       );
-    const traceEndMs = throughput?.t_end_ms[throughput.t_end_ms.length - 1];
-    const traceSpan =
-      traceEndMs === undefined
-        ? 'n/a'
-        : traceEndMs >= 1000
-          ? `${(traceEndMs / 1000).toFixed(traceEndMs % 1000 ? 1 : 0)} s`
-          : `${traceEndMs} ms`;
-
-    const hasMoeArch = run.workerList.some((worker) =>
-      worker.archType.toLowerCase().includes('moe'),
-    );
-    const experts = param('experts', hasMoeArch ? 'n/a' : 'dense');
-    const topK = param('top_k', 'n/a');
+    const modelConfig = modelResource.status === 'ready' ? modelResource.resource.config : {};
+    const layers = configNumber(modelConfig, 'num_hidden_layers');
+    const hidden = configNumber(modelConfig, 'hidden_size');
+    const attentionHeads = configNumber(modelConfig, 'num_attention_heads');
+    const kvHeads = configNumber(modelConfig, 'num_key_value_heads');
+    const contextLength = configNumber(modelConfig, 'max_position_embeddings');
+    const experts = configNumber(modelConfig, 'num_experts');
+    const topK = configNumber(modelConfig, 'num_experts_per_tok');
+    const hasMoeArch =
+      modelResource.status === 'ready'
+        ? experts !== undefined
+        : run.workerList.some((worker) => worker.archType.toLowerCase().includes('moe'));
+    const trace = workloadResource.status === 'ready' ? workloadResource.resource : null;
+    const traceEndS = trace?.arrivalSeconds[trace.arrivalSeconds.length - 1];
+    const traceSpan = traceEndS === undefined ? 'n/a' : `${+traceEndS.toFixed(1)} s`;
     return {
       traceSpan,
       modelKind: hasMoeArch ? 'mixture of experts' : 'dense transformer',
       modelProperties: [
-        { label: 'Parameters', value: param('parameters') },
-        { label: 'Active params', value: param('active_parameters') },
-        { label: 'Layers', value: param('layers') },
-        { label: 'Hidden size', value: param('hidden') },
-        { label: 'Attention heads', value: param('attention_heads') },
-        { label: 'KV heads', value: param('kv_heads') },
-        { label: 'Context', value: param('context_length') },
-        { label: 'Experts / top-k', value: hasMoeArch ? `${experts} / ${topK}` : 'dense' },
+        { label: 'Parameters', value: modelCount(configNumber(modelConfig, 'num_parameters')) },
+        {
+          label: 'Active params',
+          value: modelCount(configNumber(modelConfig, 'num_active_parameters')),
+        },
+        { label: 'Layers', value: layers === undefined ? 'n/a' : fmtInt(layers) },
+        { label: 'Hidden size', value: hidden === undefined ? 'n/a' : fmtInt(hidden) },
+        {
+          label: 'Attention heads',
+          value: attentionHeads === undefined ? 'n/a' : fmtInt(attentionHeads),
+        },
+        { label: 'KV heads', value: kvHeads === undefined ? 'n/a' : fmtInt(kvHeads) },
+        { label: 'Context', value: contextLength === undefined ? 'n/a' : fmtInt(contextLength) },
+        {
+          label: 'Experts / top-k',
+          value: hasMoeArch
+            ? `${experts === undefined ? 'n/a' : fmtInt(experts)} / ${topK === undefined ? 'n/a' : fmtInt(topK)}`
+            : 'dense',
+        },
       ],
       simulationProperties: [
         { label: 'GPU type', value: run.gpu.replace('NVIDIA ', '') },
@@ -219,7 +259,13 @@ export default function RunOverviewRow() {
         { label: 'Placement', value: distinct(run.topology.pools.map((pool) => pool.placement)) },
       ],
     };
-  }, [run, throughput]);
+  }, [modelResource, run, workloadResource]);
+
+  const workload = workloadResource.status === 'ready' ? workloadResource.resource : null;
+  const workloadReason =
+    workloadResource.status !== 'ready' && 'reason' in workloadResource
+      ? workloadResource.reason
+      : undefined;
 
   return (
     <Box
@@ -312,49 +358,78 @@ export default function RunOverviewRow() {
                 whiteSpace: 'nowrap',
               }}
             >
-              not generated
+              {workload === null
+                ? resourceStatusLabel(workloadResource.status)
+                : `peak / mean ${workload.peakToMean.toFixed(2)}×`}
             </Typography>
           </Stack>
           <Typography sx={{ mt: 0.3, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
-            {fmtInt(run.summary.requests)} requests · {fmtInt(run.workerList.length)} workers ·{' '}
-            {run.source.simulationFolder}
+            {fmtInt(workload?.requestCount ?? run.summary.requests)} requests ·{' '}
+            {workload === null
+              ? run.source.simulationFolder
+              : `${workload.sourcePaths.length} source trace${workload.sourcePaths.length === 1 ? '' : 's'} · ${workload.arrivalBasis.replace(/_/g, ' ')}`}
           </Typography>
         </Box>
 
-        <Box
-          sx={{
-            flex: 1,
-            minHeight: 220,
-            display: 'grid',
-            placeItems: 'center',
-            border: `1px dashed ${tokens.hair}`,
-            borderRadius: 1.5,
-            background: tokens.tile2,
-            p: 3,
-            textAlign: 'center',
-          }}
-        >
-          <Box>
-            <Typography
-              sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, color: tokens.ink }}
-            >
-              Trace distribution not generated
-            </Typography>
-            <Typography
-              sx={{
-                mt: 0.75,
-                maxWidth: 470,
-                fontFamily: tokens.mono,
-                fontSize: 10.5,
-                lineHeight: 1.6,
-                color: tokens.sub,
-              }}
-            >
-              This simulation folder has no offered-workload summary for input/output lengths or
-              arrival burstiness. The UI will not substitute synthetic distributions.
-            </Typography>
+        {workload === null ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 220,
+              display: 'grid',
+              placeItems: 'center',
+              border: `1px dashed ${tokens.hair}`,
+              borderRadius: 1.5,
+              background: tokens.tile2,
+              p: 3,
+              textAlign: 'center',
+            }}
+          >
+            <Box>
+              <Typography
+                sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16, color: tokens.ink }}
+              >
+                Trace distribution {resourceStatusLabel(workloadResource.status)}
+              </Typography>
+              <Typography
+                sx={{
+                  mt: 0.75,
+                  maxWidth: 470,
+                  fontFamily: tokens.mono,
+                  fontSize: 10.5,
+                  lineHeight: 1.6,
+                  color: tokens.sub,
+                }}
+              >
+                {workloadReason ??
+                  'This run has no configured-workload summary. The UI will not substitute synthetic distributions.'}
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        ) : (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 300,
+              display: 'grid',
+              gridTemplateColumns: { xs: 'minmax(0,1fr)', sm: 'repeat(2,minmax(0,1fr))' },
+              gap: 1,
+            }}
+          >
+            <Box sx={{ minWidth: 0, minHeight: 240 }}>
+              <EChart
+                option={lengthDistributionOption(workload, CHART_THEME)}
+                ariaLabel="Configured trace input and output token length distributions"
+              />
+            </Box>
+            <Box sx={{ minWidth: 0, minHeight: 240 }}>
+              <EChart
+                option={arrivalPatternOption(workload, CHART_THEME)}
+                ariaLabel={`Configured trace arrival pattern. Peak to mean ${workload.peakToMean.toFixed(2)}`}
+              />
+            </Box>
+          </Box>
+        )}
       </Paper>
     </Box>
   );

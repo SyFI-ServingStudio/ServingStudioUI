@@ -117,6 +117,7 @@ export interface RunDescriptor extends RunListItem {
   deployment: Deployment;
   summary: ArtifactRef;
   model?: ArtifactRef;
+  workload?: ArtifactRef;
   topology?: ArtifactRef;
   workers?: readonly WorkerRef[];
   subjects: Partial<Record<SubjectName, SubjectArtifact>>;

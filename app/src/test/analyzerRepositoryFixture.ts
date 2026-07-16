@@ -5,6 +5,7 @@ import type {
   TraceResource,
 } from '../domain/artifacts';
 import type { KvSeries, Slo, Throughput, Topology, UtilSeries } from '../domain/run';
+import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/overviewResources';
 import type { KernelTimeShare } from '../domain/kernelTimeShare';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
@@ -20,6 +21,8 @@ export interface RepositoryCallCounts {
   descriptor: number;
   summary: number;
   topology: number;
+  model: number;
+  workload: number;
   subjects: number;
   trees: number;
   treeWorkers: WorkerKey[];
@@ -258,6 +261,8 @@ export function createTestRepository(
     descriptor?: RunDescriptor;
     summary?: RunSummaryArtifact;
     topology?: Topology;
+    model?: ModelConfigResource;
+    workload?: WorkloadOverviewResource;
     subjects?: TestSubjectResults;
     subjectErrors?: Partial<Record<SubjectName, Error>>;
     trees?: Record<WorkerKey, CostTree>;
@@ -274,6 +279,8 @@ export function createTestRepository(
     descriptor: 0,
     summary: 0,
     topology: 0,
+    model: 0,
+    workload: 0,
     subjects: 0,
     trees: 0,
     treeWorkers: [],
@@ -305,6 +312,16 @@ export function createTestRepository(
     async getRunTopology() {
       calls.topology += 1;
       return topology;
+    },
+    async getRunModel() {
+      calls.model += 1;
+      if (options.model === undefined) throw new Error('Missing test model resource.');
+      return options.model;
+    },
+    async getRunWorkload() {
+      calls.workload += 1;
+      if (options.workload === undefined) throw new Error('Missing test workload resource.');
+      return options.workload;
     },
     async getSubject<Name extends SubjectName>(
       _runId: string,

@@ -99,6 +99,42 @@ describe('ArtifactAnalyzerRepository', () => {
     expect(topology.pools.flatMap((pool) => pool.groups[0].workers)).toHaveLength(10);
   });
 
+  it('decodes descriptor-declared model and workload resources', async () => {
+    const descriptor = structuredClone(descriptorJson) as Record<string, unknown>;
+    descriptor.model = { href: 'artifacts/model.json', schema_version: 1 };
+    descriptor.workload = { href: 'artifacts/workload.json', schema_version: 1 };
+    const modules = coreModules(descriptor);
+    modules[`${RUN_ROOT}/artifacts/model.json`] = loader({
+      schema_version: 1,
+      source_path: 'model/config/qwen3_coder_480b.json',
+      config: { hidden_size: 6144 },
+    });
+    modules[`${RUN_ROOT}/artifacts/workload.json`] = loader({
+      schema_version: 1,
+      scope: 'configured_trace',
+      source_paths: ['trace/aime_long.csv'],
+      request_count: 2,
+      arrival_basis: 'source_trace',
+      request_rate: 0,
+      token_lengths: [16],
+      input_density: [1],
+      output_density: [1],
+      arrival_seconds: [0],
+      arrivals: [2],
+      arrival_trend: [2],
+      peak_to_mean: 1,
+    });
+    const repository = repositoryWith(modules);
+
+    await expect(repository.getRunModel(RUN_ID)).resolves.toMatchObject({
+      config: { hidden_size: 6144 },
+    });
+    await expect(repository.getRunWorkload(RUN_ID)).resolves.toMatchObject({
+      requestCount: 2,
+      arrivalBasis: 'source_trace',
+    });
+  });
+
   it('prefers a declared direct topology and never loads compatibility inputs', async () => {
     const descriptor = structuredClone(descriptorJson) as Record<string, unknown>;
     descriptor.topology = { href: 'artifacts/topology.json', schema_version: 1 };

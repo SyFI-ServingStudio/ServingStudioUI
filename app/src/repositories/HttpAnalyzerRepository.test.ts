@@ -35,6 +35,8 @@ function protocolData() {
       revision: REVISION,
     },
     summary: { href: 'summary' },
+    model: { href: 'model', media_type: 'application/json', schema_version: 1 },
+    workload: { href: 'workload', media_type: 'application/json', schema_version: 1 },
     topology: { href: 'topology', media_type: 'application/json', schema_version: 1 },
     subjects: {
       ...descriptorFixture.subjects,
@@ -47,6 +49,11 @@ function protocolData() {
         ...descriptorFixture.subjects['kv-occupancy'],
         report_href: `revisions/${REVISION}/reports/kv-occupancy`,
         payload_href: `revisions/${REVISION}/payloads/kv-occupancy`,
+      },
+      concurrency: {
+        status: 'ready',
+        schema_version: 1,
+        payload_href: `revisions/${REVISION}/payloads/concurrency`,
       },
     },
     provenance: {
@@ -85,8 +92,55 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
     [absolute(`/api/v1/runs/${RUN_ID}/topology`)]: {
       body: { schema_version: 1, params, run_meta: runMeta },
     },
+    [absolute(`/api/v1/runs/${RUN_ID}/model`)]: {
+      body: {
+        schema_version: 1,
+        source_path: 'model/config/qwen3_coder_480b.json',
+        config: { hidden_size: 6144, num_hidden_layers: 62 },
+      },
+    },
+    [absolute(`/api/v1/runs/${RUN_ID}/workload`)]: {
+      body: {
+        schema_version: 1,
+        scope: 'configured_trace',
+        source_paths: ['trace/aime_long.csv'],
+        request_count: 2,
+        arrival_basis: 'effective_open_loop',
+        request_rate: 4,
+        token_lengths: [16],
+        input_density: [1],
+        output_density: [1],
+        arrival_seconds: [0],
+        arrivals: [2],
+        arrival_trend: [2],
+        peak_to_mean: 1,
+      },
+    },
     [absolute(`/api/v1/runs/${RUN_ID}/revisions/${REVISION}/payloads/slo-general`)]: {
       body: sloPayload,
+    },
+    [absolute(`/api/v1/runs/${RUN_ID}/revisions/${REVISION}/payloads/concurrency`)]: {
+      body: {
+        schema_version: 1,
+        meta: {
+          log_dir: 'logs/test-run',
+          request_count: 2,
+          span_ms: 1000,
+          bins: 2,
+          max_points: 512,
+          aggregation: 'equal-width time-weighted mean',
+        },
+        t_ms: [500, 1000],
+        active: [1.25, 1.75],
+        peak: 2,
+        definitions: {
+          scope: 'run',
+          active: 'time-weighted mean active requests',
+          t_ms: 'bucket right edge in milliseconds',
+          peak: 'exact event-sweep peak',
+          binning: 'equal-width bins',
+        },
+      },
     },
     ...overrides,
   };
@@ -141,10 +195,24 @@ describe('HttpAnalyzerRepository', () => {
     await expect(repository.getRunTopology(RUN_ID)).resolves.toMatchObject({
       pools: [{ role: 'attn' }, { role: 'ffn' }],
     });
+    await expect(repository.getRunModel(RUN_ID)).resolves.toMatchObject({
+      sourcePath: 'model/config/qwen3_coder_480b.json',
+      config: { hidden_size: 6144 },
+    });
+    await expect(repository.getRunWorkload(RUN_ID)).resolves.toMatchObject({
+      requestCount: 2,
+      sourcePaths: ['trace/aime_long.csv'],
+    });
     await expect(repository.getSubject(RUN_ID, 'slo')).resolves.toMatchObject({
       subject: 'slo',
       status: 'ready',
       schemaVersion: 1,
+    });
+    await expect(repository.getSubject(RUN_ID, 'concurrency')).resolves.toEqual({
+      subject: 'concurrency',
+      status: 'ready',
+      schemaVersion: 1,
+      payload: { t_ms: [500, 1000], active: [1.25, 1.75], peak: 2 },
     });
   });
 

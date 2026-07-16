@@ -1,9 +1,9 @@
 export interface TraceOverviewData {
-  tokenLengths: number[];
-  inputDensity: number[];
-  outputDensity: number[];
-  arrivalSeconds: number[];
-  arrivals: number[];
-  arrivalTrend: number[];
+  tokenLengths: readonly number[];
+  inputDensity: readonly number[];
+  outputDensity: readonly number[];
+  arrivalSeconds: readonly number[];
+  arrivals: readonly number[];
+  arrivalTrend: readonly number[];
   peakToMean: number;
 }

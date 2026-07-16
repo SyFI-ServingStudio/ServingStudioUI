@@ -7,6 +7,10 @@ import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescri
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
+import {
+  parseAnalyzerV1ModelResource,
+  parseAnalyzerV1WorkloadResource,
+} from '../contracts/analyzer/v1/overviewResources';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -142,6 +146,30 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       this.client.resolve(binding.descriptorUrl, topology.href),
     );
     return parseAnalyzerV1TopologyArtifact(input, binding.descriptor.deployment);
+  }
+
+  async getRunModel(runId: string) {
+    const binding = await this.bindRun(runId);
+    const model = binding.descriptor.model;
+    if (model === undefined) {
+      throw new HttpRunBindingError(`HTTP run ${runId} does not declare a model resource.`);
+    }
+    const input = await this.client.readJson(
+      this.client.resolve(binding.descriptorUrl, model.href),
+    );
+    return parseAnalyzerV1ModelResource(input);
+  }
+
+  async getRunWorkload(runId: string) {
+    const binding = await this.bindRun(runId);
+    const workload = binding.descriptor.workload;
+    if (workload === undefined) {
+      throw new HttpRunBindingError(`HTTP run ${runId} does not declare a workload resource.`);
+    }
+    const input = await this.client.readJson(
+      this.client.resolve(binding.descriptorUrl, workload.href),
+    );
+    return parseAnalyzerV1WorkloadResource(input);
   }
 
   async getSubject<Name extends SubjectName>(

@@ -12,6 +12,8 @@ function validWireDescriptor(): Record<string, unknown> {
     deployment: 'afd',
     lifecycle: { simulation: 'complete', analysis: 'complete' },
     summary: { href: 'reports/summary.json', media_type: 'application/json' },
+    model: { href: 'model', schema_version: 1 },
+    workload: { href: 'workload', schema_version: 1 },
     topology: { href: 'reports/topology.json' },
     workers: [
       { pool_tag: 'attn', worker_id: 0 },
@@ -62,6 +64,8 @@ describe('parseAnalyzerV1RunDescriptor', () => {
       modelName: 'model/test.json',
       deployment: 'afd',
       lifecycle: { simulation: 'complete', analysis: 'complete' },
+      model: { href: 'model', schemaVersion: 1 },
+      workload: { href: 'workload', schemaVersion: 1 },
       workers: [
         { poolTag: 'attn', workerId: '0' },
         { poolTag: 'ffn', workerId: '0' },

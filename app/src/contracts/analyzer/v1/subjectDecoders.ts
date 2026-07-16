@@ -1,6 +1,7 @@
 import type { SubjectName, SubjectResult } from '../../../domain/subject';
 import { decodeAnalyzerV1BatchPayload } from './batch';
 import { decodeAnalyzerV1ConservationPayload } from './conservation';
+import { decodeAnalyzerV1ConcurrencyPayload } from './concurrency';
 import { decodeAnalyzerV1KernelThroughputPayload } from './kernelThroughput';
 import { decodeAnalyzerV1KernelTimeSharePayload } from './kernelTimeShare';
 import { decodeAnalyzerV1KvOccupancyPayload } from './kvOccupancy';
@@ -40,9 +41,10 @@ export function decodeAnalyzerV1SubjectPayload<Name extends SubjectName>(
       return decodeAnalyzerV1KernelThroughputPayload(input, options) as SubjectResult<Name>;
     case 'conservation':
       return decodeAnalyzerV1ConservationPayload(input, options) as SubjectResult<Name>;
+    case 'concurrency':
+      return decodeAnalyzerV1ConcurrencyPayload(input, options) as SubjectResult<Name>;
     case 'kernelTimeShare':
       return decodeAnalyzerV1KernelTimeSharePayload(input, options) as SubjectResult<Name>;
-    case 'concurrency':
     case 'backpressure':
     case 'kernelInputDistribution':
       return unsupportedReadySubject(subject) as SubjectResult<Name>;

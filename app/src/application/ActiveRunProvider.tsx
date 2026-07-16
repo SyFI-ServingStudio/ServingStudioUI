@@ -2,11 +2,18 @@ import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'r
 
 import type { RunDescriptor } from '../domain/artifacts';
 import type { Run } from '../domain/run';
+import type {
+  ModelConfigResource,
+  OverviewResourceResult,
+  WorkloadOverviewResource,
+} from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import { useViz } from '../store';
 import {
   useActiveRunCoreQuery,
   useDescriptorSubjectQuery,
+  useDescriptorModelQuery,
+  useDescriptorWorkloadQuery,
   useRunDescriptorQuery,
   useRunListQuery,
 } from './queries';
@@ -147,4 +154,14 @@ export function useActiveRunSubject<Name extends SubjectName>(subject: Name): Su
   const state = useActiveRunState();
   const descriptor = state.status === 'ready' ? state.descriptor : undefined;
   return useDescriptorSubjectQuery(descriptor, subject);
+}
+
+export function useActiveRunModel(): OverviewResourceResult<ModelConfigResource> {
+  const state = useActiveRunState();
+  return useDescriptorModelQuery(state.status === 'ready' ? state.descriptor : undefined);
+}
+
+export function useActiveRunWorkload(): OverviewResourceResult<WorkloadOverviewResource> {
+  const state = useActiveRunState();
+  return useDescriptorWorkloadQuery(state.status === 'ready' ? state.descriptor : undefined);
 }

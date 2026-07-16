@@ -1,5 +1,6 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
-import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunModel } from '../../application/ActiveRunProvider';
+import type { JsonValue, ModelConfigResource } from '../../domain/overviewResources';
 import type { Group, WorkerInstance } from '../../domain/run';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import { useViz } from '../../store';
@@ -25,12 +26,20 @@ const chip = (label: string) => (
   </Box>
 );
 
-function archChips(g: Group): string[] {
+function modelNumber(model: ModelConfigResource | null, key: string): number | undefined {
+  const value: JsonValue | undefined = model?.config[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function archChips(g: Group, model: ModelConfigResource | null): string[] {
   const p = g.arch.params;
-  const cs: string[] = [`L=${p.layers ?? '—'}`];
+  const layers = modelNumber(model, 'num_hidden_layers') ?? p.layers;
+  const experts = modelNumber(model, 'num_experts') ?? p.experts;
+  const topK = modelNumber(model, 'num_experts_per_tok') ?? p.top_k;
+  const cs: string[] = [`L=${layers ?? '—'}`];
   if (p.attn_tp) cs.push(`TP=${p.attn_tp}`);
   if (p.ep) cs.push(`EP=${p.ep}`);
-  if (p.experts) cs.push(`${p.experts}E/${p.top_k ?? '?'}`);
+  if (experts) cs.push(`${experts}E/${topK ?? '?'}`);
   if (p.dtype) cs.push(String(p.dtype));
   return cs;
 }
@@ -139,6 +148,8 @@ export default function SystemMapBand() {
   const selectPool = useViz((state) => state.selectPool);
   const selectWorker = useViz((state) => state.selectWorker);
   const run = useActiveRun();
+  const modelResult = useActiveRunModel();
+  const model = modelResult.status === 'ready' ? modelResult.resource : null;
   const w = run.workerList.find((candidate) => candidate.key === workerKey) ?? run.workerList[0];
   if (!w) throw new Error(`Run ${run.id} has no workers.`);
 
@@ -321,7 +332,7 @@ export default function SystemMapBand() {
                     <Box component="span">
                       {gr.replicas}×{gr.gpusPerReplica}={gr.numGpus} GPU
                     </Box>
-                    {archChips(gr).map(chip)}
+                    {archChips(gr, model).map(chip)}
                   </Stack>
                   <Stack direction="row" flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
                     {gr.workers.map((wo) => {

@@ -209,6 +209,7 @@ export const analyzerV1RunDescriptorSchema = z
       .strict(),
     summary: artifactRefSchema,
     model: artifactRefSchema.optional(),
+    workload: artifactRefSchema.optional(),
     topology: artifactRefSchema.optional(),
     workers: z.array(workerRefSchema).optional(),
     subjects: subjectsSchema,
@@ -333,6 +334,7 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
     lifecycle: wire.lifecycle,
     summary: toArtifactRef(wire.summary),
     ...(wire.model === undefined ? {} : { model: toArtifactRef(wire.model) }),
+    ...(wire.workload === undefined ? {} : { workload: toArtifactRef(wire.workload) }),
     ...(wire.topology === undefined ? {} : { topology: toArtifactRef(wire.topology) }),
     ...(wire.workers === undefined
       ? {}

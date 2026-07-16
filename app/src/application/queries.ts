@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 
+import { AnalyzerV1OverviewResourceError } from '../contracts/analyzer/v1/overviewResources';
 import type { RunDescriptor } from '../domain/artifacts';
+import type {
+  ModelConfigResource,
+  OverviewResourceResult,
+  WorkloadOverviewResource,
+} from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import { loadActiveRunCore } from './loadActiveRun';
@@ -18,6 +24,20 @@ export const analyzerQueryKeys = {
     [...analyzerQueryKeys.runs(), runId, 'summary', `analysis-${analysisRevision}`] as const,
   topology: (runId: string, analysisRevision: string) =>
     [...analyzerQueryKeys.runs(), runId, 'topology', `analysis-${analysisRevision}`] as const,
+  overviewResource: (
+    runId: string,
+    name: 'model' | 'workload',
+    href: string,
+    schemaVersion: number,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'overview-resource',
+      name,
+      href,
+      `schema-v${schemaVersion}`,
+    ] as const,
   descriptor: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'descriptor'] as const,
   subject: (runId: string, subject: string, schemaVersion: number, analysisRevision: string) =>
     [
@@ -63,6 +83,75 @@ function coreDescriptorFingerprint(descriptor: RunDescriptor): string {
     analysis: descriptor.analysis,
     provenance: descriptor.provenance,
   });
+}
+
+function useDescriptorOverviewResource<Resource>(
+  descriptor: RunDescriptor | undefined,
+  name: 'model' | 'workload',
+  load: (runId: string) => Promise<Resource>,
+): OverviewResourceResult<Resource> {
+  const artifact = descriptor?.[name];
+  const supported = artifact?.schemaVersion === undefined || artifact.schemaVersion === 1;
+  const query = useQuery({
+    queryKey:
+      descriptor !== undefined && artifact !== undefined
+        ? analyzerQueryKeys.overviewResource(
+            descriptor.runId,
+            name,
+            artifact.href,
+            artifact.schemaVersion ?? 1,
+          )
+        : [...analyzerQueryKeys.runs(), descriptor?.runId ?? 'no-run', name, 'not-declared'],
+    queryFn: () => {
+      if (descriptor === undefined || artifact === undefined) {
+        throw new Error(`Cannot load undeclared ${name} resource.`);
+      }
+      return load(descriptor.runId);
+    },
+    enabled: descriptor !== undefined && artifact !== undefined && supported,
+    staleTime: Infinity,
+  });
+
+  if (descriptor === undefined) return { status: 'pending', reason: 'Waiting for run descriptor.' };
+  if (artifact === undefined) {
+    return { status: 'not_generated', reason: `Run descriptor does not declare ${name}.` };
+  }
+  if (!supported) {
+    return {
+      status: 'incompatible',
+      reason: `The UI supports ${name} schema v1, not v${artifact.schemaVersion}.`,
+    };
+  }
+  if (query.isError) {
+    if (query.error instanceof AnalyzerV1OverviewResourceError) {
+      return { status: 'incompatible', reason: query.error.message };
+    }
+    return {
+      status: 'failed',
+      code: stableErrorCode(query.error),
+      reason: query.error instanceof Error ? query.error.message : `Could not load ${name}.`,
+    };
+  }
+  if (query.data === undefined) return { status: 'pending', reason: `Loading ${name} resource.` };
+  return { status: 'ready', resource: query.data };
+}
+
+export function useDescriptorModelQuery(
+  descriptor: RunDescriptor | undefined,
+): OverviewResourceResult<ModelConfigResource> {
+  const repository = useAnalyzerRepository();
+  return useDescriptorOverviewResource(descriptor, 'model', (runId) =>
+    repository.getRunModel(runId),
+  );
+}
+
+export function useDescriptorWorkloadQuery(
+  descriptor: RunDescriptor | undefined,
+): OverviewResourceResult<WorkloadOverviewResource> {
+  const repository = useAnalyzerRepository();
+  return useDescriptorOverviewResource(descriptor, 'workload', (runId) =>
+    repository.getRunWorkload(runId),
+  );
 }
 
 export function useRunListQuery() {

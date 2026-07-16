@@ -9,7 +9,8 @@ vi.mock('../../application/ActiveRunProvider', () => ({
   useActiveRunSubject: () => ({
     subject: 'concurrency',
     status: 'ready',
-    payload: { t_ms: [0, 5_000, 10_000], active: [0, 8, 2], peak: 8 },
+    schemaVersion: 1,
+    payload: { t_ms: [1, 5_000, 10_000], active: [0.25, 8.5, 2], peak: 9 },
   }),
 }));
 
@@ -26,6 +27,8 @@ describe('TimelineBand interaction semantics', () => {
     const user = userEvent.setup();
     render(<TimelineBand />);
 
+    expect(screen.getByText('aggregate · peak 9')).toBeVisible();
+
     const aggregate = screen.getByRole('button', { name: 'All' });
     const cursor = screen.getByRole('slider', { name: 'Simulation time cursor' });
     expect(aggregate).toHaveAttribute('aria-pressed', 'true');
@@ -38,6 +41,7 @@ describe('TimelineBand interaction semantics', () => {
 
     fireEvent.change(cursor, { target: { value: '5000' } });
     expect(useViz.getState().cursorMs).toBe(5_000);
+    expect(screen.getByText('t = 5.00s · 8.5 active')).toBeVisible();
     expect(aggregate).toHaveAttribute('aria-pressed', 'false');
 
     aggregate.focus();

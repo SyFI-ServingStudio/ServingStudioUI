@@ -2,13 +2,16 @@ import { Profiler } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useActiveRun } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunModel } from '../../application/ActiveRunProvider';
 import { assembleActiveRunCore } from '../../application/loadActiveRun';
 import { useViz } from '../../store';
 import { makeTestDescriptor, makeTestTopology } from '../../test/analyzerRepositoryFixture';
 import SystemMapBand from './SystemMapBand';
 
-vi.mock('../../application/ActiveRunProvider', () => ({ useActiveRun: vi.fn() }));
+vi.mock('../../application/ActiveRunProvider', () => ({
+  useActiveRun: vi.fn(),
+  useActiveRunModel: vi.fn(),
+}));
 
 const testRun = assembleActiveRunCore(
   makeTestDescriptor(),
@@ -18,6 +21,7 @@ const testRun = assembleActiveRunCore(
 
 beforeEach(() => {
   vi.mocked(useActiveRun).mockReturnValue(testRun);
+  vi.mocked(useActiveRunModel).mockReturnValue({ status: 'not_generated' });
   useViz.setState({
     runId: testRun.id,
     scope: 'cluster',
@@ -48,5 +52,22 @@ describe('SystemMapBand store subscription', () => {
 
     expect(useViz.getState()).toMatchObject({ scope: 'pool', poolRole: selectedRole });
     expect(onRender.mock.calls.length).toBeGreaterThan(initialRenderCount);
+  });
+
+  it('adds model architecture facts without mutating topology', () => {
+    vi.mocked(useActiveRunModel).mockReturnValue({
+      status: 'ready',
+      resource: {
+        schemaVersion: 1,
+        sourcePath: 'model/config/test.json',
+        config: { num_hidden_layers: 62, num_experts: 160, num_experts_per_tok: 8 },
+      },
+    });
+
+    render(<SystemMapBand />);
+
+    expect(screen.getAllByText('L=62')).toHaveLength(2);
+    expect(screen.getAllByText('160E/8')).toHaveLength(2);
+    expect(testRun.topology.pools[0].groups[0].arch.params.layers).toBeUndefined();
   });
 });

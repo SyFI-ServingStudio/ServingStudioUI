@@ -4,12 +4,15 @@ import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RunDescriptor } from '../domain/artifacts';
+import { parseAnalyzerV1ModelResource } from '../contracts/analyzer/v1/overviewResources';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 import { createTestRepository, makeTestDescriptor } from '../test/analyzerRepositoryFixture';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
 import {
   analyzerQueryKeys,
+  useDescriptorModelQuery,
   useDescriptorSubjectQuery,
+  useDescriptorWorkloadQuery,
   useRunDescriptorQuery,
   useRunListQuery,
 } from './queries';
@@ -117,6 +120,104 @@ describe('run lifecycle queries', () => {
     await flushImmediateQueryWork();
     expect(listRuns).toHaveBeenCalledTimes(3);
     expect(getRunDescriptor).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('overview resource queries', () => {
+  it('keeps undeclared resources not-generated without repository I/O', () => {
+    const descriptor = makeTestDescriptor();
+    const { repository, calls } = createTestRepository({ descriptor });
+    const { Wrapper } = queryWrapper(repository);
+
+    const { result } = renderHook(
+      () => ({
+        model: useDescriptorModelQuery(descriptor),
+        workload: useDescriptorWorkloadQuery(descriptor),
+      }),
+      { wrapper: Wrapper },
+    );
+
+    expect(result.current.model.status).toBe('not_generated');
+    expect(result.current.workload.status).toBe('not_generated');
+    expect(calls.model).toBe(0);
+    expect(calls.workload).toBe(0);
+  });
+
+  it('loads model and workload into separate href/schema-scoped entries', async () => {
+    const descriptor = makeTestDescriptor({
+      model: { href: 'model', schemaVersion: 1 },
+      workload: { href: 'workload', schemaVersion: 1 },
+    });
+    const model = {
+      schemaVersion: 1 as const,
+      sourcePath: 'model/config/test.json',
+      config: { hidden_size: 6144 },
+    };
+    const workload = {
+      schemaVersion: 1 as const,
+      scope: 'configured_trace' as const,
+      sourcePaths: ['trace/test.csv'],
+      requestCount: 1,
+      arrivalBasis: 'source_trace' as const,
+      requestRate: 0,
+      tokenLengths: [16],
+      inputDensity: [1],
+      outputDensity: [1],
+      arrivalSeconds: [0],
+      arrivals: [1],
+      arrivalTrend: [1],
+      peakToMean: 1,
+    };
+    const { repository, calls } = createTestRepository({ descriptor, model, workload });
+    const { queryClient, Wrapper } = queryWrapper(repository);
+
+    const { result } = renderHook(
+      () => ({
+        model: useDescriptorModelQuery(descriptor),
+        workload: useDescriptorWorkloadQuery(descriptor),
+      }),
+      { wrapper: Wrapper },
+    );
+
+    await waitFor(() => {
+      expect(result.current.model.status).toBe('ready');
+      expect(result.current.workload.status).toBe('ready');
+    });
+    expect(calls.model).toBe(1);
+    expect(calls.workload).toBe(1);
+    expect(
+      queryClient.getQueryData(analyzerQueryKeys.overviewResource('test-run', 'model', 'model', 1)),
+    ).toEqual(model);
+    expect(
+      queryClient.getQueryData(
+        analyzerQueryKeys.overviewResource('test-run', 'workload', 'workload', 1),
+      ),
+    ).toEqual(workload);
+  });
+
+  it('reports a malformed declared overview resource as incompatible', async () => {
+    const descriptor = makeTestDescriptor({
+      model: { href: 'model', schemaVersion: 1 },
+    });
+    const { repository } = createTestRepository({ descriptor });
+    vi.spyOn(repository, 'getRunModel').mockImplementation(async () =>
+      parseAnalyzerV1ModelResource({
+        schema_version: 1,
+        source_path: '../outside.json',
+        config: {},
+      }),
+    );
+    const { Wrapper } = queryWrapper(repository);
+
+    const { result } = renderHook(() => useDescriptorModelQuery(descriptor), {
+      wrapper: Wrapper,
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('incompatible'));
+    expect(result.current).toMatchObject({
+      status: 'incompatible',
+      reason: expect.stringContaining('Invalid analyzer-v1 model resource'),
+    });
   });
 });
 
