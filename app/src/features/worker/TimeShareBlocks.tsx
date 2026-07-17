@@ -1,8 +1,16 @@
-import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Stack, Tooltip, Typography } from '@mui/material';
+import SurfaceCard from '../../components/SurfaceCard';
 import { useViz } from '../../store';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { tokens } from '../../theme';
-import { criticalLeafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../../domain/cost-tree';
+import {
+  criticalLeafTotals,
+  GROUP,
+  GROUP_ORDER,
+  leafByName,
+  fmtMs,
+  fmtPct,
+} from '../../domain/cost-tree';
 
 interface Seg {
   label: string;
@@ -10,6 +18,7 @@ interface Seg {
   pct: number;
   ms: number;
   color: string;
+  foreground: string;
   nodeId: number | null;
   other?: boolean;
 }
@@ -19,6 +28,83 @@ interface Seg {
 // shares stay proportional and use the equivalent CostTree leaf-card action.
 const MIN_INTERACTIVE_SHARE_PCT = 8;
 
+type PreviewPalette = Readonly<
+  Record<string, { readonly color: string; readonly foreground: string }>
+>;
+
+const MINERAL_PALETTE: PreviewPalette = Object.fromEntries(
+  GROUP_ORDER.map((group) => [group, { color: GROUP[group].color, foreground: '#fff' }]),
+);
+
+// Light palette candidate intentionally disabled after review:
+// gemm #a9bdd2, attn #a8cdb8, comm #d4b0be,
+// norm #c7d6a3, route #c2b8dc, misc #c5ccd2.
+
+function PalettePreviewBar({ palette }: { palette: PreviewPalette }) {
+  return (
+    <Stack spacing={0.9}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          fontFamily: tokens.mono,
+          fontSize: 9.5,
+          letterSpacing: '.14em',
+          textTransform: 'uppercase',
+          color: tokens.sub,
+        }}
+      >
+        <span>all kernel families</span>
+        <Box
+          component="span"
+          sx={{ color: tokens.sub2, letterSpacing: '.02em', textTransform: 'none' }}
+        >
+          equal-width · visual only
+        </Box>
+      </Stack>
+      <Box
+        role="group"
+        aria-label="All kernel family colors"
+        sx={{
+          display: 'flex',
+          height: 42,
+          overflow: 'hidden',
+          border: `1px solid ${tokens.hair}`,
+          borderRadius: 1.25,
+        }}
+      >
+        {GROUP_ORDER.map((group) => {
+          const family = GROUP[group];
+          const swatch = palette[group];
+          return (
+            <Tooltip key={group} title={`${family.label} · ${swatch.color}`} arrow placement="top">
+              <Box
+                role="img"
+                aria-label={`${family.label} color ${swatch.color}`}
+                sx={{
+                  display: 'flex',
+                  width: `${100 / GROUP_ORDER.length}%`,
+                  minWidth: 0,
+                  alignItems: 'center',
+                  px: 1,
+                  color: swatch.foreground,
+                  background: swatch.color,
+                  boxShadow: 'inset -1.5px 0 rgba(250,247,240,.65)',
+                  '&:last-of-type': { boxShadow: 'none' },
+                }}
+              >
+                <Typography noWrap sx={{ fontSize: 10, fontWeight: 600 }}>
+                  {family.label}
+                </Typography>
+              </Box>
+            </Tooltip>
+          );
+        })}
+      </Box>
+    </Stack>
+  );
+}
+
 function Bar({
   title,
   note,
@@ -26,7 +112,7 @@ function Bar({
   clickable,
 }: {
   title: string;
-  note: string;
+  note?: string;
   segs: Seg[];
   clickable: boolean;
 }) {
@@ -47,12 +133,14 @@ function Bar({
         }}
       >
         <span>{title}</span>
-        <Box
-          component="span"
-          sx={{ color: tokens.sub2, letterSpacing: '.02em', textTransform: 'none' }}
-        >
-          {note}
-        </Box>
+        {note && (
+          <Box
+            component="span"
+            sx={{ color: tokens.sub2, letterSpacing: '.02em', textTransform: 'none' }}
+          >
+            {note}
+          </Box>
+        )}
       </Stack>
       <Box
         role={clickable ? 'group' : undefined}
@@ -132,8 +220,8 @@ function Bar({
                     sx={{
                       fontSize: 11,
                       fontWeight: 600,
-                      color: s.other ? tokens.sub : '#fff',
-                      textShadow: s.other ? 'none' : '0 1px 1px rgba(0,0,0,.2)',
+                      color: s.foreground,
+                      textShadow: 'none',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                     }}
@@ -146,7 +234,7 @@ function Bar({
                     sx={{
                       fontFamily: tokens.mono,
                       fontSize: 9,
-                      color: s.other ? tokens.sub : '#fff',
+                      color: s.foreground,
                     }}
                   >
                     {fmtPct(s.pct)}
@@ -170,13 +258,15 @@ export default function TimeShareBlocks() {
   }
   const tree = treeState.tree;
   const lt = criticalLeafTotals(tree);
+  const palette = MINERAL_PALETTE;
 
   const groupSegs: Seg[] = lt.groups.map((g) => ({
     label: g.label,
     full: g.label,
     pct: g.pct,
     ms: g.ms,
-    color: g.color,
+    color: palette[g.group].color,
+    foreground: palette[g.group].foreground,
     nodeId: null,
   }));
 
@@ -191,7 +281,8 @@ export default function TimeShareBlocks() {
       full: p.name,
       pct: p.pct,
       ms: p.ms,
-      color: colorOf(p.kind),
+      color: palette[p.group].color,
+      foreground: palette[p.group].foreground,
       nodeId: node ? node.id : null,
     };
   });
@@ -203,26 +294,46 @@ export default function TimeShareBlocks() {
       pct: restPct,
       ms: (lt.totalMs * restPct) / 100,
       color: '#e5ddca',
+      foreground: tokens.sub,
       nodeId: null,
       other: true,
     });
   }
 
   return (
-    <Paper sx={{ borderRadius: 2, p: '16px 18px 18px' }}>
-      <Stack spacing={2}>
-        <Bar
-          title="by kernel family"
-          note="critical path · root wall-clock"
-          segs={groupSegs}
-          clickable={false}
-        />
+    <SurfaceCard
+      component="section"
+      aria-labelledby="operation-kernel-time-breakdown-title"
+      sx={{ p: '16px 16px 14px' }}
+    >
+      <Box sx={{ mb: 1.5 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            id="operation-kernel-time-breakdown-title"
+            component="h3"
+            sx={{
+              fontFamily: tokens.serif,
+              fontWeight: 600,
+              fontSize: 16,
+              letterSpacing: '-.01em',
+            }}
+          >
+            Kernel time breakdown
+          </Typography>
+          <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+            critical path · root wall-clock
+          </Typography>
+        </Box>
+      </Box>
+      <Stack spacing={1.65}>
+        <Bar title="by kernel family" segs={groupSegs} clickable={false} />
         <Bar
           title="by kernel position"
           note="critical path · large shares select"
           segs={posSegs}
           clickable
         />
+        <PalettePreviewBar palette={palette} />
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -234,7 +345,13 @@ export default function TimeShareBlocks() {
           <span>75%</span>
           <span>100% of CostTree root wall-clock cost</span>
         </Stack>
+        <Typography
+          sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub, letterSpacing: '.03em' }}
+        >
+          Critical-path share of this operation&apos;s CostTree root wall-clock cost by family and
+          kernel position.
+        </Typography>
       </Stack>
-    </Paper>
+    </SurfaceCard>
   );
 }

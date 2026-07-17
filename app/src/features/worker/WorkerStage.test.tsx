@@ -65,12 +65,6 @@ vi.mock('../kernel', () => ({
   ParallelDetail: () => <div data-testid="parallel-detail" />,
 }));
 
-vi.mock('../metrics', () => ({
-  KernelTimeBreakdownCard: ({ title }: { title: string }) => (
-    <div data-testid="worker-kernel-time-breakdown">{title}</div>
-  ),
-}));
-
 vi.mock('./TimeShareBlocks', () => ({
   default: () => <div data-testid="time-share" />,
 }));
@@ -130,7 +124,7 @@ function expectStableCostTreeFrame(): void {
     height: WORKER_WORKBENCH_HEIGHT,
   });
   expect(screen.getByTestId('cost-tree-viewport')).toHaveStyle({ flex: '1', minHeight: '0' });
-  expect(screen.getByTestId('cost-tree-frame').firstElementChild).toHaveStyle({
+  expect(screen.getByTestId('cost-tree-header')).toHaveStyle({
     height: `${COST_TREE_HEADER_HEIGHT}px`,
   });
 }
@@ -211,9 +205,7 @@ describe('WorkerStage CostTree frame stability', () => {
     expect(screen.queryByTestId('kernel-evidence')).not.toBeInTheDocument();
     expect(screen.getByTestId('parallel-detail')).toBeVisible();
     expect(screen.getByTestId('time-share')).toBeVisible();
-    expect(screen.getByTestId('worker-kernel-time-breakdown')).toHaveTextContent(
-      'Worker kernel time breakdown · ffn/1',
-    );
+    expect(screen.queryByText(/Worker kernel time breakdown/)).not.toBeInTheDocument();
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
     expect(scrolledTargets[0]).toBe(screen.getByTestId('worker-viewport-shell'));
     expect(scrollIntoViewMock).toHaveBeenCalledWith({

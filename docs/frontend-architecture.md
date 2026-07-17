@@ -147,8 +147,14 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   SVG renderer，使坐标轴、图例和 annotation 保持为可缩放矢量文字；只有实测证明某张
   有界高密度图需要 canvas 时，才在共享封装中增加显式例外。
 - 页面一级 card 必须使用共享 `SurfaceCard`，由它统一 warm-white surface、普通边框、圆角、
-  shadow 和 2px semantic top edge。feature 不得重新手写这套 shell；只传稳定 `accent` 和
-  内容所需的局部 `sx`。Architecture overview 也使用该共享单元，作为实现基准而不是例外。
+  shadow 和覆盖在 feature 内容上方的 2px semantic left edge；canvas 或不透明 viewport 不得遮住
+  该 edge。feature 不得重新手写这套 shell。页面 section 通过 `SurfaceAccentProvider` 统一 edge：
+  Overview 使用 teal、System map（包括 Timeline 与 whole-run trace）使用 Sea Nymph `#6F9F9C`、
+  scope stage 使用 Smalt Blue `#577E89`；section 内 feature-local `accent` 不得覆盖 section edge。Architecture
+  overview 也使用该共享单元，作为实现基准而不是例外。
+- 页面主体按 `00 Overview`、`01 System map`、`02 scope stage` 建立一级 section；model、simulation
+  和 trace overview card 是 `00 Overview` 的子级，使用 `h3` card heading，不与 section `h2` 并列。
+  System map 下的 topology card 同样以 `Deployment` `h3` 标识其内容层级。
 - 选择 Zustand 时订阅最小 primitive/tuple，不制造完整 store snapshot。
 - kernel detail 的 config 与 exact input 必须解码为带字段名的可读列表，不直接展示 Python
   repr 或 JSON；FLOP、byte、throughput 与 bandwidth 使用紧凑工程单位。detail 网格中的 value
@@ -162,6 +168,12 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
   左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
   不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。
+- Worker scope 只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
+  `by kernel family` 与 `by kernel position`，两者都按 critical path / CostTree root wall-clock
+  计算。不得再重复渲染 aggregate `Worker kernel time breakdown`；cluster 与 pool scope 仍可使用
+  aggregate kernel-time-share subject。所有 kernel-time breakdown、CostTree family legend、leaf
+  与 operation selection lane 必须复用 `domain/cost-tree` 的同一套 Mineral family palette。Worker
+  breakdown 另提供一条六 family 等宽的 visual-only palette bar；它不得伪装成真实时间比例。
 - exact CostTree ready 工作面在 `lg` 及以上保持左右两列：左列是完整 CostTree frame，右列是约
   `clamp(300px, 26vw, 340px)` 的 kernel inspector。未选择 kernel 时右列保留轻量 placeholder，
   避免选择造成 CostTree 宽度跳变；窄屏使用自然高度上下布局，每块保持 723px 且不得产生页面级

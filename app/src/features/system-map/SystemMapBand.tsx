@@ -157,7 +157,19 @@ export default function SystemMapBand() {
   const clusterSel = scope === 'cluster';
 
   return (
-    <SurfaceCard accent={tokens.olive} sx={{ p: 1.9 }}>
+    <SurfaceCard
+      accent={tokens.olive}
+      component="section"
+      aria-labelledby="deployment-map-title"
+      sx={{ p: 1.9 }}
+    >
+      <Typography
+        id="deployment-map-title"
+        component="h3"
+        sx={{ mb: 1, fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}
+      >
+        Deployment
+      </Typography>
       {/* whole-deployment selector — click to scope back up to the cluster */}
       <ButtonBase
         type="button"

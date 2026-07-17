@@ -386,7 +386,7 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
             fontWeight: 600,
             fontSize: compact ? 11.5 : 13,
             lineHeight: compact ? 1.05 : undefined,
-            color: tokens.ink,
+            color,
             letterSpacing: '-.01em',
             pr: 1.25,
           }}
@@ -400,7 +400,7 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
             lineHeight: compact ? 1.15 : undefined,
             letterSpacing: '.06em',
             textTransform: 'uppercase',
-            color,
+            color: tokens.ink,
           }}
         >
           {kindLabel(s.kind)}

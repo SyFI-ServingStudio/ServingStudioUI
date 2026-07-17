@@ -18,6 +18,8 @@ export const tokens = {
   gold: '#806600',
   olive: '#566a2e',
   violet: '#6548dc',
+  sectionStructure: '#6f9f9c',
+  sectionAnalysis: '#577e89',
   shadow: '0 1px 0 rgba(42,38,34,.02), 0 10px 30px -22px rgba(42,38,34,.35)',
   shadowLift: '0 20px 60px -28px rgba(42,38,34,.5)',
   serif: "'Fraunces', Georgia, serif",

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OperationSummary } from '../../domain/workerOperation';
+import { GROUP } from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import WorkerOperationTimeline from './WorkerOperationTimeline';
 import {
@@ -256,7 +257,9 @@ describe('operation Canvas model', () => {
   });
 
   it('keeps batch colors stable and distinguishable', () => {
-    expect(operationLaneColor('2')).toBe(operationLaneColor('2'));
+    expect(operationLaneColor('0')).toBe(GROUP.gemm.color);
+    expect(operationLaneColor('1')).toBe(GROUP.attn.color);
+    expect(operationLaneColor('2')).toBe(GROUP.comm.color);
     expect(operationLaneColor('2')).not.toBe(operationLaneColor('4'));
   });
 });

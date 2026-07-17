@@ -140,7 +140,7 @@ function OverviewHeader({
     <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={2}>
       <Typography
         id={id}
-        component="h2"
+        component="h3"
         sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}
       >
         {title}
@@ -185,7 +185,8 @@ function OverviewCard({
       sx={{
         flex: { xs: '0 0 auto', md: '1 1 0' },
         minHeight: 0,
-        p: 1.5,
+        py: 1.5,
+        px: 2,
         display: 'flex',
         flexDirection: 'column',
       }}

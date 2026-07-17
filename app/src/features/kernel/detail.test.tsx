@@ -161,4 +161,70 @@ describe('kernel feature evidence boundaries', () => {
     expect(screen.getByText('Load-imbalance detail not generated')).toBeVisible();
     expect(screen.queryByText(/straggler lane/i)).not.toBeInTheDocument();
   });
+
+  it('renders backend counts, ratios, and the selected-position projection', () => {
+    fixture.subject.mockImplementation((name: string) =>
+      name === 'kernelInputDistribution'
+        ? {
+            subject: name,
+            status: 'ready',
+            schemaVersion: 1,
+            payload: {
+              positions: [
+                {
+                  name: 'attention.prefill',
+                  kind: 'flashinfer_attn_prefill',
+                  candidateBackends: ['fa2', 'fa3'],
+                  selection: [
+                    { backendIndex: 0, backendName: 'fa2', count: 3, ratio: 0.75 },
+                    { backendIndex: 1, backendName: 'fa3', count: 1, ratio: 0.25 },
+                  ],
+                  projection: 'raw_2d',
+                  axisLabels: ['batch_size', 'total_tokens'],
+                  explainedVariance: null,
+                  points: [
+                    { x: 2, y: 128, backendIndex: 0, backendName: 'fa2', count: 3 },
+                    { x: 4, y: 512, backendIndex: 1, backendName: 'fa3', count: 1 },
+                  ],
+                },
+              ],
+              sampling: { stride: 2, sampledRows: 8, maxPointsPerPosition: 6000 },
+              definitions: {},
+            },
+          }
+        : { subject: name, status: 'not_generated', reason: 'No throughput.' },
+    );
+    useViz.setState({ scope: 'kernel', leafId: selectedLeaf.id });
+
+    render(<KernelEvidence />);
+
+    expect(screen.getByTestId('kernel-input-distribution')).toBeVisible();
+    expect(screen.getByText('fa2')).toBeVisible();
+    expect(screen.getByText('3 · 75.0%')).toBeVisible();
+    expect(screen.getByText('fa3')).toBeVisible();
+    expect(screen.getByText('1 · 25.0%')).toBeVisible();
+    expect(
+      screen.getByRole('img', {
+        name: 'Kernel input projection for attention.prefill, colored by selected backend.',
+      }),
+    ).toBeVisible();
+  });
+
+  it('preserves an available-false payload as unavailable evidence', () => {
+    fixture.subject.mockImplementation((name: string) =>
+      name === 'kernelInputDistribution'
+        ? {
+            subject: name,
+            status: 'unavailable',
+            reason: 'This run predates the slot_backend column.',
+          }
+        : { subject: name, status: 'not_generated', reason: 'No throughput.' },
+    );
+    useViz.setState({ scope: 'kernel', leafId: selectedLeaf.id });
+
+    render(<KernelEvidence />);
+
+    expect(screen.getByText('This run predates the slot_backend column.')).toBeVisible();
+    expect(screen.getByText('evidence status · unavailable')).toBeVisible();
+  });
 });

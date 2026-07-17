@@ -13,6 +13,7 @@ import { PerfettoTrace } from './features/trace';
 import { ClusterStage } from './features/cluster';
 import { PoolStage } from './features/pool';
 import FocusDialog from './components/FocusDialog';
+import { SurfaceAccentProvider } from './components/SurfaceCard';
 
 // Worker, kernel, and parallel scopes share the cost-tree/Motion feature. Keep
 // that feature out of the cluster/pool entry path and load it at the drill edge.
@@ -25,17 +26,19 @@ function SectionHead({
   idx,
   title,
   sub,
+  accent,
 }: {
   id: string;
   idx: string;
   title: string;
   sub?: string;
+  accent: string;
 }) {
   return (
     <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mx: 0.25, mb: 1.25 }}>
       <Box
         component="span"
-        sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.terra, letterSpacing: '.1em' }}
+        sx={{ fontFamily: tokens.mono, fontSize: 10, color: accent, letterSpacing: '.1em' }}
       >
         {idx}
       </Box>
@@ -67,19 +70,23 @@ function Section({
   idx,
   title,
   sub,
+  accent,
   children,
 }: {
   idx: string;
   title: string;
   sub?: string;
+  accent: string;
   children: ReactNode;
 }) {
   const headingId = `run-section-${idx}`;
   return (
-    <Box component="section" aria-labelledby={headingId} sx={{ mt: 2 }}>
-      <SectionHead id={headingId} idx={idx} title={title} sub={sub} />
-      {children}
-    </Box>
+    <SurfaceAccentProvider accent={accent}>
+      <Box component="section" aria-labelledby={headingId} sx={{ mt: 2 }}>
+        <SectionHead id={headingId} idx={idx} title={title} sub={sub} accent={accent} />
+        {children}
+      </Box>
+    </SurfaceAccentProvider>
   );
 }
 
@@ -277,34 +284,30 @@ export default function App() {
 
         <ScopeBreadcrumbs />
 
-        <RunOverviewRow />
+        {/* 00 — bounded identity and workload facts for the selected run. */}
+        <Section idx="00" title="Overview" sub="model · deployment · workload" accent={tokens.teal}>
+          <RunOverviewRow />
+        </Section>
 
         {/* 01 — persistent STRUCTURAL navigator: the system map is how you re-scope */}
         <Section
           idx="01"
           title="System map"
+          accent={tokens.sectionStructure}
           sub={`${run.gpuTotal} GPUs · ${run.gpu} · ${deploymentMapLabel(run.deployment)} · click to scope`}
         >
-          <SystemMapBand />
+          <Stack spacing={1.5}>
+            <SystemMapBand />
+
+            {/* Timeline and whole-run trace are structural navigation over the
+             * deployment, so they share the System map section and edge. */}
+            <TimelineBand />
+            {scope === 'cluster' && run.capabilities.perfettoTrace && <PerfettoTrace />}
+          </Stack>
         </Section>
 
-        {/* Wall-clock navigation is available from bounded run subjects. A
-          worker iteration band appears only after its versioned index endpoint
-          is implemented; no local steps are synthesized here. */}
-        <Stack spacing={1.5} sx={{ mt: 2 }}>
-          <TimelineBand />
-        </Stack>
-
-        {/* Whole-run wall-clock trace, only meaningful at
-          cluster scope (structural drill has its own per-scope stage below) */}
-        {scope === 'cluster' && run.capabilities.perfettoTrace && (
-          <Box sx={{ mt: 2 }}>
-            <PerfettoTrace />
-          </Box>
-        )}
-
         {/* 02 — scope-adaptive stage */}
-        <Section idx="02" title={meta.title} sub={meta.sub}>
+        <Section idx="02" title={meta.title} sub={meta.sub} accent={tokens.sectionAnalysis}>
           <Stage />
         </Section>
 

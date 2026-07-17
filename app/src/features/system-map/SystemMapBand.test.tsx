@@ -34,6 +34,12 @@ beforeEach(() => {
 });
 
 describe('SystemMapBand store subscription', () => {
+  it('labels the deployment card beneath the System map section', () => {
+    render(<SystemMapBand />);
+
+    expect(screen.getByRole('heading', { level: 3, name: 'Deployment' })).toBeVisible();
+  });
+
   it('does not re-render while an unrelated timeline cursor changes', () => {
     const onRender = vi.fn();
     render(

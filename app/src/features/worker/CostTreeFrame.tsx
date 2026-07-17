@@ -8,9 +8,9 @@ import { tokens } from '../../theme';
 import { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
 export const COST_TREE_HEADER_HEIGHT = 45;
-// Paper contributes a 2px top border and the viewport/header seam contributes
-// one device-independent pixel, so the joint workbench reserves the measured
-// outer frame height rather than duplicating this arithmetic at call sites.
+// Paper contributes two 1px outer borders and the viewport/header seam
+// contributes one device-independent pixel, so the joint workbench reserves
+// the measured outer frame height rather than duplicating this arithmetic.
 export const COST_TREE_FRAME_HEIGHT = COST_TREE_HEADER_HEIGHT + COST_TREE_VIEWPORT_HEIGHT + 3;
 export const WORKER_WORKBENCH_HEIGHT_VAR = '--worker-workbench-height';
 export const WORKER_WORKBENCH_HEIGHT = `var(${WORKER_WORKBENCH_HEIGHT_VAR}, ${COST_TREE_FRAME_HEIGHT}px)`;
@@ -36,6 +36,7 @@ export function CostTreeFrame({ worker, timeBasis, totalMs, children }: CostTree
       }}
     >
       <Stack
+        data-testid="cost-tree-header"
         direction="row"
         alignItems="center"
         flexWrap="nowrap"

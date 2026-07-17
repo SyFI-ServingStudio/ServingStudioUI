@@ -11,6 +11,7 @@ import type { KernelRateStats } from '../../domain/kernelThroughput';
 import type { SubjectName, SubjectResult } from '../../domain/subject';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import KernelInputDistributionEvidence from './KernelInputDistributionEvidence';
 
 function Item({
   label,
@@ -276,7 +277,6 @@ function inputFields(node: LeafNode): readonly DisplayField[] {
 
 function RealKernelEvidence({ node }: { node: LeafNode }) {
   const throughput = useActiveRunSubject('kernelThroughput');
-  const inputDistribution = useActiveRunSubject('kernelInputDistribution');
   const location =
     throughput.status === 'ready'
       ? throughput.payload.locations.find(
@@ -328,7 +328,7 @@ function RealKernelEvidence({ node }: { node: LeafNode }) {
           readyText={`Ready aggregate payload has no exact (${node.slot.name}, ${node.slot.kind}) location.`}
         />
       )}
-      <EvidenceStatus title="Kernel input distribution" subject={inputDistribution} />
+      <KernelInputDistributionEvidence positionName={node.slot.name} />
     </Box>
   );
 }

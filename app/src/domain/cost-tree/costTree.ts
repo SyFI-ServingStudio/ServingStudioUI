@@ -162,13 +162,15 @@ export const KIND: Readonly<Record<string, { readonly group: string; readonly la
 export const GROUP: Readonly<Record<string, { readonly label: string; readonly color: string }>> = {
   // These colors serve as both rails on light cards and filled time-share
   // blocks carrying white labels, so each must clear AA in both contexts.
-  gemm: { label: 'Dense GEMM', color: '#8a5700' },
-  attn: { label: 'Attention', color: '#176a6d' },
-  comm: { label: 'Collectives', color: '#922554' },
-  norm: { label: 'Norm / EW', color: '#4b651f' },
-  route: { label: 'Routing', color: '#5940c4' },
-  misc: { label: 'Other', color: '#526173' },
+  gemm: { label: 'Dense GEMM', color: '#49617a' },
+  attn: { label: 'Attention', color: '#3f765b' },
+  comm: { label: 'Collectives', color: '#875263' },
+  norm: { label: 'Norm / EW', color: '#5f6f43' },
+  route: { label: 'Routing', color: '#63578a' },
+  misc: { label: 'Other', color: '#626a72' },
 };
+
+export const GROUP_ORDER = ['gemm', 'attn', 'comm', 'norm', 'route', 'misc'] as const;
 
 export const groupOf = (kind: string): string => KIND[kind]?.group ?? 'misc';
 export const colorOf = (kind: string): string => GROUP[groupOf(kind)].color;

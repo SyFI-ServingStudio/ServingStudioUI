@@ -1,4 +1,5 @@
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import SurfaceCard from '../../components/SurfaceCard';
 import { fmtInt } from '../../util';
 import { tokens } from '../../theme';
 import type { Conservation, CheckStatus } from '../../domain/run';
@@ -18,13 +19,26 @@ export default function ConservationCard({
   idx?: string;
 }) {
   return (
-    <Paper sx={{ borderRadius: 2, p: '16px 18px 8px' }}>
-      <Stack direction="row" alignItems="baseline" justifyContent="space-between" sx={{ mb: 1.4 }}>
+    <SurfaceCard
+      component="section"
+      aria-labelledby="workload-conservation-title"
+      sx={{ p: '16px 16px 14px' }}
+    >
+      <Stack
+        direction="row"
+        alignItems="baseline"
+        justifyContent="space-between"
+        spacing={1}
+        sx={{ mb: 1 }}
+      >
         <Typography
+          id="workload-conservation-title"
+          component="h3"
           sx={{
             fontFamily: tokens.serif,
             fontWeight: 600,
             fontSize: 16,
+            letterSpacing: '-.01em',
             display: 'flex',
             alignItems: 'baseline',
             gap: 1.1,
@@ -43,19 +57,17 @@ export default function ConservationCard({
           </Box>
           Workload conservation
         </Typography>
-        <Box
+        <Typography
           sx={{
             fontFamily: tokens.mono,
-            fontSize: 10.5,
-            px: 1,
-            py: '3px',
-            borderRadius: 0.75,
+            fontSize: 10,
             color: data.allOk ? tokens.teal : tokens.gold,
-            background: data.allOk ? 'rgba(31,111,107,.10)' : 'rgba(176,137,0,.14)',
+            textAlign: 'right',
+            whiteSpace: 'nowrap',
           }}
         >
           {data.allOk ? 'all balanced' : 'imbalance flagged'}
-        </Box>
+        </Typography>
       </Stack>
       <Stack>
         {data.checks.map((c, i) => {
@@ -88,17 +100,6 @@ export default function ConservationCard({
                 <Typography sx={{ fontFamily: tokens.mono, fontSize: 12, color: tokens.ink }}>
                   {c.name}
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: 11,
-                    color: tokens.sub,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {c.description}
-                </Typography>
               </Box>
               <Box sx={{ textAlign: 'right', minWidth: 88 }}>
                 <Typography
@@ -120,6 +121,6 @@ export default function ConservationCard({
           );
         })}
       </Stack>
-    </Paper>
+    </SurfaceCard>
   );
 }

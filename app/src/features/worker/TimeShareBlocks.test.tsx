@@ -37,6 +37,13 @@ describe('TimeShareBlocks interaction targets', () => {
   it('keeps a tiny share exact and non-target', () => {
     render(<TimeShareBlocks />);
 
+    expect(screen.getByRole('region', { name: 'Kernel time breakdown' })).toBeVisible();
+    expect(screen.getByText('critical path · root wall-clock')).toBeVisible();
+    expect(
+      screen.getByText(
+        "Critical-path share of this operation's CostTree root wall-clock cost by family and kernel position.",
+      ),
+    ).toBeVisible();
     const bar = screen.getByRole('group', { name: 'Kernel position time share' });
     const tinySegment = screen.getByRole('img', {
       name: /attention\.prefill/,
@@ -81,6 +88,21 @@ describe('TimeShareBlocks interaction targets', () => {
 
     expect(useViz.getState()).toMatchObject({ scope: 'kernel', leafId: largeNode.id });
     expect(largeSegment).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('uses Mineral across family, position, and all-color bars', () => {
+    render(<TimeShareBlocks />);
+
+    const familySegment = screen.getByRole('img', { name: /^Attention —/ });
+    const positionSegment = screen.getByRole('button', { name: /attention\.decode/ });
+    expect(familySegment).toHaveStyle({ background: '#3f765b' });
+    expect(positionSegment).toHaveStyle({ background: '#3f765b' });
+    const preview = screen.getByRole('group', { name: 'All kernel family colors' });
+    expect(preview.querySelectorAll('[role="img"]')).toHaveLength(6);
+    expect(screen.getByRole('img', { name: 'Dense GEMM color #49617a' })).toHaveStyle({
+      background: '#49617a',
+    });
+    expect(screen.queryByRole('button', { name: 'Light' })).not.toBeInTheDocument();
   });
 
   it('shows only the scaled critical Max branch against root wall-clock cost', () => {

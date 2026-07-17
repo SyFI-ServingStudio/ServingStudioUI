@@ -31,7 +31,7 @@ export default function KernelTimeBreakdownCard({
   subject,
   scope,
 }: {
-  idx: string;
+  idx?: string;
   title: string;
   subject: SubjectResult<'kernelTimeShare'>;
   scope: KernelTimeBreakdownScope;

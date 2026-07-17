@@ -3,6 +3,7 @@ import { decodeAnalyzerV1BatchPayload } from './batch';
 import { decodeAnalyzerV1ConservationPayload } from './conservation';
 import { decodeAnalyzerV1ConcurrencyPayload } from './concurrency';
 import { decodeAnalyzerV1KernelThroughputPayload } from './kernelThroughput';
+import { decodeAnalyzerV1KernelInputDistributionPayload } from './kernelInputDistribution';
 import { decodeAnalyzerV1KernelTimeSharePayload } from './kernelTimeShare';
 import { decodeAnalyzerV1KvOccupancyPayload } from './kvOccupancy';
 import { decodeAnalyzerV1SloPayload } from './slo';
@@ -45,8 +46,9 @@ export function decodeAnalyzerV1SubjectPayload<Name extends SubjectName>(
       return decodeAnalyzerV1ConcurrencyPayload(input, options) as SubjectResult<Name>;
     case 'kernelTimeShare':
       return decodeAnalyzerV1KernelTimeSharePayload(input, options) as SubjectResult<Name>;
-    case 'backpressure':
     case 'kernelInputDistribution':
+      return decodeAnalyzerV1KernelInputDistributionPayload(input, options) as SubjectResult<Name>;
+    case 'backpressure':
       return unsupportedReadySubject(subject) as SubjectResult<Name>;
   }
 }

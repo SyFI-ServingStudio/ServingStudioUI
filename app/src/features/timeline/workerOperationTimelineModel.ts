@@ -1,16 +1,10 @@
 import type { OperationSummary } from '../../domain/workerOperation';
+import { GROUP, GROUP_ORDER } from '../../domain/cost-tree';
 
 export const OPERATION_DRAG_THRESHOLD_PX = 8;
 export const OPERATION_TRACK_HEIGHT_PX = 96;
 
-const OPERATION_COLORS = [
-  '#356f69',
-  '#5f7180',
-  '#71806a',
-  '#8a715c',
-  '#86635f',
-  '#756b7b',
-] as const;
+const OPERATION_COLORS = GROUP_ORDER.map((group) => GROUP[group].color);
 
 function stableHash(value: string): number {
   let hash = 2166136261;

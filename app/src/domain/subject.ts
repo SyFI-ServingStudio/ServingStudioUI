@@ -1,4 +1,5 @@
 import type { KernelThroughput } from './kernelThroughput';
+import type { KernelInputDistribution } from './kernelInputDistribution';
 import type { KernelTimeShare } from './kernelTimeShare';
 import type {
   BatchSubject,
@@ -44,7 +45,7 @@ export interface SubjectPayloadByName {
   batch: BatchSubject;
   kernelThroughput: KernelThroughput;
   conservation: Conservation;
-  kernelInputDistribution: unknown;
+  kernelInputDistribution: KernelInputDistribution;
   kernelTimeShare: KernelTimeShare;
 }
 
