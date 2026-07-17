@@ -10,6 +10,7 @@ import {
   type ChartTheme,
 } from '../../charts/platform';
 import type { KernelInputPosition } from '../../domain/kernelInputDistribution';
+import type { JsonValue } from '../../domain/cost-tree';
 
 function pointSize(count: number): number {
   return Math.min(17, 6 + Math.log2(Math.max(1, count)) * 1.6);
@@ -21,6 +22,87 @@ const SQRT_TWO_PI = Math.sqrt(2 * Math.PI);
 interface DensitySeries {
   readonly backendIndex: number;
   readonly points: [number, number][];
+}
+
+function insertAggregates(features: Map<string, number>, prefix: string, values: number[]) {
+  if (values.length === 0) return;
+  const sum = values.reduce((total, value) => total + value, 0);
+  features.set(`${prefix}.sum`, sum);
+  features.set(`${prefix}.mean`, sum / values.length);
+  features.set(`${prefix}.min`, Math.min(...values));
+  features.set(`${prefix}.max`, Math.max(...values));
+}
+
+/** Mirrors Analyzer's input flattener so an exact CostTree input can share the
+ * aggregate subject's directly reproducible feature axes. PCA remains excluded:
+ * its payload does not publish the fitted transform needed for a new point. */
+function flattenCurrentInput(input: JsonValue): ReadonlyMap<string, number> {
+  const features = new Map<string, number>();
+  const visit = (value: JsonValue, prefix: string) => {
+    const key = prefix.length === 0 ? 'value' : prefix;
+    if (typeof value === 'number') {
+      features.set(key, value);
+    } else if (typeof value === 'boolean') {
+      features.set(key, value ? 1 : 0);
+    } else if (Array.isArray(value)) {
+      features.set(`${prefix}.count`, value.length);
+      if (value.length === 0) return;
+      if (value.every((entry): entry is number => typeof entry === 'number')) {
+        insertAggregates(features, prefix, value);
+        return;
+      }
+      const rows = value.filter((entry): entry is readonly JsonValue[] => Array.isArray(entry));
+      const width = rows[0]?.length ?? 0;
+      if (
+        rows.length === value.length &&
+        width > 0 &&
+        rows.every(
+          (row) => row.length === width && row.every((entry) => typeof entry === 'number'),
+        )
+      ) {
+        for (let column = 0; column < width; column += 1) {
+          insertAggregates(
+            features,
+            `${prefix}.${column}`,
+            rows.map((row) => row[column] as number),
+          );
+        }
+        return;
+      }
+      const records = value.filter(
+        (entry): entry is { readonly [key: string]: JsonValue } =>
+          typeof entry === 'object' && entry !== null && !Array.isArray(entry),
+      );
+      if (records.length === value.length) {
+        for (const field of Object.keys(records[0] ?? {})) {
+          const column = records.map((record) => record[field]);
+          if (column.every((entry): entry is number => typeof entry === 'number')) {
+            insertAggregates(features, `${prefix}.${field}`, column);
+          }
+        }
+      }
+    } else if (typeof value === 'object' && value !== null) {
+      for (const [field, child] of Object.entries(value)) {
+        visit(child, prefix.length === 0 ? field : `${prefix}.${field}`);
+      }
+    }
+  };
+  visit(input, '');
+  return features;
+}
+
+function currentProjection(
+  position: KernelInputPosition,
+  currentInput: JsonValue,
+): readonly [number, number] | null {
+  if (position.projection === 'pca') return null;
+  if (position.projection === 'categorical') return [0, 0];
+  const features = flattenCurrentInput(currentInput);
+  const x = features.get(position.axisLabels[0]);
+  if (x === undefined) return null;
+  if (position.projection === 'feature_1d') return [x, 0];
+  const y = features.get(position.axisLabels[1]);
+  return y === undefined ? null : [x, y];
 }
 
 /** Weighted Gaussian KDE over the shared X domain. Each backend divides by the
@@ -65,6 +147,7 @@ function oneDimensionalDensity(position: KernelInputPosition): readonly DensityS
 export function kernelInputDistributionOption(
   position: KernelInputPosition,
   theme: ChartTheme,
+  currentInput?: JsonValue,
 ): EChartsOption {
   const categorical = position.projection === 'categorical';
   const oneDimensional = position.projection === 'feature_1d';
@@ -107,6 +190,26 @@ export function kernelInputDistributionOption(
         z: 2,
       }))
     : [];
+  const current = currentInput === undefined ? null : currentProjection(position, currentInput);
+  const currentSeries =
+    current === null
+      ? []
+      : [
+          {
+            name: 'Current operation',
+            type: 'scatter' as const,
+            data: [[current[0], current[1]]],
+            symbol: 'diamond',
+            symbolSize: 18,
+            itemStyle: {
+              color: theme.palette[1],
+              borderColor: theme.bg,
+              borderWidth: 2,
+            },
+            clip: false,
+            z: 6,
+          },
+        ];
   return {
     animationDuration: 280,
     textStyle: { fontFamily: theme.font, color: theme.text },
@@ -124,6 +227,17 @@ export function kernelInputDistributionOption(
       formatter: (params: unknown) => {
         const point = params as { seriesName?: string; seriesType?: string; value?: unknown };
         const value = Array.isArray(point.value) ? point.value : [];
+        if (point.seriesName === 'Current operation') {
+          const coordinates = categorical
+            ? []
+            : oneDimensional
+              ? [`${position.axisLabels[0]}: ${Number(value[0]).toLocaleString()}`]
+              : [
+                  `${position.axisLabels[0]}: ${Number(value[0]).toLocaleString()}`,
+                  `${position.axisLabels[1]}: ${Number(value[1]).toLocaleString()}`,
+                ];
+          return tooltipLines(['Current operation', ...coordinates]);
+        }
         if (point.seriesType === 'line') {
           return tooltipLines([
             point.seriesName ?? 'backend',
@@ -174,6 +288,6 @@ export function kernelInputDistributionOption(
       min: categorical || oneDimensional ? 0 : undefined,
       max: categorical ? 1 : undefined,
     },
-    series: [...scatterSeries, ...densitySeries],
+    series: [...scatterSeries, ...densitySeries, ...currentSeries],
   };
 }

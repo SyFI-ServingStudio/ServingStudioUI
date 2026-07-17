@@ -5,6 +5,7 @@ import {
 } from '../contracts/analyzer/v1/runCatalog';
 import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescriptor';
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
+import { parseAnalyzerV1KernelThroughputAnalysis } from '../contracts/analyzer/v1/kernelThroughputAnalysis';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
 import {
@@ -304,6 +305,22 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     const path = `workers/${poolTag}/${workerId}/operations/${iterId}/${batchId}/${operationId}/cost-tree`;
     const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
     return parseAnalyzerV1WorkerCostTree(input, ref);
+  }
+
+  async getKernelThroughputAnalysis(runId: string, ref: WorkerCostTreeRef, leafId: number) {
+    if (!Number.isSafeInteger(leafId) || leafId < 0) {
+      throw new HttpRunBindingError('Kernel leaf id must be a non-negative safe integer.');
+    }
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-cost-tree', binding.descriptor);
+    const poolTag = routeSegment(ref.worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(ref.worker.workerId, 'Worker id');
+    const iterId = routeSegment(ref.iterId, 'Iteration id');
+    const batchId = routeSegment(ref.batchId, 'Batch id');
+    const operationId = routeSegment(ref.operationId, 'Operation id');
+    const path = `workers/${poolTag}/${workerId}/operations/${iterId}/${batchId}/${operationId}/cost-tree/${leafId}/kernel-throughput-analysis`;
+    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    return parseAnalyzerV1KernelThroughputAnalysis(input, ref, leafId);
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {

@@ -2,16 +2,19 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
-import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
+import {
+  useActiveRun,
+  useActiveRunDescriptor,
+} from '../../application/ActiveRunProvider';
+import { useKernelThroughputAnalysisQuery } from '../../application/queries';
 import { currentWorker } from '../../application/runSelection';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import SurfaceCard from '../../components/SurfaceCard';
 import { colorOf, fmtMs, fmtPct, kindLabel, leafById, type LeafNode } from '../../domain/cost-tree';
-import type { KernelRateStats } from '../../domain/kernelThroughput';
-import type { SubjectName, SubjectResult } from '../../domain/subject';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import KernelInputDistributionEvidence from './KernelInputDistributionEvidence';
+import KernelThroughputAnalysis from './KernelThroughputAnalysis';
 
 function Item({
   label,
@@ -147,52 +150,6 @@ function FieldList({ fields }: { fields: readonly DisplayField[] }) {
   );
 }
 
-function nonReadyReason<Name extends SubjectName>(subject: SubjectResult<Name>): string {
-  return 'reason' in subject && subject.reason
-    ? subject.reason
-    : `Analyzer subject ${subject.subject} is ${subject.status}.`;
-}
-
-function EvidenceStatus({
-  title,
-  subject,
-  readyText,
-}: {
-  title: string;
-  subject: SubjectResult<SubjectName>;
-  readyText?: string;
-}) {
-  const failed = subject.status === 'failed';
-  return (
-    <Box
-      role={failed ? 'alert' : 'status'}
-      sx={{
-        p: 1.5,
-        border: `1px solid ${tokens.hair}`,
-        borderLeft: `3px solid ${failed ? tokens.terra : tokens.gold}`,
-        borderRadius: 1.25,
-        background: tokens.tile,
-      }}
-    >
-      <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
-        {title}
-      </Typography>
-      <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
-        {subject.status === 'ready'
-          ? (readyText ?? 'Ready Analyzer evidence.')
-          : nonReadyReason(subject)}
-      </Typography>
-      <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
-        evidence status · {subject.status}
-      </Typography>
-    </Box>
-  );
-}
-
-function formatRate(stats: KernelRateStats, unit: string): string {
-  return stats.p50 === null ? `0 samples · ${unit}` : `${stats.p50.toFixed(1)} ${unit} · p50`;
-}
-
 function compactNumber(value: number): string {
   return value.toLocaleString(undefined, {
     maximumFractionDigits: value >= 100 ? 0 : value >= 10 ? 1 : 2,
@@ -278,14 +235,20 @@ function inputFields(node: LeafNode): readonly DisplayField[] {
 }
 
 function RealKernelEvidence({ node }: { node: LeafNode }) {
-  const throughput = useActiveRunSubject('kernelThroughput');
-  const location =
-    throughput.status === 'ready'
-      ? throughput.payload.locations.find(
-          (candidate) => candidate.name === node.slot.name && candidate.kind === node.slot.kind,
-        )
+  const run = useActiveRun();
+  const descriptor = useActiveRunDescriptor();
+  const treeState = useActiveWorkerTreeState();
+  const operationRef =
+    treeState.status === 'ready'
+      ? { worker: treeState.worker.ref, ...treeState.operation }
       : undefined;
-
+  const analysis = useKernelThroughputAnalysisQuery(
+    run.id,
+    operationRef,
+    node.id,
+    descriptor.analysis?.revision,
+    treeState.status === 'ready',
+  );
   return (
     <Box
       data-testid="kernel-evidence"
@@ -297,40 +260,57 @@ function RealKernelEvidence({ node }: { node: LeafNode }) {
         borderTop: `1px solid ${tokens.hair}`,
       }}
     >
-      {throughput.status === 'ready' && location !== undefined ? (
-        <Box
-          role="status"
-          sx={{
-            p: 1.5,
-            border: `1px solid ${tokens.hair}`,
-            borderRadius: 1.25,
-            background: tokens.tile,
-          }}
+      {analysis.data !== undefined ? (
+        <SurfaceCard data-testid="kernel-throughput-analysis-card" sx={{ p: '14px 14px 12px' }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'flex-start', sm: 'baseline' }}
+            spacing={0.5}
+          >
+            <Typography
+              component="h3"
+              sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}
+            >
+              Kernel throughput analysis
+            </Typography>
+            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+              Rust cache · {analysis.data.points.length.toLocaleString()} grid points
+            </Typography>
+          </Stack>
+          <KernelThroughputAnalysis analysis={analysis.data} node={node} />
+          <Typography sx={{ mt: 0.6, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+            current operation is plotted as a separate marker
+          </Typography>
+        </SurfaceCard>
+      ) : (
+        <SurfaceCard
+          role={analysis.isError ? 'alert' : 'status'}
+          accent={analysis.isError ? tokens.terra : tokens.gold}
+          sx={{ p: 1.5 }}
         >
           <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
-            Aggregate sampled throughput
+            Kernel throughput analysis
           </Typography>
           <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
-            {formatRate(location.tflops, throughput.payload.units.tflops)} ·{' '}
-            {formatRate(location.gbps, throughput.payload.units.gbps)}
+            {!analysis.supported
+              ? 'Available through the live Analyzer service.'
+              : analysis.isError
+                ? analysis.error instanceof Error
+                  ? analysis.error.message
+                  : 'Kernel throughput analysis failed.'
+                : 'Evaluating the Rust kernel cache across its declared grid…'}
           </Typography>
           <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
-            run aggregate · {location.tflops.sampleCount} compute samples ·{' '}
-            {location.gbps.sampleCount} memory samples
+            evidence status ·{' '}
+            {!analysis.supported ? 'unavailable' : analysis.isError ? 'failed' : 'loading'}
           </Typography>
-        </Box>
-      ) : (
-        <EvidenceStatus
-          title={
-            throughput.status === 'ready'
-              ? 'No sampled throughput for this location'
-              : 'Kernel throughput evidence'
-          }
-          subject={throughput}
-          readyText={`Ready aggregate payload has no exact (${node.slot.name}, ${node.slot.kind}) location.`}
-        />
+        </SurfaceCard>
       )}
-      <KernelInputDistributionEvidence positionName={node.slot.name} />
+      <KernelInputDistributionEvidence
+        positionName={node.slot.name}
+        currentInput={node.stats.input}
+      />
     </Box>
   );
 }
@@ -465,8 +445,8 @@ export default function KernelDetail({ height }: { height: number | string }) {
   );
 }
 
-/** Aggregate subjects remain below the joint workbench so they never compete
- * with the exact-operation CostTree for horizontal inspector space. */
+/** Selected-leaf analyses remain below the joint workbench so they never
+ * compete with the exact-operation CostTree for horizontal inspector space. */
 export function KernelEvidence() {
   const scope = useViz((state) => state.scope);
   const leafId = useViz((state) => state.leafId);

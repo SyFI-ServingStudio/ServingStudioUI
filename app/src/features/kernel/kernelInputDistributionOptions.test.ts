@@ -34,6 +34,44 @@ describe('kernel input distribution chart option', () => {
     expect(option.yAxis).toMatchObject({ name: 'total_tokens' });
   });
 
+  it('adds the exact current input as a distinct diamond marker', () => {
+    const option = kernelInputDistributionOption(position, CHART_THEME, {
+      batch_size: 3,
+      total_tokens: 256,
+    });
+    const series = option.series as Array<{
+      name: string;
+      type: string;
+      symbol?: string;
+      symbolSize?: number;
+      data: number[][];
+    }>;
+
+    expect(series.at(-1)).toMatchObject({
+      name: 'Current operation',
+      type: 'scatter',
+      symbol: 'diamond',
+      symbolSize: 18,
+      data: [[3, 256]],
+    });
+  });
+
+  it('does not invent a current coordinate for a PCA artifact without its fitted transform', () => {
+    const option = kernelInputDistributionOption(
+      {
+        ...position,
+        projection: 'pca',
+        axisLabels: ['PC1', 'PC2'],
+        explainedVariance: [0.7, 0.2],
+      },
+      CHART_THEME,
+      { batch_size: 3, total_tokens: 256, hidden: 4096 },
+    );
+    const series = option.series as Array<{ name: string }>;
+
+    expect(series.some(({ name }) => name === 'Current operation')).toBe(false);
+  });
+
   it('adds weighted backend density curves and a probability-density y axis for 1D', () => {
     const option = kernelInputDistributionOption(
       { ...position, projection: 'feature_1d', axisLabels: ['batch_size', ''] },

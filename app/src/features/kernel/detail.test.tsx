@@ -1,13 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf, leafByName, max, sum } from '../../domain/cost-tree';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import { useViz } from '../../store';
 import KernelInspector, { KernelEvidence } from './KernelDetail';
+import KernelThroughputAnalysis from './KernelThroughputAnalysis';
 import ParallelDetail from './ParallelDetail';
 
-const fixture = vi.hoisted(() => ({ subject: vi.fn(), treeState: vi.fn() }));
+const fixture = vi.hoisted(() => ({ analysis: vi.fn(), subject: vi.fn(), treeState: vi.fn() }));
 const worker = makeWorkerRef('attn', '0');
 const workerKey = makeWorkerKey(worker);
 const tree = annotate(
@@ -60,7 +61,18 @@ vi.mock('../../application/ActiveRunProvider', () => ({
       },
     ],
   }),
+  useActiveRunDescriptor: () => ({ analysis: { revision: 'test-revision' } }),
   useActiveRunSubject: fixture.subject,
+}));
+
+vi.mock('../../application/queries', () => ({
+  useKernelThroughputAnalysisQuery: fixture.analysis,
+}));
+
+vi.mock('../../components/EChart', () => ({
+  default: ({ option, ariaLabel }: { option: unknown; ariaLabel: string }) => (
+    <div role="img" aria-label={ariaLabel} data-option={JSON.stringify(option)} />
+  ),
 }));
 
 vi.mock('../../application/WorkerTreeProvider', () => ({
@@ -68,7 +80,34 @@ vi.mock('../../application/WorkerTreeProvider', () => ({
 }));
 
 beforeEach(() => {
-  fixture.treeState.mockReturnValue({ status: 'ready', tree });
+  fixture.analysis.mockReturnValue({
+    supported: true,
+    isError: false,
+    error: null,
+    data: {
+      schemaVersion: 1,
+      worker,
+      iterId: '1',
+      batchId: '2',
+      operationId: '0',
+      leafId: selectedLeaf.id,
+      slot: selectedLeaf.slot,
+      exactInput: { m: 1330 },
+      inputFields: ['m'],
+      gridAxes: [[32, 64]],
+      points: [
+        { input: { m: 32 }, timeMs: 1, flops: 64e9, bytes: 1e6, energyJ: 0, coverage: 0 },
+        { input: { m: 64 }, timeMs: 1, flops: 128e9, bytes: 2e6, energyJ: 0, coverage: 0 },
+      ],
+      semantics: 'cache_eval_at_declared_grid',
+    },
+  });
+  fixture.treeState.mockReturnValue({
+    status: 'ready',
+    tree,
+    worker: { ref: worker },
+    operation: { iterId: '1', batchId: '2', operationId: '0' },
+  });
   fixture.subject.mockImplementation((name: string) =>
     name === 'kernelThroughput'
       ? {
@@ -110,6 +149,122 @@ beforeEach(() => {
 });
 
 describe('kernel feature evidence boundaries', () => {
+  it('defaults memory-intensive work to GB/s and allows an explicit metric switch', () => {
+    const memoryNode = annotate(
+      leaf('norm', 'rms_norm', {}, 1, 'flashinfer', {
+        input: { m: 64 },
+        flops: 1_000,
+        bytes: 100,
+        tflops: 1,
+        gbps: 100,
+      }),
+    );
+    if (memoryNode.kind !== 'leaf') throw new Error('Expected a leaf fixture.');
+
+    render(
+      <KernelThroughputAnalysis
+        node={memoryNode}
+        analysis={{
+          schemaVersion: 1,
+          worker,
+          iterId: '1',
+          batchId: '2',
+          operationId: '0',
+          leafId: memoryNode.id,
+          slot: memoryNode.slot,
+          exactInput: { m: 64 },
+          inputFields: ['m'],
+          gridAxes: [[32, 64]],
+          points: [
+            { input: { m: 32 }, timeMs: 1, flops: 500, bytes: 50, energyJ: 0, coverage: 0 },
+            { input: { m: 64 }, timeMs: 1, flops: 1_000, bytes: 100, energyJ: 0, coverage: 0 },
+          ],
+          semantics: 'cache_eval_at_declared_grid',
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: /in GB\/s/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'GB/s' })).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'TFLOP/s' }));
+
+    expect(screen.getByRole('img', { name: /in TFLOP\/s/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'TFLOP/s' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('ranks two-dimensional shapes on an evenly spaced categorical axis', () => {
+    const memoryNode = annotate(
+      leaf('norm', 'rms_norm', {}, 1, 'flashinfer', {
+        input: { m: 48, hidden: 6144 },
+        flops: 1_000,
+        bytes: 100,
+        tflops: 150,
+        gbps: 100,
+      }),
+    );
+    if (memoryNode.kind !== 'leaf') throw new Error('Expected a leaf fixture.');
+
+    render(
+      <KernelThroughputAnalysis
+        node={memoryNode}
+        analysis={{
+          schemaVersion: 1,
+          worker,
+          iterId: '1',
+          batchId: '2',
+          operationId: '0',
+          leafId: memoryNode.id,
+          slot: memoryNode.slot,
+          exactInput: { m: 48, hidden: 6144 },
+          inputFields: ['m', 'hidden'],
+          gridAxes: [
+            [32, 64],
+            [4096, 8192],
+          ],
+          points: [
+            {
+              input: { m: 32, hidden: 4096 },
+              timeMs: 1,
+              flops: 300e9,
+              bytes: 50e6,
+              energyJ: 0,
+              coverage: 0,
+            },
+            {
+              input: { m: 64, hidden: 8192 },
+              timeMs: 1,
+              flops: 100e9,
+              bytes: 200e6,
+              energyJ: 0,
+              coverage: 0,
+            },
+          ],
+          semantics: 'cache_eval_at_declared_grid',
+        }}
+      />,
+    );
+
+    const chart = screen.getByRole('img', { name: /two-dimensional input shapes ranked by GB\/s/ });
+    const gbpsOption = JSON.parse(chart.getAttribute('data-option') ?? '{}');
+    expect(gbpsOption.xAxis).toMatchObject({
+      type: 'category',
+      data: ['m=32, hidden=4096', 'Current operation', 'm=64, hidden=8192'],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'TFLOP/s' }));
+
+    const tflopsOption = JSON.parse(chart.getAttribute('data-option') ?? '{}');
+    expect(tflopsOption.xAxis.data).toEqual([
+      'm=64, hidden=8192',
+      'Current operation',
+      'm=32, hidden=4096',
+    ]);
+  });
+
   it('combines CostTree leaf facts with exact real throughput and an explicit missing input state', () => {
     useViz.setState({ scope: 'kernel', leafId: selectedLeaf.id });
 
@@ -123,8 +278,8 @@ describe('kernel feature evidence boundaries', () => {
     expect(screen.getByRole('heading', { name: 'Overview' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Execution' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Performance' })).toBeVisible();
-    expect(screen.getByText('Aggregate sampled throughput')).toBeVisible();
-    expect(screen.getByText(/2\.0 TFLOP\/s · p50/)).toBeVisible();
+    expect(screen.getByText('Kernel throughput analysis')).toBeVisible();
+    expect(screen.getByRole('img', { name: /Kernel throughput analysis over m/ })).toBeVisible();
     expect(screen.getByText('Kernel input distribution')).toBeVisible();
     expect(screen.getByText('Input scatter was not requested.')).toBeVisible();
     expect(screen.getByText('Backends')).toBeVisible();
@@ -153,7 +308,7 @@ describe('kernel feature evidence boundaries', () => {
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Overview' }));
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Execution' }));
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Performance' }));
-    expect(inspector).not.toContainElement(screen.getByText('Aggregate sampled throughput'));
+    expect(screen.queryByText('Aggregate sampled throughput')).not.toBeInTheDocument();
     expect(inspector.contains(screen.getByTestId('kernel-evidence'))).toBe(false);
   });
 

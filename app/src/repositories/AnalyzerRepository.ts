@@ -8,6 +8,7 @@ import type { Topology } from '../domain/run';
 import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
+import type { KernelThroughputAnalysis } from '../domain/kernelThroughputAnalysis';
 import type {
   WorkerCostTreeDetail,
   WorkerCostTreeRef,
@@ -51,6 +52,14 @@ export interface AnalyzerRepository {
   ): Promise<WorkerOperationSeekResult>;
 
   getWorkerCostTree(runId: string, ref: WorkerCostTreeRef): Promise<WorkerCostTreeDetail>;
+
+  /** Optional because static artifact repositories do not have a live Rust
+   * cache process. The live HTTP repository implements this capability. */
+  getKernelThroughputAnalysis?(
+    runId: string,
+    ref: WorkerCostTreeRef,
+    leafId: number,
+  ): Promise<KernelThroughputAnalysis>;
 
   /** Return an addressable trace; repositories do not copy trace bytes into UI state. */
   getTrace(runId: string, traceName: string): Promise<TraceResource>;

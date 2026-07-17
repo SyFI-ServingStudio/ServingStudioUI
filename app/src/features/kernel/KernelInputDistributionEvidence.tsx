@@ -4,6 +4,7 @@ import { useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { CHART_THEME } from '../../charts/platform';
 import EChart from '../../components/EChart';
 import SurfaceCard from '../../components/SurfaceCard';
+import type { JsonValue } from '../../domain/cost-tree';
 import type { SubjectResult } from '../../domain/subject';
 import { tokens } from '../../theme';
 import { kernelInputDistributionOption } from './kernelInputDistributionOptions';
@@ -46,8 +47,10 @@ function EvidenceState({
  * match remains an explicit evidence state rather than falling back by kind. */
 export default function KernelInputDistributionEvidence({
   positionName,
+  currentInput,
 }: {
   positionName: string;
+  currentInput: JsonValue;
 }) {
   const subject = useActiveRunSubject('kernelInputDistribution');
   if (subject.status !== 'ready') return <EvidenceState subject={subject} />;
@@ -65,7 +68,7 @@ export default function KernelInputDistributionEvidence({
     position.projection === 'pca' && position.explainedVariance !== null
       ? `PCA · ${(position.explainedVariance[0] * 100).toFixed(1)}% + ${(position.explainedVariance[1] * 100).toFixed(1)}% variance`
       : position.projection.replace('_', ' ');
-  const option = kernelInputDistributionOption(position, CHART_THEME);
+  const option = kernelInputDistributionOption(position, CHART_THEME, currentInput);
 
   return (
     <SurfaceCard data-testid="kernel-input-distribution" sx={{ p: '14px 14px 12px' }}>
@@ -145,7 +148,7 @@ export default function KernelInputDistributionEvidence({
       </Box>
       <Typography sx={{ mt: 0.6, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
         {position.points.length.toLocaleString()} deduplicated points · point size encodes sampled
-        slot count
+        slot count · current operation is a diamond marker
       </Typography>
     </SurfaceCard>
   );

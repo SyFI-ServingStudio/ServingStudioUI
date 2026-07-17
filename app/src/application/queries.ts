@@ -73,6 +73,28 @@ export const analyzerQueryKeys = {
       `schema-v${schemaVersion}`,
       `analysis-${analysisRevision}`,
     ] as const,
+  kernelThroughputAnalysis: (
+    runId: string,
+    ref: WorkerCostTreeRef,
+    leafId: number,
+    analysisRevision: string,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      ref.worker.poolTag,
+      ref.worker.workerId,
+      'operation-ref',
+      ref.iterId,
+      ref.batchId,
+      'operation',
+      ref.operationId,
+      'leaf',
+      leafId,
+      'kernel-throughput-analysis',
+      `analysis-${analysisRevision}`,
+    ] as const,
   workerOperations: (
     runId: string,
     worker: WorkerRef,
@@ -413,6 +435,33 @@ export function useWorkerCostTreeDetailQuery(
       analysisRevision !== undefined,
     staleTime: Infinity,
   });
+}
+
+export function useKernelThroughputAnalysisQuery(
+  runId: string,
+  ref: WorkerCostTreeRef | undefined,
+  leafId: number | null,
+  analysisRevision: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getKernelThroughputAnalysis !== undefined;
+  const ready =
+    supported && ref !== undefined && leafId !== null && analysisRevision !== undefined;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.kernelThroughputAnalysis(runId, ref, leafId, analysisRevision)
+      : [...analyzerQueryKeys.runs(), runId, 'kernel-throughput-analysis', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getKernelThroughputAnalysis === undefined) {
+        throw new Error('Kernel throughput analysis requires the live Analyzer service.');
+      }
+      return repository.getKernelThroughputAnalysis(runId, ref, leafId);
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
 }
 
 export function useWorkerOperationsQuery(
