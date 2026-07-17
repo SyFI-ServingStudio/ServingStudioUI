@@ -105,6 +105,8 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
         scope: 'configured_trace',
         source_paths: ['trace/aime_long.csv'],
         request_count: 2,
+        average_input_tokens: 24,
+        average_output_tokens: 32,
         arrival_basis: 'effective_open_loop',
         request_rate: 4,
         token_lengths: [16],

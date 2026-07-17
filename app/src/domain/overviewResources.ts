@@ -14,6 +14,8 @@ export interface WorkloadOverviewResource {
   scope: 'configured_trace';
   sourcePaths: readonly string[];
   requestCount: number;
+  averageInputTokens: number;
+  averageOutputTokens: number;
   arrivalBasis: 'effective_open_loop' | 'source_trace';
   requestRate: number;
   tokenLengths: readonly number[];

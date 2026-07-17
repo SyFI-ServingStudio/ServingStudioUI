@@ -204,6 +204,15 @@ describe('scope metric chart options', () => {
     expectSafeText(rendered);
   });
 
+  it('lets each SLO log axis derive its limits from its own latency data', () => {
+    const option = sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]);
+    const xAxis = option.xAxis as { min?: number; max?: number; type?: string };
+
+    expect(xAxis.type).toBe('log');
+    expect(xAxis).not.toHaveProperty('min');
+    expect(xAxis).not.toHaveProperty('max');
+  });
+
   it('keeps the throughput x-axis title and final tick inside the SVG viewport', () => {
     const option = throughputOption(throughput, CHART_THEME);
     expect(option.grid).toMatchObject({ containLabel: true });

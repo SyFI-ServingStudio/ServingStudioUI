@@ -96,6 +96,18 @@ export function lengthDistributionOption(
 }
 
 export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme): EChartsOption {
+  // Arrival samples sit at uniformly spaced bucket centers. Convert counts to
+  // req/s here so the chart communicates a rate instead of exposing the
+  // analyzer's internal bucket size. A single-point trace has no measurable
+  // bucket width, so its configured/effective request rate is the only exact
+  // rate available.
+  const bucketWidthSeconds =
+    data.arrivalSeconds.length > 1 ? data.arrivalSeconds[1] - data.arrivalSeconds[0] : null;
+  const requestRates = data.arrivals.map((count) =>
+    bucketWidthSeconds !== null && bucketWidthSeconds > 0
+      ? count / bucketWidthSeconds
+      : data.requestRate,
+  );
   return {
     animationDuration: 450,
     textStyle: { fontFamily: theme.font, color: theme.text },
@@ -103,13 +115,13 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
     legend: {
       top: 0,
       right: 0,
-      data: ['arrivals', 'local mean'],
+      data: ['effective request rate'],
       textStyle: { color: theme.sub, fontSize: 10 },
       itemWidth: 12,
       itemHeight: 7,
     },
     tooltip: richTextTooltip(theme, 'axis', {
-      axisPointer: { type: 'shadow' },
+      axisPointer: { type: 'line' },
       textStyle: { fontSize: 11 },
     }),
     xAxis: {
@@ -125,7 +137,7 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
     },
     yAxis: {
       type: 'value',
-      name: 'req / bucket',
+      name: 'req/s',
       nameTextStyle: { color: theme.sub, fontSize: 9 },
       axisLine: { show: false },
       axisTick: { show: false },
@@ -134,18 +146,10 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
     },
     series: [
       {
-        name: 'arrivals',
-        type: 'bar',
-        barMaxWidth: 9,
-        data: data.arrivalSeconds.map((seconds, index) => [seconds, data.arrivals[index]]),
-        itemStyle: { color: theme.palette[1], opacity: 0.72, borderRadius: [2, 2, 0, 0] },
-      },
-      {
-        name: 'local mean',
+        name: 'effective request rate',
         type: 'line',
-        smooth: true,
         symbol: 'none',
-        data: data.arrivalSeconds.map((seconds, index) => [seconds, data.arrivalTrend[index]]),
+        data: data.arrivalSeconds.map((seconds, index) => [seconds, requestRates[index]]),
         lineStyle: { color: theme.palette[0], width: 2.1 },
       },
     ],

@@ -65,6 +65,12 @@ vi.mock('../kernel', () => ({
   ParallelDetail: () => <div data-testid="parallel-detail" />,
 }));
 
+vi.mock('../metrics', () => ({
+  KernelTimeBreakdownCard: ({ title }: { title: string }) => (
+    <div data-testid="worker-kernel-time-breakdown">{title}</div>
+  ),
+}));
+
 vi.mock('./TimeShareBlocks', () => ({
   default: () => <div data-testid="time-share" />,
 }));
@@ -205,6 +211,9 @@ describe('WorkerStage CostTree frame stability', () => {
     expect(screen.queryByTestId('kernel-evidence')).not.toBeInTheDocument();
     expect(screen.getByTestId('parallel-detail')).toBeVisible();
     expect(screen.getByTestId('time-share')).toBeVisible();
+    expect(screen.getByTestId('worker-kernel-time-breakdown')).toHaveTextContent(
+      'Worker kernel time breakdown · ffn/1',
+    );
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
     expect(scrolledTargets[0]).toBe(screen.getByTestId('worker-viewport-shell'));
     expect(scrollIntoViewMock).toHaveBeenCalledWith({

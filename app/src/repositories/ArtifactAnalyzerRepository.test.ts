@@ -114,6 +114,8 @@ describe('ArtifactAnalyzerRepository', () => {
       scope: 'configured_trace',
       source_paths: ['trace/aime_long.csv'],
       request_count: 2,
+      average_input_tokens: 24,
+      average_output_tokens: 32,
       arrival_basis: 'source_trace',
       request_rate: 0,
       token_lengths: [16],

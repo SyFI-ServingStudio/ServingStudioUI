@@ -23,7 +23,7 @@ function unavailableMessage(projection: KernelTimeBreakdownProjection): string {
     .join(' ');
 }
 
-/** Shared cluster/pool card so both scopes preserve analyzer status and use the
+/** Shared cluster/pool/worker card so every aggregate scope preserves analyzer status and uses the
  * exact same family taxonomy and sampling disclosure. */
 export default function KernelTimeBreakdownCard({
   idx,
@@ -65,8 +65,8 @@ export default function KernelTimeBreakdownCard({
     .join(' · ');
   const note = `${totalNote} · ${samplingNote}`;
   const caption = projection.positionMixExact
-    ? 'Share of analyzer CostTree-root kernel time by family. Overall and pool totals, and the family mixture, are exact.'
-    : 'Share of analyzer CostTree-root kernel time by family. Scope totals are exact; the position/family mixture is estimated from the analyzer replay sample.';
+    ? 'Critical-path share of analyzer CostTree-root wall-clock time by family. Scope totals and the family mixture are exact.'
+    : 'Critical-path share of analyzer CostTree-root wall-clock time by family. Scope totals are exact; the position/family mixture is estimated from the analyzer replay sample.';
 
   return (
     <ChartCard
@@ -76,7 +76,7 @@ export default function KernelTimeBreakdownCard({
       option={hasKernelTime ? kernelTimeStackOption(projection, CHART_THEME) : null}
       height={Math.max(170, projection.rows.length * 48 + 74)}
       note={hasKernelTime ? note : undefined}
-      empty={hasKernelTime ? undefined : 'This pool recorded no CostTree-root kernel time.'}
+      empty={hasKernelTime ? undefined : 'This scope recorded no CostTree-root kernel time.'}
       caption={caption}
     />
   );

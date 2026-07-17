@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   annotate,
+  criticalLeafTotals,
   leaf,
   leafById,
   leafByName,
@@ -101,6 +102,55 @@ describe('CostTree annotation', () => {
     });
     expect(totals.positions[0]?.pct).toBeCloseTo(200 / 3);
     expect(totals.positions[1]?.pct).toBeCloseTo(100 / 3);
+  });
+
+  it('attributes Sum, Scale, Max, and overlap to root critical-path time', () => {
+    const tree = annotate(
+      sum(
+        'root',
+        leaf('a', 'single_gemm', '{}', 4),
+        scale(
+          'twice',
+          2,
+          max('parallel', 2, leaf('b', 'all_reduce', '{}', 6), leaf('c', 'rms_norm', '{}', 10)),
+        ),
+      ),
+    );
+
+    const totals = criticalLeafTotals(tree);
+
+    expect(tree.totalMs).toBe(14);
+    expect(totals).toMatchObject({
+      totalMs: 14,
+      positions: [
+        { name: 'c', ms: 10 },
+        { name: 'a', ms: 4 },
+      ],
+    });
+    expect(totals.positions.find((position) => position.name === 'b')).toBeUndefined();
+    expect(totals.positions[0]?.pct).toBeCloseTo((10 / 14) * 100);
+    expect(totals.positions[1]?.pct).toBeCloseTo((4 / 14) * 100);
+    expect(totals.positions.reduce((total, position) => total + position.pct, 0)).toBeCloseTo(100);
+  });
+
+  it('splits exact Max ties without losing Scale attribution', () => {
+    const tree = annotate(
+      scale(
+        'twice',
+        2,
+        max('tie', 1, leaf('left', 'single_gemm', '{}', 5), leaf('right', 'all_reduce', '{}', 5)),
+      ),
+    );
+
+    const totals = criticalLeafTotals(tree);
+
+    expect(totals).toMatchObject({
+      totalMs: 10,
+      positions: [
+        { ms: 5, pct: 50 },
+        { ms: 5, pct: 50 },
+      ],
+    });
   });
 
   it('keeps preorder selection ids stable across value-only reannotation', () => {

@@ -7,6 +7,8 @@ const workload = {
   scope: 'configured_trace',
   source_paths: ['trace/test.csv'],
   request_count: 2,
+  average_input_tokens: 24,
+  average_output_tokens: 20,
   arrival_basis: 'effective_open_loop',
   request_rate: 4,
   token_lengths: [16, 32],
@@ -49,6 +51,8 @@ describe('analyzer-v1 overview resources', () => {
   it('accepts bounded parallel workload series', () => {
     expect(parseAnalyzerV1WorkloadResource(workload)).toMatchObject({
       requestCount: 2,
+      averageInputTokens: 24,
+      averageOutputTokens: 20,
       tokenLengths: [16, 32],
       arrivalSeconds: [0, 0.5],
     });

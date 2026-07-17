@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, sum } from '../../domain/cost-tree';
+import { annotate, leaf, max, scale, sum } from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import TimeShareBlocks from './TimeShareBlocks';
 
@@ -81,5 +81,29 @@ describe('TimeShareBlocks interaction targets', () => {
 
     expect(useViz.getState()).toMatchObject({ scope: 'kernel', leafId: largeNode.id });
     expect(largeSegment).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows only the scaled critical Max branch against root wall-clock cost', () => {
+    workerTreeMock.state.mockReturnValue({
+      status: 'ready',
+      tree: annotate(
+        sum(
+          'root',
+          leaf('a', 'single_gemm', '{}', 4),
+          scale(
+            'twice',
+            2,
+            max('parallel', 2, leaf('b', 'all_reduce', '{}', 6), leaf('c', 'rms_norm', '{}', 10)),
+          ),
+        ),
+      ),
+    });
+
+    render(<TimeShareBlocks />);
+
+    expect(screen.queryByRole('img', { name: /\bb —/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /c — 10\.00 ms · 71%/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /a — 4\.00 ms · 29%/ })).toBeVisible();
+    expect(screen.getByText('100% of CostTree root wall-clock cost')).toBeVisible();
   });
 });

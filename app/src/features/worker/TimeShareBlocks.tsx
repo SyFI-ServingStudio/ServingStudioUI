@@ -2,7 +2,7 @@ import { Box, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import { useViz } from '../../store';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { tokens } from '../../theme';
-import { leafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../../domain/cost-tree';
+import { criticalLeafTotals, leafByName, colorOf, fmtMs, fmtPct } from '../../domain/cost-tree';
 
 interface Seg {
   label: string;
@@ -169,7 +169,7 @@ export default function TimeShareBlocks() {
     );
   }
   const tree = treeState.tree;
-  const lt = leafTotals(tree);
+  const lt = criticalLeafTotals(tree);
 
   const groupSegs: Seg[] = lt.groups.map((g) => ({
     label: g.label,
@@ -213,13 +213,13 @@ export default function TimeShareBlocks() {
       <Stack spacing={2}>
         <Bar
           title="by kernel family"
-          note="busy-time composition"
+          note="critical path · root wall-clock"
           segs={groupSegs}
           clickable={false}
         />
         <Bar
           title="by kernel position"
-          note="large shares select · tiny shares use CostTree cards"
+          note="critical path · large shares select"
           segs={posSegs}
           clickable
         />
@@ -232,7 +232,7 @@ export default function TimeShareBlocks() {
           <span>25%</span>
           <span>50%</span>
           <span>75%</span>
-          <span>100% of CostTree root kernel time</span>
+          <span>100% of CostTree root wall-clock cost</span>
         </Stack>
       </Stack>
     </Paper>

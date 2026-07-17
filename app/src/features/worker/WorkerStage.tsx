@@ -24,6 +24,7 @@ import {
 } from './CostTreeFrame';
 import TimeShareBlocks from './TimeShareBlocks';
 import { WorkerOperationTimeline } from '../timeline';
+import { KernelTimeBreakdownCard } from '../metrics';
 
 export const WORKER_WORKBENCH_MIN_HEIGHT = 480;
 export const WORKER_VIEWPORT_SAFE_GAP = 12;
@@ -158,6 +159,22 @@ function ReadyWorkerSupplementary() {
       <TimeShareBlocks />
       <WorkerEvidenceMatrix />
     </Stack>
+  );
+}
+
+/** Aggregate worker composition is independent of the currently selected
+ * operation, so keep it available even while exact CostTree detail is pending. */
+function WorkerKernelTimeBreakdown() {
+  const workerKey = useViz((state) => state.workerKey);
+  const kernelTimeShare = useActiveRunSubject('kernelTimeShare');
+  if (workerKey === null) return null;
+  return (
+    <KernelTimeBreakdownCard
+      idx="worker-kernel-time"
+      title={`Worker kernel time breakdown · ${workerKey}`}
+      subject={kernelTimeShare}
+      scope={{ kind: 'worker', workerKey }}
+    />
   );
 }
 
@@ -391,6 +408,7 @@ export default function WorkerStage() {
           {content}
         </Box>
       </Box>
+      <WorkerKernelTimeBreakdown />
       {state.status === 'ready' && <ReadyWorkerSupplementary />}
     </Stack>
   );

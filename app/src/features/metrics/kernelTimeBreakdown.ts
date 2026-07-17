@@ -1,10 +1,12 @@
 import {
   KERNEL_TIME_EPSILON_MS,
   type AggregateKernelComposition,
+  type AggregateWorkerKernelComposition,
   type KernelTimeShare,
 } from '../../domain/kernelTimeShare';
 import type { SubjectResult } from '../../domain/subject';
 import { GROUP, groupOf } from '../../domain/cost-tree';
+import type { WorkerKey } from '../../domain/worker';
 
 export interface KernelStackFamily {
   group: string;
@@ -27,7 +29,10 @@ export interface ReadyKernelTimeBreakdown {
   sampling: KernelTimeShare['sampling'];
 }
 
-export type KernelTimeBreakdownScope = { kind: 'cluster' } | { kind: 'pool'; poolTag: string };
+export type KernelTimeBreakdownScope =
+  | { kind: 'cluster' }
+  | { kind: 'pool'; poolTag: string }
+  | { kind: 'worker'; workerKey: WorkerKey };
 
 type KernelTimeShareNotReady = Exclude<SubjectResult<'kernelTimeShare'>, { status: 'ready' }>;
 
@@ -55,7 +60,26 @@ function row(label: string, composition: AggregateKernelComposition): KernelStac
   };
 }
 
-/** Preserve analyzer scope semantics. Overall and pool totals already account
+function scopedSampling(
+  payload: KernelTimeShare,
+  workers: readonly AggregateWorkerKernelComposition[] | null,
+): Pick<ReadyKernelTimeBreakdown, 'positionMixExact' | 'sampling'> {
+  if (workers === null) {
+    return {
+      positionMixExact: payload.sampling.positionMixExact,
+      sampling: payload.sampling,
+    };
+  }
+  const rawRows = workers.reduce((total, worker) => total + worker.rawRows, 0);
+  const sampledRows = workers.reduce((total, worker) => total + worker.sampledRows, 0);
+  const positionMixExact = workers.every((worker) => worker.sampledRows === worker.rawRows);
+  return {
+    positionMixExact,
+    sampling: { ...payload.sampling, positionMixExact, rawRows, sampledRows },
+  };
+}
+
+/** Preserve analyzer scope semantics. Overall, pool, and worker totals already account
  * for worker composition and CostTree critical paths; reconstructing them from
  * visual worker trees or applying GPU weights changes the measured result. */
 export function projectKernelTimeBreakdown(
@@ -65,18 +89,37 @@ export function projectKernelTimeBreakdown(
   if (subject.status !== 'ready') return subject;
 
   const payload = subject.payload;
-  const rows: KernelStackRow[] =
+  const scopedWorkers =
     scope.kind === 'cluster'
-      ? [row('cluster', payload.overall), ...payload.pools.map((pool) => row(pool.poolTag, pool))]
-      : (() => {
-          const pool = payload.pools.find((candidate) => candidate.poolTag === scope.poolTag);
-          return pool ? [row(pool.poolTag, pool)] : [];
-        })();
+      ? null
+      : scope.kind === 'pool'
+        ? payload.workers.filter((worker) => worker.ref.poolTag === scope.poolTag)
+        : payload.workers.filter((worker) => worker.key === scope.workerKey);
+  const rows: KernelStackRow[] = (() => {
+    if (scope.kind === 'cluster') {
+      return [
+        row('cluster', payload.overall),
+        ...payload.pools.map((pool) => row(pool.poolTag, pool)),
+      ];
+    }
+    if (scope.kind === 'pool') {
+      const pool = payload.pools.find((candidate) => candidate.poolTag === scope.poolTag);
+      return pool ? [row(pool.poolTag, pool)] : [];
+    }
+    const worker = scopedWorkers?.[0];
+    return worker ? [row(worker.key, worker)] : [];
+  })();
 
-  if (rows.length === 0 && scope.kind === 'pool') {
+  if (rows.length === 0) {
+    const identity =
+      scope.kind === 'pool'
+        ? `pool named ${scope.poolTag}`
+        : scope.kind === 'worker'
+          ? `worker ${scope.workerKey}`
+          : 'cluster scope';
     return {
       status: 'scope_missing',
-      reason: `Kernel-time-share payload has no pool named ${scope.poolTag}.`,
+      reason: `Kernel-time-share payload has no ${identity}.`,
     };
   }
 
@@ -91,12 +134,12 @@ export function projectKernelTimeBreakdown(
     )
     .map((group) => ({ group, label: GROUP[group].label, color: GROUP[group].color }));
 
+  const sampling = scopedSampling(payload, scopedWorkers);
   return {
     status: 'ready',
     families,
     rows,
     kernelTimeTotalsExact: true,
-    positionMixExact: payload.sampling.positionMixExact,
-    sampling: payload.sampling,
+    ...sampling,
   };
 }

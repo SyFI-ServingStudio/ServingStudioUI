@@ -10,7 +10,7 @@ import {
 } from '../../charts/platform';
 import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
 
-// ---- cluster kernel time breakdown — 100% stacked bar (cluster scope) ------
+// ---- critical-path kernel time breakdown — aggregate scope stacked bars ----
 export function kernelTimeStackOption(
   data: ReadyKernelTimeBreakdown,
   t: ChartTheme,

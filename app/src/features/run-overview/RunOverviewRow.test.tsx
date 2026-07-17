@@ -64,6 +64,8 @@ describe('RunOverviewRow resources', () => {
         scope: 'configured_trace',
         sourcePaths: ['trace/test.csv'],
         requestCount: 2,
+        averageInputTokens: 24,
+        averageOutputTokens: 48.5,
         arrivalBasis: 'effective_open_loop',
         requestRate: 4,
         tokenLengths: [16, 32],
@@ -80,15 +82,22 @@ describe('RunOverviewRow resources', () => {
 
     expect(screen.getByText('6,144')).toBeVisible();
     expect(screen.getByText('160 / 8')).toBeVisible();
-    expect(screen.getByText('2 requests · 1 source trace · effective open loop')).toBeVisible();
-    expect(screen.getByText('peak / mean 1.25×')).toBeVisible();
+    expect(screen.getByText('24')).toBeVisible();
+    expect(screen.getByText('48.5')).toBeVisible();
+    expect(screen.getByText('test.csv')).toBeVisible();
+    expect(screen.getByText('Avg input tokens')).toBeVisible();
+    expect(screen.getByText('Avg output tokens')).toBeVisible();
+    expect(screen.getByText('Trace file')).toBeVisible();
+    expect(screen.queryByText(/wall-clock/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/peak \/ mean/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/source trace/)).not.toBeInTheDocument();
     expect(
       screen.getByRole('img', {
         name: 'Configured trace input and output token length distributions',
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole('img', { name: 'Configured trace arrival pattern. Peak to mean 1.25' }),
+      screen.getByRole('img', { name: 'Configured trace effective request rate over time' }),
     ).toBeVisible();
   });
 });

@@ -67,7 +67,9 @@ subject payload 的 availability 位置不统一：可能在 `payload.available`
 ## 单位不变量
 
 - utilization、KV `*_pct`（当前命名）和 PCA ratio 是 0–1 fraction；展示时才乘 100。
-- conservation `delta_pct` 与 kernel time `share_pct` 是 0–100 percent。
+- conservation `delta_pct` 与 kernel time `share_pct` 是 0–100 percent；kernel time
+  仅归因 CostTree critical path，保留 Scale multiplicity，Max 只向 critical child
+  转发并应用 overlap，因此每个 scope 的 segments 合计为 100%。
 - TTFT/E2E 是 ms，TPOT 是 ms/token；throughput 是 token/s。
 - `t_*_ms` 是 ms，`tick_dt_us` 是 µs，`wall_s` 是宿主秒。
 - KV projected occupancy 和 utilization 数据质量检查不得被 UI clamp；超界值需要诊断提示。当前刷新 fixture 已验证 utilization 为 10 workers（attn 8 / ffn 2）。

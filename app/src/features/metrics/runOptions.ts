@@ -15,7 +15,6 @@ export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string)
     xAxis: {
       ...(opt.xAxis as object),
       type: 'log',
-      min: 1,
       name: `latency · ${safeChartText(metric.unit)}`,
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },

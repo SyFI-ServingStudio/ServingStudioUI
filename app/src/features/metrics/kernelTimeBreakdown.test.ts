@@ -4,6 +4,7 @@ import kernelTimeShareJson from '../../../../fixtures/analyzer-v1/afd-qwen3-dura
 import { decodeAnalyzerV1KernelTimeSharePayload } from '../../contracts/analyzer/v1/kernelTimeShare';
 import type { KernelTimeShare } from '../../domain/kernelTimeShare';
 import type { SubjectResult } from '../../domain/subject';
+import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import { hasReportableKernelTime, projectKernelTimeBreakdown } from './kernelTimeBreakdown';
 
 function readySubject(payload: KernelTimeShare): SubjectResult<'kernelTimeShare'> {
@@ -33,7 +34,21 @@ function smallPayload(): KernelTimeShare {
       },
       { poolTag: 'idle', numWorkers: 1, kernelTimeMs: 0, segments: [] },
     ],
-    workers: [],
+    workers: [
+      {
+        ref: makeWorkerRef('active', '0'),
+        key: makeWorkerKey('active', '0'),
+        rawRows: 4,
+        sampledRows: 2,
+        sampleStride: 2,
+        kernelTimeMs: 10,
+        segments: [
+          { position: 'a', kind: 'single_gemm', kernelTimeMs: 2, sharePct: 20 },
+          { position: 'b', kind: 'grouped_gemm', kernelTimeMs: 3, sharePct: 30 },
+          { position: 'c', kind: 'future_kernel', kernelTimeMs: 5, sharePct: 50 },
+        ],
+      },
+    ],
     positions: [
       { name: 'a', kind: 'single_gemm', overallSharePct: 20 },
       { name: 'b', kind: 'grouped_gemm', overallSharePct: 30 },
@@ -104,6 +119,27 @@ describe('projectKernelTimeBreakdown', () => {
     expect(missing).toEqual({
       status: 'scope_missing',
       reason: 'Kernel-time-share payload has no pool named other.',
+    });
+  });
+
+  it('projects an exact worker identity and worker-local sampling counts', () => {
+    const subject = readySubject(smallPayload());
+    const workerKey = makeWorkerKey('active', '0');
+    const worker = projectKernelTimeBreakdown(subject, { kind: 'worker', workerKey });
+    const missing = projectKernelTimeBreakdown(subject, {
+      kind: 'worker',
+      workerKey: makeWorkerKey('active', '9'),
+    });
+
+    expect(worker).toMatchObject({
+      status: 'ready',
+      positionMixExact: false,
+      sampling: { rawRows: 4, sampledRows: 2 },
+      rows: [{ label: workerKey, total: 10 }],
+    });
+    expect(missing).toEqual({
+      status: 'scope_missing',
+      reason: 'Kernel-time-share payload has no worker active/9.',
     });
   });
 

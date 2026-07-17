@@ -159,6 +159,8 @@ describe('overview resource queries', () => {
       scope: 'configured_trace' as const,
       sourcePaths: ['trace/test.csv'],
       requestCount: 1,
+      averageInputTokens: 16,
+      averageOutputTokens: 32,
       arrivalBasis: 'source_trace' as const,
       requestRate: 0,
       tokenLengths: [16],

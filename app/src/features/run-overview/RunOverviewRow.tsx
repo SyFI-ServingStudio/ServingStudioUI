@@ -49,20 +49,43 @@ function resourceStatusLabel(status: string): string {
   return status.replace('_', ' ');
 }
 
-function PropertyGrid({ properties }: { properties: Property[] }) {
+function averageTokens(value: number): string {
+  return value.toLocaleString('en-US', { maximumFractionDigits: 1 });
+}
+
+function traceFileNames(sourcePaths: readonly string[]): string {
+  return sourcePaths.map((path) => path.split('/').at(-1) ?? path).join(' · ');
+}
+
+function PropertyGrid({
+  properties,
+  columns = 4,
+  lastFullWidthOnXs = false,
+}: {
+  properties: Property[];
+  columns?: number;
+  lastFullWidthOnXs?: boolean;
+}) {
   return (
     <Box
       sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: 'repeat(2,minmax(0,1fr))', sm: 'repeat(4,minmax(0,1fr))' },
+        gridTemplateColumns: {
+          xs: 'repeat(2,minmax(0,1fr))',
+          sm: `repeat(${columns},minmax(0,1fr))`,
+        },
         gap: 0.5,
         mt: 1,
       }}
     >
-      {properties.map((property) => (
+      {properties.map((property, index) => (
         <Box
           key={property.label}
           sx={{
+            gridColumn:
+              lastFullWidthOnXs && index === properties.length - 1
+                ? { xs: '1 / -1', sm: 'auto' }
+                : undefined,
             minWidth: 0,
             minHeight: { xs: 44, sm: 50 },
             p: { xs: '6px 9px', sm: '8px 9px' },
@@ -215,11 +238,7 @@ export default function RunOverviewRow() {
       modelResource.status === 'ready'
         ? experts !== undefined
         : run.workerList.some((worker) => worker.archType.toLowerCase().includes('moe'));
-    const trace = workloadResource.status === 'ready' ? workloadResource.resource : null;
-    const traceEndS = trace?.arrivalSeconds[trace.arrivalSeconds.length - 1];
-    const traceSpan = traceEndS === undefined ? 'n/a' : `${+traceEndS.toFixed(1)} s`;
     return {
-      traceSpan,
       modelKind: hasMoeArch ? 'mixture of experts' : 'dense transformer',
       modelProperties: [
         { label: 'Parameters', value: modelCount(configNumber(modelConfig, 'num_parameters')) },
@@ -259,7 +278,7 @@ export default function RunOverviewRow() {
         { label: 'Placement', value: distinct(run.topology.pools.map((pool) => pool.placement)) },
       ],
     };
-  }, [modelResource, run, workloadResource]);
+  }, [modelResource, run]);
 
   const workload = workloadResource.status === 'ready' ? workloadResource.resource : null;
   const workloadReason =
@@ -327,46 +346,33 @@ export default function RunOverviewRow() {
             kind="workload"
             accent={tokens.terra}
           />
-          <Stack
-            direction="row"
-            alignItems="baseline"
-            justifyContent="space-between"
-            spacing={2}
-            sx={{ mt: 0.7 }}
-          >
-            <Typography
-              sx={{
-                fontFamily: tokens.serif,
-                fontWeight: 600,
-                fontSize: { xs: 19, md: 20 },
-                lineHeight: 1.1,
-              }}
-            >
-              {overview.traceSpan} wall-clock
-            </Typography>
-            <Typography
-              sx={{
-                px: 0.8,
-                py: 0.3,
-                borderRadius: 1,
-                background: 'rgba(194,92,58,.09)',
-                fontFamily: tokens.mono,
-                fontSize: 9,
-                color: tokens.terra,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {workload === null
-                ? resourceStatusLabel(workloadResource.status)
-                : `peak / mean ${workload.peakToMean.toFixed(2)}×`}
-            </Typography>
-          </Stack>
-          <Typography sx={{ mt: 0.3, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
-            {fmtInt(workload?.requestCount ?? run.summary.requests)} requests ·{' '}
-            {workload === null
-              ? run.source.simulationFolder
-              : `${workload.sourcePaths.length} source trace${workload.sourcePaths.length === 1 ? '' : 's'} · ${workload.arrivalBasis.replace(/_/g, ' ')}`}
-          </Typography>
+          <PropertyGrid
+            columns={3}
+            lastFullWidthOnXs
+            properties={[
+              {
+                label: 'Avg input tokens',
+                value:
+                  workload === null
+                    ? resourceStatusLabel(workloadResource.status)
+                    : averageTokens(workload.averageInputTokens),
+              },
+              {
+                label: 'Avg output tokens',
+                value:
+                  workload === null
+                    ? resourceStatusLabel(workloadResource.status)
+                    : averageTokens(workload.averageOutputTokens),
+              },
+              {
+                label: 'Trace file',
+                value:
+                  workload === null
+                    ? resourceStatusLabel(workloadResource.status)
+                    : traceFileNames(workload.sourcePaths),
+              },
+            ]}
+          />
         </Box>
 
         {workload === null ? (
@@ -423,7 +429,7 @@ export default function RunOverviewRow() {
             <Box sx={{ minWidth: 0, minHeight: 240 }}>
               <EChart
                 option={arrivalPatternOption(workload, CHART_THEME)}
-                ariaLabel={`Configured trace arrival pattern. Peak to mean ${workload.peakToMean.toFixed(2)}`}
+                ariaLabel="Configured trace effective request rate over time"
               />
             </Box>
           </Box>
