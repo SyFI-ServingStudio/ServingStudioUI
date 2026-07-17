@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 import type { KvSeries } from '../../../domain/run';
 import type { SubjectResult } from '../../../domain/subject';
+import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
 import {
   duplicateKeyIssues,
   formatZodIssue,
   incompatiblePayload,
   nonNegativeNumber,
+  nonNegativeCount,
   parallelLengthIssue,
   sourceLogDirIssue,
   unsupportedV1Payload,
@@ -14,12 +16,25 @@ import {
   type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
 
+const workerIdSchema = z.union([
+  wireIdentityString,
+  nonNegativeCount.transform((workerId) => String(workerId)),
+]);
+
+const workerSchema = z.object({
+  worker_id: workerIdSchema,
+  active_tokens: z.array(nonNegativeNumber),
+});
+
 const seriesSchema = z.object({
   active: z.object({ mean: z.array(nonNegativeNumber) }),
   capacity_tokens: nonNegativeNumber.positive().nullable(),
   key: wireIdentityString,
   label: z.string().trim().min(1),
   pool_tag: wireIdentityString,
+  // `workers` is additive within analyzer schema v1. Older artifacts still
+  // expose the pool aggregate and decode to an empty worker collection.
+  workers: z.array(workerSchema).default([]),
 });
 
 const readySchema = z.object({
@@ -83,7 +98,23 @@ function semanticIssues(wire: ReadyWire): string[] {
       series.active.mean,
     );
     if (lengthIssue) issues.push(lengthIssue);
+    series.workers.forEach((worker, workerIndex) => {
+      const workerLengthIssue = parallelLengthIssue(
+        `series.${index}.workers.${workerIndex}.active_tokens`,
+        pointCount,
+        worker.active_tokens,
+      );
+      if (workerLengthIssue) issues.push(workerLengthIssue);
+    });
   });
+  const workers = wire.series.flatMap((series) =>
+    series.workers.map((worker) => ({ poolTag: series.pool_tag, workerId: worker.worker_id })),
+  );
+  issues.push(
+    ...duplicateKeyIssues('series.workers', workers, (worker) =>
+      makeWorkerKey(worker.poolTag, worker.workerId),
+    ),
+  );
   return issues;
 }
 
@@ -98,6 +129,19 @@ function toKvSeries(wire: ReadyWire): KvSeries {
       // Do not clamp active/capacity: over-capacity values are diagnostics.
       active: [...series.active.mean],
     })),
+    workerSeries: wire.series.flatMap((series) =>
+      series.workers.map((workerSeries) => {
+        const worker = makeWorkerRef(series.pool_tag, workerSeries.worker_id);
+        return {
+          key: makeWorkerKey(worker),
+          label: `${series.pool_tag}/${worker.workerId}`,
+          worker,
+          capacity: series.capacity_tokens,
+          // Do not clamp active/capacity: over-capacity values are diagnostics.
+          active: [...workerSeries.active_tokens],
+        };
+      }),
+    ),
   };
 }
 

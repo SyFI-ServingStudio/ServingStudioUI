@@ -11,6 +11,7 @@ import type { SubjectName, SubjectResult } from '../domain/subject';
 import { makeWorkerKey, makeWorkerRef, type WorkerKey, type WorkerRef } from '../domain/worker';
 import { annotate, leaf, type CostTree } from '../domain/cost-tree';
 import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
+import type { WorkerCostTreeRef } from '../domain/workerOperation';
 
 export type TestSubjectResults = {
   [Name in SubjectName]: SubjectResult<Name>;
@@ -25,6 +26,8 @@ export interface RepositoryCallCounts {
   workload: number;
   subjects: number;
   trees: number;
+  operations: number;
+  seeks: number;
   treeWorkers: WorkerKey[];
 }
 
@@ -62,10 +65,15 @@ export function makeTestDescriptor(overrides: Partial<RunDescriptor> = {}): RunD
       kernelTimeShare: readyArtifact('kernel-time-share'),
     },
     details: {
+      'worker-operation-index': {
+        status: 'ready',
+        schemaVersion: 1,
+        resource: { href: 'workers' },
+      },
       'worker-cost-tree': {
         status: 'ready',
         schemaVersion: 1,
-        resource: { href: 'fixture://test/details/worker-cost-tree' },
+        resource: { href: 'workers' },
       },
     },
     traces: {
@@ -157,6 +165,15 @@ export function makeTestSubjectResults(): TestSubjectResults {
   const kv: KvSeries = {
     t_ms: [0],
     series: [{ key: 'attn/g0', label: 'attn/0', poolTag: 'attn', capacity: 100, active: [20] }],
+    workerSeries: [
+      {
+        key: makeWorkerKey('attn', '0'),
+        label: 'attn/0',
+        worker: makeWorkerRef('attn', '0'),
+        capacity: 100,
+        active: [20],
+      },
+    ],
   };
   const kernelTimeShare: KernelTimeShare = {
     overall: {
@@ -291,6 +308,8 @@ export function createTestRepository(
     workload: 0,
     subjects: 0,
     trees: 0,
+    operations: 0,
+    seeks: 0,
     treeWorkers: [],
   };
 
@@ -340,21 +359,73 @@ export function createTestRepository(
       if (configuredError) throw configuredError;
       return subjects[subject];
     },
-    async getWorkerCostTree(_runId: string, worker: WorkerRef) {
+    async getWorkerOperations(_runId, worker, range) {
+      calls.operations += 1;
+      const operation = {
+        ordinal: 0,
+        ref: { iterId: '7', batchId: '3', operationId: '0' },
+        section: 'attn',
+        layer: 0,
+        startMs: 10,
+        endMs: 12,
+      };
+      return {
+        worker,
+        workerKind: 'afd_attn',
+        batchRole: 'batch',
+        span: { startMs: 10, endMs: 12 },
+        offset: range.offset,
+        total: 1,
+        operations: range.offset === 0 ? [operation] : [],
+      };
+    },
+    async getWorkerOperationSeek(_runId, worker, atMs, limit) {
+      calls.seeks += 1;
+      const operation = {
+        ordinal: 0,
+        ref: { iterId: '7', batchId: '3', operationId: '0' },
+        section: 'attn',
+        layer: 0,
+        startMs: 10,
+        endMs: 12,
+      };
+      return {
+        worker,
+        workerKind: 'afd_attn',
+        batchRole: 'batch',
+        atMs,
+        totalOperations: 1,
+        span: { startMs: 10, endMs: 12 },
+        hits: atMs >= 10 && atMs < 12 ? [operation] : [],
+        anchor: { ordinal: 0, kind: atMs >= 10 && atMs < 12 ? 'hit' : 'nearest' },
+        suggestedViewport: { offset: 0, limit },
+        buffer: {
+          worker,
+          workerKind: 'afd_attn',
+          batchRole: 'batch',
+          span: { startMs: 10, endMs: 12 },
+          offset: 0,
+          total: 1,
+          operations: [operation],
+        },
+      };
+    },
+    async getWorkerCostTree(_runId: string, ref: WorkerCostTreeRef) {
       calls.trees += 1;
-      const workerKey = makeWorkerKey(worker);
+      const workerKey = makeWorkerKey(ref.worker);
       calls.treeWorkers.push(workerKey);
       const configuredError = options.treeErrors?.[workerKey];
       if (configuredError) throw configuredError;
       const tree = trees[workerKey];
       if (!tree) throw new Error(`Missing test tree for ${workerKey}.`);
-      return tree;
-    },
-    async getWorkerTimeline() {
-      throw new Error('Worker timelines are outside this test fixture.');
-    },
-    async getIteration() {
-      throw new Error('Iterations are outside this test fixture.');
+      return {
+        ...ref,
+        section: 'attn',
+        layer: 0,
+        interval: { startMs: 10, endMs: 12 },
+        inputs: [],
+        tree,
+      };
     },
     async getTrace(_runId: string, traceName: string): Promise<TraceResource> {
       return descriptor.traces[traceName] ?? { status: 'not_generated', reason: 'Not requested.' };

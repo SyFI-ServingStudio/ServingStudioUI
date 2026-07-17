@@ -8,8 +8,12 @@ import type { Topology } from '../domain/run';
 import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
-import type { Iteration, IterTimeline } from '../domain/iteration';
-import type { CostTree } from '../domain/cost-tree';
+import type {
+  WorkerCostTreeDetail,
+  WorkerCostTreeRef,
+  WorkerOperationBuffer,
+  WorkerOperationSeekResult,
+} from '../domain/workerOperation';
 
 /**
  * The only analyzer-data boundary visible to application features.
@@ -33,11 +37,20 @@ export interface AnalyzerRepository {
 
   /** Read only the independently versioned `worker-cost-tree` detail declared
    * by RunDescriptor.details. Aggregate kernel-time subjects never satisfy it. */
-  getWorkerCostTree(runId: string, worker: WorkerRef): Promise<CostTree>;
+  getWorkerOperations(
+    runId: string,
+    worker: WorkerRef,
+    page: { offset: number; limit: number },
+  ): Promise<WorkerOperationBuffer>;
 
-  getWorkerTimeline(runId: string, worker: WorkerRef): Promise<IterTimeline>;
+  getWorkerOperationSeek(
+    runId: string,
+    worker: WorkerRef,
+    atMs: number,
+    limit: number,
+  ): Promise<WorkerOperationSeekResult>;
 
-  getIteration(runId: string, worker: WorkerRef, iterationId: string): Promise<Iteration>;
+  getWorkerCostTree(runId: string, ref: WorkerCostTreeRef): Promise<WorkerCostTreeDetail>;
 
   /** Return an addressable trace; repositories do not copy trace bytes into UI state. */
   getTrace(runId: string, traceName: string): Promise<TraceResource>;

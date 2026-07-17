@@ -15,12 +15,15 @@ import {
   type RawMaxNode,
   type RawScaleNode,
   type RawSumNode,
+  type ExactLeafStats,
 } from './types';
 
 export { CostTreeValidationError } from './types';
 export type {
   CostNode,
   CostTree,
+  ExactLeafStats,
+  JsonValue,
   LeafNode,
   MaxNode,
   NodeKind,
@@ -37,6 +40,13 @@ export type {
 function requireFiniteNonNegative(value: unknown, path: string): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     invalidCostTree(path, 'expected a finite non-negative number');
+  }
+  return value;
+}
+
+function requireFinitePositive(value: unknown, path: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    invalidCostTree(path, 'expected a finite positive number');
   }
   return value;
 }
@@ -75,6 +85,13 @@ export function leaf(
   config: string,
   base: number,
   backend?: string,
+  stats: ExactLeafStats = {
+    input: null,
+    flops: null,
+    bytes: null,
+    tflops: null,
+    gbps: null,
+  },
 ): RawLeafNode {
   return Object.freeze({
     kind: 'leaf',
@@ -85,6 +102,7 @@ export function leaf(
       backend: backend ?? null,
     }),
     base: requireFiniteNonNegative(base, 'leaf.base'),
+    stats,
   });
 }
 
@@ -103,19 +121,17 @@ export function sum(
 
 export function max(
   label: string | undefined,
+  overlap: number,
   first: RawCostNode,
   ...rest: RawCostNode[]
 ): RawMaxNode {
   const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
-  // The authoring API exposes pure Max only. Keep the v1 compatibility marker
-  // internal so the same strict decoder validates test fixtures and wire data.
-  const v1CompatibleMax = Object.freeze({
+  return Object.freeze({
     kind: 'max',
     ...(label === undefined ? {} : { label }),
-    overlap: 1 as const,
+    overlap: requireFinitePositive(overlap, 'max.overlap'),
     children: Object.freeze(children),
   });
-  return v1CompatibleMax;
 }
 
 export function scale(label: string | undefined, n: number, child: RawCostNode): RawScaleNode {
@@ -182,9 +198,7 @@ function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, nu
         (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
         firstCost,
       );
-      // Domain Max is always a pure critical-path maximum. Protocol-specific
-      // compatibility checks happen before this transport-free algebra.
-      nodeCost = maximum;
+      nodeCost = finiteOperation(maximum / node.overlap, path);
       break;
     }
     case 'scale':
@@ -232,7 +246,7 @@ function annotateNode(
   const annotation = { id, depth, ms, pct: finitePct(ms, totalMs, path) };
   switch (node.kind) {
     case 'leaf':
-      return Object.freeze({ ...node, ...annotation });
+      return Object.freeze({ ...node, stats: Object.freeze(node.stats), ...annotation });
     case 'sum': {
       const [first, ...rest] = node.children;
       const children: [CostNode, ...CostNode[]] = [
@@ -259,6 +273,7 @@ function annotateNode(
       return Object.freeze({
         kind: 'max',
         ...(node.label === undefined ? {} : { label: node.label }),
+        overlap: node.overlap,
         children: Object.freeze(children),
         ...annotation,
       });
@@ -380,6 +395,14 @@ export function leafTotals(root: CostNode): LeafTotals {
 }
 
 // ---- formatting and lookup -------------------------------------------------
+/** Keep generated CostTree identity labels compact without mutating the
+ * analyzer-owned label. Worklet type and config remain available in the raw
+ * node; cards consistently display only the qualified operation name. */
+export const costTreeDisplayLabel = (label: string): string => {
+  const generatedMetadataStart = label.indexOf(' (');
+  return generatedMetadataStart < 0 ? label : label.slice(0, generatedMetadataStart).trimEnd();
+};
+
 export const fmtMs = (ms: number): string => {
   if (!Number.isFinite(ms)) return '—';
   return ms >= 1 ? `${ms.toFixed(2)} ms` : `${(ms * 1000).toFixed(1)} µs`;

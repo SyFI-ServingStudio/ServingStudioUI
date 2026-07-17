@@ -103,6 +103,42 @@ run id + analysis revision + resource schema + worker ref + detail identity/wind
 列表必须分页或有明确上限；浏览器不扫描 parquet，也不把无界 detail map 放入全局
 store/context。
 
+### 4.3 时间游标与 operation 选择
+
+一个 `OperationSummary` 精确对应一条 raw `worker_cost` 行，并由
+`(iter_id, batch_id, operation_id)` 唯一标识。UI 不建立可选择的 execution envelope，也不把
+同一 iteration 内不同 batch、layer 或 section 的 compute 合并。operation selector 按全局
+`ordinal` 把当前 viewport 绘制为等宽 cell 中窄间隔排列的独立竖条；每条竖条只表示一条
+operation，其高度按当前 viewport 内的 `end_ms - start_ms` 归一化，宽度不编码 duration。
+hover 必须同时突出 cell 和竖条，并展示真实 interval。真实 `[start_ms, end_ms)` 也继续用于
+cursor、seek、readout 和 CostTree identity，不能因 ordinal 投影而从数据中丢失。FFN slot
+或 attention batch 只用稳定颜色区分，不拆成多条 lane/sub-band。
+
+bar 高度的目标 y-scale 由当前 resident buffer 的 duration P95 确定，使单个长 operation
+不会压扁其他竖条；resident buffer 改变时允许目标 scale 跟随新的 workload regime，但 bar
+高度与 y-axis 刻度必须在短 easing 动画中同步过渡，不能瞬间重缩放。普通 operation 最多
+使用绘图区高度的 80%，resident buffer 的最大 operation 独占 100% 高度，使最大值至少比
+其余 bar 多出 20% 绘图区高度。左侧 duration y-axis 必须明确标出 `max`、位于 80% 高度处
+的 `P95` 和 `0`；hover/readout 仍显示真实 interval。系统要求 reduced motion 时直接采用
+新 scale。
+
+点击 operation 竖条时，一个 store action 同时写入完整 `OperationRef` 并把全局 cursor
+定位到其 `start_ms`，随后仅请求这一条 operation 的 CostTree。用户直接拖动全局 cursor 时，
+当前 operation buffer、selection 和 CostTree 作为非破坏性的 pending 内容继续显示；融合
+seek 响应到达后再原子替换。零候选不伪造选择；有候选时按服务端稳定 `anchor` 自动选择。
+Canvas 是唯一 exact-operation 选择区域，不额外生成 candidate Chip 或第二套 selector；用户
+可直接点击当前 ordinal viewport 内的其他彩色竖条改选。晚返回只有在 `at_ms` 仍等于当前 cursor 时
+才能改变状态。
+
+可见 viewport 固定为最多 64 条 operation，内存只保留 previous/current/next 共最多 192
+条。跨过一个 64 条边界时仅请求新暴露方向的一块，成功后才淘汰反方向的一块；pending
+期间不能闪空。seek 直接返回以 anchor 为中心的 192 条 buffer，不能再串行请求可见 range。
+
+共享轨道支持水平 pointer drag：超过显式阈值后，按拖动距离相对可见宽度换算 operation
+offset，并 clamp 在当前 resident buffer；触及边界时启动上述单向 refill。pointer capture
+保证出界释放仍完成手势，drag 后的 click 必须被抑制；未超过阈值仍是普通 operation click。
+Previous/Next 与键盘逐 operation 导航继续可用。
+
 ## 5. 交互、图表与性能
 
 - 可点击 UI 使用原生 `button`、`a`、`input` 或 MUI 对应语义控件；不以
@@ -110,7 +146,34 @@ store/context。
 - ECharts 只能经共享平台入口按需注册，tooltip 的 Analyzer 文本必须 escape。默认使用
   SVG renderer，使坐标轴、图例和 annotation 保持为可缩放矢量文字；只有实测证明某张
   有界高密度图需要 canvas 时，才在共享封装中增加显式例外。
+- 页面一级 card 必须使用共享 `SurfaceCard`，由它统一 warm-white surface、普通边框、圆角、
+  shadow 和 2px semantic top edge。feature 不得重新手写这套 shell；只传稳定 `accent` 和
+  内容所需的局部 `sx`。Architecture overview 也使用该共享单元，作为实现基准而不是例外。
 - 选择 Zustand 时订阅最小 primitive/tuple，不制造完整 store snapshot。
+- kernel detail 的 config 与 exact input 必须解码为带字段名的可读列表，不直接展示 Python
+  repr 或 JSON；FLOP、byte、throughput 与 bandwidth 使用紧凑工程单位。detail 网格中的 value
+  使用一致的字体层级，不能因字段来源不同随机切换 serif/mono 或粗细。字段按 Overview、
+  Execution、Performance 三张语义 card 在宽屏组成等宽三列，窄屏降为单列；card 内使用
+  紧凑的纵向 label → value 行，不为每个字段生成独立 card。字段 label 使用清晰可辨的
+  medium/semibold mono 层级；value 保持统一字号，不因字段类别任意放大。
+- operation selection 与 exact CostTree primary 工作面由 worker feature 的 viewport shell 共同布局。
+  `lg` 及以上 shell 高度为 `calc(100dvh - 12px)`，第一轨按 operation timeline 的 max-content
+  高度展开，第二轨在 480px 到 723px 之间吃掉剩余空间；超高 viewport 不继续拉长工作面，矮屏则
+  保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
+  左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
+  不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。
+- exact CostTree ready 工作面在 `lg` 及以上保持左右两列：左列是完整 CostTree frame，右列是约
+  `clamp(300px, 26vw, 340px)` 的 kernel inspector。未选择 kernel 时右列保留轻量 placeholder，
+  避免选择造成 CostTree 宽度跳变；窄屏使用自然高度上下布局，每块保持 723px 且不得产生页面级
+  横向滚动。inspector 只拥有 header 与 Overview、Execution、Performance 三张纵向语义 card；
+  aggregate kernel evidence 保留为 shell 下方的全宽区域。
+- exact operation ready 后按 operation identity 去重滚动整个 worker viewport shell；shell 的 rendered
+  height/scrollHeight 不超过 viewport 时居中，否则顶部对齐。kernel 选择 ready 后也按 leaf identity
+  去重定位同一个 viewport shell；shell 已完整可见时不得产生二次滚动，否则使用相同 center/start
+  规则。不能单独滚动 workbench 或 inspector；CostTree canvas 的内部 pan/zoom transform 不参与页面滚动。
+  CostTree 的 sequential 容器使用按 node depth 增强且有 alpha 上限的 muted steel blue-gray
+  实线与 tint 建立嵌套层级；Max 保留 violet pattern、Scale 保留 gold dashed border，容器底色
+  不得压过 leaf selection boundary，root 也不得形成大面积不透明白底。
 - 大 feature 在 drill boundary lazy-load；不要为躲避入口预算把同一 eagerly-needed
   代码机械拆成 chunk。
 - 新图表必须有显式 loading/empty/error 文案、单位合同、窄屏行为和 accessible name。

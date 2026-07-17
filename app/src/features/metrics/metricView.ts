@@ -51,7 +51,7 @@ export function metricView(
     return {
       option: throughputOption(subject.payload, CHART_THEME, cS),
       note: null,
-      sub: 'prefill ∥ decode · tok/s',
+      sub: 'total ∥ prefill ∥ decode · tok/s',
     };
   if (subject.subject === 'utilization') {
     const utilization = scopedUtil(subject.payload, role);
@@ -94,7 +94,7 @@ export function metricView(
     };
   }
   const kv = scopedKv(subject.payload, role);
-  if (!kv.series.length)
+  if (!kv.series.length && !kv.workerSeries.length)
     return {
       option: null,
       note: null,
@@ -105,11 +105,13 @@ export function metricView(
   return {
     option: kvOption(kv, CHART_THEME, cS),
     note: role
-      ? `scoped to ${role} pool`
+      ? `scoped to ${role} pool; bold line is the pool average`
       : hasCompleteCapacity
-        ? 'aggregate across pools'
-        : 'raw occupancy; capacity metadata unavailable',
-    sub: role ? `pool: ${role}` : hasCompleteCapacity ? '% of capacity' : 'active KV tokens',
+        ? 'worker lines with bold pool averages; click a pool to scope'
+        : 'raw worker occupancy with bold pool averages; capacity metadata unavailable',
+    sub: role
+      ? `${kv.workerSeries.length} workers · pool: ${role}`
+      : `${kv.workerSeries.length} workers · ${kv.series.length} pools`,
   };
 }
 
@@ -120,9 +122,10 @@ export const METRIC_TITLES: Record<MetricKey, string> = {
   backpressure: 'Backpressure',
 };
 export const METRIC_CAPTIONS: Record<MetricKey, string> = {
-  throughput: 'Prefill and decode tokens per second, stacked — warmup ramp then steady state.',
+  throughput:
+    'Total, prefill, and decode tokens per second over each analyzer interval; the total is emphasized.',
   utilization: 'Per-worker GPU busy fraction over time, with bold pool-average lines.',
-  kv: 'Active KV-cache tokens over time; shown as capacity percentage when metadata is available.',
+  kv: 'Per-worker active KV-cache occupancy over time, with bold pool-average lines.',
   backpressure:
     'Pending scheduler-queue length over wall-clock time. Cluster and pool totals are stacked from their worker queues; the outline is the exact pointwise sum.',
 };

@@ -11,6 +11,11 @@ import {
   parseAnalyzerV1ModelResource,
   parseAnalyzerV1WorkloadResource,
 } from '../contracts/analyzer/v1/overviewResources';
+import {
+  parseAnalyzerV1WorkerCostTree,
+  parseAnalyzerV1WorkerOperationRange,
+  parseAnalyzerV1WorkerOperationSeek,
+} from '../contracts/analyzer/v1/workerOperation';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -21,8 +26,7 @@ import type {
 import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
-import type { Iteration, IterTimeline } from '../domain/iteration';
-import type { CostTree } from '../domain/cost-tree';
+import type { WorkerCostTreeRef } from '../domain/workerOperation';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 import {
   ArtifactModuleReaderError,
@@ -239,19 +243,44 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
     }
   }
 
-  async getWorkerCostTree(runId: string, _worker: WorkerRef): Promise<CostTree> {
-    const descriptor = await this.getRunDescriptor(runId);
-    throw this.detailUnavailable(runId, 'worker-cost-tree', descriptor);
+  async getWorkerOperations(
+    runId: string,
+    worker: WorkerRef,
+    page: { offset: number; limit: number },
+  ) {
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-operation-index', binding.descriptor);
+    const path = `workers/${worker.poolTag}/${worker.workerId}/operations?offset=${page.offset}&limit=${page.limit}`;
+    return parseAnalyzerV1WorkerOperationRange(await this.readRunArtifact(binding, path), worker);
   }
 
-  async getWorkerTimeline(runId: string, _worker: WorkerRef): Promise<IterTimeline> {
-    const descriptor = await this.getRunDescriptor(runId);
-    throw this.detailUnavailable(runId, 'worker-iteration-index', descriptor);
+  async getWorkerOperationSeek(runId: string, worker: WorkerRef, atMs: number, limit: number) {
+    if (!Number.isFinite(atMs) || atMs < 0) {
+      throw new ArtifactRunBindingError(
+        'Worker operation seek time must be finite and non-negative.',
+      );
+    }
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 384) {
+      throw new ArtifactRunBindingError(
+        'Worker operation seek limit must be an integer from 1 to 384.',
+      );
+    }
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-operation-index', binding.descriptor);
+    const path = `workers/${worker.poolTag}/${worker.workerId}/operations/seek?at_ms=${encodeURIComponent(String(atMs))}`;
+    return parseAnalyzerV1WorkerOperationSeek(
+      await this.readRunArtifact(binding, path),
+      worker,
+      atMs,
+      limit,
+    );
   }
 
-  async getIteration(runId: string, _worker: WorkerRef, _iterationId: string): Promise<Iteration> {
-    const descriptor = await this.getRunDescriptor(runId);
-    throw this.detailUnavailable(runId, 'iteration-detail', descriptor);
+  async getWorkerCostTree(runId: string, ref: WorkerCostTreeRef) {
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-cost-tree', binding.descriptor);
+    const path = `workers/${ref.worker.poolTag}/${ref.worker.workerId}/operations/${ref.iterId}/${ref.batchId}/${ref.operationId}/cost-tree`;
+    return parseAnalyzerV1WorkerCostTree(await this.readRunArtifact(binding, path), ref);
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {
@@ -367,5 +396,17 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
       detail.status,
       `Run ${runId} detail ${detailName} is ${detail.status}${reason}`,
     );
+  }
+
+  private requireReadyDetail(runId: string, detailName: string, descriptor: RunDescriptor): void {
+    const detail = descriptor.details[detailName];
+    if (detail?.status !== 'ready') throw this.detailUnavailable(runId, detailName, descriptor);
+    if (detail.resource.href !== 'workers') {
+      throw new ArtifactDetailUnavailableError(
+        detailName,
+        'incompatible',
+        `Run ${runId} detail ${detailName} must declare resource href base workers.`,
+      );
+    }
   }
 }

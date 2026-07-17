@@ -12,20 +12,25 @@ export default function SelectionBoundary({ color }: { color: string }) {
   useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg) return undefined;
-    const updateSize = () => {
-      const bounds = svg.getBoundingClientRect();
+    const updateSize = (contentRect?: Pick<DOMRectReadOnly, 'width' | 'height'>) => {
+      // SVG path coordinates live in the element's logical layout space. A
+      // bounding rect is already multiplied by an ancestor CSS zoom/transform
+      // and would make the boundary cover only the scaled fraction of a card.
+      const width = contentRect?.width ?? svg.clientWidth;
+      const height = contentRect?.height ?? svg.clientHeight;
       const parentRadius =
         Number.parseFloat(getComputedStyle(svg.parentElement ?? svg).borderTopLeftRadius) || 0;
       setBoundaryGeometry((current) =>
-        current.width === bounds.width &&
-        current.height === bounds.height &&
-        current.radius === parentRadius
+        current.width === width && current.height === height && current.radius === parentRadius
           ? current
-          : { width: bounds.width, height: bounds.height, radius: parentRadius },
+          : { width, height, radius: parentRadius },
       );
     };
     updateSize();
-    const observer = new ResizeObserver(updateSize);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.find(({ target }) => target === svg);
+      updateSize(entry?.contentRect);
+    });
     observer.observe(svg);
     return () => observer.disconnect();
   }, []);
@@ -63,7 +68,7 @@ export default function SelectionBoundary({ color }: { color: string }) {
     }
     setProgress(0);
     const animation = animate(0, 1, {
-      duration: 0.9,
+      duration: 0.45,
       ease: [0.4, 0, 0.2, 1],
       onUpdate: setProgress,
     });

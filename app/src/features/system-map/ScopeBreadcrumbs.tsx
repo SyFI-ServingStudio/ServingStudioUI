@@ -88,9 +88,9 @@ export default function ScopeBreadcrumbs() {
     cluster: 'cluster — SLO · throughput · conservation',
     pool: 'pool — utilization · KV · batch composition · kernel time',
     worker:
-      treeState.status === 'ready' && treeState.evidence === 'hierarchical-detail'
-        ? 'worker — hierarchical CostTree detail'
-        : 'worker — full-run aggregate kernel time share',
+      treeState.status === 'ready'
+        ? 'worker — exact operation CostTree'
+        : 'worker — exact detail availability',
     kernel: 'kernel — CostTree facts · Analyzer evidence state',
     parallel: 'parallel — pure Max critical path · imbalance not generated',
   };

@@ -28,7 +28,6 @@ if (largeNode?.kind !== 'leaf') {
 beforeEach(() => {
   workerTreeMock.state.mockReturnValue({
     status: 'ready',
-    evidence: 'aggregate-projection',
     tree,
   });
   useViz.setState({ scope: 'worker', leafId: null });

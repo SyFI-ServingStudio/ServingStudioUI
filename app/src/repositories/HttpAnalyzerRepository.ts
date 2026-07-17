@@ -11,6 +11,11 @@ import {
   parseAnalyzerV1ModelResource,
   parseAnalyzerV1WorkloadResource,
 } from '../contracts/analyzer/v1/overviewResources';
+import {
+  parseAnalyzerV1WorkerCostTree,
+  parseAnalyzerV1WorkerOperationRange,
+  parseAnalyzerV1WorkerOperationSeek,
+} from '../contracts/analyzer/v1/workerOperation';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -21,14 +26,17 @@ import type {
 import type { Topology } from '../domain/run';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
-import type { Iteration, IterTimeline } from '../domain/iteration';
-import type { CostTree } from '../domain/cost-tree';
+import type { WorkerCostTreeRef } from '../domain/workerOperation';
 import type { AnalyzerRepository } from './AnalyzerRepository';
 import {
   HttpAnalyzerTransportError,
   HttpJsonClient,
   type AnalyzerFetch,
 } from './http/HttpJsonClient';
+import {
+  currentTimelineInteractionId,
+  timelineProfileEvent,
+} from '../application/timelineProfiling';
 
 type NonReadySubjectArtifact = Exclude<SubjectArtifact, { status: 'ready' }>;
 
@@ -94,6 +102,13 @@ function nonReadySubject<Name extends SubjectName>(
   artifact: NonReadySubjectArtifact,
 ): SubjectResult<Name> {
   return { subject, ...artifact } as SubjectResult<Name>;
+}
+
+function routeSegment(value: string, label: string): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new HttpRunBindingError(`${label} is not a safe Analyzer route segment.`);
+  }
+  return value;
 }
 
 /** Live analyzer transport. Discovery and hrefs come only from the HTTP
@@ -228,19 +243,67 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     }
   }
 
-  async getWorkerCostTree(runId: string, _worker: WorkerRef): Promise<CostTree> {
-    const descriptor = await this.bindRun(runId).then((binding) => binding.descriptor);
-    throw this.detailUnavailable(runId, 'worker-cost-tree', descriptor);
+  async getWorkerOperations(
+    runId: string,
+    worker: WorkerRef,
+    page: { offset: number; limit: number },
+  ) {
+    const interactionId = currentTimelineInteractionId();
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-operation-index', binding.descriptor);
+    const poolTag = routeSegment(worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(worker.workerId, 'Worker id');
+    const path = `workers/${poolTag}/${workerId}/operations?offset=${page.offset}&limit=${page.limit}`;
+    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    const decodeStartedAt = performance.now();
+    timelineProfileEvent('repository-page-decode-start', { poolTag, workerId }, interactionId);
+    const decoded = parseAnalyzerV1WorkerOperationRange(input, worker);
+    timelineProfileEvent(
+      'repository-page-decode-end',
+      { poolTag, workerId, durationMs: performance.now() - decodeStartedAt },
+      interactionId,
+    );
+    return decoded;
   }
 
-  async getWorkerTimeline(runId: string, _worker: WorkerRef): Promise<IterTimeline> {
-    const descriptor = await this.bindRun(runId).then((binding) => binding.descriptor);
-    throw this.detailUnavailable(runId, 'worker-iteration-index', descriptor);
+  async getWorkerOperationSeek(runId: string, worker: WorkerRef, atMs: number, limit: number) {
+    const interactionId = currentTimelineInteractionId();
+    if (!Number.isFinite(atMs) || atMs < 0) {
+      throw new HttpRunBindingError('Worker operation seek time must be finite and non-negative.');
+    }
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 384) {
+      throw new HttpRunBindingError(
+        'Worker operation seek limit must be an integer from 1 to 384.',
+      );
+    }
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-operation-index', binding.descriptor);
+    const poolTag = routeSegment(worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(worker.workerId, 'Worker id');
+    const path = `workers/${poolTag}/${workerId}/operations/seek?at_ms=${encodeURIComponent(String(atMs))}`;
+    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    const decodeStartedAt = performance.now();
+    timelineProfileEvent('repository-seek-decode-start', { poolTag, workerId }, interactionId);
+    const decoded = parseAnalyzerV1WorkerOperationSeek(input, worker, atMs, limit);
+    timelineProfileEvent(
+      'repository-seek-decode-end',
+      { poolTag, workerId, durationMs: performance.now() - decodeStartedAt },
+      interactionId,
+    );
+    return decoded;
   }
 
-  async getIteration(runId: string, _worker: WorkerRef, _iterationId: string): Promise<Iteration> {
-    const descriptor = await this.bindRun(runId).then((binding) => binding.descriptor);
-    throw this.detailUnavailable(runId, 'iteration-detail', descriptor);
+  async getWorkerCostTree(runId: string, ref: WorkerCostTreeRef) {
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'worker-cost-tree', binding.descriptor);
+    const poolTag = routeSegment(ref.worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(ref.worker.workerId, 'Worker id');
+    const iterId = routeSegment(ref.iterId, 'Iteration id');
+    const batchId = routeSegment(ref.batchId, 'Batch id');
+    const operationId = routeSegment(ref.operationId, 'Operation id');
+    const path = `workers/${poolTag}/${workerId}/operations/${iterId}/${batchId}/${operationId}/cost-tree`;
+    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    return parseAnalyzerV1WorkerCostTree(input, ref);
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {
@@ -352,5 +415,17 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       detail.status,
       `Run ${runId} detail ${detailName} is ${detail.status}${reason}`,
     );
+  }
+
+  private requireReadyDetail(runId: string, detailName: string, descriptor: RunDescriptor): void {
+    const detail = descriptor.details[detailName];
+    if (detail?.status !== 'ready') throw this.detailUnavailable(runId, detailName, descriptor);
+    if (detail.resource.href !== 'workers') {
+      throw new HttpDetailUnavailableError(
+        detailName,
+        'incompatible',
+        `Run ${runId} detail ${detailName} must declare resource href base workers.`,
+      );
+    }
   }
 }

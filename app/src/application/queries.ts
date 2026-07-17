@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { AnalyzerV1OverviewResourceError } from '../contracts/analyzer/v1/overviewResources';
 import type { RunDescriptor } from '../domain/artifacts';
@@ -9,6 +9,9 @@ import type {
 } from '../domain/overviewResources';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
+import type { WorkerCostTreeRef } from '../domain/workerOperation';
+import type { WorkerOperationBuffer } from '../domain/workerOperation';
+import type { AnalyzerRepository } from '../repositories/AnalyzerRepository';
 import { loadActiveRunCore } from './loadActiveRun';
 import {
   CATALOG_POLL_INTERVAL_MS,
@@ -16,6 +19,7 @@ import {
   LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
 } from './lifecyclePolling';
 import { useAnalyzerRepository } from './RepositoryProvider';
+import { currentTimelineInteractionId, timelineProfileEvent } from './timelineProfiling';
 
 export const analyzerQueryKeys = {
   all: ['analyzer'] as const,
@@ -50,7 +54,30 @@ export const analyzerQueryKeys = {
     ] as const,
   workerCostTreeDetail: (
     runId: string,
+    ref: WorkerCostTreeRef,
+    schemaVersion: number,
+    analysisRevision: string,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      ref.worker.poolTag,
+      ref.worker.workerId,
+      'operation-ref',
+      ref.iterId,
+      ref.batchId,
+      'operation',
+      ref.operationId,
+      'cost-tree',
+      `schema-v${schemaVersion}`,
+      `analysis-${analysisRevision}`,
+    ] as const,
+  workerOperations: (
+    runId: string,
     worker: WorkerRef,
+    offset: number,
+    limit: number,
     schemaVersion: number,
     analysisRevision: string,
   ) =>
@@ -60,7 +87,29 @@ export const analyzerQueryKeys = {
       'worker',
       worker.poolTag,
       worker.workerId,
-      'cost-tree',
+      'operations',
+      offset,
+      limit,
+      `schema-v${schemaVersion}`,
+      `analysis-${analysisRevision}`,
+    ] as const,
+  workerOperationSeek: (
+    runId: string,
+    worker: WorkerRef,
+    atMs: number,
+    limit: number,
+    schemaVersion: number,
+    analysisRevision: string,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      worker.poolTag,
+      worker.workerId,
+      'operation-seek',
+      atMs,
+      limit,
       `schema-v${schemaVersion}`,
       `analysis-${analysisRevision}`,
     ] as const,
@@ -324,7 +373,7 @@ export function useDescriptorSubjectQuery<Name extends SubjectName>(
  * version remain unchanged. */
 export function useWorkerCostTreeDetailQuery(
   runId: string,
-  worker: WorkerRef | undefined,
+  ref: WorkerCostTreeRef | undefined,
   schemaVersion: number | undefined,
   analysisRevision: string | undefined,
   enabled: boolean,
@@ -332,47 +381,282 @@ export function useWorkerCostTreeDetailQuery(
   const repository = useAnalyzerRepository();
   return useQuery({
     queryKey:
-      worker === undefined
+      ref === undefined
         ? [...analyzerQueryKeys.runs(), runId, 'worker', 'no-selection', 'cost-tree']
         : schemaVersion === undefined
-          ? [
-              ...analyzerQueryKeys.runs(),
-              runId,
-              'worker',
-              worker.poolTag,
-              worker.workerId,
-              'cost-tree',
-              'unversioned',
-            ]
+          ? [...analyzerQueryKeys.runs(), runId, 'worker-cost-tree', 'unversioned']
           : analysisRevision === undefined
             ? [
                 ...analyzerQueryKeys.runs(),
                 runId,
                 'worker',
-                worker.poolTag,
-                worker.workerId,
+                ref.worker.poolTag,
+                ref.worker.workerId,
                 'cost-tree',
                 `schema-v${schemaVersion}`,
                 'unrevisioned',
               ]
-            : analyzerQueryKeys.workerCostTreeDetail(
-                runId,
-                worker,
-                schemaVersion,
-                analysisRevision,
-              ),
+            : analyzerQueryKeys.workerCostTreeDetail(runId, ref, schemaVersion, analysisRevision),
     queryFn: () => {
-      if (worker === undefined) {
-        throw new Error('Cannot load a worker CostTree detail without a WorkerRef.');
+      if (ref === undefined) {
+        throw new Error(
+          'Cannot load a worker CostTree detail without an exact operation identity.',
+        );
       }
-      return repository.getWorkerCostTree(runId, worker);
+      return repository.getWorkerCostTree(runId, ref);
     },
     enabled:
       enabled &&
       runId.length > 0 &&
-      worker !== undefined &&
+      ref !== undefined &&
       schemaVersion !== undefined &&
       analysisRevision !== undefined,
     staleTime: Infinity,
+  });
+}
+
+export function useWorkerOperationsQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  offset: number,
+  limit: number,
+  schemaVersion: number | undefined,
+  analysisRevision: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const ready =
+    worker !== undefined && schemaVersion !== undefined && analysisRevision !== undefined;
+  return useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.workerOperations(
+          runId,
+          worker,
+          offset,
+          limit,
+          schemaVersion,
+          analysisRevision,
+        )
+      : [...analyzerQueryKeys.runs(), runId, 'worker-operations', 'not-ready'],
+    queryFn: async () => {
+      if (worker === undefined) throw new Error('Cannot load operations without a WorkerRef.');
+      const interactionId = currentTimelineInteractionId();
+      const startedAt = performance.now();
+      timelineProfileEvent(
+        'operation-range-query-start',
+        { poolTag: worker.poolTag, workerId: worker.workerId, offset, limit, mode: 'visible' },
+        interactionId,
+      );
+      try {
+        const page = await repository.getWorkerOperations(runId, worker, { offset, limit });
+        timelineProfileEvent(
+          'operation-range-query-end',
+          {
+            poolTag: worker.poolTag,
+            workerId: worker.workerId,
+            offset,
+            limit,
+            mode: 'visible',
+            durationMs: performance.now() - startedAt,
+            returned: page.operations.length,
+          },
+          interactionId,
+        );
+        return page;
+      } catch (error) {
+        timelineProfileEvent(
+          'operation-range-query-error',
+          { offset, limit, mode: 'visible', durationMs: performance.now() - startedAt },
+          interactionId,
+        );
+        throw error;
+      }
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+  });
+}
+
+/** Builds the initial 192-operation buffer from three bounded 64-operation
+ * range requests. Later navigation refills only one directional chunk. */
+export function useWorkerOperationBootstrapQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  viewportLimit: number,
+  schemaVersion: number | undefined,
+  analysisRevision: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const ready =
+    worker !== undefined && schemaVersion !== undefined && analysisRevision !== undefined;
+  return useQuery({
+    queryKey: ready
+      ? [
+          ...analyzerQueryKeys.runs(),
+          runId,
+          'worker',
+          worker.poolTag,
+          worker.workerId,
+          'operation-bootstrap',
+          viewportLimit,
+          `schema-v${schemaVersion}`,
+          `analysis-${analysisRevision}`,
+        ]
+      : [...analyzerQueryKeys.runs(), runId, 'worker-operation-bootstrap', 'not-ready'],
+    queryFn: async (): Promise<WorkerOperationBuffer> => {
+      if (worker === undefined) throw new Error('Cannot bootstrap operations without a worker.');
+      const first = await repository.getWorkerOperations(runId, worker, {
+        offset: 0,
+        limit: viewportLimit,
+      });
+      const offsets = [viewportLimit, viewportLimit * 2].filter((offset) => offset < first.total);
+      const remaining = await Promise.all(
+        offsets.map((offset) =>
+          repository.getWorkerOperations(runId, worker, { offset, limit: viewportLimit }),
+        ),
+      );
+      return Object.freeze({
+        ...first,
+        operations: Object.freeze([
+          ...first.operations,
+          ...remaining.flatMap((range) => range.operations),
+        ]),
+      });
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+  });
+}
+
+/** One canonical cache identity/fetch contract shared by the visible range and
+ * directional refill. Keeping it here prevents prefetch semantics from
+ * drifting from the normal worker operation request. */
+export function workerOperationsQueryOptions(
+  repository: AnalyzerRepository,
+  runId: string,
+  worker: WorkerRef,
+  offset: number,
+  limit: number,
+  schemaVersion: number,
+  analysisRevision: string,
+) {
+  return queryOptions({
+    queryKey: analyzerQueryKeys.workerOperations(
+      runId,
+      worker,
+      offset,
+      limit,
+      schemaVersion,
+      analysisRevision,
+    ),
+    queryFn: async () => {
+      const interactionId = currentTimelineInteractionId();
+      const startedAt = performance.now();
+      timelineProfileEvent(
+        'operation-range-query-start',
+        { poolTag: worker.poolTag, workerId: worker.workerId, offset, limit, mode: 'prefetch' },
+        interactionId,
+      );
+      try {
+        const page = await repository.getWorkerOperations(runId, worker, { offset, limit });
+        timelineProfileEvent(
+          'operation-range-query-end',
+          {
+            poolTag: worker.poolTag,
+            workerId: worker.workerId,
+            offset,
+            limit,
+            mode: 'prefetch',
+            durationMs: performance.now() - startedAt,
+            returned: page.operations.length,
+          },
+          interactionId,
+        );
+        return page;
+      } catch (error) {
+        timelineProfileEvent(
+          'operation-range-query-error',
+          { offset, limit, mode: 'prefetch', durationMs: performance.now() - startedAt },
+          interactionId,
+        );
+        throw error;
+      }
+    },
+    staleTime: Infinity,
+  });
+}
+
+export function useWorkerOperationSeekQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  atMs: number | null,
+  limit: number,
+  schemaVersion: number | undefined,
+  analysisRevision: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const ready =
+    worker !== undefined &&
+    atMs !== null &&
+    Number.isFinite(atMs) &&
+    atMs >= 0 &&
+    Number.isSafeInteger(limit) &&
+    limit > 0 &&
+    schemaVersion !== undefined &&
+    analysisRevision !== undefined;
+  return useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.workerOperationSeek(
+          runId,
+          worker,
+          atMs,
+          limit,
+          schemaVersion,
+          analysisRevision,
+        )
+      : [...analyzerQueryKeys.runs(), runId, 'worker-operation-seek', 'not-ready'],
+    queryFn: async () => {
+      if (worker === undefined || atMs === null) {
+        throw new Error('Cannot seek operations without a WorkerRef and wall-clock time.');
+      }
+      const interactionId = currentTimelineInteractionId();
+      const startedAt = performance.now();
+      timelineProfileEvent(
+        'seek-query-start',
+        { poolTag: worker.poolTag, workerId: worker.workerId, atMs, limit },
+        interactionId,
+      );
+      try {
+        const seek = await repository.getWorkerOperationSeek(runId, worker, atMs, limit);
+        timelineProfileEvent(
+          'seek-query-end',
+          {
+            poolTag: worker.poolTag,
+            workerId: worker.workerId,
+            atMs,
+            limit,
+            durationMs: performance.now() - startedAt,
+            hits: seek.hits.length,
+            bufferOffset: seek.buffer.offset,
+          },
+          interactionId,
+        );
+        return seek;
+      } catch (error) {
+        timelineProfileEvent(
+          'seek-query-error',
+          { atMs, limit, durationMs: performance.now() - startedAt },
+          interactionId,
+        );
+        throw error;
+      }
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+    // Slider seeks are ephemeral identities. Keep a brief back-scrub cache but
+    // do not retain one entry for every paused cursor position indefinitely.
+    gcTime: 30_000,
   });
 }

@@ -108,6 +108,12 @@ describe('analyzer-v1 aggregate subject adapters', () => {
       poolTag: 'attn',
       capacity: expect.any(Number),
     });
+    expect(result.payload.workerSeries).toHaveLength(8);
+    expect(result.payload.workerSeries[0]).toMatchObject({
+      key: 'attn/0',
+      worker: { poolTag: 'attn', workerId: '0' },
+      capacity: kvJson.series[0].capacity_tokens,
+    });
   });
 
   it('accepts multiple KV groups in one pool', () => {
@@ -116,6 +122,7 @@ describe('analyzer-v1 aggregate subject adapters', () => {
     secondSeries.key = 'attn/g1';
     secondSeries.label = 'attn · g1';
     secondSeries.group_id = 1;
+    secondSeries.workers = [];
     wire.series.push(secondSeries);
 
     const result = decodeAnalyzerV1KvOccupancyPayload(wire);

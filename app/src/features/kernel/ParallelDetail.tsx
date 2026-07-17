@@ -1,16 +1,23 @@
 import CloseIcon from '@mui/icons-material/Close';
-import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
+import { Box, IconButton, Stack, Typography } from '@mui/material';
 
 import { useActiveRun } from '../../application/ActiveRunProvider';
+import SurfaceCard from '../../components/SurfaceCard';
 import { currentWorker } from '../../application/runSelection';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
-import { fmtMs, fmtPct, nodeById, type CostNode } from '../../domain/cost-tree';
+import {
+  costTreeDisplayLabel,
+  fmtMs,
+  fmtPct,
+  nodeById,
+  type CostNode,
+} from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 
 function nodeLabel(node: CostNode): string {
   if (node.kind === 'leaf') return node.slot.name;
-  return node.label ?? node.kind;
+  return costTreeDisplayLabel(node.label ?? node.kind);
 }
 
 /** Selected Max view. It exposes only facts derivable from the validated pure
@@ -32,7 +39,7 @@ export default function ParallelDetail() {
   );
 
   return (
-    <Paper sx={{ borderRadius: 2, overflow: 'hidden', background: tokens.tile2 }}>
+    <SurfaceCard accent={tokens.violet}>
       <Stack
         direction="row"
         alignItems="center"
@@ -46,7 +53,7 @@ export default function ParallelDetail() {
             component="span"
             sx={{ fontFamily: tokens.mono, fontSize: 13, color: tokens.violet }}
           >
-            ⇉ {node.label ?? 'max'}
+            ⇉ {costTreeDisplayLabel(node.label ?? 'max')}
           </Box>
         </Typography>
         <Box
@@ -114,6 +121,6 @@ export default function ParallelDetail() {
           evidence status · not_generated
         </Typography>
       </Box>
-    </Paper>
+    </SurfaceCard>
   );
 }

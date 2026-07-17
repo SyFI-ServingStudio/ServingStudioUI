@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { annotate, leaf, leafByName, max, sum } from '../../domain/cost-tree';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import { useViz } from '../../store';
-import KernelDetail from './KernelDetail';
+import KernelInspector, { KernelEvidence } from './KernelDetail';
 import ParallelDetail from './ParallelDetail';
 
 const fixture = vi.hoisted(() => ({ subject: vi.fn(), treeState: vi.fn() }));
@@ -15,7 +15,21 @@ const tree = annotate(
     'root',
     max(
       'attention branches',
-      leaf('attention.prefill', 'flashinfer_attn_prefill', '{}', 3, 'fa3'),
+      1,
+      leaf(
+        'attention.prefill',
+        'flashinfer_attn_prefill',
+        'backends=["deepgemm"] gpu_name="NVIDIA H200" n=151936 k=6144 dtype=Fp8E4m3',
+        3,
+        'fa3',
+        {
+          input: { m: 1330 },
+          flops: 2_483_096_125_440,
+          bytes: 1_345_816_064,
+          tflops: 1276.565,
+          gbps: 691.887,
+        },
+      ),
       leaf('attention.decode', 'flashinfer_attn_decode', '{}', 1, 'fa3'),
     ),
     leaf('ffn.gemm', 'single_gemm', '{}', 2, 'cutlass'),
@@ -48,7 +62,7 @@ vi.mock('../../application/WorkerTreeProvider', () => ({
 }));
 
 beforeEach(() => {
-  fixture.treeState.mockReturnValue({ status: 'ready', evidence: 'hierarchical-detail', tree });
+  fixture.treeState.mockReturnValue({ status: 'ready', tree });
   fixture.subject.mockImplementation((name: string) =>
     name === 'kernelThroughput'
       ? {
@@ -93,13 +107,48 @@ describe('kernel feature evidence boundaries', () => {
   it('combines CostTree leaf facts with exact real throughput and an explicit missing input state', () => {
     useViz.setState({ scope: 'kernel', leafId: selectedLeaf.id });
 
-    render(<KernelDetail />);
+    render(
+      <>
+        <KernelInspector height={723} />
+        <KernelEvidence />
+      </>,
+    );
 
+    expect(screen.getByRole('heading', { name: 'Overview' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Execution' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Performance' })).toBeVisible();
     expect(screen.getByText('Aggregate sampled throughput')).toBeVisible();
     expect(screen.getByText(/2\.0 TFLOP\/s · p50/)).toBeVisible();
     expect(screen.getByText('Kernel input distribution')).toBeVisible();
     expect(screen.getByText('Input scatter was not requested.')).toBeVisible();
-    expect(screen.queryByText(/H200|roofline/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Backends')).toBeVisible();
+    expect(screen.getByText('deepgemm')).toBeVisible();
+    expect(screen.getByText('GPU')).toBeVisible();
+    expect(screen.getByText('NVIDIA H200')).toBeVisible();
+    expect(screen.getByText('151,936')).toBeVisible();
+    expect(screen.getByText('6,144')).toBeVisible();
+    expect(screen.getByText('FP8 E4M3')).toBeVisible();
+    expect(screen.getByText('M')).toBeVisible();
+    expect(screen.getByText('1,330')).toBeVisible();
+    expect(screen.getByText('2.48 TFLOP')).toBeVisible();
+    expect(screen.getByText('1.35 GB')).toBeVisible();
+    expect(screen.getByText('1.28 PFLOP/s')).toBeVisible();
+    expect(screen.getByText('692 GB/s')).toBeVisible();
+    expect(screen.queryByText(/roofline/i)).not.toBeInTheDocument();
+    const inspector = screen.getByTestId('kernel-inspector');
+    const cards = screen.getByTestId('kernel-detail-cards');
+    expect(inspector).toHaveStyle({ height: '723px', display: 'flex' });
+    expect(cards).toHaveStyle({
+      gridTemplateColumns: 'minmax(0,1fr)',
+      minHeight: '0',
+      overflowY: 'auto',
+      overflowX: 'hidden',
+    });
+    expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Overview' }));
+    expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Execution' }));
+    expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Performance' }));
+    expect(inspector).not.toContainElement(screen.getByText('Aggregate sampled throughput'));
+    expect(inspector.contains(screen.getByTestId('kernel-evidence'))).toBe(false);
   });
 
   it('shows pure Max critical-path facts without inventing lane imbalance', () => {

@@ -203,17 +203,17 @@ describe('ArtifactAnalyzerRepository', () => {
     });
   });
 
-  it('returns descriptor trace state and refuses to synthesize iteration data', async () => {
+  it('returns descriptor trace state and refuses to synthesize worker executions', async () => {
     const repository = repositoryWith(coreModules());
 
     await expect(repository.getTrace(RUN_ID, 'perfetto')).resolves.toMatchObject({
       status: 'not_generated',
     });
     await expect(
-      repository.getWorkerTimeline(RUN_ID, makeWorkerRef('attn', 0)),
-    ).rejects.toBeInstanceOf(ArtifactDetailUnavailableError);
-    await expect(
-      repository.getIteration(RUN_ID, makeWorkerRef('attn', 0), '0'),
+      repository.getWorkerOperations(RUN_ID, makeWorkerRef('attn', 0), {
+        offset: 0,
+        limit: 50,
+      }),
     ).rejects.toBeInstanceOf(ArtifactDetailUnavailableError);
   });
 });
@@ -253,7 +253,12 @@ describe('bundled analyzer-v1 artifact export', () => {
     ).resolves.toMatchObject({ status: 'unavailable' });
 
     await expect(
-      bundledArtifactAnalyzerRepository.getWorkerCostTree(RUN_ID, makeWorkerRef('attn', 0)),
+      bundledArtifactAnalyzerRepository.getWorkerCostTree(RUN_ID, {
+        worker: makeWorkerRef('attn', 0),
+        iterId: '0',
+        batchId: '0',
+        operationId: '0',
+      }),
     ).rejects.toMatchObject({
       detailName: 'worker-cost-tree',
       status: 'not_generated',

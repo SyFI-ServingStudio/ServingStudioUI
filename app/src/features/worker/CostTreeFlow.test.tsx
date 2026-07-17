@@ -36,6 +36,7 @@ const tree = annotate(
     'root',
     max(
       'attention branches',
+      1,
       leaf('attention.prefill', 'flashinfer_attn_prefill', '{}', 2),
       leaf('attention.decode', 'flashinfer_attn_decode', '{}', 1),
     ),
@@ -75,6 +76,7 @@ beforeEach(() => {
     leafId: null,
     parId: null,
     cursorMs: null,
+    operation: { iterId: '7', batchId: '2', operationId: '9' },
   });
 });
 
@@ -92,8 +94,10 @@ describe('CostTreeFlow interaction semantics', () => {
     expect(root).toHaveAttribute('aria-pressed', 'true');
     expect(parallel).toHaveAttribute('aria-pressed', 'false');
     expect(kernel).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByText(/overlap/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/overlap 1/i)).toBeInTheDocument();
     expect(screen.getAllByText(/critical path/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/iter 7 · batch 2 · operation 9/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Fit worker CostTree' })).toBeVisible();
 
     parallel.focus();
     expect(parallel).toHaveFocus();
@@ -106,5 +110,25 @@ describe('CostTreeFlow interaction semantics', () => {
     await user.keyboard(' ');
     expect(useViz.getState()).toMatchObject({ scope: 'kernel', leafId: kernelNode.id });
     expect(kernel).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('uses the shared compact canvas density in production', () => {
+    const { container } = render(<CostTreeFlow />);
+    const compactLeaf = container.querySelector<HTMLElement>(
+      '[data-cost-node-kind="leaf"][data-cost-tree-density="compact"]',
+    );
+    const compactSum = container.querySelector<HTMLElement>(
+      '[data-cost-node-kind="sum"][data-cost-tree-density="compact"]',
+    );
+
+    expect(compactLeaf).not.toBeNull();
+    expect(compactSum).not.toBeNull();
+    expect(getComputedStyle(compactLeaf!).paddingTop).toBe('6.5px');
+    expect(getComputedStyle(compactLeaf!).gap).toBe('1px');
+    expect(getComputedStyle(compactSum!).paddingTop).toBe('6.8px');
+    expect(getComputedStyle(compactSum!).gap).toBe('3.2px');
+    expect(getComputedStyle(compactSum!).borderStyle).toBe('solid');
+    expect(getComputedStyle(compactSum!).borderColor).toBe('rgba(74, 91, 104, 0.34)');
+    expect(getComputedStyle(compactSum!).backgroundColor).toBe('rgba(74, 91, 104, 0.035)');
   });
 });

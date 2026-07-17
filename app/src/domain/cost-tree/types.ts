@@ -7,6 +7,17 @@ export interface Slot {
   readonly backend: string | null;
 }
 
+export type JsonValue =
+  null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+
+export interface ExactLeafStats {
+  readonly input: JsonValue;
+  readonly flops: number | null;
+  readonly bytes: number | null;
+  readonly tflops: number | null;
+  readonly gbps: number | null;
+}
+
 interface RawContainerNode {
   readonly label?: string;
 }
@@ -15,6 +26,7 @@ export interface RawLeafNode {
   readonly kind: 'leaf';
   readonly slot: Slot;
   readonly base: number;
+  readonly stats: ExactLeafStats;
 }
 
 export interface RawSumNode extends RawContainerNode {
@@ -24,6 +36,8 @@ export interface RawSumNode extends RawContainerNode {
 
 export interface RawMaxNode extends RawContainerNode {
   readonly kind: 'max';
+  /** Rust manifest overlap divisor: max(child costs) / overlap. */
+  readonly overlap: number;
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
 }
 
@@ -46,6 +60,7 @@ export interface LeafNode extends CostAnnotation {
   readonly kind: 'leaf';
   readonly slot: Slot;
   readonly base: number;
+  readonly stats: ExactLeafStats;
 }
 
 export interface SumNode extends CostAnnotation, RawContainerNode {
@@ -55,6 +70,7 @@ export interface SumNode extends CostAnnotation, RawContainerNode {
 
 export interface MaxNode extends CostAnnotation, RawContainerNode {
   readonly kind: 'max';
+  readonly overlap: number;
   readonly children: readonly [CostNode, ...CostNode[]];
 }
 

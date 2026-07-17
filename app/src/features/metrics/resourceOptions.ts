@@ -82,6 +82,16 @@ export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): ECharts
   const x = kv.t_ms.map((v) => +(v / 1000).toFixed(1));
   const percentMode = kv.series.every((series) => series.capacity !== null);
   const opt = baseChartOption(t);
+  const poolIdentities = [
+    ...new Set([
+      ...kv.series.map((series) => series.poolTag ?? series.key),
+      ...kv.workerSeries.map((series) => series.worker.poolTag),
+    ]),
+  ].sort();
+  const colorFor = (identity: string): string =>
+    t.palette[poolIdentities.indexOf(identity) % t.palette.length];
+  const displayValue = (value: number, capacity: number | null): number =>
+    percentMode && capacity !== null ? +((value / capacity) * 100).toFixed(1) : value;
   return {
     ...opt,
     xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
@@ -92,18 +102,49 @@ export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): ECharts
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
     series: [
-      ...kv.series.map((s, i) => ({
-        name: safeChartText(`${s.label} KV`),
-        type: 'line' as const,
-        smooth: true,
-        symbol: 'none',
-        data: s.active.map((v, j) => [
-          x[j],
-          percentMode && s.capacity !== null ? +((v / s.capacity) * 100).toFixed(1) : v,
-        ]),
-        lineStyle: { width: 2.2, color: t.palette[(i + 2) % t.palette.length] },
-        areaStyle: { opacity: 0.16, color: t.palette[(i + 2) % t.palette.length] },
-      })),
+      ...kv.workerSeries.map((series) => {
+        const color = colorFor(series.worker.poolTag);
+        const label =
+          series.label.startsWith(`${series.worker.poolTag}/`) ||
+          series.label.startsWith(`${series.worker.poolTag} ·`)
+            ? series.label
+            : `${series.worker.poolTag} · ${series.label}`;
+        return {
+          name: safeChartText(label),
+          type: 'line' as const,
+          smooth: true,
+          symbol: 'none',
+          data: series.active.map((value, index) => [
+            x[index],
+            displayValue(value, series.capacity),
+          ]),
+          color,
+          lineStyle: { width: 1.1, color, opacity: 0.42 },
+          emphasis: { focus: 'series' as const, lineStyle: { width: 2.1, opacity: 0.9 } },
+          z: 2,
+        };
+      }),
+      ...kv.series.map((series) => {
+        const color = colorFor(series.poolTag ?? series.key);
+        const label =
+          series.poolTag === undefined ||
+          series.label.toLowerCase() === series.poolTag.toLowerCase()
+            ? series.label
+            : `${series.poolTag} · ${series.label}`;
+        return {
+          name: safeChartText(`${label} average`),
+          type: 'line' as const,
+          smooth: true,
+          symbol: 'none',
+          data: series.active.map((value, index) => [
+            x[index],
+            displayValue(value, series.capacity),
+          ]),
+          color,
+          lineStyle: { width: 3.4, color, opacity: 1 },
+          z: 4,
+        };
+      }),
       ...(cursorS != null ? [cursorMarker(cursorS)] : []),
     ],
   };

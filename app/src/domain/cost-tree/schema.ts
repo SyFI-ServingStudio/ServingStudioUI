@@ -1,9 +1,15 @@
 import { z, type ZodIssue } from 'zod';
 
-import { invalidCostTree, type RawCostNode, type Slot } from './types';
+import {
+  invalidCostTree,
+  type ExactLeafStats,
+  type JsonValue,
+  type RawCostNode,
+  type Slot,
+} from './types';
 
 type ParsedRawCostNode =
-  | { kind: 'leaf'; slot: Slot; base: number }
+  | { kind: 'leaf'; slot: Slot; base: number; stats: ExactLeafStats }
   | { kind: 'sum'; label?: string; children: ParsedRawCostNode[] }
   | { kind: 'max'; label?: string; overlap: number; children: ParsedRawCostNode[] }
   | { kind: 'scale'; label?: string; n: number; children: ParsedRawCostNode[] };
@@ -15,15 +21,13 @@ const finiteNonNegativeSchema = z
   })
   .finite('expected a finite non-negative number')
   .nonnegative('expected a finite non-negative number');
-const v1OverlapSchema = z
+const overlapSchema = z
   .number({
     invalid_type_error: 'expected a finite overlap number',
     required_error: 'expected a finite overlap number',
   })
   .finite('expected a finite overlap number')
-  .refine((overlap): overlap is 1 => overlap === 1, {
-    message: 'incompatible overlap: UI CostTree v1 supports only overlap = 1',
-  });
+  .positive('expected a finite positive overlap number');
 const uint32Schema = z
   .number({
     invalid_type_error: 'expected an unsigned 32-bit integer',
@@ -41,13 +45,40 @@ const slotSchema = z
     backend: z.string().nullable(),
   })
   .strict();
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.null(),
+    z.boolean(),
+    z.number().finite(),
+    z.string(),
+    z.array(jsonValueSchema),
+    z.record(jsonValueSchema),
+  ]),
+);
+const nullableFiniteNonNegative = finiteNonNegativeSchema.nullable();
+const exactLeafStatsSchema = z
+  .object({
+    input: jsonValueSchema,
+    flops: nullableFiniteNonNegative,
+    bytes: nullableFiniteNonNegative,
+    tflops: nullableFiniteNonNegative,
+    gbps: nullableFiniteNonNegative,
+  })
+  .strict();
 
 // Recursive transport validation is deliberately kept out of the annotation
 // engine. Zod owns exact fields/cardinality; the mapper below restores tuple
 // types and runtime immutability after parsing.
 const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
   z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('leaf'), slot: slotSchema, base: finiteNonNegativeSchema }).strict(),
+    z
+      .object({
+        kind: z.literal('leaf'),
+        slot: slotSchema,
+        base: finiteNonNegativeSchema,
+        stats: exactLeafStatsSchema,
+      })
+      .strict(),
     z
       .object({
         kind: z.literal('sum'),
@@ -59,7 +90,7 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('max'),
         label: z.string().optional(),
-        overlap: v1OverlapSchema,
+        overlap: overlapSchema,
         children: z.array(parsedRawCostNodeSchema).min(1, 'max requires at least one child'),
       })
       .strict(),
@@ -103,7 +134,11 @@ function issueMessage(issue: ZodIssue): string {
 function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
   switch (parsed.kind) {
     case 'leaf':
-      return Object.freeze({ ...parsed, slot: Object.freeze(parsed.slot) });
+      return Object.freeze({
+        ...parsed,
+        slot: Object.freeze(parsed.slot),
+        stats: Object.freeze({ ...parsed.stats, input: freezeJson(parsed.stats.input) }),
+      });
     case 'sum': {
       const [first, ...rest] = parsed.children;
       if (first === undefined) invalidCostTree('$.children', 'validated Sum has no child');
@@ -127,6 +162,7 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       return Object.freeze({
         kind: 'max',
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
+        overlap: parsed.overlap,
         children: Object.freeze(children),
       });
     }
@@ -142,6 +178,16 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       });
     }
   }
+}
+
+function freezeJson(value: JsonValue): JsonValue {
+  if (Array.isArray(value)) return Object.freeze(value.map(freezeJson));
+  if (value !== null && typeof value === 'object') {
+    return Object.freeze(
+      Object.fromEntries(Object.entries(value).map(([key, child]) => [key, freezeJson(child)])),
+    );
+  }
+  return value;
 }
 
 export function parseRawCostNode(input: unknown): RawCostNode {

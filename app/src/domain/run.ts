@@ -42,6 +42,14 @@ export interface KvSeries {
     capacity: number | null;
     active: number[];
   }[];
+  workerSeries: {
+    key: WorkerKey;
+    label: string;
+    worker: WorkerRef;
+    /** Workers inherit the static per-shard capacity of their pool series. */
+    capacity: number | null;
+    active: number[];
+  }[];
 }
 export interface Concurrency {
   t_ms: number[];

@@ -1,24 +1,31 @@
-import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
 import { CHART_THEME } from '../../charts/platform';
 import EChart from '../../components/EChart';
+import SurfaceCard from '../../components/SurfaceCard';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { concurrencySparkOption } from './timelineOptions';
+import {
+  beginTimelineInteraction,
+  endTimelineInteraction,
+  recordTimelineInput,
+} from '../../application/timelineProfiling';
 
 /** Wall-clock TIMELINE (run-level). The backdrop is the number of ACTIVE
  *  (in-flight) requests in the system over time. Drag, click, or use the range
  *  control's arrow keys to set the cursor; it lands a marker on every
- *  time-series chart AND the Iteration band snaps the current worker to the
- *  nearest step. "All" clears it. */
+ *  time-series chart and resolves an exact operation selection. Selecting an
+ *  operation performs the safe reverse direction by placing this cursor at its
+ *  start. "All" clears both wall-clock and exact operation selection. */
 export default function TimelineBand() {
   const cursorMs = useViz((state) => state.cursorMs);
   const setTime = useViz((state) => state.setTime);
   const concurrency = useActiveRunSubject('concurrency');
   if (concurrency.status !== 'ready') {
     return (
-      <Paper sx={{ p: '12px 16px', borderRadius: 2 }}>
+      <SurfaceCard accent={tokens.terra} sx={{ p: '12px 16px' }}>
         <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={2}>
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
             Timeline
@@ -33,7 +40,7 @@ export default function TimelineBand() {
         >
           {subjectStatusMessage(concurrency)}
         </Typography>
-      </Paper>
+      </SurfaceCard>
     );
   }
 
@@ -41,7 +48,7 @@ export default function TimelineBand() {
   const spanMs = conc.t_ms[conc.t_ms.length - 1];
   if (spanMs === undefined || spanMs <= 0) {
     return (
-      <Paper sx={{ p: '12px 16px', borderRadius: 2 }}>
+      <SurfaceCard accent={tokens.terra} sx={{ p: '12px 16px' }}>
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
           Timeline
         </Typography>
@@ -51,7 +58,7 @@ export default function TimelineBand() {
         >
           Concurrency subject is ready but has no positive wall-clock span.
         </Typography>
-      </Paper>
+      </SurfaceCard>
     );
   }
   const cur = cursorMs;
@@ -97,7 +104,7 @@ export default function TimelineBand() {
   };
 
   return (
-    <Paper sx={{ p: '12px 16px 10px', borderRadius: 2 }}>
+    <SurfaceCard accent={tokens.terra} sx={{ p: '12px 16px 10px' }}>
       <Stack
         direction="row"
         alignItems="center"
@@ -167,7 +174,16 @@ export default function TimelineBand() {
               ? 'Aggregate, no time selected'
               : `${(rangeValue / 1000).toFixed(2)} seconds, ${activeNow ?? 'unknown'} active requests`
           }
-          onChange={(event) => setTime(Number(event.currentTarget.value))}
+          onPointerDown={() => beginTimelineInteraction('pointer')}
+          onPointerUp={(event) => endTimelineInteraction(Number(event.currentTarget.value))}
+          onPointerCancel={(event) => endTimelineInteraction(Number(event.currentTarget.value))}
+          onKeyDown={() => beginTimelineInteraction('keyboard')}
+          onKeyUp={(event) => endTimelineInteraction(Number(event.currentTarget.value))}
+          onChange={(event) => {
+            const atMs = Number(event.currentTarget.value);
+            recordTimelineInput(atMs);
+            setTime(atMs);
+          }}
           sx={{
             position: 'absolute',
             inset: 0,
@@ -225,6 +241,6 @@ export default function TimelineBand() {
         <span>active requests in flight ↑ · drag or use arrow keys</span>
         <span>{(spanMs / 1000).toFixed(0)}s</span>
       </Stack>
-    </Paper>
+    </SurfaceCard>
   );
 }

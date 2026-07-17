@@ -1,5 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import {
   useActiveRun,
   useActiveRunModel,
@@ -7,6 +7,7 @@ import {
 } from '../../application/ActiveRunProvider';
 import { CHART_THEME } from '../../charts/platform';
 import EChart from '../../components/EChart';
+import SurfaceCard from '../../components/SurfaceCard';
 import type { JsonValue } from '../../domain/overviewResources';
 import type { Deployment } from '../../domain/deployment';
 import { tokens } from '../../theme';
@@ -63,8 +64,8 @@ function PropertyGrid({ properties }: { properties: Property[] }) {
           key={property.label}
           sx={{
             minWidth: 0,
-            minHeight: { xs: 36, sm: 42 },
-            p: { xs: '4px 8px', sm: '6px 8px' },
+            minHeight: { xs: 44, sm: 50 },
+            p: { xs: '6px 9px', sm: '8px 9px' },
             borderRadius: 1,
             background: tokens.tile2,
           }}
@@ -73,8 +74,8 @@ function PropertyGrid({ properties }: { properties: Property[] }) {
             sx={{
               fontFamily: tokens.mono,
               fontWeight: 600,
-              fontSize: 10.5,
-              lineHeight: 1.2,
+              fontSize: 13.5,
+              lineHeight: 1.15,
               color: tokens.ink,
               overflowWrap: 'anywhere',
             }}
@@ -83,11 +84,12 @@ function PropertyGrid({ properties }: { properties: Property[] }) {
           </Typography>
           <Typography
             sx={{
-              mt: 0.25,
+              mt: 0.4,
               fontFamily: tokens.mono,
-              fontSize: 8,
-              lineHeight: 1.25,
-              letterSpacing: '.09em',
+              fontSize: 9.5,
+              fontWeight: 600,
+              lineHeight: 1.2,
+              letterSpacing: '.055em',
               textTransform: 'uppercase',
               color: tokens.sub2,
             }}
@@ -153,15 +155,13 @@ function OverviewCard({
   properties: Property[];
 }) {
   return (
-    <Paper
+    <SurfaceCard
+      accent={accent}
       component="section"
       aria-labelledby={id}
       sx={{
         flex: { xs: '0 0 auto', md: '1 1 0' },
         minHeight: 0,
-        overflow: 'hidden',
-        borderRadius: 2,
-        borderTop: `2px solid ${accent}`,
         p: 1.5,
         display: 'flex',
         flexDirection: 'column',
@@ -189,7 +189,7 @@ function OverviewCard({
       <Box sx={{ mt: 'auto' }}>
         <PropertyGrid properties={properties} />
       </Box>
-    </Paper>
+    </SurfaceCard>
   );
 }
 
@@ -306,16 +306,14 @@ export default function RunOverviewRow() {
         />
       </Stack>
 
-      <Paper
+      <SurfaceCard
+        accent={tokens.terra}
         component="section"
         aria-labelledby="trace-overview-title"
         sx={{
           minWidth: 0,
           minHeight: { md: 440 },
           height: '100%',
-          overflow: 'hidden',
-          borderRadius: 2,
-          borderTop: `2px solid ${tokens.terra}`,
           p: 1.5,
           display: 'flex',
           flexDirection: 'column',
@@ -430,7 +428,7 @@ export default function RunOverviewRow() {
             </Box>
           </Box>
         )}
-      </Paper>
+      </SurfaceCard>
     </Box>
   );
 }

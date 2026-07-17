@@ -1,4 +1,8 @@
 import { analyzerV1ArtifactHrefSchema } from '../../contracts/analyzer/v1/artifactHref';
+import {
+  currentTimelineInteractionId,
+  timelineProfileEvent,
+} from '../../application/timelineProfiling';
 
 export type AnalyzerFetch = typeof fetch;
 
@@ -80,14 +84,38 @@ function wait(delayMs: number): Promise<void> {
  * operation, so it cannot retain a permit while honoring Retry-After. */
 class FifoRequestScheduler {
   private activeRequests = 0;
+  private readonly activeAddresses = new Set<string>();
   private readonly pendingStarts: Array<() => void> = [];
 
   constructor(private readonly maxConcurrentRequests: number) {}
 
-  run<T>(operation: () => Promise<T>): Promise<T> {
+  run<T>(address: string, operation: () => Promise<T>): Promise<T> {
+    const interactionId = currentTimelineInteractionId();
+    const queuedAt = performance.now();
+    timelineProfileEvent(
+      'http-scheduler-queued',
+      {
+        resource: diagnosticResource(address),
+        activeRequests: this.activeRequests,
+        pendingRequests: this.pendingStarts.length,
+        activeResources: [...this.activeAddresses].map(diagnosticResource),
+      },
+      interactionId,
+    );
     return new Promise<T>((resolve, reject) => {
       this.pendingStarts.push(() => {
         this.activeRequests += 1;
+        this.activeAddresses.add(address);
+        timelineProfileEvent(
+          'http-scheduler-admitted',
+          {
+            resource: diagnosticResource(address),
+            queueWaitMs: performance.now() - queuedAt,
+            activeRequests: this.activeRequests,
+            pendingRequests: this.pendingStarts.length,
+          },
+          interactionId,
+        );
         let result: Promise<T>;
         try {
           result = operation();
@@ -96,6 +124,17 @@ class FifoRequestScheduler {
         }
         void result.then(resolve, reject).finally(() => {
           this.activeRequests -= 1;
+          this.activeAddresses.delete(address);
+          timelineProfileEvent(
+            'http-scheduler-complete',
+            {
+              resource: diagnosticResource(address),
+              totalMs: performance.now() - queuedAt,
+              activeRequests: this.activeRequests,
+              pendingRequests: this.pendingStarts.length,
+            },
+            interactionId,
+          );
           this.startPendingRequests();
         });
       });
@@ -108,6 +147,12 @@ class FifoRequestScheduler {
       this.pendingStarts.shift()?.();
     }
   }
+}
+
+function diagnosticResource(address: string): string {
+  const url = new URL(address);
+  const runResource = url.pathname.match(/\/runs\/[^/]+\/(.*)$/)?.[1];
+  return `${runResource ?? url.pathname}${url.search}`;
 }
 
 /** Transport failures retain a stable service code so subject queries can fail
@@ -162,7 +207,10 @@ export class HttpJsonClient {
 
     for (let retries = 0; ; retries += 1) {
       try {
-        return await this.requestScheduler.run(() => this.readJsonAttempt(address));
+        const interactionId = currentTimelineInteractionId();
+        return await this.requestScheduler.run(address, () =>
+          this.readJsonAttempt(address, interactionId),
+        );
       } catch (error) {
         if (
           !(error instanceof HttpAnalyzerTransportError) ||
@@ -178,12 +226,18 @@ export class HttpJsonClient {
     }
   }
 
-  private async readJsonAttempt(address: string): Promise<unknown> {
+  private async readJsonAttempt(address: string, interactionId: string | null): Promise<unknown> {
     const cached = this.cache.get(address);
     const headers = new Headers({ Accept: 'application/json' });
     if (cached?.etag !== undefined) headers.set('If-None-Match', cached.etag);
 
     let response: Response;
+    const fetchStartedAt = performance.now();
+    timelineProfileEvent(
+      'http-fetch-start',
+      { resource: diagnosticResource(address) },
+      interactionId,
+    );
     try {
       response = await this.fetchImpl(address, { headers });
     } catch (error) {
@@ -194,6 +248,15 @@ export class HttpJsonClient {
         error,
       );
     }
+    timelineProfileEvent(
+      'http-fetch-headers',
+      {
+        resource: diagnosticResource(address),
+        durationMs: performance.now() - fetchStartedAt,
+        status: response.status,
+      },
+      interactionId,
+    );
 
     if (response.status === 304) {
       if (cached !== undefined) return cached.value;
@@ -205,9 +268,15 @@ export class HttpJsonClient {
     }
     if (!response.ok) throw await this.responseError(address, response);
 
-    let value: unknown;
+    const bodyStartedAt = performance.now();
+    timelineProfileEvent(
+      'http-body-text-start',
+      { resource: diagnosticResource(address) },
+      interactionId,
+    );
+    let body: string;
     try {
-      value = await response.json();
+      body = await response.text();
     } catch (error) {
       throw new HttpAnalyzerTransportError(
         'invalid_json',
@@ -216,6 +285,40 @@ export class HttpJsonClient {
         error,
       );
     }
+    timelineProfileEvent(
+      'http-body-text-end',
+      {
+        resource: diagnosticResource(address),
+        durationMs: performance.now() - bodyStartedAt,
+        bytes: new TextEncoder().encode(body).byteLength,
+      },
+      interactionId,
+    );
+    const decodeStartedAt = performance.now();
+    timelineProfileEvent(
+      'http-json-decode-start',
+      { resource: diagnosticResource(address) },
+      interactionId,
+    );
+    let value: unknown;
+    try {
+      value = JSON.parse(body);
+    } catch (error) {
+      throw new HttpAnalyzerTransportError(
+        'invalid_json',
+        response.status,
+        `Analyzer resource ${address} did not contain valid JSON: ${messageOf(error)}`,
+        error,
+      );
+    }
+    timelineProfileEvent(
+      'http-json-decode-end',
+      {
+        resource: diagnosticResource(address),
+        durationMs: performance.now() - decodeStartedAt,
+      },
+      interactionId,
+    );
     const etag = response.headers.get('ETag') ?? undefined;
     this.cache.set(address, { value, ...(etag === undefined ? {} : { etag }) });
     return value;

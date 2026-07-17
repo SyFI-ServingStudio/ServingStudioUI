@@ -1,7 +1,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { useViz, type Scope } from './store';
-import { useActiveRunState, useActiveRunSubject } from './application/ActiveRunProvider';
+import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
 import type { Deployment } from './domain/deployment';
@@ -188,9 +188,6 @@ function Masthead({ hasRun }: { hasRun: boolean }) {
 
 export default function App() {
   const activeRun = useActiveRunState();
-  // Kernel composition feeds cluster/pool breakdowns and the worker fallback,
-  // so it is the one subject intentionally owned by the persistent app shell.
-  const aggregateKernelTimeShare = useActiveRunSubject('kernelTimeShare');
   const run = activeRun.run;
   const scope = useViz((state) => state.scope);
   const poolRole = useViz((state) => state.poolRole);
@@ -252,8 +249,8 @@ export default function App() {
     worker: {
       title: `Worker · ${worker?.key ?? 'invalid selection'}`,
       sub: hasHierarchicalWorkerDetail
-        ? 'hierarchical worker CostTree · optional detail states'
-        : 'full-run aggregate kernel time share · optional detail states',
+        ? 'exact operation CostTree · worker operation timeline'
+        : 'exact worker detail not generated',
     },
     kernel: {
       title: `Worker · ${worker?.key ?? 'invalid selection'}`,
@@ -268,8 +265,8 @@ export default function App() {
   return (
     <ActiveWorkerTreeProvider
       run={run}
+      workerOperationDetail={activeRun.descriptor.details['worker-operation-index']}
       workerCostTreeDetail={activeRun.descriptor.details['worker-cost-tree']}
-      aggregateKernelTimeShare={aggregateKernelTimeShare}
       analysisRevision={activeRun.descriptor.analysis?.revision}
     >
       <Box
@@ -298,7 +295,7 @@ export default function App() {
           <TimelineBand />
         </Stack>
 
-        {/* execution trace — whole-run wall-clock view, only meaningful at
+        {/* Whole-run wall-clock trace, only meaningful at
           cluster scope (structural drill has its own per-scope stage below) */}
         {scope === 'cluster' && run.capabilities.perfettoTrace && (
           <Box sx={{ mt: 2 }}>

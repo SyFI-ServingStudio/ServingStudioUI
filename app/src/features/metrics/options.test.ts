@@ -93,6 +93,31 @@ const multiPoolUtilization: UtilSeries = {
 const kv: KvSeries = {
   t_ms: [0],
   series: [{ key: 'worker', label: ATTACK, capacity: 10, active: [5] }],
+  workerSeries: [],
+};
+
+const multiPoolKv: KvSeries = {
+  t_ms: [0],
+  series: [
+    { key: 'attn/g0', label: 'attn', poolTag: 'attn', capacity: 10, active: [5] },
+    { key: 'decode/g0', label: 'decode', poolTag: 'decode', capacity: 20, active: [12] },
+  ],
+  workerSeries: [
+    {
+      key: makeWorkerKey('attn', '0'),
+      label: 'Worker 0',
+      worker: makeWorkerRef('attn', '0'),
+      capacity: 10,
+      active: [4],
+    },
+    {
+      key: makeWorkerKey('decode', '0'),
+      label: 'Worker 0',
+      worker: makeWorkerRef('decode', '0'),
+      capacity: 20,
+      active: [10],
+    },
+  ],
 };
 
 const queue: ScopedPendingQueue = {
@@ -189,6 +214,34 @@ describe('scope metric chart options', () => {
     });
   });
 
+  it('renders throughput intervals as unstacked steps within the real time range', () => {
+    const intervalThroughput: Throughput = {
+      t_start_ms: [0, 1_000_000],
+      t_end_ms: [1_000_000, 2_000_000],
+      total: [10, 20],
+      prefill: [4, 12],
+      decode: [6, 8],
+    };
+    const option = throughputOption(intervalThroughput, CHART_THEME);
+    const series = option.series as Array<{
+      name: string;
+      stack?: string;
+      step?: string;
+      areaStyle?: unknown;
+      lineStyle: { width: number };
+      data: [number, number][];
+    }>;
+
+    expect(option.xAxis).toMatchObject({ min: 0, max: 2000 });
+    expect(series.map((item) => item.name)).toEqual(['total', 'prefill', 'decode']);
+    expect(series.every((item) => item.stack === undefined && item.areaStyle === undefined)).toBe(
+      true,
+    );
+    expect(series.every((item) => item.step === 'end')).toBe(true);
+    expect(series.every((item) => item.data.at(-1)?.[0] === 2000)).toBe(true);
+    expect(series[0].lineStyle.width).toBeGreaterThan(series[1].lineStyle.width);
+  });
+
   it('renders worker utilization with identity-stable pool colors and bold pool averages', () => {
     const option = utilizationOption(multiPoolUtilization, CHART_THEME);
     const reordered = utilizationOption(
@@ -220,7 +273,47 @@ describe('scope metric chart options', () => {
     expect(series.slice(0, 2).every((item) => item.lineStyle.width === 1.1 && item.z === 2)).toBe(
       true,
     );
-    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(true);
+    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(
+      true,
+    );
     expect(option.legend).toBeTruthy();
+  });
+
+  it('renders worker KV occupancy with identity-stable pool colors and bold pool averages', () => {
+    const option = kvOption(multiPoolKv, CHART_THEME);
+    const reordered = kvOption(
+      { ...multiPoolKv, series: [...multiPoolKv.series].reverse() },
+      CHART_THEME,
+    );
+    const series = option.series as Array<{
+      name: string;
+      color: string;
+      lineStyle: { color: string; width: number };
+      z: number;
+    }>;
+    const reorderedSeries = reordered.series as Array<{
+      name: string;
+      lineStyle: { color: string };
+    }>;
+    const colors = new Map(series.map((item) => [item.name, item.lineStyle.color]));
+    const reorderedColors = new Map(
+      reorderedSeries.map((item) => [item.name, item.lineStyle.color]),
+    );
+
+    expect(series.map((item) => item.name)).toEqual([
+      'attn · Worker 0',
+      'decode · Worker 0',
+      'attn average',
+      'decode average',
+    ]);
+    expect(reorderedColors).toEqual(colors);
+    expect(new Set(colors.values()).size).toBe(2);
+    expect(series.every((item) => item.color === item.lineStyle.color)).toBe(true);
+    expect(series.slice(0, 2).every((item) => item.lineStyle.width === 1.1 && item.z === 2)).toBe(
+      true,
+    );
+    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(
+      true,
+    );
   });
 });

@@ -1,9 +1,10 @@
-import { Box, IconButton, Paper, Stack, Typography } from '@mui/material';
+import { Box, IconButton, Stack, Typography } from '@mui/material';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import type { EChartsOption } from 'echarts';
 import { tokens } from '../theme';
 import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
+import SurfaceCard from './SurfaceCard';
 
 /** Generic chart tile: header (idx · title · sub), a chart (or empty note), an
  *  optional footnote, and a hover-reveal expand button that pushes the chart
@@ -29,9 +30,8 @@ export default function ChartCard({
 }) {
   const openFocus = useOpenChartFocus();
   return (
-    <Paper
+    <SurfaceCard
       sx={{
-        borderRadius: 2,
         p: '16px 16px 14px',
         position: 'relative',
         transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`,
@@ -147,6 +147,6 @@ export default function ChartCard({
           {note}
         </Typography>
       )}
-    </Paper>
+    </SurfaceCard>
   );
 }

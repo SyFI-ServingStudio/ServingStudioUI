@@ -72,6 +72,7 @@ export const scopedKv = (kv: KvSeries, role: string | null): KvSeries => {
   return {
     t_ms: kv.t_ms,
     series: kv.series.filter((series) => matchesPool(series.poolTag, role)),
+    workerSeries: kv.workerSeries.filter((series) => series.worker.poolTag === role),
   };
 };
 

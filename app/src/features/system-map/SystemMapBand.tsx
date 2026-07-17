@@ -1,5 +1,6 @@
 import { Box, ButtonBase, Paper, Stack, Typography } from '@mui/material';
 import { useActiveRun, useActiveRunModel } from '../../application/ActiveRunProvider';
+import SurfaceCard from '../../components/SurfaceCard';
 import type { JsonValue, ModelConfigResource } from '../../domain/overviewResources';
 import type { Group, WorkerInstance } from '../../domain/run';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
@@ -156,7 +157,7 @@ export default function SystemMapBand() {
   const clusterSel = scope === 'cluster';
 
   return (
-    <Paper sx={{ p: 1.9, borderRadius: 2 }}>
+    <SurfaceCard accent={tokens.olive} sx={{ p: 1.9 }}>
       {/* whole-deployment selector — click to scope back up to the cluster */}
       <ButtonBase
         type="button"
@@ -358,6 +359,6 @@ export default function SystemMapBand() {
           );
         })}
       </Stack>
-    </Paper>
+    </SurfaceCard>
   );
 }

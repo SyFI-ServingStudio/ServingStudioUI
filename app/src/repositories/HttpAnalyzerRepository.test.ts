@@ -304,20 +304,174 @@ describe('HttpAnalyzerRepository', () => {
     await expect(substituted.getRunDescriptor(RUN_ID)).rejects.toBeInstanceOf(HttpRunBindingError);
   });
 
-  it('does not pretend an undeclared detail protocol is implemented', async () => {
+  it('keeps undeclared exact worker detail explicit', async () => {
     const repository = new HttpAnalyzerRepository({ fetch: fakeAnalyzerFetch() });
     await repository.listRuns();
     await repository.getRunDescriptor(RUN_ID);
 
     await expect(
-      repository.getWorkerTimeline(RUN_ID, { poolTag: 'attn', workerId: '0' }),
+      repository.getWorkerOperations(
+        RUN_ID,
+        { poolTag: 'attn', workerId: '0' },
+        { offset: 0, limit: 50 },
+      ),
     ).rejects.toBeInstanceOf(HttpDetailUnavailableError);
     await expect(
-      repository.getWorkerCostTree(RUN_ID, { poolTag: 'attn', workerId: '0' }),
+      repository.getWorkerCostTree(RUN_ID, {
+        worker: { poolTag: 'attn', workerId: '0' },
+        iterId: '0',
+        batchId: '0',
+        operationId: '0',
+      }),
     ).rejects.toMatchObject({
       detailName: 'worker-cost-tree',
       status: 'not_generated',
     });
+  });
+
+  it('uses bounded operation range/seek and exact CostTree routes', async () => {
+    const { descriptor } = protocolData();
+    const exactDescriptor = {
+      ...descriptor,
+      details: {
+        ...descriptor.details,
+        'worker-operation-index': { status: 'ready', schema_version: 1, href: 'workers' },
+        'worker-cost-tree': { status: 'ready', schema_version: 1, href: 'workers' },
+      },
+    };
+    const operationPath = `/api/v1/runs/${RUN_ID}/workers/ffn/2/operations?offset=50&limit=50`;
+    const seekPath = `/api/v1/runs/${RUN_ID}/workers/ffn/2/operations/seek?at_ms=12.5`;
+    const costTreePath = `/api/v1/runs/${RUN_ID}/workers/ffn/2/operations/17/9/0/cost-tree`;
+    const fetch = fakeAnalyzerFetch({
+      [absolute(`/api/v1/runs/${RUN_ID}/descriptor`)]: { body: exactDescriptor },
+      [absolute(operationPath)]: {
+        body: {
+          schema_version: 1,
+          worker: { pool_tag: 'ffn', worker_id: 2 },
+          worker_kind: 'afd_ffn',
+          batch_role: 'slot',
+          total_operations: 51,
+          span: { start_ms: 0, end_ms: 14 },
+          range: { offset: 50, limit: 50, returned: 1 },
+          operations: [
+            {
+              ordinal: 50,
+              iter_id: 17,
+              batch_id: 9,
+              operation_id: '0',
+              section: 'bridge',
+              layer: 3,
+              start_ms: 12,
+              end_ms: 14,
+            },
+          ],
+        },
+      },
+      [absolute(seekPath)]: {
+        body: {
+          schema_version: 1,
+          worker: { pool_tag: 'ffn', worker_id: 2 },
+          worker_kind: 'afd_ffn',
+          batch_role: 'slot',
+          at_ms: 12.5,
+          total_operations: 200,
+          span: { start_ms: 0, end_ms: 200 },
+          hits: [
+            {
+              ordinal: 65,
+              iter_id: 17,
+              batch_id: 9,
+              operation_id: '0',
+              section: 'bridge',
+              layer: 3,
+              start_ms: 12,
+              end_ms: 14,
+            },
+          ],
+          anchor: { ordinal: 65, kind: 'hit' },
+          suggested_viewport: { offset: 65, limit: 64 },
+          buffer: {
+            offset: 65,
+            limit: 192,
+            returned: 1,
+            operations: [
+              {
+                ordinal: 65,
+                iter_id: 17,
+                batch_id: 9,
+                operation_id: '0',
+                section: 'bridge',
+                layer: 3,
+                start_ms: 12,
+                end_ms: 14,
+              },
+            ],
+          },
+        },
+      },
+      [absolute(costTreePath)]: {
+        body: {
+          schema_version: 1,
+          identity: {
+            pool_tag: 'ffn',
+            worker_id: 2,
+            iter_id: 17,
+            batch_id: 9,
+            operation_id: '0',
+            section: 'bridge',
+            layer: 3,
+          },
+          interval: { start_ms: 12, end_ms: 14 },
+          inputs: [],
+          tree: {
+            kind: 'max',
+            overlap: 2,
+            children: [
+              {
+                kind: 'leaf',
+                slot: { name: 'gemm', kind: 'single_gemm', config: '{}', backend: null },
+                base: 8,
+                stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
+              },
+            ],
+          },
+        },
+      },
+    });
+    const repository = new HttpAnalyzerRepository({ fetch });
+
+    await expect(
+      repository.getWorkerOperations(
+        RUN_ID,
+        { poolTag: 'ffn', workerId: '2' },
+        { offset: 50, limit: 50 },
+      ),
+    ).resolves.toMatchObject({
+      offset: 50,
+      total: 51,
+      batchRole: 'slot',
+      operations: [{ ref: { iterId: '17', batchId: '9', operationId: '0' } }],
+    });
+    await expect(
+      repository.getWorkerOperationSeek(RUN_ID, { poolTag: 'ffn', workerId: '2' }, 12.5, 64),
+    ).resolves.toMatchObject({
+      atMs: 12.5,
+      suggestedViewport: { offset: 65, limit: 64 },
+      buffer: { offset: 65, operations: [{ ordinal: 65 }] },
+      hits: [{ ordinal: 65, ref: { iterId: '17', batchId: '9' } }],
+    });
+    await expect(
+      repository.getWorkerCostTree(RUN_ID, {
+        worker: { poolTag: 'ffn', workerId: '2' },
+        iterId: '17',
+        batchId: '9',
+        operationId: '0',
+      }),
+    ).resolves.toMatchObject({ tree: { kind: 'max', overlap: 2, totalMs: 4 } });
+
+    expect(fetch).toHaveBeenCalledWith(absolute(operationPath), expect.anything());
+    expect(fetch).toHaveBeenCalledWith(absolute(seekPath), expect.anything());
+    expect(fetch).toHaveBeenCalledWith(absolute(costTreePath), expect.anything());
   });
 
   it('requires a same-origin API root', () => {

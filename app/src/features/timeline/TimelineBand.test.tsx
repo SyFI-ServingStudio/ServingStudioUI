@@ -19,7 +19,13 @@ vi.mock('../../components/EChart', () => ({
 }));
 
 beforeEach(() => {
-  useViz.setState({ cursorMs: null });
+  useViz.setState({
+    scope: 'worker',
+    cursorMs: null,
+    operation: null,
+    leafId: null,
+    parId: null,
+  });
 });
 
 describe('TimelineBand interaction semantics', () => {
@@ -48,5 +54,28 @@ describe('TimelineBand interaction semantics', () => {
     await user.keyboard('{Enter}');
     expect(useViz.getState().cursorMs).toBeNull();
     expect(aggregate).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps exact content visible while a free wall-clock cursor is pending seek', () => {
+    useViz.setState({
+      scope: 'kernel',
+      cursorMs: 10,
+      operation: { iterId: '17', batchId: '9', operationId: 'op-3' },
+      leafId: 4,
+    });
+    render(<TimelineBand />);
+
+    fireEvent.change(screen.getByRole('slider', { name: 'Simulation time cursor' }), {
+      target: { value: '5000' },
+    });
+
+    expect(useViz.getState()).toMatchObject({
+      scope: 'kernel',
+      cursorMs: 5_000,
+      cursorNeedsSeek: true,
+      operation: { iterId: '17', batchId: '9', operationId: 'op-3' },
+      leafId: 4,
+      parId: null,
+    });
   });
 });

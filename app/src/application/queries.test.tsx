@@ -15,6 +15,7 @@ import {
   useDescriptorWorkloadQuery,
   useRunDescriptorQuery,
   useRunListQuery,
+  workerOperationsQueryOptions,
 } from './queries';
 
 const queryClients = new Set<QueryClient>();
@@ -257,5 +258,29 @@ describe('subject queries', () => {
     expect(analyzerQueryKeys.subject('test-run', 'slo', 1, 'revision-a')).not.toEqual(
       analyzerQueryKeys.subject('test-run', 'slo', 1, 'revision-b'),
     );
+  });
+});
+
+describe('worker operation range queries', () => {
+  it('shares one fresh cache entry between prefetch and the visible page', async () => {
+    const { repository, calls } = createTestRepository();
+    const { queryClient } = queryWrapper(repository);
+    const worker = { poolTag: 'ffn', workerId: '2' };
+    const options = workerOperationsQueryOptions(
+      repository,
+      'test-run',
+      worker,
+      50,
+      50,
+      1,
+      'test-revision-v1',
+    );
+
+    await queryClient.prefetchQuery(options);
+    const page = await queryClient.fetchQuery(options);
+
+    expect(calls.operations).toBe(1);
+    expect(page.worker).toEqual(worker);
+    expect(queryClient.getQueryData(options.queryKey)).toEqual(page);
   });
 });

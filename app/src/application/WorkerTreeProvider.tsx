@@ -1,78 +1,112 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 import type { DetailArtifact } from '../domain/artifacts';
-import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
-import type { Run, WorkerRow } from '../domain/run';
-import type { SubjectResult } from '../domain/subject';
-import { makeWorkerKey } from '../domain/worker';
-import { projectAggregateKernelVisualTree } from './projectAggregateKernelVisualTree';
 import type { CostTree } from '../domain/cost-tree';
+import type { Run, WorkerRow } from '../domain/run';
+import type { OperationRef, OperationSummary } from '../domain/workerOperation';
 import { useViz, type Scope } from '../store';
-import { useWorkerCostTreeDetailQuery } from './queries';
-
-export type WorkerTreeEvidence = 'hierarchical-detail' | 'aggregate-projection';
+import {
+  useWorkerCostTreeDetailQuery,
+  useWorkerOperationBootstrapQuery,
+  useWorkerOperationSeekQuery,
+  useWorkerOperationsQuery,
+} from './queries';
+import {
+  createOperationViewportState,
+  OPERATION_VIEWPORT_SIZE,
+  moveOperationViewport,
+  resolveOperationBufferRequest,
+  shiftOperationViewport,
+  type OperationBufferDirection,
+  type OperationViewportState,
+} from './workerOperationBuffer';
 
 export type WorkerTreeNonReadyStatus =
   'empty' | 'unavailable' | 'not_generated' | 'failed' | 'incompatible';
 
-interface WorkerTreeNonReadyState {
-  status: WorkerTreeNonReadyStatus;
-  evidence: WorkerTreeEvidence;
-  worker: WorkerRow;
-  tree: null;
-  reason: string;
-  code: string | null;
-  retry: (() => void) | null;
-}
-
 export type ActiveWorkerTreeState =
-  | {
-      status: 'idle';
-      evidence: null;
-      worker: null;
-      tree: null;
-      error: null;
-      retry: null;
-    }
-  | {
-      status: 'loading';
-      evidence: WorkerTreeEvidence;
-      worker: WorkerRow;
-      tree: null;
-      error: null;
-      retry: null;
-    }
+  | { status: 'idle'; worker: null; tree: null; error: null; retry: null }
+  | { status: 'awaiting-selection'; worker: WorkerRow; tree: null; error: null; retry: null }
+  | { status: 'loading'; worker: WorkerRow; tree: null; error: null; retry: null }
   | {
       status: 'ready';
-      evidence: WorkerTreeEvidence;
       worker: WorkerRow;
+      operation: OperationRef;
       tree: CostTree;
       error: null;
       retry: null;
     }
   | {
       status: 'error';
-      evidence: WorkerTreeEvidence | null;
       worker: WorkerRow | null;
       tree: null;
       error: Error;
       retry: (() => void) | null;
     }
-  | WorkerTreeNonReadyState;
+  | {
+      status: WorkerTreeNonReadyStatus;
+      worker: WorkerRow;
+      tree: null;
+      reason: string;
+      code: string | null;
+      retry: (() => void) | null;
+    };
+
+export type ActiveWorkerOperationState =
+  | { status: 'idle'; worker: null }
+  | { status: 'loading'; worker: WorkerRow }
+  | {
+      status: 'ready';
+      worker: WorkerRow;
+      viewport: OperationViewportState;
+      operations: readonly OperationSummary[];
+      selected: OperationSummary | null;
+      shift: (direction: OperationBufferDirection) => void;
+      navigate: (operationDelta: number) => void;
+    }
+  | {
+      status: WorkerTreeNonReadyStatus | 'error';
+      worker: WorkerRow | null;
+      reason: string;
+      retry: (() => void) | null;
+    };
+
+export type ActiveWorkerOperationSeekState =
+  | { status: 'idle'; atMs: null; hits: readonly [] }
+  | { status: 'loading'; atMs: number; hits: readonly [] }
+  | { status: 'ready'; atMs: number; hits: readonly OperationSummary[] }
+  | { status: 'error'; atMs: number; hits: readonly []; reason: string };
 
 const WorkerTreeContext = createContext<ActiveWorkerTreeState | null>(null);
+const WorkerOperationContext = createContext<ActiveWorkerOperationState | null>(null);
+const WorkerOperationSeekContext = createContext<ActiveWorkerOperationSeekState | null>(null);
+const SEEK_DEBOUNCE_MS = 150;
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+  return debounced;
+}
 
 const needsWorkerTree = (scope: Scope): boolean =>
   scope === 'worker' || scope === 'kernel' || scope === 'parallel';
-
-function errorReason(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
-}
-
-function errorCode(error: unknown): string | null {
-  if (typeof error !== 'object' || error === null || !('code' in error)) return null;
-  return typeof error.code === 'string' && error.code.length > 0 ? error.code : null;
-}
+const errorReason = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+const errorCode = (error: unknown): string | null =>
+  typeof error === 'object' && error !== null && 'code' in error && typeof error.code === 'string'
+    ? error.code
+    : null;
 
 function detailFailureStatus(error: unknown): Exclude<WorkerTreeNonReadyStatus, 'empty'> {
   if (typeof error !== 'object' || error === null || !('status' in error)) return 'failed';
@@ -87,210 +121,283 @@ function detailFailureStatus(error: unknown): Exclude<WorkerTreeNonReadyStatus, 
   }
 }
 
-function artifactReason(subject: SubjectResult<'kernelTimeShare'>, fallback: string): string {
-  if ('reason' in subject && subject.reason) return subject.reason;
-  return fallback;
-}
-
-function detailContext(detail: DetailArtifact | undefined): string {
+function descriptorTreeState(
+  worker: WorkerRow,
+  name: string,
+  detail: DetailArtifact | undefined,
+): ActiveWorkerTreeState {
   const status = detail?.status ?? 'not_generated';
-  const reason = detail && 'reason' in detail && detail.reason ? `: ${detail.reason}` : '';
-  return `Hierarchical worker detail is ${status}${reason}.`;
+  if (status === 'pending')
+    return { status: 'loading', worker, tree: null, error: null, retry: null };
+  if (status === 'ready') {
+    return {
+      status: 'incompatible',
+      worker,
+      tree: null,
+      reason: `${name} is ready without a usable protocol identity.`,
+      code: null,
+      retry: null,
+    };
+  }
+  return {
+    status,
+    worker,
+    tree: null,
+    reason:
+      detail && 'reason' in detail && detail.reason
+        ? detail.reason
+        : `Run descriptor does not provide ready ${name}.`,
+    code: detail && 'code' in detail ? (detail.code ?? null) : null,
+    retry: null,
+  };
 }
 
-/**
- * Owns the selected worker's evidence boundary. A ready descriptor detail uses
- * the repository's versioned high-cardinality query. Until that protocol is
- * generated, the already-loaded kernel-time-share subject may be projected
- * locally, but the state keeps that aggregate evidence explicitly labelled.
- */
 export function ActiveWorkerTreeProvider({
   run,
+  workerOperationDetail,
   workerCostTreeDetail,
-  aggregateKernelTimeShare,
   analysisRevision,
   children,
 }: {
   run: Run;
+  workerOperationDetail: DetailArtifact | undefined;
   workerCostTreeDetail: DetailArtifact | undefined;
-  aggregateKernelTimeShare: SubjectResult<'kernelTimeShare'>;
   analysisRevision: string | undefined;
   children: ReactNode;
 }) {
   const scope = useViz((state) => state.scope);
   const workerKey = useViz((state) => state.workerKey);
+  const selectedRef = useViz((state) => state.operation);
+  const cursorMs = useViz((state) => state.cursorMs);
+  const cursorNeedsSeek = useViz((state) => state.cursorNeedsSeek);
+  const selectOperationAtCursor = useViz((state) => state.selectOperationAtCursor);
+  const clearOperationForSeekResult = useViz((state) => state.clearOperationForSeekResult);
   const enabled = needsWorkerTree(scope);
   const worker = enabled
     ? run.workerList.find((candidate) => candidate.key === workerKey)
     : undefined;
-  const detailReady = workerCostTreeDetail?.status === 'ready';
-  const detailQuery = useWorkerCostTreeDetailQuery(
+  const [viewport, setViewport] = useState<OperationViewportState | null>(null);
+  const debouncedCursorMs = useDebouncedValue(cursorMs, SEEK_DEBOUNCE_MS);
+  const indexReady = workerOperationDetail?.status === 'ready';
+  const schemaVersion = indexReady ? workerOperationDetail.schemaVersion : undefined;
+
+  useEffect(() => setViewport(null), [workerKey]);
+
+  const bootstrapQuery = useWorkerOperationBootstrapQuery(
     run.id,
     worker?.ref,
-    detailReady ? workerCostTreeDetail.schemaVersion : undefined,
+    OPERATION_VIEWPORT_SIZE,
+    schemaVersion,
     analysisRevision,
-    enabled && worker !== undefined && detailReady,
+    enabled && worker !== undefined && indexReady && !cursorNeedsSeek,
   );
-
-  const aggregateComposition = useMemo(() => {
-    if (!enabled || worker === undefined || detailReady) return null;
-    if (aggregateKernelTimeShare.status !== 'ready') return null;
-    return aggregateKernelTimeShare.payload.workers.find(
-      (candidate) => candidate.key === makeWorkerKey(worker.ref),
-    );
-  }, [aggregateKernelTimeShare, detailReady, enabled, worker]);
-  const aggregateProjection = useMemo(
-    () =>
-      aggregateComposition === null || aggregateComposition === undefined
-        ? null
-        : projectAggregateKernelVisualTree(aggregateComposition),
-    [aggregateComposition],
-  );
-
-  const value: ActiveWorkerTreeState = (() => {
-    if (!enabled) {
-      return {
-        status: 'idle',
-        evidence: null,
-        worker: null,
-        tree: null,
-        error: null,
-        retry: null,
-      };
+  useEffect(() => {
+    if (viewport === null && bootstrapQuery.data !== undefined) {
+      setViewport(createOperationViewportState(bootstrapQuery.data, 0));
     }
-    if (worker === undefined) {
-      const selected = workerKey ?? '<none>';
+  }, [bootstrapQuery.data, viewport]);
+
+  const seekQuery = useWorkerOperationSeekQuery(
+    run.id,
+    worker?.ref,
+    debouncedCursorMs,
+    OPERATION_VIEWPORT_SIZE,
+    schemaVersion,
+    analysisRevision,
+    enabled &&
+      worker !== undefined &&
+      cursorNeedsSeek &&
+      cursorMs !== null &&
+      debouncedCursorMs === cursorMs,
+  );
+  useEffect(() => {
+    const seek = seekQuery.data;
+    if (seek === undefined || cursorMs === null || seek.atMs !== cursorMs || !cursorNeedsSeek)
+      return;
+    setViewport(createOperationViewportState(seek.buffer, seek.suggestedViewport.offset));
+    // `hits` only contains half-open interval containment. A cursor in a real
+    // compute gap still has a server-selected nearest anchor in the fused
+    // buffer, and that exact operation must drive selection and CostTree I/O.
+    const anchored = seek.buffer.operations.find(
+      (operation) => operation.ordinal === seek.anchor.ordinal,
+    );
+    if (anchored !== undefined) selectOperationAtCursor(anchored);
+    else clearOperationForSeekResult();
+  }, [
+    clearOperationForSeekResult,
+    cursorMs,
+    cursorNeedsSeek,
+    seekQuery.data,
+    selectOperationAtCursor,
+  ]);
+
+  const pending = viewport?.pending ?? null;
+  const refillQuery = useWorkerOperationsQuery(
+    run.id,
+    worker?.ref,
+    pending?.offset ?? 0,
+    pending?.limit ?? OPERATION_VIEWPORT_SIZE,
+    schemaVersion,
+    analysisRevision,
+    pending !== null,
+  );
+  useEffect(() => {
+    if (pending === null || refillQuery.data === undefined) return;
+    setViewport((current) =>
+      current === null
+        ? current
+        : resolveOperationBufferRequest(current, pending, refillQuery.data.operations),
+    );
+  }, [pending, refillQuery.data]);
+
+  const shift = useCallback((direction: OperationBufferDirection) => {
+    setViewport((current) =>
+      current === null ? current : shiftOperationViewport(current, direction).state,
+    );
+  }, []);
+  const navigate = useCallback((operationDelta: number) => {
+    setViewport((current) =>
+      current === null ? current : moveOperationViewport(current, operationDelta).state,
+    );
+  }, []);
+  const selected = useMemo(
+    () =>
+      viewport?.buffer.operations.find(
+        (operation) =>
+          operation.ref.iterId === selectedRef?.iterId &&
+          operation.ref.batchId === selectedRef.batchId &&
+          operation.ref.operationId === selectedRef.operationId,
+      ) ?? null,
+    [selectedRef, viewport],
+  );
+  const visibleOperations = useMemo(
+    () =>
+      viewport?.buffer.operations.filter(
+        (operation) =>
+          operation.ordinal >= viewport.viewportOffset &&
+          operation.ordinal < viewport.viewportOffset + OPERATION_VIEWPORT_SIZE,
+      ) ?? [],
+    [viewport],
+  );
+
+  const seekValue: ActiveWorkerOperationSeekState = (() => {
+    if (!enabled || worker === undefined || cursorMs === null || !cursorNeedsSeek) {
+      return { status: 'idle', atMs: null, hits: [] };
+    }
+    if (debouncedCursorMs !== cursorMs || seekQuery.isPending) {
+      return { status: 'loading', atMs: cursorMs, hits: [] };
+    }
+    if (seekQuery.isError) {
       return {
         status: 'error',
-        evidence: null,
+        atMs: cursorMs,
+        hits: [],
+        reason: errorReason(seekQuery.error, 'Could not seek worker operations.'),
+      };
+    }
+    return {
+      status: 'ready',
+      atMs: cursorMs,
+      hits: seekQuery.data?.hits ?? [],
+    };
+  })();
+
+  const operationValue: ActiveWorkerOperationState = (() => {
+    if (!enabled) return { status: 'idle', worker: null };
+    if (worker === undefined) {
+      return { status: 'error', worker: null, reason: 'Selected worker is absent.', retry: null };
+    }
+    if (!indexReady) {
+      const tree = descriptorTreeState(worker, 'worker-operation-index', workerOperationDetail);
+      return {
+        status: tree.status === 'awaiting-selection' ? 'incompatible' : tree.status,
+        worker,
+        reason: 'reason' in tree ? tree.reason : 'Loading operation index.',
+        retry: null,
+      } as ActiveWorkerOperationState;
+    }
+    if (bootstrapQuery.isError && viewport === null) {
+      return {
+        status: detailFailureStatus(bootstrapQuery.error),
+        worker,
+        reason: errorReason(bootstrapQuery.error, 'Could not load worker operations.'),
+        retry: () => void bootstrapQuery.refetch(),
+      };
+    }
+    if (viewport === null) return { status: 'loading', worker };
+    return {
+      status: 'ready',
+      worker,
+      viewport,
+      operations: visibleOperations,
+      selected,
+      shift,
+      navigate,
+    };
+  })();
+
+  const exactRef =
+    worker !== undefined && selectedRef !== null
+      ? { worker: worker.ref, ...selectedRef }
+      : undefined;
+  const treeReady = workerCostTreeDetail?.status === 'ready';
+  const treeQuery = useWorkerCostTreeDetailQuery(
+    run.id,
+    exactRef,
+    treeReady ? workerCostTreeDetail.schemaVersion : undefined,
+    analysisRevision,
+    enabled && worker !== undefined && treeReady && exactRef !== undefined,
+  );
+  const treeValue: ActiveWorkerTreeState = (() => {
+    if (!enabled) return { status: 'idle', worker: null, tree: null, error: null, retry: null };
+    if (worker === undefined) {
+      return {
+        status: 'error',
         worker: null,
         tree: null,
-        error: new Error(`Selected worker ${selected} is not present in run ${run.id}.`),
+        error: new Error('Selected worker is absent.'),
         retry: null,
       };
     }
-
-    if (detailReady) {
-      if (analysisRevision === undefined) {
-        return {
-          status: 'incompatible',
-          evidence: 'hierarchical-detail',
-          worker,
-          tree: null,
-          reason: `Run ${run.id} has no analysis revision for worker detail cache identity.`,
-          code: null,
-          retry: null,
-        };
-      }
-      if (detailQuery.isError) {
-        const status = detailFailureStatus(detailQuery.error);
-        return {
-          status,
-          evidence: 'hierarchical-detail',
-          worker,
-          tree: null,
-          reason: errorReason(
-            detailQuery.error,
-            `Could not load CostTree detail for ${worker.key}.`,
-          ),
-          code: errorCode(detailQuery.error),
-          retry: status === 'failed' ? () => void detailQuery.refetch() : null,
-        };
-      }
-      if (detailQuery.data !== undefined) {
-        return {
-          status: 'ready',
-          evidence: 'hierarchical-detail',
-          worker,
-          tree: detailQuery.data,
-          error: null,
-          retry: null,
-        };
-      }
+    if (!treeReady) return descriptorTreeState(worker, 'worker-cost-tree', workerCostTreeDetail);
+    if (exactRef === undefined) {
+      return { status: 'awaiting-selection', worker, tree: null, error: null, retry: null };
+    }
+    if (treeQuery.isError) {
+      const status = detailFailureStatus(treeQuery.error);
       return {
-        status: 'loading',
-        evidence: 'hierarchical-detail',
+        status,
         worker,
         tree: null,
-        error: null,
-        retry: null,
+        reason: errorReason(treeQuery.error, 'Could not load exact operation CostTree.'),
+        code: errorCode(treeQuery.error),
+        retry: status === 'failed' ? () => void treeQuery.refetch() : null,
       };
     }
-
-    if (aggregateProjection !== null) {
-      return {
-        status: 'ready',
-        evidence: 'aggregate-projection',
-        worker,
-        tree: aggregateProjection.tree,
-        error: null,
-        retry: null,
-      };
+    if (treeQuery.data === undefined) {
+      return { status: 'loading', worker, tree: null, error: null, retry: null };
     }
-    if (aggregateKernelTimeShare.status === 'pending') {
-      return {
-        status: 'loading',
-        evidence: 'aggregate-projection',
-        worker,
-        tree: null,
-        error: null,
-        retry: null,
-      };
-    }
-    if (aggregateKernelTimeShare.status === 'ready') {
-      if (aggregateComposition === null || aggregateComposition === undefined) {
-        return {
-          status: 'incompatible',
-          evidence: 'aggregate-projection',
-          worker,
-          tree: null,
-          reason: `Ready kernel-time-share does not contain composite worker ${worker.key}. ${detailContext(workerCostTreeDetail)}`,
-          code: null,
-          retry: null,
-        };
-      }
-      if (aggregateComposition.kernelTimeMs <= KERNEL_TIME_EPSILON_MS) {
-        return {
-          status: 'empty',
-          evidence: 'aggregate-projection',
-          worker,
-          tree: null,
-          reason: `Worker ${worker.key} has zero reportable kernel time in this run. ${detailContext(workerCostTreeDetail)}`,
-          code: null,
-          retry: null,
-        };
-      }
-      return {
-        status: 'incompatible',
-        evidence: 'aggregate-projection',
-        worker,
-        tree: null,
-        reason: `Worker ${worker.key} has positive kernel time but no projectable segments. ${detailContext(workerCostTreeDetail)}`,
-        code: null,
-        retry: null,
-      };
-    }
-
     return {
-      status: aggregateKernelTimeShare.status,
-      evidence: 'aggregate-projection',
+      status: 'ready',
       worker,
-      tree: null,
-      reason: `${artifactReason(
-        aggregateKernelTimeShare,
-        `Aggregate kernel-time-share is ${aggregateKernelTimeShare.status}.`,
-      )} ${detailContext(workerCostTreeDetail)}`,
-      code:
-        aggregateKernelTimeShare.status === 'failed'
-          ? aggregateKernelTimeShare.code
-          : aggregateKernelTimeShare.status === 'unavailable'
-            ? (aggregateKernelTimeShare.code ?? null)
-            : null,
+      operation: {
+        iterId: treeQuery.data.iterId,
+        batchId: treeQuery.data.batchId,
+        operationId: treeQuery.data.operationId,
+      },
+      tree: treeQuery.data.tree,
+      error: null,
       retry: null,
     };
   })();
 
-  return <WorkerTreeContext.Provider value={value}>{children}</WorkerTreeContext.Provider>;
+  return (
+    <WorkerOperationSeekContext.Provider value={seekValue}>
+      <WorkerOperationContext.Provider value={operationValue}>
+        <WorkerTreeContext.Provider value={treeValue}>{children}</WorkerTreeContext.Provider>
+      </WorkerOperationContext.Provider>
+    </WorkerOperationSeekContext.Provider>
+  );
 }
 
 export function useActiveWorkerTreeState(): ActiveWorkerTreeState {
@@ -299,10 +406,14 @@ export function useActiveWorkerTreeState(): ActiveWorkerTreeState {
   return state;
 }
 
-export function useActiveWorkerTree(): CostTree {
-  const state = useActiveWorkerTreeState();
-  if (state.status !== 'ready') {
-    throw new Error(`Active worker tree is not ready (${state.status}).`);
-  }
-  return state.tree;
+export function useActiveWorkerOperationState(): ActiveWorkerOperationState {
+  const state = useContext(WorkerOperationContext);
+  if (state === null) throw new Error('ActiveWorkerTreeProvider is missing from the ready run.');
+  return state;
+}
+
+export function useActiveWorkerOperationSeekState(): ActiveWorkerOperationSeekState {
+  const state = useContext(WorkerOperationSeekContext);
+  if (state === null) throw new Error('ActiveWorkerTreeProvider is missing from the ready run.');
+  return state;
 }

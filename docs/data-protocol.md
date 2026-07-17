@@ -66,6 +66,12 @@ utilization schema v1 的顶层 `series` 保留逐时间 bin 的 pool average；
 突出 `series` 中的 pool average。`meta.avg` 仍是每个 pool 的 run-average 标量，不是另一条
 时序曲线。
 
+KV occupancy schema v1 的每个 pool `series[]` 保留 `active.mean` 作为 pool-average
+时序；其中可选的 `workers[]` 提供 `{worker_id, active_tokens}` worker 曲线。UI 必须兼容
+没有 `workers` 的旧 v1 artifact；存在时按父 series 的 `pool_tag` 与
+`capacity_tokens` 构造复合 worker 身份，以细线展示 worker，并以同 pool 颜色的粗线突出
+`active.mean`。worker 与 pool 曲线都不得 clamp 超容量值，因为超界本身是诊断信号。
+
 wire 层 subject id 使用 analyzer `registry::SUBJECTS` 的 canonical token；UI
 repository 必须通过显式表映射到领域名，不能从文件名或 camelCase 自动推断：
 
@@ -309,8 +315,28 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 ## 7. 加载策略
 
 - model、simulation、trace overview、SLO、throughput、utilization 等聚合信息使用有界 JSON artifact。
-- worker iteration index 按 worker 加载，可分块或分页。
-- iteration detail 只在用户选择后加载。
+- worker operation index 按 worker 有界加载：
+  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations?offset=<u64>&limit=<u64>`。
+  普通 range 的标准 limit 为 64。响应携带 `worker_kind`、`batch_role`、`total_operations`、
+  全局 `span`、`range`，以及平坦的 `operations[]`。
+- 每个 `OperationSummary` 为
+  `{ordinal, iter_id, batch_id, operation_id, section, layer, start_ms, end_ms}`，精确对应一条
+  raw `worker_cost` 行。服务不得把同 iteration 的相邻行合并成 envelope、Bootstrap、Bridge
+  或 Terminal，也不得填补真实时间空隙。`operation_id` 由服务签发并在其 parent batch 内
+  唯一；UI 不从 section/layer 反推 identity。
+- worker wall-clock 反查使用
+  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/seek?at_ms=<f64>`。
+  响应包含所有 half-open interval `[start_ms, end_ms)` 命中的 `hits`、`anchor`、
+  `suggested_viewport`，以及围绕 anchor 的
+  `buffer: {offset, limit: 192, returned, operations}`。零候选也返回最近的完整有界 buffer；
+  hits 不能按 viewport limit 截断；UI 使用服务端稳定 `anchor` 自动定位，并仍把所有重叠
+  operation 画在同一 Canvas 供直接改选。seek 已融合 nearby range，UI 不得再为可见区域
+  发第二个串行请求。
+- exact CostTree 路由为
+  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/cost-tree`。
+  响应 identity 回显 `operation_id`、`section` 和 `layer`，tree 仅由该 operation 的单行事实
+  构造。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
+- exact operation CostTree 只在用户选择后加载。
 - Perfetto 只传递可访问的 trace URL；UI 不复制 trace 内容进应用状态。
 - query cache key 必须包含 run id、subject version、`analysis.revision`，以及完整
   `WorkerRef`。
@@ -328,7 +354,7 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 - 模型配置快照及 hidden size、layer/head/MoE 等 overview 字段
 - 输入/输出长度分布和 arrival burstiness 所需的 offered workload 摘要
 - worker、pool、cluster pending queue/backpressure 时间序列
-- 面向交互的 worker iteration index 和 iteration detail
+- 面向交互的 worker operation index 和 exact operation CostTree detail
 
 在数据补齐前，真实 run 页面显示对应的 `not_generated`/`unavailable` 状态，不生成替代曲线。checked-in fixture 只裁剪真实 analyzer artifact 或覆盖 transport/status 合同；若协议测试必须使用 synthetic provenance，也必须显式标记，且不能成为生产组件的指标来源。
 

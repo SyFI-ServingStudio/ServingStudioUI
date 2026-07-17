@@ -21,6 +21,7 @@ describe('CostTree annotation', () => {
         leaf('root.a', 'single_gemm', '{}', 2),
         max(
           'parallel',
+          1,
           leaf('root.b', 'all_reduce', '{}', 3),
           scale('layers', 2, leaf('root.c', 'rms_norm', '{}', 1)),
         ),
@@ -33,7 +34,7 @@ describe('CostTree annotation', () => {
     expect(leafA).toMatchObject({ kind: 'leaf', id: 1, depth: 1, ms: 2 });
     expect(leafA.pct).toBeCloseTo(40);
     expect(parallel).toMatchObject({ kind: 'max', id: 2, depth: 1, ms: 3 });
-    expect(parallel).not.toHaveProperty('overlap');
+    expect(parallel).toHaveProperty('overlap', 1);
     expect(parallel.pct).toBeCloseTo(60);
     if (parallel.kind !== 'max') throw new Error('Expected the second child to be Max.');
     expect(parallel.children[0]).toMatchObject({ kind: 'leaf', id: 3, depth: 2, ms: 3 });
@@ -57,6 +58,7 @@ describe('CostTree annotation', () => {
           kind: 'leaf',
           slot: { name: 'a', kind: 'single_gemm', config: '{}', backend: null },
           base: 1,
+          stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
         },
       ],
     };
@@ -147,18 +149,27 @@ describe('CostTree malformed boundaries', () => {
       'scale requires exactly one child',
     ],
     [{ kind: 'leaf', slot }, 'finite non-negative'],
-    [{ kind: 'leaf', slot, base: 1, children: [] }, 'unexpected field children'],
+    [
+      {
+        kind: 'leaf',
+        slot,
+        base: 1,
+        stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
+        children: [],
+      },
+      'unexpected field children',
+    ],
     [{ kind: 'leaf', slot, base: Number.NaN }, 'finite non-negative'],
     [
       {
         kind: 'max',
-        overlap: 1.01,
+        overlap: 0,
         children: [
           { kind: 'leaf', slot, base: 1 },
           { kind: 'leaf', slot: { ...slot, name: 'b' }, base: 1 },
         ],
       },
-      'incompatible overlap',
+      'finite positive overlap',
     ],
     [
       {
@@ -194,9 +205,22 @@ describe('CostTree malformed boundaries', () => {
   });
 
   it('accepts a single-child Max emitted by a one-group fan-out', () => {
-    const tree = annotate(max('one group', leaf('a', 'single_gemm', '{}', 3)));
+    const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', '{}', 3)));
 
     expect(tree).toMatchObject({ kind: 'max', ms: 3, totalMs: 3 });
+  });
+
+  it('applies a finite positive Max overlap divisor like the Rust manifest fold', () => {
+    const tree = annotate(
+      max(
+        'overlapped',
+        2,
+        leaf('slow', 'single_gemm', '{}', 8),
+        leaf('fast', 'single_gemm', '{}', 3),
+      ),
+    );
+
+    expect(tree).toMatchObject({ kind: 'max', overlap: 2, ms: 4, totalMs: 4 });
   });
 
   it.each([1.5, 0x1_0000_0000])('rejects non-u32 scale count %s at the authoring boundary', (n) => {

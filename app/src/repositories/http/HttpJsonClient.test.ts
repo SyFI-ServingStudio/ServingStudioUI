@@ -344,13 +344,13 @@ describe('HttpJsonClient', () => {
   it('holds a slot through response parsing and releases it when JSON parsing throws', async () => {
     const started: string[] = [];
     const pendingFetches: PendingFetch[] = [];
-    let rejectJson = (_error: unknown) => {};
-    const pendingJson = new Promise<unknown>((_resolve, reject) => {
-      rejectJson = reject;
+    let rejectText = (_error: unknown) => {};
+    const pendingText = new Promise<string>((_resolve, reject) => {
+      rejectText = reject;
     });
     const parsingResponse = {
       headers: new Headers({ 'Content-Type': 'application/json' }),
-      json: () => pendingJson,
+      text: () => pendingText,
       ok: true,
       status: 200,
     } as Response;
@@ -374,7 +374,7 @@ describe('HttpJsonClient', () => {
 
     await vi.waitFor(() => expect(started).toHaveLength(4));
     expect(started).toEqual(addresses.slice(0, 4).map(String));
-    rejectJson(new Error('malformed response body'));
+    rejectText(new Error('malformed response body'));
     await expect(reads[0]).rejects.toMatchObject({ code: 'invalid_json' });
     await vi.waitFor(() => expect(started).toHaveLength(5));
     expect(started[4]).toBe(String(addresses[4]));

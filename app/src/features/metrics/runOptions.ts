@@ -47,17 +47,23 @@ export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string)
 }
 
 export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number): EChartsOption {
-  const x = tp.t_end_ms.map((v) => +(v / 1000).toFixed(1));
-  const mk = (name: string, arr: number[], col: string) => ({
+  const firstStartS = tp.t_start_ms[0] / 1000;
+  const finalEndS = tp.t_end_ms[tp.t_end_ms.length - 1] / 1000;
+  // Throughput values describe intervals, not samples at their end timestamps.
+  // A final endpoint lets `step: end` hold the last value through its full bin.
+  const intervalSteps = (values: number[]): [number, number][] => [
+    ...tp.t_start_ms.map((startMs, index) => [startMs / 1000, values[index]] as [number, number]),
+    [finalEndS, values[values.length - 1]],
+  ];
+  const mk = (name: string, values: number[], color: string, width: number, z: number) => ({
     name,
     type: 'line' as const,
-    stack: 'tok',
-    smooth: true,
+    step: 'end' as const,
     symbol: 'none',
-    areaStyle: { opacity: 0.85, color: col },
-    lineStyle: { width: 0 },
-    color: col,
-    data: arr.map((v, i) => [x[i], v]),
+    lineStyle: { width, color },
+    color,
+    z,
+    data: intervalSteps(values),
   });
   const opt = baseChartOption(t);
   return {
@@ -68,6 +74,8 @@ export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number
     grid: { ...(opt.grid as object), containLabel: true },
     xAxis: {
       ...(opt.xAxis as object),
+      min: firstStartS,
+      max: finalEndS,
       name: 'wall-clock · s',
       nameLocation: 'middle',
       nameGap: 24,
@@ -79,8 +87,11 @@ export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
     series: [
-      mk('prefill', tp.prefill, t.palette[1]),
-      mk('decode', tp.decode, t.palette[0]),
+      // Keep the bold total behind its components: decode often equals total,
+      // and the thin foreground stroke preserves both identities when they overlap.
+      mk('total', tp.total, t.palette[0], 3.2, 3),
+      mk('prefill', tp.prefill, t.palette[1], 1.6, 4),
+      mk('decode', tp.decode, t.palette[2], 1.6, 4),
       ...(cursorS != null ? [cursorMarker(cursorS)] : []),
     ],
   };
