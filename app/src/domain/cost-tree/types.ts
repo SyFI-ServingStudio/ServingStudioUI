@@ -3,7 +3,15 @@ export type NodeKind = 'sum' | 'max' | 'scale' | 'leaf';
 export interface Slot {
   readonly name: string;
   readonly kind: string;
-  readonly config: string;
+  readonly kernelConfig: Readonly<Record<string, JsonValue>>;
+  readonly backend: string | null;
+}
+
+/** Analyzer-v1 leaf slot before transport adaptation. */
+export interface RawSlot {
+  readonly name: string;
+  readonly kind: string;
+  readonly kernel_config: Readonly<Record<string, JsonValue>>;
   readonly backend: string | null;
 }
 
@@ -24,7 +32,7 @@ interface RawContainerNode {
 
 export interface RawLeafNode {
   readonly kind: 'leaf';
-  readonly slot: Slot;
+  readonly slot: RawSlot;
   readonly base: number;
   readonly stats: ExactLeafStats;
 }

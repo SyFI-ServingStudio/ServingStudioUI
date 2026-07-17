@@ -302,7 +302,7 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
       </Typography>
       <Box sx={{ fontFamily: tokens.mono, fontSize: 10.5 }}>
         <div>kind · {kindLabel(s.kind)}</div>
-        <div>config · {s.config || '—'}</div>
+        <div>config · {JSON.stringify(s.kernelConfig)}</div>
         <div>backend · {s.backend || 'default'}</div>
         <div style={{ color: '#5fc7c1' }}>
           {fmtMs(node.ms)} · {fmtPct(node.pct)} of worker total

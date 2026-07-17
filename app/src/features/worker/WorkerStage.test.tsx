@@ -26,7 +26,7 @@ const worker = {
   arch: { type: 'qwen3_ffn_moe' },
   gpuCount: 8,
 };
-const tree = annotate(leaf('ffn.gemm', 'single_gemm', '{}', 3));
+const tree = annotate(leaf('ffn.gemm', 'single_gemm', {}, 3));
 
 function mediaQuery(matches: boolean): MediaQueryList {
   return {

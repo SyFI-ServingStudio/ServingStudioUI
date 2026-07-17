@@ -276,7 +276,7 @@ function makeTrees(workers: readonly WorkerRef[]): Record<WorkerKey, CostTree> {
   return Object.fromEntries(
     workers.map((worker) => [
       makeWorkerKey(worker),
-      annotate(leaf(`${worker.poolTag}.kernel`, 'single_gemm', '{}', 1)),
+      annotate(leaf(`${worker.poolTag}.kernel`, 'single_gemm', {}, 1)),
     ]),
   ) as Record<WorkerKey, CostTree>;
 }

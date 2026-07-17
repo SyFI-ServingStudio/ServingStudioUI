@@ -11,8 +11,8 @@ const controls = {
   fit: 'Fit test tree',
   reset: 'Reset test tree',
 };
-const firstTree = annotate(leaf('first.kernel', 'single_gemm', '{}', 1));
-const secondTree = annotate(leaf('second.kernel', 'single_gemm', '{}', 2));
+const firstTree = annotate(leaf('first.kernel', 'single_gemm', {}, 1));
+const secondTree = annotate(leaf('second.kernel', 'single_gemm', {}, 2));
 
 function rect(width: number, height: number): DOMRect {
   return {

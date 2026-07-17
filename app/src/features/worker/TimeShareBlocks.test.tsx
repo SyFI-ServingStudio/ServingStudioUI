@@ -15,8 +15,8 @@ vi.mock('../../application/WorkerTreeProvider', () => ({
 const tree = annotate(
   sum(
     'root',
-    leaf('attention.decode', 'flashinfer_attn_decode', '{}', 95),
-    leaf('attention.prefill', 'flashinfer_attn_prefill', '{}', 5),
+    leaf('attention.decode', 'flashinfer_attn_decode', {}, 95),
+    leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 5),
   ),
 );
 
@@ -111,11 +111,11 @@ describe('TimeShareBlocks interaction targets', () => {
       tree: annotate(
         sum(
           'root',
-          leaf('a', 'single_gemm', '{}', 4),
+          leaf('a', 'single_gemm', {}, 4),
           scale(
             'twice',
             2,
-            max('parallel', 2, leaf('b', 'all_reduce', '{}', 6), leaf('c', 'rms_norm', '{}', 10)),
+            max('parallel', 2, leaf('b', 'all_reduce', {}, 6), leaf('c', 'rms_norm', {}, 10)),
           ),
         ),
       ),

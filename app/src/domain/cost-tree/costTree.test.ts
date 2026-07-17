@@ -19,12 +19,12 @@ describe('CostTree annotation', () => {
     const tree = annotate(
       sum(
         'root',
-        leaf('root.a', 'single_gemm', '{}', 2),
+        leaf('root.a', 'single_gemm', {}, 2),
         max(
           'parallel',
           1,
-          leaf('root.b', 'all_reduce', '{}', 3),
-          scale('layers', 2, leaf('root.c', 'rms_norm', '{}', 1)),
+          leaf('root.b', 'all_reduce', {}, 3),
+          scale('layers', 2, leaf('root.c', 'rms_norm', {}, 1)),
         ),
       ),
     );
@@ -57,7 +57,18 @@ describe('CostTree annotation', () => {
       children: [
         {
           kind: 'leaf',
-          slot: { name: 'a', kind: 'single_gemm', config: '{}', backend: null },
+          slot: {
+            name: 'a',
+            kind: 'single_gemm',
+            kernel_config: {
+              n: {
+                value: 7168,
+                expression: 'hidden/tp',
+                bindings: { hidden: 28672, tp: 4 },
+              },
+            },
+            backend: null,
+          },
           base: 1,
           stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
         },
@@ -77,6 +88,11 @@ describe('CostTree annotation', () => {
     const child = tree.children[0];
     if (child.kind !== 'leaf') throw new Error('Expected a Leaf child.');
     expect(Object.isFrozen(child.slot)).toBe(true);
+    expect(child.slot.kernelConfig).toMatchObject({
+      n: { value: 7168, expression: 'hidden/tp' },
+    });
+    expect(Object.isFrozen(child.slot.kernelConfig)).toBe(true);
+    expect(Object.isFrozen(child.slot.kernelConfig.n)).toBe(true);
   });
 
   it('returns precise leaf types and stable derived busy-time totals', () => {
@@ -84,7 +100,7 @@ describe('CostTree annotation', () => {
       scale(
         'twice',
         2,
-        sum('body', leaf('gemm', 'single_gemm', '{}', 2), leaf('comm', 'all_reduce', '{}', 1)),
+        sum('body', leaf('gemm', 'single_gemm', {}, 2), leaf('comm', 'all_reduce', {}, 1)),
       ),
     );
 
@@ -108,11 +124,11 @@ describe('CostTree annotation', () => {
     const tree = annotate(
       sum(
         'root',
-        leaf('a', 'single_gemm', '{}', 4),
+        leaf('a', 'single_gemm', {}, 4),
         scale(
           'twice',
           2,
-          max('parallel', 2, leaf('b', 'all_reduce', '{}', 6), leaf('c', 'rms_norm', '{}', 10)),
+          max('parallel', 2, leaf('b', 'all_reduce', {}, 6), leaf('c', 'rms_norm', {}, 10)),
         ),
       ),
     );
@@ -138,7 +154,7 @@ describe('CostTree annotation', () => {
       scale(
         'twice',
         2,
-        max('tie', 1, leaf('left', 'single_gemm', '{}', 5), leaf('right', 'all_reduce', '{}', 5)),
+        max('tie', 1, leaf('left', 'single_gemm', {}, 5), leaf('right', 'all_reduce', {}, 5)),
       ),
     );
 
@@ -158,8 +174,8 @@ describe('CostTree annotation', () => {
       annotate(
         sum(
           'root',
-          leaf('left', 'single_gemm', '{}', leftMs),
-          leaf('right', 'all_reduce', '{}', rightMs),
+          leaf('left', 'single_gemm', {}, leftMs),
+          leaf('right', 'all_reduce', {}, rightMs),
         ),
       );
     const first = build(1, 2);
@@ -171,7 +187,7 @@ describe('CostTree annotation', () => {
   });
 
   it('keeps zero-cost trees finite instead of manufacturing a denominator', () => {
-    const tree = annotate(leaf('zero', 'single_gemm', '{}', 0));
+    const tree = annotate(leaf('zero', 'single_gemm', {}, 0));
     const totals = leafTotals(tree);
 
     expect(tree).toMatchObject({ ms: 0, pct: 0, totalMs: 0 });
@@ -181,7 +197,7 @@ describe('CostTree annotation', () => {
 });
 
 describe('CostTree malformed boundaries', () => {
-  const slot = { name: 'a', kind: 'single_gemm', config: '{}', backend: null };
+  const slot = { name: 'a', kind: 'single_gemm', kernel_config: {}, backend: null };
 
   it.each([
     [{ kind: 'sum', children: [] }, 'sum requires at least one child'],
@@ -242,39 +258,45 @@ describe('CostTree malformed boundaries', () => {
     expect(() => annotate(raw)).toThrow(message);
   });
 
+  it('rejects the retired string config field instead of guessing its structure', () => {
+    expect(() =>
+      annotate({
+        kind: 'leaf',
+        slot: { name: 'a', kind: 'single_gemm', config: 'm=1,n=2,k=3', backend: null },
+        base: 1,
+        stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
+      }),
+    ).toThrow('kernel_config');
+  });
+
   it('rejects finite inputs whose derived cost overflows', () => {
     expect(() =>
       annotate(
         sum(
           'overflow',
-          leaf('a', 'single_gemm', '{}', Number.MAX_VALUE),
-          leaf('b', 'single_gemm', '{}', Number.MAX_VALUE),
+          leaf('a', 'single_gemm', {}, Number.MAX_VALUE),
+          leaf('b', 'single_gemm', {}, Number.MAX_VALUE),
         ),
       ),
     ).toThrow(/derived numeric value overflowed/);
   });
 
   it('accepts a single-child Max emitted by a one-group fan-out', () => {
-    const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', '{}', 3)));
+    const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', {}, 3)));
 
     expect(tree).toMatchObject({ kind: 'max', ms: 3, totalMs: 3 });
   });
 
   it('applies a finite positive Max overlap divisor like the Rust manifest fold', () => {
     const tree = annotate(
-      max(
-        'overlapped',
-        2,
-        leaf('slow', 'single_gemm', '{}', 8),
-        leaf('fast', 'single_gemm', '{}', 3),
-      ),
+      max('overlapped', 2, leaf('slow', 'single_gemm', {}, 8), leaf('fast', 'single_gemm', {}, 3)),
     );
 
     expect(tree).toMatchObject({ kind: 'max', overlap: 2, ms: 4, totalMs: 4 });
   });
 
   it.each([1.5, 0x1_0000_0000])('rejects non-u32 scale count %s at the authoring boundary', (n) => {
-    expect(() => scale('invalid repeat', n, leaf('a', 'single_gemm', '{}', 1))).toThrow(
+    expect(() => scale('invalid repeat', n, leaf('a', 'single_gemm', {}, 1))).toThrow(
       /unsigned 32-bit integer/,
     );
   });

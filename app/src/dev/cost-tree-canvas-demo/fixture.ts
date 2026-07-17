@@ -9,7 +9,7 @@ interface LeafSpec {
 
 const leaf = ({ name, kind, base, config }: LeafSpec) => ({
   kind: 'leaf' as const,
-  slot: { name, kind, config, backend: null },
+  slot: { name, kind, kernel_config: { demo_summary: config }, backend: null },
   base,
   stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
 });

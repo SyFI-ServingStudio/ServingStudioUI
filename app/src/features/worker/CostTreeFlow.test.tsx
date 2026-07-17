@@ -37,10 +37,10 @@ const tree = annotate(
     max(
       'attention branches',
       1,
-      leaf('attention.prefill', 'flashinfer_attn_prefill', '{}', 2),
-      leaf('attention.decode', 'flashinfer_attn_decode', '{}', 1),
+      leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 2),
+      leaf('attention.decode', 'flashinfer_attn_decode', {}, 1),
     ),
-    leaf('ffn.gemm', 'single_gemm', '{}', 3),
+    leaf('ffn.gemm', 'single_gemm', {}, 3),
   ),
 );
 

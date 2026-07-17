@@ -240,7 +240,7 @@ function humanFieldLabel(key: string): string {
 
 function humanScalar(value: unknown): string {
   if (typeof value === 'string') {
-    const fp8 = /^Fp8(E\dM\d)$/i.exec(value);
+    const fp8 = /^fp8[_-]?(e\d+m\d+)$/i.exec(value);
     return fp8 === null ? value : `FP8 ${fp8[1].toUpperCase()}`;
   }
   if (typeof value === 'number') return value.toLocaleString();
@@ -250,20 +250,22 @@ function humanScalar(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function configFields(config: string): readonly DisplayField[] {
-  const fields: DisplayField[] = [];
-  const fieldPattern = /(\w+)=((?:\[[^\]]*\])|(?:"[^"]*")|(?:'[^']*')|[^\s]+)/g;
-  for (const match of config.matchAll(fieldPattern)) {
-    const [, key, encoded] = match;
-    let decoded: unknown = encoded;
-    try {
-      decoded = JSON.parse(encoded.replace(/'/g, '"'));
-    } catch {
-      decoded = encoded.replace(/^['"]|['"]$/g, '');
-    }
-    fields.push({ label: humanFieldLabel(key), value: humanScalar(decoded) });
+function configValue(value: unknown): string {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value) && 'value' in value) {
+    const dim = value as { value: unknown; expression?: unknown };
+    const folded = humanScalar(dim.value);
+    return typeof dim.expression === 'string' && dim.expression.length > 0
+      ? `${dim.expression} = ${folded}`
+      : folded;
   }
-  return fields;
+  return humanScalar(value);
+}
+
+function configFields(config: Readonly<Record<string, unknown>>): readonly DisplayField[] {
+  return Object.entries(config).map(([key, value]) => ({
+    label: humanFieldLabel(key),
+    value: configValue(value),
+  }));
 }
 
 function inputFields(node: LeafNode): readonly DisplayField[] {
@@ -349,7 +351,7 @@ export default function KernelDetail({ height }: { height: number | string }) {
   if (node === null) return null;
   const slot = node.slot;
   const color = colorOf(slot.kind);
-  const decodedConfig = configFields(slot.config);
+  const decodedConfig = configFields(slot.kernelConfig);
   const decodedInput = inputFields(node);
   const flops = scaledQuantity(node.stats.flops, FLOP_SCALES);
   const bytes = scaledQuantity(node.stats.bytes, BYTE_SCALES);

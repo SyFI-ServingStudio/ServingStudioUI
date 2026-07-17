@@ -431,7 +431,7 @@ describe('HttpAnalyzerRepository', () => {
             children: [
               {
                 kind: 'leaf',
-                slot: { name: 'gemm', kind: 'single_gemm', config: '{}', backend: null },
+                slot: { name: 'gemm', kind: 'single_gemm', kernel_config: {}, backend: null },
                 base: 8,
                 stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
               },

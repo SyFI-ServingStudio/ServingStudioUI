@@ -19,7 +19,13 @@ const tree = annotate(
       leaf(
         'attention.prefill',
         'flashinfer_attn_prefill',
-        'backends=["deepgemm"] gpu_name="NVIDIA H200" n=151936 k=6144 dtype=Fp8E4m3',
+        {
+          backends: ['deepgemm'],
+          gpu_name: 'NVIDIA H200',
+          n: { value: 151936, expression: 'hidden/tp', bindings: { hidden: 607744, tp: 4 } },
+          k: { value: 6144, expression: null, bindings: {} },
+          dtype: 'fp8_e4m3',
+        },
         3,
         'fa3',
         {
@@ -30,9 +36,9 @@ const tree = annotate(
           gbps: 691.887,
         },
       ),
-      leaf('attention.decode', 'flashinfer_attn_decode', '{}', 1, 'fa3'),
+      leaf('attention.decode', 'flashinfer_attn_decode', {}, 1, 'fa3'),
     ),
-    leaf('ffn.gemm', 'single_gemm', '{}', 2, 'cutlass'),
+    leaf('ffn.gemm', 'single_gemm', {}, 2, 'cutlass'),
   ),
 );
 if (tree.kind !== 'sum' || tree.children[0].kind !== 'max') {
@@ -125,7 +131,7 @@ describe('kernel feature evidence boundaries', () => {
     expect(screen.getByText('deepgemm')).toBeVisible();
     expect(screen.getByText('GPU')).toBeVisible();
     expect(screen.getByText('NVIDIA H200')).toBeVisible();
-    expect(screen.getByText('151,936')).toBeVisible();
+    expect(screen.getByText('hidden/tp = 151,936')).toBeVisible();
     expect(screen.getByText('6,144')).toBeVisible();
     expect(screen.getByText('FP8 E4M3')).toBeVisible();
     expect(screen.getByText('M')).toBeVisible();

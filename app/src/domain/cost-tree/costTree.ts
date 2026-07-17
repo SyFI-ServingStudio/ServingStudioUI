@@ -14,8 +14,10 @@ import {
   type RawLeafNode,
   type RawMaxNode,
   type RawScaleNode,
+  type RawSlot,
   type RawSumNode,
   type ExactLeafStats,
+  type JsonValue,
 } from './types';
 
 export { CostTreeValidationError } from './types';
@@ -31,6 +33,7 @@ export type {
   RawLeafNode,
   RawMaxNode,
   RawScaleNode,
+  RawSlot,
   RawSumNode,
   ScaleNode,
   Slot,
@@ -82,7 +85,7 @@ function multiplyFinite(left: number, right: number, path: string): number {
 export function leaf(
   name: string,
   kind: string,
-  config: string,
+  kernelConfig: Readonly<Record<string, JsonValue>>,
   base: number,
   backend?: string,
   stats: ExactLeafStats = {
@@ -98,9 +101,9 @@ export function leaf(
     slot: Object.freeze({
       name: requireString(name, 'leaf.slot.name', false),
       kind: requireString(kind, 'leaf.slot.kind', false),
-      config: requireString(config, 'leaf.slot.config'),
+      kernel_config: Object.freeze(kernelConfig),
       backend: backend ?? null,
-    }),
+    }) as RawSlot,
     base: requireFiniteNonNegative(base, 'leaf.base'),
     stats,
   });
@@ -248,7 +251,18 @@ function annotateNode(
   const annotation = { id, depth, ms, pct: finitePct(ms, totalMs, path) };
   switch (node.kind) {
     case 'leaf':
-      return Object.freeze({ ...node, stats: Object.freeze(node.stats), ...annotation });
+      return Object.freeze({
+        kind: 'leaf',
+        slot: Object.freeze({
+          name: node.slot.name,
+          kind: node.slot.kind,
+          kernelConfig: node.slot.kernel_config,
+          backend: node.slot.backend,
+        }),
+        base: node.base,
+        stats: Object.freeze(node.stats),
+        ...annotation,
+      });
     case 'sum': {
       const [first, ...rest] = node.children;
       const children: [CostNode, ...CostNode[]] = [

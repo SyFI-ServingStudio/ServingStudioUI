@@ -1,15 +1,19 @@
 import { z, type ZodIssue } from 'zod';
 
-import {
-  invalidCostTree,
-  type ExactLeafStats,
-  type JsonValue,
-  type RawCostNode,
-  type Slot,
-} from './types';
+import { invalidCostTree, type ExactLeafStats, type JsonValue, type RawCostNode } from './types';
 
 type ParsedRawCostNode =
-  | { kind: 'leaf'; slot: Slot; base: number; stats: ExactLeafStats }
+  | {
+      kind: 'leaf';
+      slot: {
+        name: string;
+        kind: string;
+        kernel_config: Record<string, JsonValue>;
+        backend: string | null;
+      };
+      base: number;
+      stats: ExactLeafStats;
+    }
   | { kind: 'sum'; label?: string; children: ParsedRawCostNode[] }
   | { kind: 'max'; label?: string; overlap: number; children: ParsedRawCostNode[] }
   | { kind: 'scale'; label?: string; n: number; children: ParsedRawCostNode[] };
@@ -37,14 +41,6 @@ const uint32Schema = z
   .min(0, 'expected an unsigned 32-bit integer')
   .max(0xffff_ffff, 'expected an unsigned 32-bit integer');
 const nonEmptyStringSchema = z.string().min(1, 'expected a non-empty string');
-const slotSchema = z
-  .object({
-    name: nonEmptyStringSchema,
-    kind: nonEmptyStringSchema,
-    config: z.string(),
-    backend: z.string().nullable(),
-  })
-  .strict();
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
     z.null(),
@@ -55,6 +51,14 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
     z.record(jsonValueSchema),
   ]),
 );
+const slotSchema = z
+  .object({
+    name: nonEmptyStringSchema,
+    kind: nonEmptyStringSchema,
+    kernel_config: z.record(jsonValueSchema),
+    backend: z.string().nullable(),
+  })
+  .strict();
 const nullableFiniteNonNegative = finiteNonNegativeSchema.nullable();
 const exactLeafStatsSchema = z
   .object({
@@ -135,8 +139,16 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
   switch (parsed.kind) {
     case 'leaf':
       return Object.freeze({
-        ...parsed,
-        slot: Object.freeze(parsed.slot),
+        kind: 'leaf',
+        slot: Object.freeze({
+          name: parsed.slot.name,
+          kind: parsed.slot.kind,
+          kernel_config: freezeJson(parsed.slot.kernel_config) as Readonly<
+            Record<string, JsonValue>
+          >,
+          backend: parsed.slot.backend,
+        }),
+        base: parsed.base,
         stats: Object.freeze({ ...parsed.stats, input: freezeJson(parsed.stats.input) }),
       });
     case 'sum': {
