@@ -7,6 +7,7 @@ import { decodeAnalyzerV1KernelInputDistributionPayload } from './kernelInputDis
 import { decodeAnalyzerV1KernelTimeSharePayload } from './kernelTimeShare';
 import { decodeAnalyzerV1KvOccupancyPayload } from './kvOccupancy';
 import { decodeAnalyzerV1OptimalityPayload } from './optimality';
+import { decodeAnalyzerV1RequestStatePayload } from './requestState';
 import { decodeAnalyzerV1SloPayload } from './slo';
 import type { AnalyzerV1PayloadDecodeOptions } from './subjectDecode';
 import { decodeAnalyzerV1ThroughputPayload } from './throughput';
@@ -53,5 +54,7 @@ export function decodeAnalyzerV1SubjectPayload<Name extends SubjectName>(
       return decodeAnalyzerV1OptimalityPayload(input, options) as SubjectResult<Name>;
     case 'backpressure':
       return unsupportedReadySubject(subject) as SubjectResult<Name>;
+    case 'requestState':
+      return decodeAnalyzerV1RequestStatePayload(input, options) as SubjectResult<Name>;
   }
 }

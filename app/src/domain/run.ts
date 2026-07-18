@@ -66,6 +66,28 @@ export interface PendingQueue {
   t_ms: number[];
   series: PendingQueueSeries[];
 }
+export interface RequestStateCategorySeries {
+  category: string;
+  values: number[];
+}
+export interface RequestStateWorkerSeries {
+  worker: WorkerRef;
+  pending: number[];
+  series: RequestStateCategorySeries[];
+}
+export interface RequestStatePoolSeries {
+  poolTag: string;
+  workerCount: number;
+  totalPending: number[];
+  averagePending: number[];
+  workers: RequestStateWorkerSeries[];
+}
+export interface RequestState {
+  tStartMs: number[];
+  tEndMs: number[];
+  clusterSeries: RequestStateCategorySeries[];
+  pools: RequestStatePoolSeries[];
+}
 export type CheckStatus = 'ok' | 'warn' | 'fail';
 export interface ConservationCheck {
   name: string;

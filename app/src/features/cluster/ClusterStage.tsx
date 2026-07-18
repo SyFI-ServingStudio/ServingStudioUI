@@ -12,6 +12,7 @@ import {
   METRIC_CAPTIONS,
 } from '../metrics';
 import ConservationCard from './ConservationCard';
+import RequestStateCard from './RequestStateCard';
 
 /** Whole-deployment outcome; scheduler backpressure sits immediately before
  * the kernel breakdown, which closes every aggregate Section 02 scope. */
@@ -24,7 +25,6 @@ export default function ClusterStage() {
   const sloSubject = useActiveRunSubject('slo');
   const throughputSubject = useActiveRunSubject('throughput');
   const utilizationSubject = useActiveRunSubject('utilization');
-  const backpressureSubject = useActiveRunSubject('backpressure');
   const conservation = useActiveRunSubject('conservation');
   const kernelTimeShare = useActiveRunSubject('kernelTimeShare');
   const metricSelection = useMemo(
@@ -32,7 +32,6 @@ export default function ClusterStage() {
     [scope, poolRole, workerKey, cursorMs],
   );
   const tp = metricView(throughputSubject, run, metricSelection);
-  const backpressure = metricView(backpressureSubject, run, metricSelection);
   const clusterUtil = metricView(utilizationSubject, run, metricSelection);
 
   return (
@@ -74,15 +73,7 @@ export default function ClusterStage() {
         />
       )}
 
-      <ChartCard
-        idx="e"
-        title={METRIC_TITLES.backpressure}
-        sub={backpressure.sub}
-        option={backpressure.option}
-        note={backpressure.note}
-        empty={backpressure.empty}
-        caption={METRIC_CAPTIONS.backpressure}
-      />
+      <RequestStateCard idx="e" />
 
       <KernelTimeBreakdownCard
         idx="f"

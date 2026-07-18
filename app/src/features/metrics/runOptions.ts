@@ -4,17 +4,44 @@ import type { SloMetric, Throughput } from '../../domain/run';
 import {
   baseChartOption,
   cursorMarker,
+  richTextTooltip,
   safeChartText,
+  tooltipLines,
   type ChartTheme,
 } from '../../charts/platform';
 
 export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string): EChartsOption {
   const opt = baseChartOption(t);
+  const firstLatency = metric.x[0] ?? 0;
+  const finalLatency = metric.x[metric.x.length - 1] ?? firstLatency;
+  const latencySpan = finalLatency - firstLatency;
+  const padding = latencySpan > 0 ? latencySpan * 0.04 : Math.max(Math.abs(firstLatency) * 0.04, 1);
+  const axisMin = Math.max(0, firstLatency - padding);
+  const axisMax = finalLatency + padding;
+  const formatLatency = (value: number): string =>
+    value.toLocaleString('en-US', {
+      maximumFractionDigits: metric.unit === 'ms/token' ? 4 : 2,
+    });
   return {
     ...opt,
+    tooltip: richTextTooltip(t, 'axis', {
+      axisPointer: { type: 'line', snap: true },
+      formatter: (params: unknown) => {
+        const row = (params as Array<{ value?: [number, number] }>)[0];
+        const latency = Number(row?.value?.[0] ?? 0);
+        const cumulativePct = Number(row?.value?.[1] ?? 0);
+        return tooltipLines([
+          `latency: ${formatLatency(latency)} ${metric.unit}`,
+          `CDF: ${cumulativePct.toFixed(2)}%`,
+        ]);
+      },
+    }),
     xAxis: {
       ...(opt.xAxis as object),
-      type: 'log',
+      type: 'value',
+      min: axisMin,
+      max: axisMax,
+      axisPointer: { snap: true },
       name: `latency · ${safeChartText(metric.unit)}`,
       nameTextStyle: { color: t.sub, fontSize: 10 },
     },
@@ -28,6 +55,8 @@ export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string)
       {
         name: safeChartText(`${metric.label} (${metric.unit})`),
         type: 'line',
+        // Visual smoothing does not change the empirical samples: the axis
+        // pointer snaps to the original [latency, CDF] coordinates above.
         smooth: true,
         symbol: 'none',
         data: metric.x.map((x, index) => [x, metric.y_pct[index]]),

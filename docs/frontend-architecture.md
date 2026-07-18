@@ -68,7 +68,7 @@ features/
 `components/`、`model.ts` 或 `options.ts`。测试与被测实现共置；跨 transport 的
 contract tests 仍留在 `contracts/` 或 `repositories/`。
 
-Section 02 的 Cluster、Pool 与 Worker aggregate 视图都必须将 Backpressure 放在
+Section 02 的 Cluster、Pool 与 Worker aggregate 视图都必须将 Request state/backpressure 放在
 Kernel breakdown 之前，并由 Kernel breakdown 作为该 section 的最后一张图。
 
 当前 `data/` 是迁移目录，不是长期层。真实纯计算移到对应 feature/domain；只服务旧

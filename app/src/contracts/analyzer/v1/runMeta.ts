@@ -52,6 +52,25 @@ const v4WorkerSchema = legacyWorkerSchema
   })
   .strict();
 
+const stageNameSchema = nonBlankIdentity.refine(
+  (value) => {
+    const separator = value.indexOf(':');
+    return (
+      separator > 0 && separator < value.length - 1 && value.indexOf(':', separator + 1) === -1
+    );
+  },
+  { message: 'must have exactly one non-empty category:detail pair' },
+);
+
+const stageVocabSchema = z
+  .object({
+    deployment: z.enum(['unified', 'pd', 'afd']),
+    // Category terms remain open; only the code-indexed two-level name shape is
+    // a cross-deployment contract.
+    names: z.array(stageNameSchema).min(1),
+  })
+  .strict();
+
 const commGroupSchema = z
   .object({
     gid: nonNegativeSafeInteger,
@@ -102,11 +121,20 @@ const v4Schema = z
   })
   .strict();
 
+// v5 is append-only over v4: stage_vocab decodes request_slo transition codes.
+const v5Schema = v4Schema
+  .extend({
+    schema_version: z.literal(5),
+    stage_vocab: stageVocabSchema,
+  })
+  .strict();
+
 type AnalyzerV1RunMetaWire =
   | z.infer<typeof v1Schema>
   | z.infer<typeof v2Schema>
   | z.infer<typeof v3Schema>
-  | z.infer<typeof v4Schema>;
+  | z.infer<typeof v4Schema>
+  | z.infer<typeof v5Schema>;
 
 export type AnalyzerV1RunMeta = AnalyzerV1RunMetaWire;
 export type AnalyzerV1MetaWorker = AnalyzerV1RunMeta['workers'][number];
@@ -188,7 +216,7 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
     });
   });
 
-  if (meta.schema_version === 3 || meta.schema_version === 4) {
+  if (meta.schema_version === 3 || meta.schema_version === 4 || meta.schema_version === 5) {
     meta.workers.forEach((worker, workerIndex) => {
       const groupIds = worker.kv_pools.map((pool) => pool.group_id);
       if (new Set(groupIds).size !== groupIds.length) {
@@ -208,6 +236,16 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
         });
       }
     });
+  }
+
+  if (meta.schema_version === 5) {
+    if (new Set(meta.stage_vocab.names).size !== meta.stage_vocab.names.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['stage_vocab', 'names'],
+        message: 'contains duplicate stage names',
+      });
+    }
   }
 
   if (
@@ -263,11 +301,12 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
   });
 }
 
-/** v1-v4 are all present in the logs tree. v2 adds comm_groups, v3 adds
+/** v1-v5 are all present in the logs tree. v2 adds comm_groups, v3 adds
  * nullable pool_tag/kv_pools, v4 makes pool_tag authoritative (non-null on every
- * worker + gpu); preserving the discriminant prevents version conflation. */
+ * worker + gpu), and v5 adds the deployment stage vocabulary; preserving the
+ * discriminant prevents version conflation. */
 export const analyzerV1RunMetaSchema = z
-  .discriminatedUnion('schema_version', [v1Schema, v2Schema, v3Schema, v4Schema])
+  .discriminatedUnion('schema_version', [v1Schema, v2Schema, v3Schema, v4Schema, v5Schema])
   .superRefine(addSemanticIssues);
 
 function formatIssue(issue: ZodIssue): string {

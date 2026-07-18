@@ -60,7 +60,7 @@ export default function PoolBatchComposition({ poolTag }: { poolTag: string }) {
     <Box
       component="section"
       aria-label={`Pool batch composition · ${poolTag}`}
-      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: 'repeat(3,1fr)' }, gap: 2 }}
+      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3,1fr)' }, gap: 2 }}
     >
       {CARD_SPECS.map((spec) => {
         const routedMetricUnavailable = routedTotalOnly && spec.metric !== 'total_tokens';

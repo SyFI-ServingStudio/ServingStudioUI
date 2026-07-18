@@ -114,13 +114,13 @@ describe('ClusterStage', () => {
     expect(screen.queryByText('GPU utilization · attn')).not.toBeInTheDocument();
   });
 
-  it('places backpressure immediately before the closing kernel breakdown', async () => {
+  it('places request state immediately before the closing kernel breakdown', async () => {
     const { repository } = createTestRepository();
     renderStage(repository);
 
-    const backpressure = await screen.findByText('Backpressure');
+    const requestState = await screen.findByText('Request state');
     const kernelBreakdown = screen.getByText('Cluster kernel time breakdown');
-    expect(backpressure.compareDocumentPosition(kernelBreakdown)).toBe(
+    expect(requestState.compareDocumentPosition(kernelBreakdown)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });

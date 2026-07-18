@@ -122,7 +122,7 @@ export default function WorkerBatchComposition({ workerKey }: { workerKey: Worke
     <Box
       component="section"
       aria-label={`Batch composition · ${workerKey}`}
-      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: 'repeat(3,1fr)' }, gap: 2 }}
+      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3,1fr)' }, gap: 2 }}
     >
       {CARDS.map((spec) => (
         <BatchMetricCard

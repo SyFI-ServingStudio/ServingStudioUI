@@ -10,6 +10,7 @@ export const ANALYZER_V1_SUBJECT_TO_DOMAIN = {
   // Reserved until the analyzer publishes bounded timeline artifacts.
   concurrency: 'concurrency',
   backpressure: 'backpressure',
+  'request-state': 'requestState',
   batch: 'batch',
   'kernel-throughput': 'kernelThroughput',
   'workload-conservation': 'conservation',

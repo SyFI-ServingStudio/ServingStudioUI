@@ -6,6 +6,7 @@ import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunPr
 import ChartCard from '../../components/ChartCard';
 import { KernelTimeBreakdownCard, metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../metrics';
 import PoolBatchComposition from './PoolBatchComposition';
+import PoolRequestStateCard from './PoolRequestStateCard';
 
 /** Pool resources and composition; backpressure immediately precedes the
  * closing kernel breakdown. */
@@ -17,7 +18,6 @@ export default function PoolStage() {
   const run = useActiveRun();
   const utilizationSubject = useActiveRunSubject('utilization');
   const kvSubject = useActiveRunSubject('kv');
-  const backpressureSubject = useActiveRunSubject('backpressure');
   const kernelTimeShare = useActiveRunSubject('kernelTimeShare');
   const metricSelection = useMemo(
     () => ({ scope, poolRole, workerKey, cursorMs }),
@@ -26,7 +26,6 @@ export default function PoolStage() {
   const role = poolInScope(run, metricSelection) ?? poolRole ?? '—';
   const util = metricView(utilizationSubject, run, metricSelection);
   const kv = metricView(kvSubject, run, metricSelection);
-  const backpressure = metricView(backpressureSubject, run, metricSelection);
 
   return (
     <Stack spacing={2}>
@@ -53,15 +52,7 @@ export default function PoolStage() {
         />
       </Box>
       <PoolBatchComposition poolTag={role} />
-      <ChartCard
-        idx="e"
-        title={METRIC_TITLES.backpressure}
-        sub={backpressure.sub}
-        option={backpressure.option}
-        note={backpressure.note}
-        empty={backpressure.empty}
-        caption={METRIC_CAPTIONS.backpressure}
-      />
+      <PoolRequestStateCard poolTag={role} />
       <KernelTimeBreakdownCard
         idx="f"
         title={`Kernel time breakdown · ${role}`}

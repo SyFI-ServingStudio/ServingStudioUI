@@ -142,7 +142,7 @@ function expectStableCostTreeFrame(): void {
 }
 
 describe('WorkerStage CostTree frame stability', () => {
-  it('keeps backpressure immediately before the closing kernel breakdown', () => {
+  it('keeps request state immediately before the closing kernel breakdown', () => {
     useViz.setState({ workerAnalysisLevel: 'worker' });
     workerTreeMock.state.mockReturnValue({
       status: 'idle',
@@ -155,7 +155,7 @@ describe('WorkerStage CostTree frame stability', () => {
     render(<WorkerStage />);
 
     const cards = screen.getAllByTestId('chart-card');
-    expect(cards.at(-2)).toHaveTextContent('Backpressure');
+    expect(cards.at(-2)).toHaveTextContent('Request state');
     expect(cards.at(-1)).toHaveTextContent('Worker kernel time breakdown');
   });
 

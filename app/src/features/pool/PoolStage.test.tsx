@@ -87,13 +87,13 @@ describe('PoolStage', () => {
     await waitFor(() => expect(calls.subjects).toBe(2));
   });
 
-  it('places backpressure immediately before the closing kernel breakdown', async () => {
+  it('places request state immediately before the closing kernel breakdown', async () => {
     const { repository } = createTestRepository();
     renderStage(repository);
 
-    const backpressure = await screen.findByText('Backpressure');
+    const requestState = await screen.findByText('Request state · attn');
     const kernelBreakdown = screen.getByText('Kernel time breakdown · attn');
-    expect(backpressure.compareDocumentPosition(kernelBreakdown)).toBe(
+    expect(requestState.compareDocumentPosition(kernelBreakdown)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
   });

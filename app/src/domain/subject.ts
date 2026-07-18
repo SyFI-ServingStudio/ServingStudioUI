@@ -8,6 +8,7 @@ import type {
   Conservation,
   KvSeries,
   PendingQueue,
+  RequestState,
   Slo,
   Throughput,
   UtilSeries,
@@ -27,6 +28,7 @@ export const SUBJECT_NAMES = [
   'kv',
   'concurrency',
   'backpressure',
+  'requestState',
   'batch',
   'kernelThroughput',
   'conservation',
@@ -44,6 +46,7 @@ export interface SubjectPayloadByName {
   kv: KvSeries;
   concurrency: Concurrency;
   backpressure: PendingQueue;
+  requestState: RequestState;
   batch: BatchSubject;
   kernelThroughput: KernelThroughput;
   conservation: Conservation;

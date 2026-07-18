@@ -26,6 +26,7 @@ import TimeShareBlocks from './TimeShareBlocks';
 import { WorkerOperationTimeline } from '../timeline';
 import WorkerBatchComposition from './WorkerBatchComposition';
 import WorkerKernelPositionBreakdownCard from './WorkerKernelPositionBreakdownCard';
+import WorkerRequestStateCard from './WorkerRequestStateCard';
 
 export const WORKER_WORKBENCH_MIN_HEIGHT = 480;
 export const WORKER_VIEWPORT_SAFE_GAP = 12;
@@ -41,14 +42,12 @@ function WorkerAggregateStage() {
   const run = useActiveRun();
   const utilizationSubject = useActiveRunSubject('utilization');
   const kvSubject = useActiveRunSubject('kv');
-  const backpressureSubject = useActiveRunSubject('backpressure');
   const selection = useMemo(
     () => ({ scope, poolRole, workerKey, cursorMs }),
     [cursorMs, poolRole, scope, workerKey],
   );
   const utilization = metricView(utilizationSubject, run, selection);
   const kv = metricView(kvSubject, run, selection);
-  const backpressure = metricView(backpressureSubject, run, selection);
 
   return (
     <Stack spacing={2}>
@@ -75,15 +74,7 @@ function WorkerAggregateStage() {
         />
       </Box>
       {workerKey && <WorkerBatchComposition workerKey={workerKey} />}
-      <ChartCard
-        idx="e"
-        title={METRIC_TITLES.backpressure}
-        sub={backpressure.sub}
-        option={backpressure.option}
-        note={backpressure.note}
-        empty={backpressure.empty}
-        caption={METRIC_CAPTIONS.backpressure}
-      />
+      {workerKey && <WorkerRequestStateCard workerKey={workerKey} />}
       {workerKey && <WorkerKernelPositionBreakdownCard workerKey={workerKey} />}
     </Stack>
   );

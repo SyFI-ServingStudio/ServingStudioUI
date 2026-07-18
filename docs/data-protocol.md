@@ -21,6 +21,11 @@ UI 不应读取：
 
 原因是浏览器不适合扫描大表，而且外部 preset/trace 会随时间变化，无法保证 run 可复现。
 
+`run_meta.json` v5 是对 v4 GPU/worker roster 的 append-only 扩展，新增
+`stage_vocab: {deployment, names}`。其中 `names[code]` 解码 request-stage transition，名称
+遵循开放的 `category:detail` 结构；UI 必须显式接受 v5，不能因新增字段把整个 simulation folder
+判为不兼容。
+
 ## 2. 当前 v1 的实际约束
 
 现有输出带 `schema_version: 1`，但各 subject envelope 并不完全一致：有些把 `available` 放在顶层，有些放在 `meta`，另一些以空数组表达无结果。因此 v1 必须按 subject 分别校验和适配，不能只写一个宽松的通用 JSON 类型。
@@ -90,14 +95,21 @@ repository 必须通过显式表映射到领域名，不能从文件名或 camel
 | `kernel-input-distribution` | `kernelInputDistribution` |
 | `kernel-time-share`         | `kernelTimeShare`         |
 | `optimality`                | `optimality`              |
+| `request-state`             | `requestState`            |
 
 `slo-detailed` 等尚无 UI consumer 的 registry subject 仍可出现在 descriptor；旧 UI
 必须忽略未知 subject，而不是拒绝整个 run。descriptor 的 deployment 合同覆盖
 `unified | pd | afd`，不能把 PD 降级显示成 unified。
 
-`concurrency` 与 `backpressure` 是为未来有界 timeline artifact 预留的 wire id；它们
-目前不属于 analyzer `registry::SUBJECTS`，服务不得在没有真实 artifact 时把它们标为
-`ready`。
+`request-state` 是 analyzer 发布的有界分层状态 timeline。cluster 使用开放的
+`cluster_series[].category` 集合作为守恒堆叠；每个 worker 的 `series[].category` 保留同一开放
+category 集合，并按该事件的 request-owner `(pool, worker)` 位置聚合。只有实际出现 stage event
+的 owner pool 会进入 payload，但其中仍保留 `run_meta` 的完整 worker roster；因此 AFD attention
+worker 提供完整状态堆叠，纯执行 FFN pool/worker 不提供 request-state series。cluster 与 worker 图例必须允许独立
+启用或禁用每个 category，隐藏一层后其余层在浏览器内重新堆叠，不修改 analyzer 数据。pool
+继续使用同一 payload 的 `total_pending`、`average_pending` 与逐 worker `pending`，在一张图上
+分别显示 pool aggregate、worker average 和 worker 细线。旧的 `backpressure` wire id 继续保留，
+但不得在没有独立 artifact 时标为 `ready`。
 
 ## 4. 运行描述
 
@@ -395,7 +407,6 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 
 - 模型配置快照及 hidden size、layer/head/MoE 等 overview 字段
 - 输入/输出长度分布和 arrival burstiness 所需的 offered workload 摘要
-- worker、pool、cluster pending queue/backpressure 时间序列
 - 面向交互的 worker operation index 和 exact operation CostTree detail
 
 在数据补齐前，真实 run 页面显示对应的 `not_generated`/`unavailable` 状态，不生成替代曲线。checked-in fixture 只裁剪真实 analyzer artifact 或覆盖 transport/status 合同；若协议测试必须使用 synthetic provenance，也必须显式标记，且不能成为生产组件的指标来源。

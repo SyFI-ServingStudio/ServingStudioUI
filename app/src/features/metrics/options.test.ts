@@ -235,13 +235,44 @@ describe('scope metric chart options', () => {
     expectSafeText(rendered);
   });
 
-  it('lets each SLO log axis derive its limits from its own latency data', () => {
-    const option = sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]);
-    const xAxis = option.xAxis as { min?: number; max?: number; type?: string };
+  it('aligns each SLO pointer and linear axis to that metric latency range', () => {
+    const metric = {
+      ...slo.ttft,
+      x: [180, 240, 330],
+      y_pct: [20, 60, 100],
+    };
+    const option = sloMetricOption(metric, CHART_THEME, CHART_THEME.palette[0]);
+    const xAxis = option.xAxis as {
+      min?: number;
+      max?: number;
+      type?: string;
+      axisPointer?: { snap?: boolean };
+    };
+    const series = option.series as Array<{ smooth?: boolean }>;
 
-    expect(xAxis.type).toBe('log');
-    expect(xAxis).not.toHaveProperty('min');
-    expect(xAxis).not.toHaveProperty('max');
+    expect(xAxis).toMatchObject({
+      type: 'value',
+      min: 174,
+      max: 336,
+      axisPointer: { snap: true },
+    });
+    expect(series[0].smooth).toBe(true);
+  });
+
+  it('labels SLO tooltip coordinates explicitly at the snapped CDF point', () => {
+    const option = sloMetricOption(
+      { ...slo.tpot, unit: 'ms/token' },
+      CHART_THEME,
+      CHART_THEME.palette[1],
+    );
+    const tooltip = tooltipOf(option);
+    const formatter = tooltip.formatter;
+
+    expect(tooltip.axisPointer).toMatchObject({ type: 'line', snap: true });
+    expect(typeof formatter).toBe('function');
+    expect(
+      String((formatter as (value: unknown) => unknown)([{ value: [170.6015, 92.3077] }])),
+    ).toBe('latency: 170.6015 ms/token\nCDF: 92.31%');
   });
 
   it('keeps the throughput x-axis title and final tick inside the SVG viewport', () => {
