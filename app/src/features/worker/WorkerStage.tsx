@@ -1,18 +1,18 @@
 import { Box, Button, Paper, Stack, Typography, useMediaQuery } from '@mui/material';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
-import { useActiveRunState, useActiveRunSubject } from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import {
   useActiveWorkerTreeState,
   type ActiveWorkerTreeState,
   type WorkerTreeNonReadyStatus,
 } from '../../application/WorkerTreeProvider';
-import type { DetailArtifact } from '../../domain/artifacts';
 import { leafById } from '../../domain/cost-tree';
-import type { SubjectName, SubjectResult } from '../../domain/subject';
 import type { OperationRef } from '../../domain/workerOperation';
 import { useViz } from '../../store';
+import ChartCard from '../../components/ChartCard';
 import { KernelEvidence, KernelInspector, ParallelDetail } from '../kernel';
+import { metricView, METRIC_CAPTIONS, METRIC_TITLES } from '../metrics';
 import { tokens } from '../../theme';
 import CostTreeFlow from './CostTreeFlow';
 import {
@@ -24,6 +24,8 @@ import {
 } from './CostTreeFrame';
 import TimeShareBlocks from './TimeShareBlocks';
 import { WorkerOperationTimeline } from '../timeline';
+import WorkerBatchComposition from './WorkerBatchComposition';
+import WorkerKernelPositionBreakdownCard from './WorkerKernelPositionBreakdownCard';
 
 export const WORKER_WORKBENCH_MIN_HEIGHT = 480;
 export const WORKER_VIEWPORT_SAFE_GAP = 12;
@@ -31,96 +33,59 @@ export const WORKER_VIEWPORT_HEIGHT_VAR = '--worker-viewport-height';
 export const WORKER_WORKBENCH_MIN_HEIGHT_VAR = '--worker-workbench-min-height';
 export const WORKER_WORKBENCH_MAX_HEIGHT_VAR = '--worker-workbench-max-height';
 
-interface EvidenceRow {
-  readonly label: string;
-  readonly status: string;
-  readonly reason: string;
-}
-
-function detailEvidence(label: string, detail: DetailArtifact | undefined): EvidenceRow {
-  const status = detail?.status ?? 'not_generated';
-  const reason =
-    detail && 'reason' in detail && detail.reason
-      ? detail.reason
-      : detail === undefined
-        ? 'Run descriptor does not declare this detail resource.'
-        : status === 'ready'
-          ? 'Versioned Analyzer detail is ready.'
-          : `Analyzer detail is ${status}.`;
-  return { label, status, reason };
-}
-
-function subjectEvidence<Name extends SubjectName>(
-  label: string,
-  subject: SubjectResult<Name>,
-): EvidenceRow {
-  const reason =
-    'reason' in subject && subject.reason
-      ? subject.reason
-      : subject.status === 'ready'
-        ? 'Typed Analyzer subject is ready.'
-        : `Analyzer subject is ${subject.status}.`;
-  return { label, status: subject.status, reason };
-}
-
-/** Explicit availability matrix for optional worker facts. It never turns a
- * missing detail into zero records or a generated curve. */
-function WorkerEvidenceMatrix() {
-  const activeRun = useActiveRunState();
-  const backpressure = useActiveRunSubject('backpressure');
-  const kernelInputDistribution = useActiveRunSubject('kernelInputDistribution');
-  if (activeRun.status !== 'ready') return null;
-  const rows = [
-    detailEvidence(
-      'Operation index / batch composition',
-      activeRun.descriptor.details['worker-operation-index'],
-    ),
-    detailEvidence('Exact operation CostTree', activeRun.descriptor.details['worker-cost-tree']),
-    subjectEvidence('Pending queue / backpressure', backpressure),
-    subjectEvidence('Kernel input distribution', kernelInputDistribution),
-  ];
+function WorkerAggregateStage() {
+  const scope = useViz((state) => state.scope);
+  const poolRole = useViz((state) => state.poolRole);
+  const workerKey = useViz((state) => state.workerKey);
+  const cursorMs = useViz((state) => state.cursorMs);
+  const run = useActiveRun();
+  const utilizationSubject = useActiveRunSubject('utilization');
+  const kvSubject = useActiveRunSubject('kv');
+  const backpressureSubject = useActiveRunSubject('backpressure');
+  const selection = useMemo(
+    () => ({ scope, poolRole, workerKey, cursorMs }),
+    [cursorMs, poolRole, scope, workerKey],
+  );
+  const utilization = metricView(utilizationSubject, run, selection);
+  const kv = metricView(kvSubject, run, selection);
+  const backpressure = metricView(backpressureSubject, run, selection);
 
   return (
-    <Paper sx={{ borderRadius: 2, p: '15px 18px 18px' }}>
-      <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
-        Optional worker evidence
-      </Typography>
-      <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
-        Missing resources stay explicit until Analyzer publishes a versioned worker endpoint.
-      </Typography>
-      <Stack spacing={0} sx={{ mt: 1.25, border: `1px solid ${tokens.hair}`, borderRadius: 1.25 }}>
-        {rows.map((row, index) => (
-          <Stack
-            key={row.label}
-            direction={{ xs: 'column', md: 'row' }}
-            useFlexGap
-            sx={{
-              gap: { xs: 0.4, md: 1.5 },
-              p: '10px 12px',
-              borderTop: index === 0 ? 0 : `1px solid ${tokens.hair}`,
-              background: tokens.tile2,
-            }}
-          >
-            <Typography sx={{ minWidth: 230, fontFamily: tokens.mono, fontSize: 10.5 }}>
-              {row.label}
-            </Typography>
-            <Typography
-              sx={{
-                minWidth: 110,
-                fontFamily: tokens.mono,
-                fontSize: 9.5,
-                color: row.status === 'failed' ? tokens.terra : tokens.gold,
-              }}
-            >
-              {row.status}
-            </Typography>
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
-              {row.reason}
-            </Typography>
-          </Stack>
-        ))}
-      </Stack>
-    </Paper>
+    <Stack spacing={2}>
+      <Box
+        sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
+      >
+        <ChartCard
+          idx="a"
+          title={METRIC_TITLES.utilization}
+          sub={utilization.sub}
+          option={utilization.option}
+          note={utilization.note}
+          empty={utilization.empty}
+          caption={METRIC_CAPTIONS.utilization}
+        />
+        <ChartCard
+          idx="b"
+          title={METRIC_TITLES.kv}
+          sub={kv.sub}
+          option={kv.option}
+          note={kv.note}
+          empty={kv.empty}
+          caption={METRIC_CAPTIONS.kv}
+        />
+      </Box>
+      {workerKey && <WorkerBatchComposition workerKey={workerKey} />}
+      <ChartCard
+        idx="e"
+        title={METRIC_TITLES.backpressure}
+        sub={backpressure.sub}
+        option={backpressure.option}
+        note={backpressure.note}
+        empty={backpressure.empty}
+        caption={METRIC_CAPTIONS.backpressure}
+      />
+      {workerKey && <WorkerKernelPositionBreakdownCard workerKey={workerKey} />}
+    </Stack>
   );
 }
 
@@ -156,7 +121,6 @@ function ReadyWorkerSupplementary() {
       <KernelEvidence />
       <ParallelDetail />
       <TimeShareBlocks />
-      <WorkerEvidenceMatrix />
     </Stack>
   );
 }
@@ -258,7 +222,7 @@ function shellIsFullyVisible(shell: HTMLElement): boolean {
   return bounds.height > 0 && bounds.top >= 0 && bounds.bottom <= window.innerHeight;
 }
 
-export default function WorkerStage() {
+function IterationWorkerStage() {
   const state = useActiveWorkerTreeState();
   const selectedOperation = useViz((viz) => viz.operation);
   const scope = useViz((viz) => viz.scope);
@@ -394,4 +358,9 @@ export default function WorkerStage() {
       {state.status === 'ready' && <ReadyWorkerSupplementary />}
     </Stack>
   );
+}
+
+export default function WorkerStage() {
+  const analysisLevel = useViz((state) => state.workerAnalysisLevel);
+  return analysisLevel === 'worker' ? <WorkerAggregateStage /> : <IterationWorkerStage />;
 }

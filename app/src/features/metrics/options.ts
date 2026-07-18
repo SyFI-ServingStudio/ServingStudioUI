@@ -1,3 +1,10 @@
 export { kernelTimeStackOption } from './kernelTimeOption';
+export { optimalityStackOption } from './optimalityOption';
 export { sloMetricOption, throughputOption } from './runOptions';
-export { batchOption, kvOption, pendingQueueOption, utilizationOption } from './resourceOptions';
+export {
+  batchMetricOption,
+  poolBatchMetricOption,
+  kvOption,
+  pendingQueueOption,
+  utilizationOption,
+} from './resourceOptions';

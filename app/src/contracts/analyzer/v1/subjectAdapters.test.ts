@@ -6,6 +6,7 @@ import kvJson from '../../../../../fixtures/analyzer-v1/afd-qwen3-duration-reach
 import sloJson from '../../../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/slo_general_cdf.json';
 import throughputJson from '../../../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/throughput_segments.json';
 import utilizationJson from '../../../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/utilization_series.json';
+import { makeWorkerKey } from '../../../domain/worker';
 import { decodeAnalyzerV1BatchPayload } from './batch';
 import { decodeAnalyzerV1ConservationPayload } from './conservation';
 import { decodeAnalyzerV1KvOccupancyPayload } from './kvOccupancy';
@@ -160,6 +161,27 @@ describe('analyzer-v1 aggregate subject adapters', () => {
     expect(result.payload.pools.ffn.batchTokens[0]).toBeGreaterThan(
       result.payload.pools.ffn.prefillTokens[0] + result.payload.pools.ffn.decodeRequests[0],
     );
+    expect(result.payload.workers).toEqual([]);
+  });
+
+  it('maps additive worker batch rows by composite worker identity', () => {
+    const wire = structuredClone(batchJson) as typeof batchJson & {
+      workers: Array<
+        Omit<(typeof batchJson.pools)[number], 'pool'> & { pool_tag: string; worker_id: number }
+      >;
+    };
+    const { pool: _pool, ...composition } = wire.pools[0];
+    wire.workers = [{ ...composition, pool_tag: 'attn', worker_id: 0 }];
+
+    const result = decodeAnalyzerV1BatchPayload(wire, { expectedLogDir: SOURCE_LOG_DIR });
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') return;
+    expect(result.payload.workers[0]).toMatchObject({
+      key: makeWorkerKey('attn', '0'),
+      worker: { poolTag: 'attn', workerId: '0' },
+    });
+    expect(result.payload.workers[0].batchTokens).toEqual(composition.series[0].values);
   });
 
   it('maps workload-conservation checks and their status tokens', () => {

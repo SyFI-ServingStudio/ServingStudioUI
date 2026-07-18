@@ -19,17 +19,31 @@ function minimalV1(): Record<string, unknown> {
 }
 
 describe('parseAnalyzerV1RunMeta', () => {
-  it('validates the real v3 metadata without collapsing same-numbered workers', () => {
+  it('validates the real v4 metadata without collapsing same-numbered workers', () => {
     const meta = parseAnalyzerV1RunMeta(runMetaJson);
 
-    expect(meta.schema_version).toBe(3);
+    expect(meta.schema_version).toBe(4);
     expect(meta.num_gpus).toBe(48);
     expect(meta.workers).toHaveLength(10);
     expect(meta.workers.filter((worker) => worker.worker_id === 0)).toHaveLength(2);
+    // v4: every worker (incl. non-KV ffn) carries an authoritative, non-null tag.
+    expect(meta.workers.every((worker) => 'pool_tag' in worker && worker.pool_tag)).toBe(true);
   });
 
   it('accepts the confirmed legacy v1 shape with composite numeric ownership', () => {
     expect(parseAnalyzerV1RunMeta(minimalV1()).workers).toHaveLength(2);
+  });
+
+  it('rejects a v4 worker whose authoritative pool_tag is null', () => {
+    const meta = {
+      schema_version: 4,
+      num_gpus: 1,
+      gpus: [{ id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0, pool_tag: 'ffn' }],
+      workers: [{ worker_id: 0, pool: 0, pool_tag: null, gpu_ids: [0], kv_pools: [] }],
+      comm_groups: [],
+    };
+
+    expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/pool_tag/);
   });
 
   it('rejects a worker roster that does not cover every GPU exactly once', () => {

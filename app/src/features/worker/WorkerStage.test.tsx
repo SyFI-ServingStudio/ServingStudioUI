@@ -12,7 +12,7 @@ import WorkerStage, {
   WORKER_WORKBENCH_MIN_HEIGHT_VAR,
 } from './WorkerStage';
 
-const workerTreeMock = vi.hoisted(() => ({ state: vi.fn() }));
+const workerTreeMock = vi.hoisted(() => ({ state: vi.fn(), operationState: vi.fn() }));
 const scrolledTargets: Element[] = [];
 const scrollIntoViewMock = vi.fn(function (this: Element) {
   scrolledTargets.push(this);
@@ -43,12 +43,22 @@ function mediaQuery(matches: boolean): MediaQueryList {
 
 vi.mock('../../application/WorkerTreeProvider', () => ({
   useActiveWorkerTreeState: workerTreeMock.state,
+  useActiveWorkerOperationState: workerTreeMock.operationState,
 }));
 
 vi.mock('../../application/ActiveRunProvider', () => ({
   useActiveRun: () => ({ id: 'run', workerList: [worker], capabilities: { perfettoTrace: false } }),
-  useActiveRunState: () => ({ status: 'ready', descriptor: { details: {} } }),
+  useActiveRunState: () => ({
+    status: 'ready',
+    descriptor: { details: {}, analysis: { revision: 'test' } },
+    run: { id: 'run', workerList: [worker], capabilities: { perfettoTrace: false } },
+    error: null,
+  }),
   useActiveRunSubject: () => ({ status: 'not_generated', reason: 'Not generated.' }),
+}));
+
+vi.mock('../../components/ChartCard', () => ({
+  default: ({ title }: { title: string }) => <div data-testid="chart-card">{title}</div>,
 }));
 
 vi.mock('../timeline', () => ({
@@ -101,12 +111,14 @@ beforeEach(() => {
   });
   useViz.setState({
     scope: 'worker',
+    workerAnalysisLevel: 'iteration',
     workerKey: worker.key,
     poolRole: 'ffn',
     leafId: null,
     parId: null,
     operation: { iterId: '7', batchId: '2', operationId: '9' },
   });
+  workerTreeMock.operationState.mockReturnValue({ status: 'idle', viewport: null });
 });
 
 function expectStableCostTreeFrame(): void {
@@ -130,6 +142,23 @@ function expectStableCostTreeFrame(): void {
 }
 
 describe('WorkerStage CostTree frame stability', () => {
+  it('keeps backpressure immediately before the closing kernel breakdown', () => {
+    useViz.setState({ workerAnalysisLevel: 'worker' });
+    workerTreeMock.state.mockReturnValue({
+      status: 'idle',
+      worker: null,
+      tree: null,
+      error: null,
+      retry: null,
+    });
+
+    render(<WorkerStage />);
+
+    const cards = screen.getAllByTestId('chart-card');
+    expect(cards.at(-2)).toHaveTextContent('Backpressure');
+    expect(cards.at(-1)).toHaveTextContent('Worker kernel time breakdown');
+  });
+
   it.each([
     {
       label: 'idle',

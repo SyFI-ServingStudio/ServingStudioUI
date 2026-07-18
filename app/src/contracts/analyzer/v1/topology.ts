@@ -10,12 +10,6 @@ import {
 } from './params';
 import { parseAnalyzerV1RunMeta, type AnalyzerV1RunMeta } from './runMeta';
 
-const POOL_ROLES = {
-  unified: ['main'],
-  pd: ['prefill', 'decode'],
-  afd: ['attn', 'ffn'],
-} as const;
-
 interface ResolvedWorker {
   gpuIds: number[];
   numericPool: number;
@@ -82,84 +76,20 @@ function placementForPool(params: AnalyzerV1Params, poolTag: string): string {
   return pool.placement;
 }
 
-function resolveWorkers(params: AnalyzerV1Params, runMeta: AnalyzerV1RunMeta): ResolvedWorker[] {
-  const poolRoles = POOL_ROLES[params.deployment];
-  const gpuById = new Map(runMeta.gpus.map((gpu) => [gpu.id, gpu]));
-  const commTagsByNumericWorker = new Map<string, Set<string>>();
-
-  if ('comm_groups' in runMeta) {
-    runMeta.comm_groups.forEach((group, groupIndex) => {
-      const gpuOwners = group.gpu_ids.map((gpuId) => gpuById.get(gpuId));
-      const missingGpu = gpuOwners.findIndex((gpu) => gpu === undefined);
-      if (missingGpu !== -1) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.comm_groups.${groupIndex}.gpu_ids: references unknown GPU ${group.gpu_ids[missingGpu]}`,
-        ]);
-      }
-      const owners = gpuOwners as Array<NonNullable<(typeof gpuOwners)[number]>>;
-      const numericPools = new Set(owners.map((gpu) => gpu.pool));
-      const workerIds = new Set(owners.map((gpu) => gpu.worker_id));
-      if (numericPools.size !== 1 || workerIds.size !== 1) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.comm_groups.${groupIndex}: spans more than one worker`,
-        ]);
-      }
-      const numericPool = owners[0].pool;
-      const workerId = owners[0].worker_id;
-      if (workerId !== group.owner_worker_id) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.comm_groups.${groupIndex}.owner_worker_id: disagrees with GPU ownership`,
-        ]);
-      }
-      const expectedPoolTag = poolRoles[numericPool];
-      if (expectedPoolTag === undefined) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.comm_groups.${groupIndex}: references unknown numeric pool ${numericPool}`,
-        ]);
-      }
-      if (group.owner_pool !== expectedPoolTag) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.comm_groups.${groupIndex}.owner_pool: ${group.owner_pool} disagrees with deployment pool ${expectedPoolTag}`,
-        ]);
-      }
-      const numericWorkerKey = `${numericPool}/${workerId}`;
-      const tags = commTagsByNumericWorker.get(numericWorkerKey) ?? new Set<string>();
-      tags.add(group.owner_pool);
-      commTagsByNumericWorker.set(numericWorkerKey, tags);
-    });
-  }
-
+function resolveWorkers(runMeta: AnalyzerV1RunMeta): ResolvedWorker[] {
+  // run_meta v4 stamps an authoritative pool_tag on every worker; read it directly.
+  // GPU ownership + full-roster coverage are already enforced by parseAnalyzerV1RunMeta.
   const resolved = runMeta.workers.map((worker, workerIndex) => {
-    const expectedPoolTag = poolRoles[worker.pool];
-    if (expectedPoolTag === undefined) {
+    const poolTag = 'pool_tag' in worker ? worker.pool_tag : null;
+    if (poolTag === null) {
       throw new AnalyzerV1TopologyError([
-        `run_meta.workers.${workerIndex}.pool: unknown numeric pool ${worker.pool} for ${params.deployment}`,
+        `run_meta.workers.${workerIndex}: missing pool_tag — topology requires run_meta v4`,
       ]);
-    }
-    const numericWorkerKey = `${worker.pool}/${worker.worker_id}`;
-    const commTags = commTagsByNumericWorker.get(numericWorkerKey) ?? new Set<string>();
-    if (commTags.size > 1) {
-      throw new AnalyzerV1TopologyError([
-        `run_meta.workers.${workerIndex}: comm groups disagree on pool tag`,
-      ]);
-    }
-    const directPoolTag = 'pool_tag' in worker ? worker.pool_tag : null;
-    const commPoolTag = [...commTags][0];
-    for (const observedPoolTag of [directPoolTag, commPoolTag]) {
-      if (
-        observedPoolTag !== null &&
-        observedPoolTag !== undefined &&
-        observedPoolTag !== expectedPoolTag
-      ) {
-        throw new AnalyzerV1TopologyError([
-          `run_meta.workers.${workerIndex}: pool tag ${observedPoolTag} disagrees with deployment pool ${expectedPoolTag}`,
-        ]);
-      }
     }
     return {
       gpuIds: [...worker.gpu_ids],
       numericPool: worker.pool,
-      poolTag: expectedPoolTag,
+      poolTag,
       workerId: worker.worker_id,
     };
   });
@@ -173,12 +103,27 @@ function resolveWorkers(params: AnalyzerV1Params, runMeta: AnalyzerV1RunMeta): R
   return resolved;
 }
 
-function topologyFromParsed(params: AnalyzerV1Params, runMeta: AnalyzerV1RunMeta): Topology {
-  const resolvedWorkers = resolveWorkers(params, runMeta);
-  const gpuById = new Map(runMeta.gpus.map((gpu) => [gpu.id, gpu]));
-  const roles = POOL_ROLES[params.deployment];
+/** Ordered `(numericPool, poolTag)` pairs from the resolved workers — run_meta's
+ * own pool identity, replacing the hardcoded deployment role table. */
+function poolsFromWorkers(workers: ResolvedWorker[]): Array<[number, string]> {
+  const poolByNumeric = new Map<number, string>();
+  for (const worker of workers) {
+    const existing = poolByNumeric.get(worker.numericPool);
+    if (existing !== undefined && existing !== worker.poolTag) {
+      throw new AnalyzerV1TopologyError([
+        `run_meta.workers: numeric pool ${worker.numericPool} carries conflicting tags ${existing} and ${worker.poolTag}`,
+      ]);
+    }
+    poolByNumeric.set(worker.numericPool, worker.poolTag);
+  }
+  return [...poolByNumeric.entries()].sort(([left], [right]) => left - right);
+}
 
-  const pools = roles.map((poolTag, numericPool) => {
+function topologyFromParsed(params: AnalyzerV1Params, runMeta: AnalyzerV1RunMeta): Topology {
+  const resolvedWorkers = resolveWorkers(runMeta);
+  const gpuById = new Map(runMeta.gpus.map((gpu) => [gpu.id, gpu]));
+
+  const pools = poolsFromWorkers(resolvedWorkers).map(([numericPool, poolTag]) => {
     const groupParams = groupsForPool(params, poolTag);
     // The simulator currently rejects heterogeneous pool configs at build time,
     // and run_meta carries no group identity. Reject instead of assigning workers

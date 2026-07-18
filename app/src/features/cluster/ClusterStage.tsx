@@ -13,8 +13,8 @@ import {
 } from '../metrics';
 import ConservationCard from './ConservationCard';
 
-/** Whole-deployment outcome: SLO + throughput, scheduler backpressure,
- *  all-pool GPU utilization, kernel-time breakdown, and conservation. */
+/** Whole-deployment outcome; scheduler backpressure sits immediately before
+ * the kernel breakdown, which closes every aggregate Section 02 scope. */
 export default function ClusterStage() {
   const scope = useViz((state) => state.scope);
   const poolRole = useViz((state) => state.poolRole);
@@ -50,16 +50,6 @@ export default function ClusterStage() {
 
       <ChartCard
         idx="c"
-        title={METRIC_TITLES.backpressure}
-        sub={backpressure.sub}
-        option={backpressure.option}
-        note={backpressure.note}
-        empty={backpressure.empty}
-        caption={METRIC_CAPTIONS.backpressure}
-      />
-
-      <ChartCard
-        idx="d"
         title="GPU utilization · all pools"
         sub={
           utilizationSubject.status === 'ready'
@@ -71,18 +61,11 @@ export default function ClusterStage() {
         caption="GPU busy fraction over time for every worker; bold lines show each pool's average."
       />
 
-      <KernelTimeBreakdownCard
-        idx="e"
-        title="Cluster kernel time breakdown"
-        subject={kernelTimeShare}
-        scope={{ kind: 'cluster' }}
-      />
-
       {conservation.status === 'ready' ? (
-        <ConservationCard idx="f" data={conservation.payload} />
+        <ConservationCard idx="d" data={conservation.payload} />
       ) : (
         <ChartCard
-          idx="f"
+          idx="d"
           title="Workload conservation"
           sub={subjectStatusLabel(conservation)}
           option={null}
@@ -90,6 +73,23 @@ export default function ClusterStage() {
           caption="Analyzer workload-conservation subject status."
         />
       )}
+
+      <ChartCard
+        idx="e"
+        title={METRIC_TITLES.backpressure}
+        sub={backpressure.sub}
+        option={backpressure.option}
+        note={backpressure.note}
+        empty={backpressure.empty}
+        caption={METRIC_CAPTIONS.backpressure}
+      />
+
+      <KernelTimeBreakdownCard
+        idx="f"
+        title="Cluster kernel time breakdown"
+        subject={kernelTimeShare}
+        scope={{ kind: 'cluster' }}
+      />
     </Stack>
   );
 }

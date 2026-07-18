@@ -12,6 +12,8 @@ import { TimelineBand } from './features/timeline';
 import { PerfettoTrace } from './features/trace';
 import { ClusterStage } from './features/cluster';
 import { PoolStage } from './features/pool';
+import { OptimalityAnalysisStage } from './features/optimality';
+import WorkerAnalysisLevelControl from './features/worker/WorkerAnalysisLevelControl';
 import FocusDialog from './components/FocusDialog';
 import { SurfaceAccentProvider } from './components/SurfaceCard';
 
@@ -27,15 +29,24 @@ function SectionHead({
   title,
   sub,
   accent,
+  controls,
 }: {
   id: string;
   idx: string;
   title: string;
   sub?: string;
   accent: string;
+  controls?: ReactNode;
 }) {
   return (
-    <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mx: 0.25, mb: 1.25 }}>
+    <Stack
+      direction="row"
+      alignItems="baseline"
+      flexWrap="wrap"
+      useFlexGap
+      spacing={1.5}
+      sx={{ mx: 0.25, mb: 1.25 }}
+    >
       <Box
         component="span"
         sx={{ fontFamily: tokens.mono, fontSize: 10, color: accent, letterSpacing: '.1em' }}
@@ -49,18 +60,28 @@ function SectionHead({
       >
         {title}
       </Typography>
-      {sub && (
-        <Typography
-          sx={{
-            ml: 'auto',
-            fontFamily: tokens.mono,
-            fontSize: 10.5,
-            color: tokens.sub,
-            textAlign: 'right',
-          }}
+      {(controls || sub) && (
+        <Stack
+          direction="row"
+          alignItems="center"
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ ml: 'auto', gap: 1 }}
         >
-          {sub}
-        </Typography>
+          {controls}
+          {sub && (
+            <Typography
+              sx={{
+                fontFamily: tokens.mono,
+                fontSize: 10.5,
+                color: tokens.sub,
+                textAlign: 'right',
+              }}
+            >
+              {sub}
+            </Typography>
+          )}
+        </Stack>
       )}
     </Stack>
   );
@@ -71,19 +92,28 @@ function Section({
   title,
   sub,
   accent,
+  controls,
   children,
 }: {
   idx: string;
   title: string;
   sub?: string;
   accent: string;
+  controls?: ReactNode;
   children: ReactNode;
 }) {
   const headingId = `run-section-${idx}`;
   return (
     <SurfaceAccentProvider accent={accent}>
       <Box component="section" aria-labelledby={headingId} sx={{ mt: 2 }}>
-        <SectionHead id={headingId} idx={idx} title={title} sub={sub} accent={accent} />
+        <SectionHead
+          id={headingId}
+          idx={idx}
+          title={title}
+          sub={sub}
+          accent={accent}
+          controls={controls}
+        />
         {children}
       </Box>
     </SurfaceAccentProvider>
@@ -199,6 +229,7 @@ export default function App() {
   const scope = useViz((state) => state.scope);
   const poolRole = useViz((state) => state.poolRole);
   const workerKey = useViz((state) => state.workerKey);
+  const workerAnalysisLevel = useViz((state) => state.workerAnalysisLevel);
   if (!run) {
     return (
       <Box
@@ -255,9 +286,12 @@ export default function App() {
     },
     worker: {
       title: `Worker · ${worker?.key ?? 'invalid selection'}`,
-      sub: hasHierarchicalWorkerDetail
-        ? 'exact operation CostTree · worker operation timeline'
-        : 'exact worker detail not generated',
+      sub:
+        workerAnalysisLevel === 'worker'
+          ? 'worker aggregate resources · kernel composition'
+          : hasHierarchicalWorkerDetail
+            ? 'exact operation CostTree · worker operation timeline'
+            : 'exact worker detail not generated',
     },
     kernel: {
       title: `Worker · ${worker?.key ?? 'invalid selection'}`,
@@ -307,8 +341,23 @@ export default function App() {
         </Section>
 
         {/* 02 — scope-adaptive stage */}
-        <Section idx="02" title={meta.title} sub={meta.sub} accent={tokens.sectionAnalysis}>
+        <Section
+          idx="02"
+          title={meta.title}
+          sub={meta.sub}
+          accent={tokens.sectionAnalysis}
+          controls={inWorkerScope ? <WorkerAnalysisLevelControl /> : undefined}
+        >
           <Stage />
+        </Section>
+
+        <Section
+          idx="03"
+          title="Optimality analysis"
+          sub="R0-R5 · batching · communication · hardware headroom"
+          accent={tokens.gold}
+        >
+          <OptimalityAnalysisStage />
         </Section>
 
         <Stack

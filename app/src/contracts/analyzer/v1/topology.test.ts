@@ -23,40 +23,25 @@ function pool(rawGroup: Record<string, unknown>): Record<string, unknown> {
   return { placement: 'least-queued', groups: [rawGroup] };
 }
 
-function twoPoolMeta(schemaVersion: 1 | 2): Record<string, unknown> {
-  const base: Record<string, unknown> = {
-    schema_version: schemaVersion,
+// A minimal v4 PD run_meta: every worker + gpu carries an authoritative pool_tag,
+// so topology reads it directly (no comm_groups/deployment reverse-recovery).
+function twoPoolMetaV4(): Record<string, unknown> {
+  return {
+    schema_version: 4,
     num_gpus: 2,
     gpus: [
-      { id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0 },
-      { id: 1, name: 'NVIDIA H200', pool: 1, worker_id: 0 },
+      { id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0, pool_tag: 'prefill' },
+      { id: 1, name: 'NVIDIA H200', pool: 1, worker_id: 0, pool_tag: 'decode' },
     ],
     workers: [
-      { worker_id: 0, pool: 0, gpu_ids: [0] },
-      { worker_id: 0, pool: 1, gpu_ids: [1] },
+      { worker_id: 0, pool: 0, pool_tag: 'prefill', gpu_ids: [0], kv_pools: [] },
+      { worker_id: 0, pool: 1, pool_tag: 'decode', gpu_ids: [1], kv_pools: [] },
+    ],
+    comm_groups: [
+      { gid: 0, base: 0, count: 1, gpu_ids: [0], owner_pool: 'prefill', owner_worker_id: 0 },
+      { gid: 1, base: 1, count: 1, gpu_ids: [1], owner_pool: 'decode', owner_worker_id: 0 },
     ],
   };
-  if (schemaVersion === 2) {
-    base.comm_groups = [
-      {
-        gid: 0,
-        base: 0,
-        count: 1,
-        gpu_ids: [0],
-        owner_pool: 'prefill',
-        owner_worker_id: 0,
-      },
-      {
-        gid: 1,
-        base: 1,
-        count: 1,
-        gpu_ids: [1],
-        owner_pool: 'decode',
-        owner_worker_id: 0,
-      },
-    ];
-  }
-  return base;
 }
 
 describe('parseAnalyzerV1Topology', () => {
@@ -98,10 +83,11 @@ describe('parseAnalyzerV1Topology', () => {
       pools: { main: pool(group('llama3_dense_tp', 'barebone')) },
     };
     const meta = {
-      schema_version: 1,
+      schema_version: 4,
       num_gpus: 1,
-      gpus: [{ id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0 }],
-      workers: [{ worker_id: 0, pool: 0, gpu_ids: [0] }],
+      gpus: [{ id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0, pool_tag: 'main' }],
+      workers: [{ worker_id: 0, pool: 0, pool_tag: 'main', gpu_ids: [0], kv_pools: [] }],
+      comm_groups: [],
     };
 
     expect(parseAnalyzerV1Topology(params, meta).pools[0]).toMatchObject({
@@ -117,7 +103,7 @@ describe('parseAnalyzerV1Topology', () => {
     });
   });
 
-  it('adapts PD v2 comm ownership while preserving duplicate worker ids across pools', () => {
+  it('adapts PD v4 pools while preserving duplicate worker ids across pools', () => {
     const params = {
       deployment: 'pd',
       pools: {
@@ -125,7 +111,7 @@ describe('parseAnalyzerV1Topology', () => {
         decode: pool(group('llama3_dense_tp', 'pd_decode')),
       },
     };
-    const topology = parseAnalyzerV1Topology(params, twoPoolMeta(2));
+    const topology = parseAnalyzerV1Topology(params, twoPoolMetaV4());
 
     expect(topology.pools.map((entry) => [entry.role, entry.groups[0].workers[0].id])).toEqual([
       ['prefill', '0'],
@@ -133,7 +119,7 @@ describe('parseAnalyzerV1Topology', () => {
     ]);
   });
 
-  it('rejects contradictory comm-group ownership instead of guessing a pool', () => {
+  it('rejects a pre-v4 worker that lacks an authoritative pool_tag', () => {
     const params = {
       deployment: 'pd',
       pools: {
@@ -141,13 +127,26 @@ describe('parseAnalyzerV1Topology', () => {
         decode: pool(group('llama3_dense_tp', 'pd_decode')),
       },
     };
-    const meta = twoPoolMeta(2);
-    const commGroups = meta.comm_groups as Array<{ owner_pool: string }>;
-    commGroups[1].owner_pool = 'prefill';
+    // A v3 roster whose non-KV worker still carries a null tag: topology no longer
+    // reverse-recovers it, so it demands run_meta v4 rather than guessing.
+    const meta = {
+      schema_version: 3,
+      num_gpus: 2,
+      gpus: [
+        { id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0 },
+        { id: 1, name: 'NVIDIA H200', pool: 1, worker_id: 0 },
+      ],
+      workers: [
+        { worker_id: 0, pool: 0, pool_tag: 'prefill', gpu_ids: [0], kv_pools: [] },
+        { worker_id: 0, pool: 1, pool_tag: null, gpu_ids: [1], kv_pools: [] },
+      ],
+      comm_groups: [
+        { gid: 0, base: 0, count: 1, gpu_ids: [0], owner_pool: 'prefill', owner_worker_id: 0 },
+        { gid: 1, base: 1, count: 1, gpu_ids: [1], owner_pool: 'decode', owner_worker_id: 0 },
+      ],
+    };
 
-    expect(() => parseAnalyzerV1Topology(params, meta)).toThrow(
-      /owner_pool: prefill disagrees with deployment pool decode/,
-    );
+    expect(() => parseAnalyzerV1Topology(params, meta)).toThrow(/requires run_meta v4/);
   });
 
   it('rejects multiple groups because run_meta has no group identity', () => {

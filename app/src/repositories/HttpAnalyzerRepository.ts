@@ -6,6 +6,7 @@ import {
 import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescriptor';
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
 import { parseAnalyzerV1KernelThroughputAnalysis } from '../contracts/analyzer/v1/kernelThroughputAnalysis';
+import { decodeAnalyzerV1IterationOptimalityKernelLadder } from '../contracts/analyzer/v1/optimality';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
 import {
@@ -321,6 +322,17 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     const path = `workers/${poolTag}/${workerId}/operations/${iterId}/${batchId}/${operationId}/cost-tree/${leafId}/kernel-throughput-analysis`;
     const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
     return parseAnalyzerV1KernelThroughputAnalysis(input, ref, leafId);
+  }
+
+  async getIterationOptimalityKernelLadder(runId: string, worker: WorkerRef, iterId: string) {
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'iteration-optimality-kernel-ladder', binding.descriptor);
+    const poolTag = routeSegment(worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(worker.workerId, 'Worker id');
+    const iterationId = routeSegment(iterId, 'Iteration id');
+    const path = `workers/${poolTag}/${workerId}/iterations/${iterationId}/optimality-kernel-ladder`;
+    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    return decodeAnalyzerV1IterationOptimalityKernelLadder(input, worker, iterId);
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {

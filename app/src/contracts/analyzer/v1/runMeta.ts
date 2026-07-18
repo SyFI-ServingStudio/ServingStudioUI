@@ -18,6 +18,9 @@ const gpuSchema = z
   })
   .strict();
 
+// v4 stamps the owning worker's role tag on every GPU (`GpuCluster::allocate`).
+const v4GpuSchema = gpuSchema.extend({ pool_tag: nonBlankIdentity }).strict();
+
 const legacyWorkerSchema = z
   .object({
     worker_id: nonNegativeSafeInteger,
@@ -36,6 +39,15 @@ const kvPoolSchema = z
 const v3WorkerSchema = legacyWorkerSchema
   .extend({
     pool_tag: nonBlankIdentity.nullable(),
+    kv_pools: z.array(kvPoolSchema),
+  })
+  .strict();
+
+// v4 makes `pool_tag` authoritative for every worker (non-KV workers included), so
+// it is non-null — the analyzer/UI read it directly, never recovering via comm_groups.
+const v4WorkerSchema = legacyWorkerSchema
+  .extend({
+    pool_tag: nonBlankIdentity,
     kv_pools: z.array(kvPoolSchema),
   })
   .strict();
@@ -80,8 +92,21 @@ const v3Schema = z
   })
   .strict();
 
+const v4Schema = z
+  .object({
+    schema_version: z.literal(4),
+    num_gpus: positiveSafeInteger,
+    gpus: z.array(v4GpuSchema).min(1),
+    workers: z.array(v4WorkerSchema).min(1),
+    comm_groups: z.array(commGroupSchema),
+  })
+  .strict();
+
 type AnalyzerV1RunMetaWire =
-  z.infer<typeof v1Schema> | z.infer<typeof v2Schema> | z.infer<typeof v3Schema>;
+  | z.infer<typeof v1Schema>
+  | z.infer<typeof v2Schema>
+  | z.infer<typeof v3Schema>
+  | z.infer<typeof v4Schema>;
 
 export type AnalyzerV1RunMeta = AnalyzerV1RunMetaWire;
 export type AnalyzerV1MetaWorker = AnalyzerV1RunMeta['workers'][number];
@@ -163,7 +188,7 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
     });
   });
 
-  if (meta.schema_version === 3) {
+  if (meta.schema_version === 3 || meta.schema_version === 4) {
     meta.workers.forEach((worker, workerIndex) => {
       const groupIds = worker.kv_pools.map((pool) => pool.group_id);
       if (new Set(groupIds).size !== groupIds.length) {
@@ -173,6 +198,8 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
           message: 'contains duplicate group_id values',
         });
       }
+      // v3's pool_tag is nullable, so a KV-bearing worker must still name its pool.
+      // v4's schema makes pool_tag non-null everywhere, so this check is inert there.
       if (worker.pool_tag === null && worker.kv_pools.length !== 0) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
@@ -236,10 +263,11 @@ function addSemanticIssues(meta: AnalyzerV1RunMeta, context: z.RefinementCtx): v
   });
 }
 
-/** v1-v3 are all present in the logs tree. v2 adds comm_groups and v3 adds
- * pool_tag/kv_pools; preserving the discriminant prevents version conflation. */
+/** v1-v4 are all present in the logs tree. v2 adds comm_groups, v3 adds
+ * nullable pool_tag/kv_pools, v4 makes pool_tag authoritative (non-null on every
+ * worker + gpu); preserving the discriminant prevents version conflation. */
 export const analyzerV1RunMetaSchema = z
-  .discriminatedUnion('schema_version', [v1Schema, v2Schema, v3Schema])
+  .discriminatedUnion('schema_version', [v1Schema, v2Schema, v3Schema, v4Schema])
   .superRefine(addSemanticIssues);
 
 function formatIssue(issue: ZodIssue): string {

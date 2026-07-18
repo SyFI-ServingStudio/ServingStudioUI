@@ -5,6 +5,8 @@ import {
   cursorSeconds,
   scopedUtil,
   scopedKv,
+  scopedWorkerUtil,
+  scopedWorkerKv,
   scopedPendingQueue,
   poolInScope,
   type RunSelection,
@@ -54,7 +56,12 @@ export function metricView(
       sub: 'total ∥ prefill ∥ decode · tok/s',
     };
   if (subject.subject === 'utilization') {
-    const utilization = scopedUtil(subject.payload, role);
+    const workerScoped =
+      (s.scope === 'worker' || s.scope === 'kernel' || s.scope === 'parallel') &&
+      s.workerKey !== null;
+    const utilization = workerScoped
+      ? scopedWorkerUtil(subject.payload, s.workerKey)
+      : scopedUtil(subject.payload, role);
     if (utilization.series.length === 0 && utilization.workerSeries.length === 0) {
       return {
         option: null,
@@ -65,12 +72,16 @@ export function metricView(
     }
     return {
       option: utilizationOption(utilization, CHART_THEME, cS),
-      note: role
-        ? `scoped to ${role} pool; bold line is the pool average`
-        : 'worker lines with bold pool averages; click a pool to scope',
-      sub: role
-        ? `${utilization.workerSeries.length} workers · pool: ${role}`
-        : `${utilization.workerSeries.length} workers · ${utilization.series.length} pools`,
+      note: workerScoped
+        ? 'selected worker only'
+        : role
+          ? `scoped to ${role} pool; bold line is the pool average`
+          : 'worker lines with bold pool averages; click a pool to scope',
+      sub: workerScoped
+        ? `worker: ${s.workerKey}`
+        : role
+          ? `${utilization.workerSeries.length} workers · pool: ${role}`
+          : `${utilization.workerSeries.length} workers · ${utilization.series.length} pools`,
     };
   }
   if (subject.subject === 'backpressure') {
@@ -93,7 +104,12 @@ export function metricView(
       sub: `peak ${peak} · mean ${mean.toFixed(1)}`,
     };
   }
-  const kv = scopedKv(subject.payload, role);
+  const workerScoped =
+    (s.scope === 'worker' || s.scope === 'kernel' || s.scope === 'parallel') &&
+    s.workerKey !== null;
+  const kv = workerScoped
+    ? scopedWorkerKv(subject.payload, s.workerKey)
+    : scopedKv(subject.payload, role);
   if (!kv.series.length && !kv.workerSeries.length)
     return {
       option: null,
@@ -104,14 +120,18 @@ export function metricView(
   const hasCompleteCapacity = kv.series.every((series) => series.capacity !== null);
   return {
     option: kvOption(kv, CHART_THEME, cS),
-    note: role
-      ? `scoped to ${role} pool; bold line is the pool average`
-      : hasCompleteCapacity
-        ? 'worker lines with bold pool averages; click a pool to scope'
-        : 'raw worker occupancy with bold pool averages; capacity metadata unavailable',
-    sub: role
-      ? `${kv.workerSeries.length} workers · pool: ${role}`
-      : `${kv.workerSeries.length} workers · ${kv.series.length} pools`,
+    note: workerScoped
+      ? 'selected worker only'
+      : role
+        ? `scoped to ${role} pool; bold line is the pool average`
+        : hasCompleteCapacity
+          ? 'worker lines with bold pool averages; click a pool to scope'
+          : 'raw worker occupancy with bold pool averages; capacity metadata unavailable',
+    sub: workerScoped
+      ? `worker: ${s.workerKey}`
+      : role
+        ? `${kv.workerSeries.length} workers · pool: ${role}`
+        : `${kv.workerSeries.length} workers · ${kv.series.length} pools`,
   };
 }
 

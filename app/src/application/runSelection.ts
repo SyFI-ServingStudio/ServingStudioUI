@@ -67,6 +67,12 @@ export const scopedUtil = (utilization: UtilSeries, role: string | null): UtilSe
   };
 };
 
+export const scopedWorkerUtil = (utilization: UtilSeries, workerKey: WorkerKey): UtilSeries => ({
+  t_ms: utilization.t_ms,
+  series: [],
+  workerSeries: utilization.workerSeries.filter((series) => series.key === workerKey),
+});
+
 export const scopedKv = (kv: KvSeries, role: string | null): KvSeries => {
   if (!role) return kv;
   return {
@@ -75,6 +81,12 @@ export const scopedKv = (kv: KvSeries, role: string | null): KvSeries => {
     workerSeries: kv.workerSeries.filter((series) => series.worker.poolTag === role),
   };
 };
+
+export const scopedWorkerKv = (kv: KvSeries, workerKey: WorkerKey): KvSeries => ({
+  t_ms: kv.t_ms,
+  series: [],
+  workerSeries: kv.workerSeries.filter((series) => series.key === workerKey),
+});
 
 function sumPendingQueue(series: PendingQueueSeries[], sampleCount: number): number[] {
   return Array.from({ length: sampleCount }, (_, index) =>

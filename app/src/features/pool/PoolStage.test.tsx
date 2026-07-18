@@ -86,4 +86,15 @@ describe('PoolStage', () => {
     ).toBeVisible();
     await waitFor(() => expect(calls.subjects).toBe(2));
   });
+
+  it('places backpressure immediately before the closing kernel breakdown', async () => {
+    const { repository } = createTestRepository();
+    renderStage(repository);
+
+    const backpressure = await screen.findByText('Backpressure');
+    const kernelBreakdown = screen.getByText('Kernel time breakdown · attn');
+    expect(backpressure.compareDocumentPosition(kernelBreakdown)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
 });

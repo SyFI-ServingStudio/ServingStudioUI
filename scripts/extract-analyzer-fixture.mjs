@@ -67,6 +67,11 @@ const subjectArtifacts = [
     "reports/kv_occupancy_report.json",
     "payloads/kv_occupancy_series.json",
   ],
+  [
+    "optimality",
+    "reports/optimality_report.json",
+    "payloads/optimality_waterfall.json",
+  ],
 ];
 
 const unavailableCodes = {
@@ -86,6 +91,7 @@ const sourceFiles = [
   "payloads/kernel_throughput_locations.json",
   "payloads/kernel_time_share_composition.json",
   "payloads/kv_occupancy_series.json",
+  "payloads/optimality_waterfall.json",
   "payloads/slo_detailed_cdf.json",
   "payloads/slo_general_cdf.json",
   "payloads/throughput_segments.json",
@@ -100,6 +106,7 @@ const sourceFiles = [
   "reports/kernel_throughput_report.json",
   "reports/kernel_time_share_report.json",
   "reports/kv_occupancy_report.json",
+  "reports/optimality_report.json",
   "reports/slo_detailed_report.json",
   "reports/slo_general_report.json",
   "reports/throughput_report.json",

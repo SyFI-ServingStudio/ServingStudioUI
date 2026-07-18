@@ -62,15 +62,18 @@ analyzer utilization 曾只用 `worker_id` 做部分映射和 SQL 聚合，导�
 
 utilization schema v1 的顶层 `series` 保留逐时间 bin 的 pool average；新增的可选
 `worker_series` 提供 `{key, label, pool_tag, worker_id, util}` worker 曲线。UI 必须兼容
-没有 `worker_series` 的旧 v1 artifact；存在时以 worker 细线展示，并以同 pool 颜色的粗线
-突出 `series` 中的 pool average。`meta.avg` 仍是每个 pool 的 run-average 标量，不是另一条
+没有 `worker_series` 的旧 v1 artifact；cluster/pool 视图中以 worker 细线展示，并以同 pool
+颜色的粗线突出 `series` 中的 pool average；worker 视图只剩一条选中 worker 曲线时，该曲线
+升级为不透明主线，不再沿用背景细线样式。`meta.avg` 仍是每个 pool 的 run-average 标量，不是另一条
 时序曲线。
 
 KV occupancy schema v1 的每个 pool `series[]` 保留 `active.mean` 作为 pool-average
 时序；其中可选的 `workers[]` 提供 `{worker_id, active_tokens}` worker 曲线。UI 必须兼容
 没有 `workers` 的旧 v1 artifact；存在时按父 series 的 `pool_tag` 与
-`capacity_tokens` 构造复合 worker 身份，以细线展示 worker，并以同 pool 颜色的粗线突出
-`active.mean`。worker 与 pool 曲线都不得 clamp 超容量值，因为超界本身是诊断信号。
+`capacity_tokens` 构造复合 worker 身份；cluster/pool 中以细线展示 worker，并以同 pool 颜色的粗线突出
+pool average，worker 视图的单条选中曲线则使用不透明主线。不得
+`active.mean`。worker 与 pool 曲线都不得 clamp 超容量值，因为超界本身是诊断信号；
+KV percent 轴以 100% 为正常基线，存在超容量样本时必须自动扩展上限并保留顶部空间。
 
 wire 层 subject id 使用 analyzer `registry::SUBJECTS` 的 canonical token；UI
 repository 必须通过显式表映射到领域名，不能从文件名或 camelCase 自动推断：
@@ -86,6 +89,7 @@ repository 必须通过显式表映射到领域名，不能从文件名或 camel
 | `workload-conservation`     | `conservation`            |
 | `kernel-input-distribution` | `kernelInputDistribution` |
 | `kernel-time-share`         | `kernelTimeShare`         |
+| `optimality`                | `optimality`              |
 
 `slo-detailed` 等尚无 UI consumer 的 registry subject 仍可出现在 descriptor；旧 UI
 必须忽略未知 subject，而不是拒绝整个 run。descriptor 的 deployment 合同覆盖
@@ -197,6 +201,44 @@ JSON 作为 `run_descriptor.json`：
 composition 投影的扁平 run aggregate 不是 hierarchical worker/iteration CostTree，
 不得在 descriptor 中声称后者 ready。iteration index 必须分页，iteration detail 只在
 用户选择后请求。
+
+`iteration-optimality-kernel-ladder` detail 按
+`(pool_tag, worker_id, iter_id)` 请求，返回该 iteration 全量 cost rows 的 R0-R5
+per-kernel ladder。它不进入 run descriptor body，也不批量塞入 optimality subject。
+iteration 没有 scheduler holding-span，合同规定 R0=R1、idle=0；imbalance 仍作为
+R1-R2 aggregate chunk，不虚构 kernel 归因。
+
+UI 的 per-kernel recoverable-source 图不定义第二套 analyzer 合同。cluster、pool 和
+worker 从同一批 worker ladder 可加和投影，iteration 使用上述精确 detail，kernel
+层只筛选所选 CostTree leaf。每根 bar 固定由 `R2-R3` batching、`R3-R4`
+communication、`R4-R5` hardware gap 和 `R5` hardware-optimal 四段组成；idle 与
+critical-path imbalance 始终保留为 aggregate-only，不分摊到 kernel。Real scale
+直接展示 GPU·seconds；Normalized 只在 UI 中将每根 kernel bar 独立除以其 R2 total，
+不改变、缓存或重新解释 analyzer 数值。
+
+这些 optimality 视图统一位于独立的 `Optimality analysis` 页面 section，不与 scope 的
+普通资源或 CostTree card 混排。Stacked bar 使用 item-level tooltip；hover 只报告命中的
+单个 kernel/bucket chunk，不展开整条 bar 的全部 series。
+
+worker scope 在 section 02 显式区分 `Worker` aggregate 与 `Iteration` detail。选择 worker
+后 operation bootstrap index 仍后台预取，但 Worker 模式不展示 operation map，也不触发
+exact CostTree/iteration-optimality 请求。切到 Iteration 后展示预取的 map；只有选择具体
+operation 才请求 exact detail。切回 Worker 会原子清除 operation、kernel 和 Max 选择。
+Worker aggregate 展示选中 worker 的 utilization、KV、backpressure、batch 与 kernel-time-share。
+batch schema v1 以 additive `workers[]` 保留 `(pool_tag, worker_id)`；旧 artifact 没有该字段时
+必须明确显示 worker detail unavailable，不得退回 pool series 冒充。batch 的 `num_calls` exact，
+而时序值是按规则 iteration stride 采样。Worker UI 将 total tokens、prefill tokens 和 decode
+requests 显示为三张独立图；attention/iter-wise worker 可展示三者，FFN worker 的 cost log
+只保留 routed total，后两张图必须显式标记 unavailable，不得用 `total - prefill` 伪造 decode。
+
+Pool batch 不得直接串联 pool 下的异步 worker invocation。UI 从 `workers[]` 构造
+wall-clock snapshot：每个 worker 的最新 sampled invocation 值保持到该 worker 的下一个样本，
+并且只在 pool 的每个 worker 都出现首个样本后开始输出。每个时刻的 pool aggregate
+是所有 worker 最新值之和，pool average 是 aggregate 除以 pool worker 总数。Total tokens、
+Prefill tokens 和 Decode requests 必须分为三张图，每张同时显示 aggregate 与 average；
+FFN pool 仍只展示 routed Total，其余两张图显式 unavailable。
+composition/statistics 使用 analyzer 声明的 regular iteration-stride sample。后台 operation-index
+预取不占据可视卡片。
 
 `analysis.revision` 标识一次完整 artifact generation。仅有 `.complete` 只能证明
 simulation 完成，因为 launcher 在它之后才运行 analyzer；旧 schema v1 的语义修复也

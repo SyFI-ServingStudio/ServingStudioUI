@@ -269,6 +269,7 @@ export function makeTestSubjectResults(): TestSubjectResults {
       schemaVersion: 1,
       payload: kernelTimeShare,
     },
+    optimality: missing('optimality'),
   };
 }
 

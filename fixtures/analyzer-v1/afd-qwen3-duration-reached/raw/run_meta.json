@@ -144,293 +144,341 @@
       "id": 0,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "attn"
     },
     {
       "id": 1,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "attn"
     },
     {
       "id": 2,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "attn"
     },
     {
       "id": 3,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "attn"
     },
     {
       "id": 4,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "attn"
     },
     {
       "id": 5,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "attn"
     },
     {
       "id": 6,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "attn"
     },
     {
       "id": 7,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "attn"
     },
     {
       "id": 8,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 2
+      "worker_id": 2,
+      "pool_tag": "attn"
     },
     {
       "id": 9,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 2
+      "worker_id": 2,
+      "pool_tag": "attn"
     },
     {
       "id": 10,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 2
+      "worker_id": 2,
+      "pool_tag": "attn"
     },
     {
       "id": 11,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 2
+      "worker_id": 2,
+      "pool_tag": "attn"
     },
     {
       "id": 12,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 3
+      "worker_id": 3,
+      "pool_tag": "attn"
     },
     {
       "id": 13,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 3
+      "worker_id": 3,
+      "pool_tag": "attn"
     },
     {
       "id": 14,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 3
+      "worker_id": 3,
+      "pool_tag": "attn"
     },
     {
       "id": 15,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 3
+      "worker_id": 3,
+      "pool_tag": "attn"
     },
     {
       "id": 16,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 4
+      "worker_id": 4,
+      "pool_tag": "attn"
     },
     {
       "id": 17,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 4
+      "worker_id": 4,
+      "pool_tag": "attn"
     },
     {
       "id": 18,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 4
+      "worker_id": 4,
+      "pool_tag": "attn"
     },
     {
       "id": 19,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 4
+      "worker_id": 4,
+      "pool_tag": "attn"
     },
     {
       "id": 20,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 5
+      "worker_id": 5,
+      "pool_tag": "attn"
     },
     {
       "id": 21,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 5
+      "worker_id": 5,
+      "pool_tag": "attn"
     },
     {
       "id": 22,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 5
+      "worker_id": 5,
+      "pool_tag": "attn"
     },
     {
       "id": 23,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 5
+      "worker_id": 5,
+      "pool_tag": "attn"
     },
     {
       "id": 24,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 6
+      "worker_id": 6,
+      "pool_tag": "attn"
     },
     {
       "id": 25,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 6
+      "worker_id": 6,
+      "pool_tag": "attn"
     },
     {
       "id": 26,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 6
+      "worker_id": 6,
+      "pool_tag": "attn"
     },
     {
       "id": 27,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 6
+      "worker_id": 6,
+      "pool_tag": "attn"
     },
     {
       "id": 28,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 7
+      "worker_id": 7,
+      "pool_tag": "attn"
     },
     {
       "id": 29,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 7
+      "worker_id": 7,
+      "pool_tag": "attn"
     },
     {
       "id": 30,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 7
+      "worker_id": 7,
+      "pool_tag": "attn"
     },
     {
       "id": 31,
       "name": "NVIDIA H200",
       "pool": 0,
-      "worker_id": 7
+      "worker_id": 7,
+      "pool_tag": "attn"
     },
     {
       "id": 32,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 33,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 34,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 35,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 36,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 37,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 38,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 39,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 0
+      "worker_id": 0,
+      "pool_tag": "ffn"
     },
     {
       "id": 40,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 41,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 42,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 43,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 44,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 45,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 46,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     },
     {
       "id": 47,
       "name": "NVIDIA H200",
       "pool": 1,
-      "worker_id": 1
+      "worker_id": 1,
+      "pool_tag": "ffn"
     }
   ],
   "num_gpus": 48,
-  "schema_version": 3,
+  "schema_version": 4,
   "workers": [
     {
       "gpu_ids": [
@@ -581,7 +629,7 @@
       ],
       "kv_pools": [],
       "pool": 1,
-      "pool_tag": null,
+      "pool_tag": "ffn",
       "worker_id": 0
     },
     {
@@ -597,7 +645,7 @@
       ],
       "kv_pools": [],
       "pool": 1,
-      "pool_tag": null,
+      "pool_tag": "ffn",
       "worker_id": 1
     }
   ]

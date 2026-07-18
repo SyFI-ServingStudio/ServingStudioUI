@@ -113,4 +113,15 @@ describe('ClusterStage', () => {
     expect(await screen.findByText('2 worker lines · 2 pool averages')).toBeVisible();
     expect(screen.queryByText('GPU utilization · attn')).not.toBeInTheDocument();
   });
+
+  it('places backpressure immediately before the closing kernel breakdown', async () => {
+    const { repository } = createTestRepository();
+    renderStage(repository);
+
+    const backpressure = await screen.findByText('Backpressure');
+    const kernelBreakdown = screen.getByText('Cluster kernel time breakdown');
+    expect(backpressure.compareDocumentPosition(kernelBreakdown)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
 });

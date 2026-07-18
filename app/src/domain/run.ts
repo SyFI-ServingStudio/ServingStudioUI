@@ -87,6 +87,12 @@ export interface BatchSeries {
 }
 export interface BatchSubject {
   pools: Readonly<Record<string, BatchSeries>>;
+  workers: ReadonlyArray<
+    BatchSeries & {
+      key: WorkerKey;
+      worker: WorkerRef;
+    }
+  >;
 }
 export interface RunSource {
   kind: 'synthetic' | 'analyzer_fixture' | 'analyzer_http';

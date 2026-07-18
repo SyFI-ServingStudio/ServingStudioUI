@@ -73,6 +73,7 @@ describe('ActiveWorkerTreeProvider operation buffer', () => {
       cursorMs: null,
       cursorNeedsSeek: false,
       operation: null,
+      workerAnalysisLevel: 'worker',
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -113,6 +114,7 @@ describe('ActiveWorkerTreeProvider operation buffer', () => {
       cursorMs: 10,
       cursorNeedsSeek: false,
       operation: { iterId: 'old', batchId: '0', operationId: 'old' },
+      workerAnalysisLevel: 'iteration',
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -157,6 +159,7 @@ describe('ActiveWorkerTreeProvider operation buffer', () => {
       cursorMs: null,
       cursorNeedsSeek: false,
       operation: null,
+      workerAnalysisLevel: 'iteration',
     });
     render(
       <QueryClientProvider client={queryClient}>

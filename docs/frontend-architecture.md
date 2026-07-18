@@ -58,8 +58,8 @@ features/
   timeline/           run cursor 与真实 worker iteration index
   metrics/            cluster/pool 共用的 scope-aware 指标投影与业务图表
   cluster/            whole-deployment 指标与 conservation
-  pool/               pool resource、batch、kernel composition 与 worker list
-  worker/             worker evidence、CostTree、batch/time-share
+  pool/               pool resource、wall-clock aggregate/average batch 与 kernel composition
+  worker/             worker resource、CostTree、batch/time-share；batch 按 total/prefill/decode requests 分三图
   kernel/             kernel/parallel drill、roofline、input distribution
   trace/              Perfetto resource 与嵌入控制器
 ```
@@ -67,6 +67,9 @@ features/
 每个 feature 通过 `index.ts` 暴露最小公共 API。外部代码不得 import 其内部
 `components/`、`model.ts` 或 `options.ts`。测试与被测实现共置；跨 transport 的
 contract tests 仍留在 `contracts/` 或 `repositories/`。
+
+Section 02 的 Cluster、Pool 与 Worker aggregate 视图都必须将 Backpressure 放在
+Kernel breakdown 之前，并由 Kernel breakdown 作为该 section 的最后一张图。
 
 当前 `data/` 是迁移目录，不是长期层。真实纯计算移到对应 feature/domain；只服务旧
 demo 的 generator 应删除或移到 test-only fixture，不能被 production component import。
@@ -168,10 +171,11 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
   左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
   不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。
-- Worker scope 只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
+- Worker 的 Iteration 模式只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
   `by kernel family` 与 `by kernel position`，两者都按 critical path / CostTree root wall-clock
-  计算。不得再重复渲染 aggregate `Worker kernel time breakdown`；cluster 与 pool scope 仍可使用
-  aggregate kernel-time-share subject。所有 kernel-time breakdown、CostTree family legend、leaf
+  计算。Worker aggregate 模式使用 aggregate `kernel-time-share` worker row 展示跨全部 operation
+  的 kernel family 与 position composition；position mix 必须明确标出 exact 或 sampled，不能冒充
+  exact operation CostTree。所有 kernel-time breakdown、CostTree family legend、leaf
   与 operation selection lane 必须复用 `domain/cost-tree` 的同一套 Mineral family palette。Worker
   breakdown 另提供一条六 family 等宽的 visual-only palette bar；它不得伪装成真实时间比例。
 - exact CostTree ready 工作面在 `lg` 及以上保持左右两列：左列是完整 CostTree frame，右列是约

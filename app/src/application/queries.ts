@@ -95,6 +95,23 @@ export const analyzerQueryKeys = {
       'kernel-throughput-analysis',
       `analysis-${analysisRevision}`,
     ] as const,
+  iterationOptimalityKernelLadder: (
+    runId: string,
+    worker: WorkerRef,
+    iterId: string,
+    analysisRevision: string,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      worker.poolTag,
+      worker.workerId,
+      'iteration',
+      iterId,
+      'optimality-kernel-ladder',
+      `analysis-${analysisRevision}`,
+    ] as const,
   workerOperations: (
     runId: string,
     worker: WorkerRef,
@@ -446,8 +463,7 @@ export function useKernelThroughputAnalysisQuery(
 ) {
   const repository = useAnalyzerRepository();
   const supported = repository.getKernelThroughputAnalysis !== undefined;
-  const ready =
-    supported && ref !== undefined && leafId !== null && analysisRevision !== undefined;
+  const ready = supported && ref !== undefined && leafId !== null && analysisRevision !== undefined;
   const query = useQuery({
     queryKey: ready
       ? analyzerQueryKeys.kernelThroughputAnalysis(runId, ref, leafId, analysisRevision)
@@ -457,6 +473,33 @@ export function useKernelThroughputAnalysisQuery(
         throw new Error('Kernel throughput analysis requires the live Analyzer service.');
       }
       return repository.getKernelThroughputAnalysis(runId, ref, leafId);
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function useIterationOptimalityKernelLadderQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  iterId: string | undefined,
+  analysisRevision: string | undefined,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getIterationOptimalityKernelLadder !== undefined;
+  const ready =
+    supported && worker !== undefined && iterId !== undefined && analysisRevision !== undefined;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.iterationOptimalityKernelLadder(runId, worker, iterId, analysisRevision)
+      : [...analyzerQueryKeys.runs(), runId, 'iteration-optimality-kernel-ladder', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getIterationOptimalityKernelLadder === undefined) {
+        throw new Error('Iteration optimality requires the live Analyzer service.');
+      }
+      return repository.getIterationOptimalityKernelLadder(runId, worker, iterId);
     },
     enabled: enabled && ready,
     staleTime: Infinity,

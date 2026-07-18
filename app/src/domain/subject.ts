@@ -1,6 +1,7 @@
 import type { KernelThroughput } from './kernelThroughput';
 import type { KernelInputDistribution } from './kernelInputDistribution';
 import type { KernelTimeShare } from './kernelTimeShare';
+import type { Optimality } from './optimality';
 import type {
   BatchSubject,
   Concurrency,
@@ -31,6 +32,7 @@ export const SUBJECT_NAMES = [
   'conservation',
   'kernelInputDistribution',
   'kernelTimeShare',
+  'optimality',
 ] as const;
 
 export type SubjectName = (typeof SUBJECT_NAMES)[number];
@@ -47,6 +49,7 @@ export interface SubjectPayloadByName {
   conservation: Conservation;
   kernelInputDistribution: KernelInputDistribution;
   kernelTimeShare: KernelTimeShare;
+  optimality: Optimality;
 }
 
 /** `incompatible` is produced by the UI adapter, never by analyzer itself. */

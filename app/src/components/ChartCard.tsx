@@ -1,6 +1,7 @@
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import type { EChartsOption } from 'echarts';
+import type { ReactNode } from 'react';
 import { tokens } from '../theme';
 import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
@@ -17,6 +18,7 @@ export default function ChartCard({
   note,
   caption,
   empty,
+  controls,
   height = 216,
 }: {
   idx?: string;
@@ -26,6 +28,7 @@ export default function ChartCard({
   note?: string | null;
   caption?: string;
   empty?: string;
+  controls?: ReactNode;
   height?: number;
 }) {
   const openFocus = useOpenChartFocus();
@@ -67,10 +70,10 @@ export default function ChartCard({
         </IconButton>
       )}
       <Stack
-        direction="row"
-        alignItems="baseline"
+        direction={{ xs: controls ? 'column' : 'row', sm: 'row' }}
+        alignItems={{ xs: controls ? 'flex-start' : 'baseline', sm: 'baseline' }}
         justifyContent="space-between"
-        spacing={1}
+        spacing={{ xs: controls ? 0.75 : 1, sm: 1 }}
         sx={{ mb: 1, pr: 3.5 }}
       >
         <Typography
@@ -99,19 +102,28 @@ export default function ChartCard({
           )}
           {title}
         </Typography>
-        {sub && (
-          <Typography
-            sx={{
-              fontFamily: tokens.mono,
-              fontSize: 10,
-              color: tokens.sub,
-              textAlign: 'right',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {sub}
-          </Typography>
-        )}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={0.75}
+          sx={{ flexShrink: 0, maxWidth: '100%' }}
+        >
+          {controls}
+          {sub && (
+            <Typography
+              sx={{
+                fontFamily: tokens.mono,
+                fontSize: 10,
+                color: tokens.sub,
+                textAlign: 'right',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {sub}
+            </Typography>
+          )}
+        </Stack>
       </Stack>
       <Box sx={{ height }}>
         {option ? (

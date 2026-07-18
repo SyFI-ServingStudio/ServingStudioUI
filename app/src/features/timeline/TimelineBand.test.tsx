@@ -59,6 +59,7 @@ describe('TimelineBand interaction semantics', () => {
   it('keeps exact content visible while a free wall-clock cursor is pending seek', () => {
     useViz.setState({
       scope: 'kernel',
+      workerAnalysisLevel: 'iteration',
       cursorMs: 10,
       operation: { iterId: '17', batchId: '9', operationId: 'op-3' },
       leafId: 4,

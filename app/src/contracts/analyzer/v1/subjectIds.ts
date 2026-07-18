@@ -15,6 +15,7 @@ export const ANALYZER_V1_SUBJECT_TO_DOMAIN = {
   'workload-conservation': 'conservation',
   'kernel-input-distribution': 'kernelInputDistribution',
   'kernel-time-share': 'kernelTimeShare',
+  optimality: 'optimality',
 } as const satisfies Readonly<Record<string, SubjectName>>;
 
 export type AnalyzerV1MappedSubjectId = keyof typeof ANALYZER_V1_SUBJECT_TO_DOMAIN;

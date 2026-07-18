@@ -7,10 +7,11 @@ import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../../d
 import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import {
-  batchOption,
+  batchMetricOption,
   kernelTimeStackOption,
   kvOption,
   pendingQueueOption,
+  poolBatchMetricOption,
   sloMetricOption,
   throughputOption,
   utilizationOption,
@@ -151,6 +152,37 @@ const breakdown: ReadyKernelTimeBreakdown = {
 };
 
 describe('scope metric chart options', () => {
+  it('keeps total, prefill, and decode request batch signals in independent charts', () => {
+    const cases = [
+      ['total_tokens', 'tokens / invocation', 8],
+      ['prefill_tokens', 'tokens / invocation', 4],
+      ['decode_requests', 'requests / invocation', 2],
+    ] as const;
+
+    for (const [metric, unit, expected] of cases) {
+      const option = batchMetricOption(batch, metric, CHART_THEME);
+      const series = option.series as Array<{ data: [number, number][] }>;
+      expect(option.yAxis).toMatchObject({ name: unit });
+      expect(series).toHaveLength(1);
+      expect(series[0].data).toEqual([[0, expected]]);
+    }
+  });
+
+  it('plots pool batch aggregate and average as separate series', () => {
+    const average: BatchSeries = {
+      t_ms: [0],
+      batchTokens: [4],
+      prefillTokens: [2],
+      decodeRequests: [1],
+    };
+    const option = poolBatchMetricOption(batch, average, 'total_tokens', CHART_THEME);
+    const series = option.series as Array<{ name: string; data: [number, number][] }>;
+
+    expect(series.map((item) => item.name)).toEqual(['pool aggregate', 'pool average']);
+    expect(series[0].data).toEqual([[0, 8]]);
+    expect(series[1].data).toEqual([[0, 4]]);
+  });
+
   it('uses renderer-native rich-text mode for every popup tooltip', () => {
     const options = [
       sloMetricOption(slo.ttft, CHART_THEME, CHART_THEME.palette[0]),
@@ -160,7 +192,6 @@ describe('scope metric chart options', () => {
       utilizationOption(utilization, CHART_THEME),
       kvOption(kv, CHART_THEME),
       pendingQueueOption(queue, CHART_THEME),
-      batchOption(batch, CHART_THEME),
       kernelTimeStackOption(breakdown, CHART_THEME),
     ];
 
@@ -324,5 +355,55 @@ describe('scope metric chart options', () => {
     expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(
       true,
     );
+  });
+
+  it('expands the KV percent axis above 100 instead of clipping over-capacity samples', () => {
+    const option = kvOption(
+      {
+        t_ms: [0, 1000],
+        series: [],
+        workerSeries: [
+          {
+            key: makeWorkerKey('attn', '0'),
+            label: 'Worker 0',
+            worker: makeWorkerRef('attn', '0'),
+            capacity: 100,
+            active: [98, 103],
+          },
+        ],
+      },
+      CHART_THEME,
+    );
+    const yAxis = option.yAxis as { max?: number };
+    const series = option.series as Array<{ data: [number, number][] }>;
+
+    expect(yAxis.max).toBeGreaterThan(103);
+    expect(series[0].data.at(-1)?.[1]).toBe(103);
+  });
+
+  it('promotes a selected worker utilization and KV series to a solid primary line', () => {
+    const workerUtilization = utilizationOption(
+      { ...multiPoolUtilization, series: [], workerSeries: [multiPoolUtilization.workerSeries[0]] },
+      CHART_THEME,
+    );
+    const workerKv = kvOption(
+      { ...multiPoolKv, series: [], workerSeries: [multiPoolKv.workerSeries[0]] },
+      CHART_THEME,
+    );
+    const utilizationLine = (
+      workerUtilization.series as Array<{
+        lineStyle: { width: number; opacity: number };
+        z: number;
+      }>
+    )[0];
+    const kvLine = (
+      workerKv.series as Array<{
+        lineStyle: { width: number; opacity: number };
+        z: number;
+      }>
+    )[0];
+
+    expect(utilizationLine).toMatchObject({ lineStyle: { width: 3.4, opacity: 1 }, z: 4 });
+    expect(kvLine).toMatchObject({ lineStyle: { width: 3.4, opacity: 1 }, z: 4 });
   });
 });
