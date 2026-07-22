@@ -94,7 +94,7 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
     makeRow('R5 Hardware limit', values('hardwareLimit', false, false)),
   ];
   if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
-    rows.push(makeRow('R6 Necessary work', values('necessaryLimit', false, false)));
+    rows.push(makeRow('R6 Segmented necessary', values('necessaryLimit', false, false)));
   }
   if (data.rungs.hardwareNecessary !== null && data.rungs.hardwareNecessary !== undefined) {
     rows.push(makeRow('R7 Globally fused', { __globalNecessary: data.rungs.hardwareNecessary }));

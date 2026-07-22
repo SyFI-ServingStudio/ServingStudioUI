@@ -168,7 +168,7 @@ describe('optimality kernel ladder projection', () => {
     const projection = projectExactKernelLadder(exact);
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
-    expect(projection.rows.at(-2)).toMatchObject({ label: 'R6 Necessary work', total: 5 });
+    expect(projection.rows.at(-2)).toMatchObject({ label: 'R6 Segmented necessary', total: 5 });
     expect(projection.rows.at(-1)).toMatchObject({ label: 'R7 Globally fused', total: 2 });
 
     const headroom = projectKernelHeadroom(projection);
