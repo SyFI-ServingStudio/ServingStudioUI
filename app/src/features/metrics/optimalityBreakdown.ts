@@ -8,6 +8,7 @@ export interface ReadyOptimalityBreakdown {
   rows: OptimalityStackRow[];
   /** hardware-optimal / Real of the primary (first) row — the scope headline. */
   optimalityRatio: number;
+  necessaryRatio: number | null;
   gpuName: string;
   gpuSpecMatched: string | null;
   peaksSource: string;
@@ -21,9 +22,7 @@ export type OptimalityScope =
 type OptimalityNotReady = Exclude<SubjectResult<'optimality'>, { status: 'ready' }>;
 
 export type OptimalityBreakdownProjection =
-  | ReadyOptimalityBreakdown
-  | OptimalityNotReady
-  | { status: 'scope_missing'; reason: string };
+  ReadyOptimalityBreakdown | OptimalityNotReady | { status: 'scope_missing'; reason: string };
 
 export function hasReportableOptimality(projection: ReadyOptimalityBreakdown): boolean {
   return projection.rows.some((row) => row.total > OPTIMALITY_EPSILON_GPU_S);
@@ -66,9 +65,7 @@ export function projectOptimalityBreakdown(
       return [...cluster, ...pools];
     }
     if (scope.kind === 'pool') {
-      const pool = levels.find(
-        (level) => level.level === 'pool' && level.key === scope.poolTag,
-      );
+      const pool = levels.find((level) => level.level === 'pool' && level.key === scope.poolTag);
       if (!pool) return [];
       const workers = levels.filter(
         (level) => level.level === 'worker' && workerPool(level) === scope.poolTag,
@@ -96,6 +93,9 @@ export function projectOptimalityBreakdown(
     status: 'ready',
     rows: scopeLevels.map(toRow),
     optimalityRatio: scopeLevels[0].optimalityRatio,
+    // Presence is a payload-wide contract. Do not reinterpret the legacy R5
+    // optimality ratio as a global necessary-work result in locked mode.
+    necessaryRatio: payload.necessaryRatio,
     gpuName: payload.gpuName,
     gpuSpecMatched: payload.gpuSpecMatched,
     peaksSource: payload.peaksSource,
@@ -108,9 +108,7 @@ export interface ReadyOptimalityKernels {
 }
 
 export type OptimalityKernelsProjection =
-  | ReadyOptimalityKernels
-  | OptimalityNotReady
-  | { status: 'scope_missing'; reason: string };
+  ReadyOptimalityKernels | OptimalityNotReady | { status: 'scope_missing'; reason: string };
 
 /** The per-kernel bars: each location's Real split into batching / communication /
  * hardware-gap / hardware-optimal (already top-N + `other` from the analyzer). */

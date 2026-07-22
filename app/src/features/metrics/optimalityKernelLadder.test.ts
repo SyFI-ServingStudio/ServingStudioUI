@@ -54,6 +54,7 @@ function subject(ladders: OptimalityKernelLadder[]): SubjectResult<'optimality'>
   const payload: Optimality = {
     unit: 'gpu_seconds',
     optimalityRatio: 0.4,
+    necessaryRatio: null,
     levels: [],
     kernels: [],
     workerKernelLadders: ladders,

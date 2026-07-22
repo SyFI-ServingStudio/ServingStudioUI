@@ -23,14 +23,21 @@ import {
  * below zero by the analyzer's clamp; treat that as zero, reject anything real. */
 const bucketValue = finiteNumber.transform((value) => Math.max(0, value));
 
-const bucketsSchema = z.object({
+const commonBucketsSchema = z.object({
   idle: bucketValue,
   imbalance: bucketValue,
   batching: bucketValue,
   communication: bucketValue,
   hardware_gap: bucketValue,
-  hardware_optimal: bucketValue,
 });
+const bucketsSchema = z.union([
+  commonBucketsSchema.extend({ hardware_optimal: bucketValue }),
+  commonBucketsSchema.extend({
+    excess_over_necessary: bucketValue,
+    fusion: bucketValue,
+    hardware_necessary: bucketValue,
+  }),
+]);
 
 const ratioSchema = finiteNumber.transform((value) => Math.min(1, Math.max(0, value)));
 
@@ -41,6 +48,7 @@ const levelSchema = z.object({
   total: nonNegativeNumber,
   buckets: bucketsSchema,
   optimality_ratio: ratioSchema,
+  necessary_ratio: ratioSchema.nullable().optional().default(null),
 });
 
 const kernelSchema = z.object({
@@ -92,6 +100,7 @@ const readySchema = z.object({
   available: z.literal(true),
   unit: z.literal('gpu_seconds'),
   optimality_ratio: ratioSchema,
+  necessary_ratio: ratioSchema.nullable().optional().default(null),
   meta: z
     .object({
       log_dir: wireIdentityString,
@@ -135,7 +144,11 @@ export type OptimalityDecodeResult =
  * the level's Real (or Busy) `total`; a mismatch means the ladder was mis-folded. */
 function bucketSum(level: z.infer<typeof levelSchema>): number {
   const b = level.buckets;
-  return b.idle + b.imbalance + b.batching + b.communication + b.hardware_gap + b.hardware_optimal;
+  const floor =
+    'hardware_optimal' in b
+      ? b.hardware_optimal
+      : b.excess_over_necessary + b.fusion + b.hardware_necessary;
+  return b.idle + b.imbalance + b.batching + b.communication + b.hardware_gap + floor;
 }
 
 function semanticIssues(wire: ReadyWire): string[] {
@@ -195,27 +208,45 @@ function toKernelLadder(
 }
 
 function toLevels(wire: ReadyWire): OptimalityLevel[] {
-  return wire.levels.map((level) => ({
-    level: level.level,
-    key: level.key,
-    label: level.label,
-    total: level.total,
-    optimalityRatio: level.optimality_ratio,
-    buckets: {
-      idle: level.buckets.idle,
-      imbalance: level.buckets.imbalance,
-      batching: level.buckets.batching,
-      communication: level.buckets.communication,
-      hardwareGap: level.buckets.hardware_gap,
-      hardwareOptimal: level.buckets.hardware_optimal,
-    },
-  }));
+  return wire.levels.map((level) => {
+    const floorBuckets =
+      'hardware_optimal' in level.buckets
+        ? {
+            hardwareOptimal: level.buckets.hardware_optimal,
+            excessOverNecessary: 0,
+            fusion: 0,
+            hardwareNecessary: 0,
+          }
+        : {
+            hardwareOptimal: 0,
+            excessOverNecessary: level.buckets.excess_over_necessary,
+            fusion: level.buckets.fusion,
+            hardwareNecessary: level.buckets.hardware_necessary,
+          };
+    return {
+      level: level.level,
+      key: level.key,
+      label: level.label,
+      total: level.total,
+      optimalityRatio: level.optimality_ratio,
+      necessaryRatio: 'hardware_optimal' in level.buckets ? null : level.necessary_ratio,
+      buckets: {
+        idle: level.buckets.idle,
+        imbalance: level.buckets.imbalance,
+        batching: level.buckets.batching,
+        communication: level.buckets.communication,
+        hardwareGap: level.buckets.hardware_gap,
+        ...floorBuckets,
+      },
+    };
+  });
 }
 
 function toOptimality(wire: ReadyWire): Optimality {
   return {
     unit: 'gpu_seconds',
     optimalityRatio: wire.optimality_ratio,
+    necessaryRatio: wire.necessary_ratio,
     gpuName: wire.meta.gpu_name,
     gpuSpecMatched: wire.meta.gpu_spec_matched,
     peaksSource: wire.meta.peaks_source,

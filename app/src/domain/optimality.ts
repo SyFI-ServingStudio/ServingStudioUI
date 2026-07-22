@@ -17,7 +17,14 @@ export interface OptimalityBuckets {
   batching: number;
   communication: number;
   hardwareGap: number;
+  /** Plain R5 floor, present as a non-zero value for locked or degraded output. */
   hardwareOptimal: number;
+  /** Unlocked-only split of R5 above the segmented per-op roofline. */
+  excessOverNecessary: number;
+  /** Unlocked-only benefit between segmented and globally fused rooflines. */
+  fusion: number;
+  /** Unlocked-only global necessary-work roofline floor. */
+  hardwareNecessary: number;
 }
 
 export type OptimalityLevelKind = 'cluster' | 'pool' | 'worker' | 'iteration';
@@ -32,6 +39,8 @@ export interface OptimalityLevel {
   buckets: OptimalityBuckets;
   /** hardware-optimal / total — the fraction that is irreducible optimal work. */
   optimalityRatio: number;
+  /** Global necessary work / total when the unlocked labeler succeeded. */
+  necessaryRatio: number | null;
 }
 
 /** The four leaf-attributable buckets a single kernel (location) can carry. */
@@ -90,6 +99,8 @@ export interface Optimality {
   unit: 'gpu_seconds';
   /** Cluster hardware-optimal / Real — the headline optimality. */
   optimalityRatio: number;
+  /** Cluster global necessary work / Real; null for locked or degraded output. */
+  necessaryRatio: number | null;
   levels: OptimalityLevel[];
   kernels: OptimalityKernel[];
   workerKernelLadders: OptimalityKernelLadder[];

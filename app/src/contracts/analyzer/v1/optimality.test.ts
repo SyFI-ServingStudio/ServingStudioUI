@@ -65,6 +65,7 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     if (result.status !== 'ready') return;
     expect(result.payload.unit).toBe('gpu_seconds');
     expect(result.payload.optimalityRatio).toBeCloseTo(0.4);
+    expect(result.payload.necessaryRatio).toBeNull();
     expect(result.payload.gpuName).toBe('NVIDIA H200');
     expect(result.payload.gpuSpecMatched).toBe('H200-SXM-141GB');
     expect(result.payload.peaksSource).toBe('generated');
@@ -72,8 +73,43 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     const level = result.payload.levels[0];
     expect(level.buckets.hardwareGap).toBe(30);
     expect(level.buckets.hardwareOptimal).toBe(40);
+    expect(level.necessaryRatio).toBeNull();
     expect(level.buckets.idle).toBe(30);
     expect(result.payload.kernels).toEqual([]);
+  });
+
+  it('accepts and maps the unlocked global necessary-work split', () => {
+    const result = decodeAnalyzerV1OptimalityPayload(
+      readyPayload({
+        necessary_ratio: 0.2,
+        levels: [
+          clusterLevel({
+            necessary_ratio: 0.2,
+            buckets: {
+              idle: 30,
+              imbalance: 0,
+              batching: 0,
+              communication: 0,
+              hardware_gap: 30,
+              excess_over_necessary: 10,
+              fusion: 10,
+              hardware_necessary: 20,
+            },
+          }),
+        ],
+      }),
+    );
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') return;
+    expect(result.payload.necessaryRatio).toBe(0.2);
+    expect(result.payload.levels[0].necessaryRatio).toBe(0.2);
+    expect(result.payload.levels[0].buckets).toMatchObject({
+      hardwareOptimal: 0,
+      excessOverNecessary: 10,
+      fusion: 10,
+      hardwareNecessary: 20,
+    });
   });
 
   it('defaults an absent kernels array and maps kernel buckets to camelCase', () => {

@@ -23,6 +23,9 @@ function levelBuckets(overrides: Partial<OptimalityBuckets> = {}): OptimalityBuc
     communication: 0,
     hardwareGap: 0,
     hardwareOptimal: 0,
+    excessOverNecessary: 0,
+    fusion: 0,
+    hardwareNecessary: 0,
     ...overrides,
   };
 }
@@ -33,7 +36,15 @@ function level(
   total: number,
   buckets: OptimalityBuckets,
 ): OptimalityLevel {
-  return { level: kind, key, label: key, total, buckets, optimalityRatio: 0.4 };
+  return {
+    level: kind,
+    key,
+    label: key,
+    total,
+    buckets,
+    optimalityRatio: 0.4,
+    necessaryRatio: null,
+  };
 }
 
 function kernel(name: string, real: number): OptimalityKernel {
@@ -55,6 +66,7 @@ function readySubject(overrides: Partial<Optimality> = {}): SubjectResult<'optim
   const payload: Optimality = {
     unit: 'gpu_seconds',
     optimalityRatio: 0.4,
+    necessaryRatio: null,
     gpuName: 'NVIDIA H200',
     gpuSpecMatched: 'H200-SXM-141GB',
     peaksSource: 'generated',

@@ -27,6 +27,15 @@ export const OPTIMALITY_FAMILIES: readonly OptimalityFamily[] = [
   { key: 'idle', label: 'idle', color: '#98A2B3' },
 ];
 
+/** Unlocked level bars replace the plain R5 green band with two counterfactual
+ * opportunities and the irreducible global necessary-work floor. */
+export const OPTIMALITY_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
+  { key: 'hardwareNecessary', label: 'hardware-necessary', color: '#2E7D32' },
+  { key: 'fusion', label: 'fusion', color: '#7CBF66' },
+  { key: 'excessOverNecessary', label: 'excess over necessary', color: '#B7D99C' },
+  ...OPTIMALITY_FAMILIES.slice(1),
+];
+
 /** Kernel bars only carry the four leaf-attributable buckets (no idle/imbalance). */
 export const OPTIMALITY_KERNEL_FAMILIES: readonly OptimalityFamily[] = [
   { key: 'hardwareOptimal', label: 'hardware-optimal', color: '#54A24B' },

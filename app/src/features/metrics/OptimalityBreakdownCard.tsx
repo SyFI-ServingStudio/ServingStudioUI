@@ -5,7 +5,11 @@ import {
   type OptimalityBreakdownProjection,
   type OptimalityScope,
 } from './optimalityBreakdown';
-import { OPTIMALITY_FAMILIES, optimalityStackOption } from './optimalityOption';
+import {
+  OPTIMALITY_FAMILIES,
+  OPTIMALITY_NECESSARY_WORK_FAMILIES,
+  optimalityStackOption,
+} from './optimalityOption';
 import { CHART_THEME } from '../../charts/platform';
 import ChartCard from '../../components/ChartCard';
 
@@ -52,12 +56,18 @@ export default function OptimalityBreakdownCard({
   }
 
   const reportable = hasReportableOptimality(projection);
-  const sub = `${Math.round(projection.optimalityRatio * 100)}% hardware-optimal`;
+  const necessaryRatio = projection.necessaryRatio;
+  const hasNecessaryWork = necessaryRatio !== null;
+  const sub =
+    necessaryRatio !== null
+      ? `${Math.round(necessaryRatio * 100)}% hardware-necessary`
+      : `${Math.round(projection.optimalityRatio * 100)}% hardware-optimal`;
   const specNote = projection.gpuSpecMatched
     ? `roofline ${projection.gpuSpecMatched}`
     : `roofline unavailable (${projection.gpuName || 'unknown GPU'})`;
   const note = `${specNote} · batching ceiling: ${projection.peaksSource}`;
   const separatePoolScale = scope.kind === 'pool';
+  const families = hasNecessaryWork ? OPTIMALITY_NECESSARY_WORK_FAMILIES : OPTIMALITY_FAMILIES;
 
   return (
     <ChartCard
@@ -66,7 +76,7 @@ export default function OptimalityBreakdownCard({
       sub={sub}
       option={
         reportable
-          ? optimalityStackOption(projection.rows, OPTIMALITY_FAMILIES, CHART_THEME, {
+          ? optimalityStackOption(projection.rows, families, CHART_THEME, {
               separatePrimaryRowScale: separatePoolScale,
             })
           : null
@@ -74,7 +84,11 @@ export default function OptimalityBreakdownCard({
       height={Math.max(separatePoolScale ? 270 : 180, projection.rows.length * 46 + 98)}
       note={reportable ? note : undefined}
       empty={reportable ? undefined : 'This scope recorded no GPU·seconds.'}
-      caption="Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, kernel-vs-hardware gap, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's Real held GPU·seconds."
+      caption={
+        hasNecessaryWork
+          ? "Unlocked lower-bound ladder: R5 is further split into excess over per-op necessary work, cross-op fusion opportunity, and the global hardware-necessary floor. All bands telescope to the scope's Real held GPU·seconds."
+          : "Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, kernel-vs-hardware gap, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's Real held GPU·seconds."
+      }
     />
   );
 }
