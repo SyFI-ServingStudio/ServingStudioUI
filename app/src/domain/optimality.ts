@@ -67,8 +67,10 @@ export interface OptimalityRungs {
   perConfigBest: number;
   ignoreNetwork: number;
   hardwareLimit: number;
-  /** Locked exact-iteration R6; absent when semantic attribution is unavailable. */
+  /** Location-attributed segmented necessary-work R6. */
   segmentedNecessary?: number | null;
+  /** R7 globally fused necessary-work floor; aggregate-only, not per-location. */
+  hardwareNecessary?: number | null;
 }
 
 export interface OptimalityKernelRungs {
@@ -100,7 +102,7 @@ export interface OptimalityKernelLadderKernel {
   necessaryWork?: OptimalityKernelNecessaryWork | null;
 }
 
-/** One worker's additive kernel contributions across R0-R5. `iterId=null`
+/** One worker's analyzer-owned kernel contributions across R0-R7. `iterId=null`
  * denotes the run aggregate embedded in the subject; a concrete id is an exact
  * on-demand iteration detail. */
 export interface OptimalityKernelLadder {
@@ -108,7 +110,18 @@ export interface OptimalityKernelLadder {
   iterId: string | null;
   label: string;
   rungs: OptimalityRungs;
-  specialChunks: { idle: number; imbalance: number };
+  specialChunks: { idle: number; imbalance: number; fusion?: number };
+  kernels: OptimalityKernelLadderKernel[];
+  necessaryWorkMode?: 'batch_locked' | 'replicated_large_batch' | null;
+  necessaryWorkReplicationFactor?: number | null;
+}
+
+export interface OptimalityAggregateKernelLadder {
+  level: 'cluster' | 'pool';
+  key: string;
+  label: string;
+  rungs: OptimalityRungs;
+  specialChunks: { idle: number; imbalance: number; fusion?: number };
   kernels: OptimalityKernelLadderKernel[];
   necessaryWorkMode?: 'batch_locked' | 'replicated_large_batch' | null;
   necessaryWorkReplicationFactor?: number | null;
@@ -136,6 +149,8 @@ export interface Optimality {
   levels: OptimalityLevel[];
   kernels: OptimalityKernel[];
   workerKernelLadders: OptimalityKernelLadder[];
+  /** Analyzer-owned cluster/pool rollups; the UI must not recompute these. */
+  aggregateKernelLadders: OptimalityAggregateKernelLadder[];
   gpuName: string;
   gpuSpecMatched: string | null;
   /** Provenance of the R3 batching ceiling: `sidecar` / `generated` / `unavailable: …`. */

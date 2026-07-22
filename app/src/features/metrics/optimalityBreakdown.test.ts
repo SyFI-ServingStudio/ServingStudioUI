@@ -81,6 +81,7 @@ function readySubject(overrides: Partial<Optimality> = {}): SubjectResult<'optim
     ],
     kernels: [kernel('afd.attn.decode', 44), kernel('afd.ffn.gemm', 20)],
     workerKernelLadders: [],
+    aggregateKernelLadders: [],
     ...overrides,
   };
   return { subject: 'optimality', status: 'ready', schemaVersion: 1, payload };

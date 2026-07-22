@@ -55,77 +55,12 @@ export type KernelHeadroomProjection =
 interface LadderData {
   label: string;
   rungs: OptimalityRungs;
-  specialChunks: { idle: number; imbalance: number };
+  specialChunks: { idle: number; imbalance: number; fusion?: number };
   kernels: OptimalityKernelLadderKernel[];
 }
 
-const zeroRungs = (): OptimalityRungs => ({
-  real: 0,
-  busy: 0,
-  balanced: 0,
-  perConfigBest: 0,
-  ignoreNetwork: 0,
-  hardwareLimit: 0,
-});
-
-const zeroKernelRungs = (): OptimalityKernelRungs => ({
-  balanced: 0,
-  perConfigBest: 0,
-  ignoreNetwork: 0,
-  hardwareLimit: 0,
-});
-
-function sumLadders(ladders: readonly OptimalityKernelLadder[], label: string): LadderData {
-  const rungs = zeroRungs();
-  const specialChunks = { idle: 0, imbalance: 0 };
-  const kernels = new Map<string, OptimalityKernelLadderKernel>();
-  for (const ladder of ladders) {
-    for (const key of [
-      'real',
-      'busy',
-      'balanced',
-      'perConfigBest',
-      'ignoreNetwork',
-      'hardwareLimit',
-    ] as const) {
-      rungs[key] += ladder.rungs[key];
-    }
-    specialChunks.idle += ladder.specialChunks.idle;
-    specialChunks.imbalance += ladder.specialChunks.imbalance;
-    for (const kernel of ladder.kernels) {
-      const existing = kernels.get(kernel.name);
-      const current = existing ?? {
-        name: kernel.name,
-        kind: kernel.kind,
-        isComm: kernel.isComm,
-        rungs: zeroKernelRungs(),
-        necessaryWork: kernel.necessaryWork,
-      };
-      for (const key of ['balanced', 'perConfigBest', 'ignoreNetwork', 'hardwareLimit'] as const) {
-        current.rungs[key] += kernel.rungs[key];
-      }
-      if (kernel.rungs.necessaryLimit !== null && kernel.rungs.necessaryLimit !== undefined) {
-        current.rungs.necessaryLimit =
-          (existing?.rungs.necessaryLimit ?? 0) + kernel.rungs.necessaryLimit;
-      }
-      kernels.set(kernel.name, current);
-    }
-  }
-  rungs.segmentedNecessary = ladders.every(
-    (ladder) =>
-      ladder.rungs.segmentedNecessary !== null && ladder.rungs.segmentedNecessary !== undefined,
-  )
-    ? ladders.reduce((sum, ladder) => sum + (ladder.rungs.segmentedNecessary ?? 0), 0)
-    : null;
-  return {
-    label,
-    rungs,
-    specialChunks,
-    kernels: [...kernels.values()].sort(
-      (left, right) =>
-        right.rungs.balanced - left.rungs.balanced || left.name.localeCompare(right.name),
-    ),
-  };
+function ladderData(ladder: LadderData): LadderData {
+  return ladder;
 }
 
 function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelLadderProjection {
@@ -161,6 +96,9 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
   if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
     rows.push(makeRow('R6 Necessary work', values('necessaryLimit', false, false)));
   }
+  if (data.rungs.hardwareNecessary !== null && data.rungs.hardwareNecessary !== undefined) {
+    rows.push(makeRow('R7 Globally fused', { __globalNecessary: data.rungs.hardwareNecessary }));
+  }
   return {
     status: 'ready',
     label: data.label,
@@ -177,28 +115,29 @@ export function projectAggregateKernelLadder(
   kernelFilter: string | null = null,
 ): KernelLadderProjection {
   if (subject.status !== 'ready') return subject;
-  const ladders = subject.payload.workerKernelLadders.filter((ladder) => {
-    if (scope.kind === 'cluster') return true;
-    if (scope.kind === 'pool') return ladder.worker.poolTag === scope.poolTag;
-    return makeWorkerKey(ladder.worker) === scope.workerKey;
-  });
-  if (ladders.length === 0) {
+  const ladder =
+    scope.kind === 'cluster'
+      ? subject.payload.aggregateKernelLadders.find(
+          (candidate) => candidate.level === 'cluster' && candidate.key === 'cluster',
+        )
+      : scope.kind === 'pool'
+        ? subject.payload.aggregateKernelLadders.find(
+            (candidate) => candidate.level === 'pool' && candidate.key === scope.poolTag,
+          )
+        : subject.payload.workerKernelLadders.find(
+            (candidate) => makeWorkerKey(candidate.worker) === scope.workerKey,
+          );
+  if (ladder === undefined) {
     return { status: 'scope_missing', reason: 'No kernel ladder is available for this scope.' };
   }
-  const label =
-    scope.kind === 'cluster'
-      ? 'Cluster aggregate'
-      : scope.kind === 'pool'
-        ? `${scope.poolTag} aggregate`
-        : ladders[0].label;
-  return ladderRows(sumLadders(ladders, label), kernelFilter);
+  return ladderRows(ladderData(ladder), kernelFilter);
 }
 
 export function projectExactKernelLadder(
   ladder: OptimalityKernelLadder,
   kernelFilter: string | null = null,
 ): KernelLadderProjection {
-  return ladderRows(sumLadders([ladder], ladder.label), kernelFilter);
+  return ladderRows(ladderData(ladder), kernelFilter);
 }
 
 const MAX_HEADROOM_KERNELS = 16;

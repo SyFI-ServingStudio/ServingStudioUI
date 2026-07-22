@@ -44,7 +44,7 @@ export default function OptimalityKernelLadderCard({
       option={reportable ? optimalityKernelLadderOption(projection, CHART_THEME) : null}
       height={Math.max(330, projection.rows.length * 38 + 90)}
       empty={reportable ? undefined : 'No kernel GPU·seconds are recorded for this scope.'}
-      caption="R0-R5 optimality ladder. Every colored contribution is attributable to a simulator kernel; aggregate-only necessary-work bounds are shown in the separate iteration waterfall."
+      caption="Analyzer-owned optimality ladder for this exact scope. R0-R6 preserve per-location attribution; R7 is the aggregate globally fused necessary-work floor. The UI selects and renders these rungs without recomputing scope rollups."
     />
   );
 }

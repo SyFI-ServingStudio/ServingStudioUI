@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type {
   Optimality,
+  OptimalityAggregateKernelLadder,
   OptimalityIterationWaterfall,
   OptimalityKernelLadder,
   OptimalityLevel,
@@ -73,6 +74,7 @@ const rungsSchema = z.object({
   ignore_network: nonNegativeNumber,
   hardware_limit: nonNegativeNumber,
   segmented_necessary: nonNegativeNumber.nullable().optional().default(null),
+  hardware_necessary: nonNegativeNumber.nullable().optional().default(null),
 });
 
 const necessaryWorkSchema = z.object({
@@ -108,8 +110,49 @@ const workerKernelLadderSchema = z.object({
   pool_tag: wireIdentityString,
   worker_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
   rungs: rungsSchema,
-  special_chunks: z.object({ idle: nonNegativeNumber, imbalance: nonNegativeNumber }),
+  special_chunks: z.object({
+    idle: nonNegativeNumber,
+    imbalance: nonNegativeNumber,
+    fusion: nonNegativeNumber.optional().default(0),
+  }),
   kernels: z.array(ladderKernelSchema),
+  necessary_work_mode: z
+    .enum(['batch_locked', 'replicated_large_batch'])
+    .nullable()
+    .optional()
+    .default(null),
+  necessary_work_replication_factor: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .default(null),
+});
+
+const aggregateKernelLadderSchema = z.object({
+  level: z.enum(['cluster', 'pool']),
+  key: wireIdentityString,
+  label: z.string().trim().min(1),
+  rungs: rungsSchema,
+  special_chunks: z.object({
+    idle: nonNegativeNumber,
+    imbalance: nonNegativeNumber,
+    fusion: nonNegativeNumber.optional().default(0),
+  }),
+  kernels: z.array(ladderKernelSchema),
+  necessary_work_mode: z
+    .enum(['batch_locked', 'replicated_large_batch'])
+    .nullable()
+    .optional()
+    .default(null),
+  necessary_work_replication_factor: z
+    .number()
+    .int()
+    .positive()
+    .nullable()
+    .optional()
+    .default(null),
 });
 
 const readySchema = z.object({
@@ -129,6 +172,7 @@ const readySchema = z.object({
   levels: z.array(levelSchema).min(1),
   kernels: z.array(kernelSchema).default([]),
   worker_kernel_ladders: z.array(workerKernelLadderSchema).default([]),
+  aggregate_kernel_ladders: z.array(aggregateKernelLadderSchema).default([]),
 });
 
 const unavailableSchema = z.object({
@@ -141,6 +185,7 @@ const unavailableSchema = z.object({
   levels: z.array(z.unknown()).length(0),
   kernels: z.array(z.unknown()).length(0).optional(),
   worker_kernel_ladders: z.array(z.unknown()).length(0).optional(),
+  aggregate_kernel_ladders: z.array(z.unknown()).length(0).optional(),
 });
 
 const wireSchema = z.union([readySchema, unavailableSchema]);
@@ -168,6 +213,47 @@ function bucketSum(level: z.infer<typeof levelSchema>): number {
   return b.idle + b.imbalance + b.batching + b.communication + b.hardware_gap + floor;
 }
 
+type KernelLadderWire =
+  z.infer<typeof workerKernelLadderSchema> | z.infer<typeof aggregateKernelLadderSchema>;
+
+function kernelLadderIssues(path: string, ladder: KernelLadderWire): string[] {
+  const issues: string[] = [];
+  for (const [wireKey, kernelKey] of [
+    ['balanced', 'balanced'],
+    ['per_config_best', 'per_config_best'],
+    ['ignore_network', 'ignore_network'],
+    ['hardware_limit', 'hardware_limit'],
+  ] as const) {
+    const kernelSum = ladder.kernels.reduce((sum, kernel) => sum + kernel.rungs[kernelKey], 0);
+    const expected = ladder.rungs[wireKey];
+    const tolerance = Math.max(1e-9, expected * 1e-6);
+    if (Math.abs(kernelSum - expected) > tolerance) {
+      issues.push(
+        `${path}.${wireKey}: kernel sum ${kernelSum} does not reconcile with ${expected}`,
+      );
+    }
+  }
+  const hasR6 = ladder.rungs.segmented_necessary !== null;
+  const hasR7 = ladder.rungs.hardware_necessary !== null;
+  if (hasR6 !== hasR7) issues.push(`${path}: R6 and R7 must be available together`);
+  if (hasR6 && hasR7) {
+    const r6 = ladder.rungs.segmented_necessary ?? 0;
+    const r7 = ladder.rungs.hardware_necessary ?? 0;
+    const kernelR6 = ladder.kernels.reduce(
+      (sum, kernel) => sum + (kernel.rungs.necessary_limit ?? 0),
+      0,
+    );
+    const tolerance = Math.max(1e-9, r6 * 1e-6);
+    if (Math.abs(kernelR6 - r6) > tolerance) {
+      issues.push(`${path}: per-location R6 ${kernelR6} does not reconcile with ${r6}`);
+    }
+    if (Math.abs(r7 + ladder.special_chunks.fusion - r6) > tolerance) {
+      issues.push(`${path}: fusion does not reconcile R6 ${r6} with R7 ${r7}`);
+    }
+  }
+  return issues;
+}
+
 function semanticIssues(wire: ReadyWire): string[] {
   const issues = duplicateKeyIssues(
     'levels',
@@ -187,6 +273,19 @@ function semanticIssues(wire: ReadyWire): string[] {
   issues.push(
     ...duplicateKeyIssues('worker_kernel_ladders', wire.worker_kernel_ladders, (row) => row.key),
   );
+  issues.push(
+    ...duplicateKeyIssues(
+      'aggregate_kernel_ladders',
+      wire.aggregate_kernel_ladders,
+      (row) => `${row.level}:${row.key}`,
+    ),
+  );
+  wire.worker_kernel_ladders.forEach((ladder, index) => {
+    issues.push(...kernelLadderIssues(`worker_kernel_ladders.${index}`, ladder));
+  });
+  wire.aggregate_kernel_ladders.forEach((ladder, index) => {
+    issues.push(...kernelLadderIssues(`aggregate_kernel_ladders.${index}`, ladder));
+  });
   return issues;
 }
 
@@ -194,10 +293,14 @@ function toKernelLadder(
   wire: z.infer<typeof workerKernelLadderSchema>,
   iterId: string | null,
 ): OptimalityKernelLadder {
+  const runCounterfactual =
+    iterId === null && wire.necessary_work_mode === 'replicated_large_batch'
+      ? ` · ${wire.necessary_work_replication_factor ?? 1}× saturated composition`
+      : '';
   return {
     worker: { poolTag: wire.pool_tag, workerId: String(wire.worker_id) },
     iterId,
-    label: iterId === null ? wire.label : `${wire.label} / iter ${iterId}`,
+    label: iterId === null ? `${wire.label}${runCounterfactual}` : `${wire.label} / iter ${iterId}`,
     rungs: {
       real: wire.rungs.real,
       busy: wire.rungs.busy,
@@ -206,10 +309,12 @@ function toKernelLadder(
       ignoreNetwork: wire.rungs.ignore_network,
       hardwareLimit: wire.rungs.hardware_limit,
       segmentedNecessary: wire.rungs.segmented_necessary,
+      hardwareNecessary: wire.rungs.hardware_necessary,
     },
     specialChunks: {
       idle: wire.special_chunks.idle,
       imbalance: wire.special_chunks.imbalance,
+      fusion: wire.special_chunks.fusion,
     },
     kernels: wire.kernels.map((kernel) => ({
       name: kernel.name,
@@ -238,6 +343,40 @@ function toKernelLadder(
               bound: kernel.necessary_work.bound,
             },
     })),
+    necessaryWorkMode: wire.necessary_work_mode,
+    necessaryWorkReplicationFactor: wire.necessary_work_replication_factor,
+  };
+}
+
+function toAggregateKernelLadder(
+  wire: z.infer<typeof aggregateKernelLadderSchema>,
+): OptimalityAggregateKernelLadder {
+  const common = toKernelLadder(
+    {
+      key: wire.key,
+      label: wire.label,
+      pool_tag: wire.level === 'pool' ? wire.key : 'cluster',
+      worker_id: 0,
+      rungs: wire.rungs,
+      special_chunks: wire.special_chunks,
+      kernels: wire.kernels,
+      necessary_work_mode: wire.necessary_work_mode,
+      necessary_work_replication_factor: wire.necessary_work_replication_factor,
+    },
+    null,
+  );
+  return {
+    level: wire.level,
+    key: wire.key,
+    label:
+      wire.necessary_work_mode === 'replicated_large_batch'
+        ? `${wire.label} · ${wire.necessary_work_replication_factor ?? 1}× saturated composition`
+        : wire.label,
+    rungs: common.rungs,
+    specialChunks: common.specialChunks,
+    kernels: common.kernels,
+    necessaryWorkMode: common.necessaryWorkMode,
+    necessaryWorkReplicationFactor: common.necessaryWorkReplicationFactor,
   };
 }
 
@@ -300,6 +439,7 @@ function toOptimality(wire: ReadyWire): Optimality {
       },
     })),
     workerKernelLadders: wire.worker_kernel_ladders.map((ladder) => toKernelLadder(ladder, null)),
+    aggregateKernelLadders: wire.aggregate_kernel_ladders.map(toAggregateKernelLadder),
   };
 }
 
@@ -312,7 +452,11 @@ const iterationKernelLadderSchema = z.object({
   }),
   iter_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
   rungs: rungsSchema,
-  special_chunks: z.object({ idle: nonNegativeNumber, imbalance: nonNegativeNumber }),
+  special_chunks: z.object({
+    idle: nonNegativeNumber,
+    imbalance: nonNegativeNumber,
+    fusion: nonNegativeNumber.optional().default(0),
+  }),
   kernels: z.array(ladderKernelSchema),
   meta: z.object({
     gpu_name: z.string(),
@@ -349,6 +493,9 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
     throw new Error('Iteration optimality ladder identity does not match the request.');
   }
   const hasNecessaryRung = wire.rungs.segmented_necessary !== null;
+  if (hasNecessaryRung !== (wire.rungs.hardware_necessary !== null)) {
+    throw new Error('Iteration R6/R7 necessary-work rungs must be available together.');
+  }
   const kernelsHaveNecessaryWork =
     wire.kernels.length > 0 &&
     wire.kernels.every(
@@ -366,6 +513,16 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
     if (Math.abs(kernelNecessarySum - (wire.rungs.segmented_necessary ?? 0)) > tolerance) {
       throw new Error('Iteration kernel necessary-work values do not reconcile with R6.');
     }
+    if (
+      (wire.rungs.hardware_necessary ?? 0) > (wire.rungs.segmented_necessary ?? 0) + tolerance ||
+      Math.abs(
+        (wire.rungs.hardware_necessary ?? 0) +
+          wire.special_chunks.fusion -
+          (wire.rungs.segmented_necessary ?? 0),
+      ) > tolerance
+    ) {
+      throw new Error('Iteration aggregate fusion chunk does not reconcile R6 with R7.');
+    }
   }
   const ladder = toKernelLadder(
     {
@@ -376,6 +533,8 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
       rungs: wire.rungs,
       special_chunks: wire.special_chunks,
       kernels: wire.kernels,
+      necessary_work_mode: wire.meta.necessary_work_mode,
+      necessary_work_replication_factor: wire.meta.necessary_work_replication_factor,
     },
     String(wire.iter_id),
   );

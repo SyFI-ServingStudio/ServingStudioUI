@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Optimality, OptimalityKernelLadder } from '../../domain/optimality';
+import type {
+  Optimality,
+  OptimalityAggregateKernelLadder,
+  OptimalityKernelLadder,
+} from '../../domain/optimality';
 import type { SubjectResult } from '../../domain/subject';
 import { makeWorkerKey } from '../../domain/worker';
 import {
@@ -50,7 +54,26 @@ function ladder(poolTag: string, workerId: string, scale: number): OptimalityKer
   };
 }
 
-function subject(ladders: OptimalityKernelLadder[]): SubjectResult<'optimality'> {
+function aggregateLadder(
+  level: 'cluster' | 'pool',
+  key: string,
+  scale: number,
+): OptimalityAggregateKernelLadder {
+  const source = ladder(key, 'aggregate', scale);
+  return {
+    level,
+    key,
+    label: `${key} aggregate`,
+    rungs: source.rungs,
+    specialChunks: source.specialChunks,
+    kernels: source.kernels,
+  };
+}
+
+function subject(
+  ladders: OptimalityKernelLadder[],
+  aggregates: OptimalityAggregateKernelLadder[] = [],
+): SubjectResult<'optimality'> {
   const payload: Optimality = {
     unit: 'gpu_seconds',
     optimalityRatio: 0.4,
@@ -58,6 +81,7 @@ function subject(ladders: OptimalityKernelLadder[]): SubjectResult<'optimality'>
     levels: [],
     kernels: [],
     workerKernelLadders: ladders,
+    aggregateKernelLadders: aggregates,
     gpuName: 'NVIDIA H200',
     gpuSpecMatched: 'H200-SXM-141GB',
     peaksSource: 'sidecar',
@@ -66,8 +90,11 @@ function subject(ladders: OptimalityKernelLadder[]): SubjectResult<'optimality'>
 }
 
 describe('optimality kernel ladder projection', () => {
-  it('sums worker ladders for cluster and pool scopes', () => {
-    const ready = subject([ladder('attn', '0', 1), ladder('attn', '1', 2), ladder('ffn', '0', 4)]);
+  it('selects analyzer-owned cluster and pool ladders without UI aggregation', () => {
+    const ready = subject(
+      [ladder('attn', '0', 1), ladder('attn', '1', 2), ladder('ffn', '0', 4)],
+      [aggregateLadder('cluster', 'cluster', 7), aggregateLadder('pool', 'attn', 3)],
+    );
     const cluster = projectAggregateKernelLadder(ready, { kind: 'cluster' });
     const pool = projectAggregateKernelLadder(ready, { kind: 'pool', poolTag: 'attn' });
     expect(cluster.status).toBe('ready');
@@ -118,6 +145,8 @@ describe('optimality kernel ladder projection', () => {
     const exact = ladder('attn', '0', 1);
     exact.iterId = '17';
     exact.rungs.segmentedNecessary = 5;
+    exact.rungs.hardwareNecessary = 2;
+    exact.specialChunks.fusion = 3;
     exact.kernels = [
       {
         ...exact.kernels[0],
@@ -139,7 +168,8 @@ describe('optimality kernel ladder projection', () => {
     const projection = projectExactKernelLadder(exact);
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
-    expect(projection.rows.at(-1)).toMatchObject({ label: 'R6 Necessary work', total: 5 });
+    expect(projection.rows.at(-2)).toMatchObject({ label: 'R6 Necessary work', total: 5 });
+    expect(projection.rows.at(-1)).toMatchObject({ label: 'R7 Globally fused', total: 2 });
 
     const headroom = projectKernelHeadroom(projection);
     expect(headroom.status).toBe('ready');
@@ -166,8 +196,17 @@ describe('optimality kernel ladder projection', () => {
         },
       };
     });
+    const aggregateSource = aggregateLadder('cluster', 'cluster', 1);
     const aggregate = projectAggregateKernelLadder(
-      subject([{ ...ladder('attn', '0', 1), kernels: manyKernels }]),
+      subject(
+        [],
+        [
+          {
+            ...aggregateSource,
+            kernels: manyKernels,
+          },
+        ],
+      ),
       { kind: 'cluster' },
     );
     const headroom = projectKernelHeadroom(aggregate);

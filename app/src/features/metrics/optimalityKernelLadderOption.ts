@@ -56,6 +56,7 @@ export function optimalityKernelLadderOption(
     })),
     { key: '__imbalance', label: 'imbalance (aggregate)', color: '#C58AAE' },
     { key: '__idle', label: 'idle (aggregate)', color: '#B8C0CC' },
+    { key: '__globalNecessary', label: 'globally fused (aggregate)', color: '#2F7F7B' },
   ];
   return {
     textStyle: { fontFamily: theme.font, color: theme.text },

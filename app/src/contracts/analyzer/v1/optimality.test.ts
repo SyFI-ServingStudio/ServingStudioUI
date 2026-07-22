@@ -172,11 +172,27 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
       ],
     };
     const aggregate = decodeAnalyzerV1OptimalityPayload(
-      readyPayload({ worker_kernel_ladders: [workerLadder] }),
+      readyPayload({
+        worker_kernel_ladders: [workerLadder],
+        aggregate_kernel_ladders: [
+          {
+            level: 'cluster',
+            key: 'cluster',
+            label: 'Cluster aggregate',
+            rungs: workerLadder.rungs,
+            special_chunks: workerLadder.special_chunks,
+            kernels: workerLadder.kernels,
+          },
+        ],
+      }),
     );
     expect(aggregate.status).toBe('ready');
     if (aggregate.status !== 'ready') return;
     expect(aggregate.payload.workerKernelLadders[0].rungs.perConfigBest).toBe(6);
+    expect(aggregate.payload.aggregateKernelLadders[0]).toMatchObject({
+      level: 'cluster',
+      key: 'cluster',
+    });
 
     const exact = decodeAnalyzerV1IterationOptimalityKernelLadder(
       {
@@ -188,8 +204,9 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
           ...workerLadder.rungs,
           real: 10,
           segmented_necessary: 3,
+          hardware_necessary: 2,
         },
-        special_chunks: { idle: 0, imbalance: 2 },
+        special_chunks: { idle: 0, imbalance: 2, fusion: 1 },
         kernels: [
           {
             ...workerLadder.kernels[0],
@@ -227,6 +244,7 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     expect(exact.necessaryWorkReplicationFactor).toBe(10000);
     expect(exact.specialChunks.idle).toBe(0);
     expect(exact.rungs.segmentedNecessary).toBe(3);
+    expect(exact.rungs.hardwareNecessary).toBe(2);
     expect(exact.kernels[0].necessaryWork).toMatchObject({
       semantics: ['gemm'],
       necessaryGpuSeconds: 3,
