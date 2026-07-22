@@ -146,14 +146,19 @@ describe('overview resource queries', () => {
 
   it('loads model and workload into separate href/schema-scoped entries', async () => {
     const descriptor = makeTestDescriptor({
-      model: { href: 'model', schemaVersion: 1 },
+      model: { href: 'model', schemaVersion: 2 },
       workload: { href: 'workload', schemaVersion: 1 },
     });
     const model = {
-      schemaVersion: 1 as const,
+      schemaVersion: 2 as const,
       sourcePath: 'model/config/test.json',
       config: { hidden_size: 6144 },
-      parameterCounts: null,
+      parameterCounts: {
+        total: 8_030_261_248,
+        active: 8_030_261_248,
+        activeLayers: 6_979_588_096,
+        activeDefinition: 'with_embed_head' as const,
+      },
     };
     const workload = {
       schemaVersion: 1 as const,
@@ -190,7 +195,7 @@ describe('overview resource queries', () => {
     expect(calls.model).toBe(1);
     expect(calls.workload).toBe(1);
     expect(
-      queryClient.getQueryData(analyzerQueryKeys.overviewResource('test-run', 'model', 'model', 1)),
+      queryClient.getQueryData(analyzerQueryKeys.overviewResource('test-run', 'model', 'model', 2)),
     ).toEqual(model);
     expect(
       queryClient.getQueryData(

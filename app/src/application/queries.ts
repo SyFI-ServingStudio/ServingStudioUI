@@ -208,7 +208,10 @@ function useDescriptorOverviewResource<Resource>(
   load: (runId: string) => Promise<Resource>,
 ): OverviewResourceResult<Resource> {
   const artifact = descriptor?.[name];
-  const supported = artifact?.schemaVersion === undefined || artifact.schemaVersion === 1;
+  const supportedSchemaVersions = name === 'model' ? [1, 2] : [1];
+  const supported =
+    artifact?.schemaVersion === undefined ||
+    supportedSchemaVersions.includes(artifact.schemaVersion);
   const query = useQuery({
     queryKey:
       descriptor !== undefined && artifact !== undefined
@@ -236,7 +239,7 @@ function useDescriptorOverviewResource<Resource>(
   if (!supported) {
     return {
       status: 'incompatible',
-      reason: `The UI supports ${name} schema v1, not v${artifact.schemaVersion}.`,
+      reason: `The UI supports ${name} schema ${supportedSchemaVersions.map((version) => `v${version}`).join('/')}, not v${artifact.schemaVersion}.`,
     };
   }
   if (query.isError) {
