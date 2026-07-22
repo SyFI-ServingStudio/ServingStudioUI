@@ -4,9 +4,15 @@ export type JsonValue =
 /** The model file remains an independent resource; topology owns deployment
  * shape and never absorbs checkpoint configuration fields. */
 export interface ModelConfigResource {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   sourcePath: string;
   config: Readonly<Record<string, JsonValue>>;
+  parameterCounts: {
+    total: number;
+    active: number;
+    activeLayers: number;
+    activeDefinition: 'with_embed_head';
+  } | null;
 }
 
 export interface WorkloadOverviewResource {

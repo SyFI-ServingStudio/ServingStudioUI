@@ -39,13 +39,35 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ]),
 );
 
-const modelResourceSchema = z
+const modelResourceV1Schema = z
   .object({
     schema_version: z.literal(1),
     source_path: modelSourcePath,
     config: z.record(jsonValueSchema),
   })
   .strict();
+
+const modelResourceV2Schema = z
+  .object({
+    schema_version: z.literal(2),
+    source_path: modelSourcePath,
+    config: z.record(jsonValueSchema),
+    parameter_counts: z
+      .object({
+        total: z.number().int().nonnegative().safe(),
+        active: z.number().int().nonnegative().safe(),
+        active_layers: z.number().int().nonnegative().safe(),
+        active_definition: z.literal('with_embed_head'),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
+const modelResourceSchema = z.discriminatedUnion('schema_version', [
+  modelResourceV1Schema,
+  modelResourceV2Schema,
+]);
 
 const workloadResourceSchema = z
   .object({
@@ -104,9 +126,18 @@ export function parseAnalyzerV1ModelResource(input: unknown): ModelConfigResourc
   try {
     const resource = modelResourceSchema.parse(input);
     return {
-      schemaVersion: 1,
+      schemaVersion: resource.schema_version,
       sourcePath: resource.source_path,
       config: resource.config,
+      parameterCounts:
+        resource.schema_version === 1 || resource.parameter_counts === null
+          ? null
+          : {
+              total: resource.parameter_counts.total,
+              active: resource.parameter_counts.active,
+              activeLayers: resource.parameter_counts.active_layers,
+              activeDefinition: resource.parameter_counts.active_definition,
+            },
     };
   } catch (error) {
     if (error instanceof ZodError) throw new AnalyzerV1OverviewResourceError('model', error);

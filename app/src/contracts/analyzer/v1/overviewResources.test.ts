@@ -32,6 +32,30 @@ describe('analyzer-v1 overview resources', () => {
       schemaVersion: 1,
       sourcePath: 'model/config/test.json',
       config: { hidden_size: 6144, architectures: ['TestForCausalLM'] },
+      parameterCounts: null,
+    });
+  });
+
+  it('maps model.work parameter counts from model resource v2', () => {
+    expect(
+      parseAnalyzerV1ModelResource({
+        schema_version: 2,
+        source_path: 'model/config/llama3_8b.json',
+        config: { hidden_size: 4096 },
+        parameter_counts: {
+          total: 8_030_261_248,
+          active: 8_030_261_248,
+          active_layers: 6_979_588_096,
+          active_definition: 'with_embed_head',
+        },
+      }),
+    ).toMatchObject({
+      schemaVersion: 2,
+      parameterCounts: {
+        total: 8_030_261_248,
+        active: 8_030_261_248,
+        activeLayers: 6_979_588_096,
+      },
     });
   });
 

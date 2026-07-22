@@ -44,8 +44,14 @@ describe('RunOverviewRow resources', () => {
     vi.mocked(useActiveRunModel).mockReturnValue({
       status: 'ready',
       resource: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         sourcePath: 'model/config/test.json',
+        parameterCounts: {
+          total: 235_092_836_352,
+          active: 22_216_000_000,
+          activeLayers: 20_945_305_600,
+          activeDefinition: 'with_embed_head',
+        },
         config: {
           hidden_size: 6144,
           num_hidden_layers: 62,
@@ -82,6 +88,8 @@ describe('RunOverviewRow resources', () => {
 
     expect(screen.getByText('6,144')).toBeVisible();
     expect(screen.getByText('160 / 8')).toBeVisible();
+    expect(screen.getByText('235.1B')).toBeVisible();
+    expect(screen.getByText('22.2B')).toBeVisible();
     expect(screen.getByText('24')).toBeVisible();
     expect(screen.getByText('48.5')).toBeVisible();
     expect(screen.getByText('test.csv')).toBeVisible();

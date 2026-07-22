@@ -228,6 +228,8 @@ export default function RunOverviewRow() {
         fallback,
       );
     const modelConfig = modelResource.status === 'ready' ? modelResource.resource.config : {};
+    const parameterCounts =
+      modelResource.status === 'ready' ? modelResource.resource.parameterCounts : null;
     const layers = configNumber(modelConfig, 'num_hidden_layers');
     const hidden = configNumber(modelConfig, 'hidden_size');
     const attentionHeads = configNumber(modelConfig, 'num_attention_heads');
@@ -242,10 +244,15 @@ export default function RunOverviewRow() {
     return {
       modelKind: hasMoeArch ? 'mixture of experts' : 'dense transformer',
       modelProperties: [
-        { label: 'Parameters', value: modelCount(configNumber(modelConfig, 'num_parameters')) },
+        {
+          label: 'Parameters',
+          value: modelCount(parameterCounts?.total ?? configNumber(modelConfig, 'num_parameters')),
+        },
         {
           label: 'Active params',
-          value: modelCount(configNumber(modelConfig, 'num_active_parameters')),
+          value: modelCount(
+            parameterCounts?.active ?? configNumber(modelConfig, 'num_active_parameters'),
+          ),
         },
         { label: 'Layers', value: layers === undefined ? 'n/a' : fmtInt(layers) },
         { label: 'Hidden size', value: hidden === undefined ? 'n/a' : fmtInt(hidden) },

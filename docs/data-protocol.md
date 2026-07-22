@@ -171,7 +171,7 @@ JSON 作为 `run_descriptor.json`：
     "analysis": "complete"
   },
   "summary": { "href": "summary.json" },
-  "model": { "href": "artifacts/model.json" },
+  "model": { "href": "artifacts/model.json", "schema_version": 2 },
   "topology": { "href": "artifacts/topology.json" },
   "subjects": {
     "slo-general": {
@@ -207,6 +207,11 @@ JSON 作为 `run_descriptor.json`：
 ```
 
 `protocol_version` 描述 descriptor；每个 subject 的 `schema_version` 描述其 payload。两者独立演进。
+
+model resource v2 保留原始 `config`，并增加可空的 `parameter_counts`：`total`、
+`active`（`model.work` 的 `activated.with_embed_head`）、`active_layers` 和固定
+`active_definition="with_embed_head"`。不支持的 architecture 只令该字段为 `null`，
+不会使 model config resource 整体失败；UI 仍兼容没有此字段的 v1 resource。
 
 同一 subject 的显式 counterfactual 使用 ready subject 的可选 `variants` map 发布；variant
 继承 subject `schema_version`，并拥有独立 `report_href` / `payload_href`。primary href 保持

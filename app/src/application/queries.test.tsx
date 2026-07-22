@@ -153,6 +153,7 @@ describe('overview resource queries', () => {
       schemaVersion: 1 as const,
       sourcePath: 'model/config/test.json',
       config: { hidden_size: 6144 },
+      parameterCounts: null,
     };
     const workload = {
       schemaVersion: 1 as const,

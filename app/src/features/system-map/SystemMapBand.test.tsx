@@ -66,6 +66,7 @@ describe('SystemMapBand store subscription', () => {
       resource: {
         schemaVersion: 1,
         sourcePath: 'model/config/test.json',
+        parameterCounts: null,
         config: { num_hidden_layers: 62, num_experts: 160, num_experts_per_tok: 8 },
       },
     });
