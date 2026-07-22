@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   decodeAnalyzerV1IterationOptimalityKernelLadder,
+  decodeAnalyzerV1IterationOptimalityWaterfall,
   decodeAnalyzerV1OptimalityPayload,
 } from './optimality';
 
@@ -183,7 +184,10 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
         unit: 'gpu_seconds',
         worker: { pool_tag: 'attn', worker_id: 0 },
         iter_id: 17,
-        rungs: { ...workerLadder.rungs, real: 10 },
+        rungs: {
+          ...workerLadder.rungs,
+          real: 10,
+        },
         special_chunks: { idle: 0, imbalance: 2 },
         kernels: workerLadder.kernels,
         meta: {
@@ -199,6 +203,42 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     );
     expect(exact.iterId).toBe('17');
     expect(exact.specialChunks.idle).toBe(0);
+
+    const waterfall = decodeAnalyzerV1IterationOptimalityWaterfall(
+      {
+        schema_version: 1,
+        unit: 'gpu_seconds',
+        worker: { pool_tag: 'attn', worker_id: 0 },
+        iter_id: 17,
+        level: {
+          level: 'iteration',
+          key: 'attn/0/17',
+          label: 'attn/0 / iter 17',
+          total: 10,
+          buckets: {
+            idle: 0,
+            imbalance: 2,
+            batching: 2,
+            communication: 1,
+            hardware_gap: 1,
+            excess_over_necessary: 1,
+            fusion: 1,
+            hardware_necessary: 2,
+          },
+          optimality_ratio: 0.4,
+          necessary_ratio: 0.2,
+        },
+        meta: {
+          gpu_name: 'NVIDIA H200',
+          gpu_spec_matched: 'H200-SXM-141GB',
+          peaks_source: 'batch_locked',
+        },
+      },
+      { poolTag: 'attn', workerId: '0' },
+      '17',
+    );
+    expect(waterfall.level.buckets.hardwareNecessary).toBe(2);
+    expect(waterfall.level.necessaryRatio).toBe(0.2);
   });
 
   it('clamps a fractionally-negative bucket (analyzer clamp artifact) to zero', () => {

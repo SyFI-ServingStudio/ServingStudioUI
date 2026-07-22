@@ -122,6 +122,25 @@ export const analyzerQueryKeys = {
       `mode-${mode}`,
       `analysis-${analysisRevision}`,
     ] as const,
+  iterationOptimalityWaterfall: (
+    runId: string,
+    worker: WorkerRef,
+    iterId: string,
+    mode: OptimalityMode,
+    analysisRevision: string,
+  ) =>
+    [
+      ...analyzerQueryKeys.runs(),
+      runId,
+      'worker',
+      worker.poolTag,
+      worker.workerId,
+      'iteration',
+      iterId,
+      'optimality-waterfall',
+      `mode-${mode}`,
+      `analysis-${analysisRevision}`,
+    ] as const,
   workerOperations: (
     runId: string,
     worker: WorkerRef,
@@ -527,6 +546,40 @@ export function useIterationOptimalityKernelLadderQuery(
         throw new Error('Iteration optimality requires the live Analyzer service.');
       }
       return repository.getIterationOptimalityKernelLadder(runId, worker, iterId, mode);
+    },
+    enabled: enabled && ready,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function useIterationOptimalityWaterfallQuery(
+  runId: string,
+  worker: WorkerRef | undefined,
+  iterId: string | undefined,
+  analysisRevision: string | undefined,
+  mode: OptimalityMode,
+  enabled: boolean,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getIterationOptimalityWaterfall !== undefined;
+  const ready =
+    supported && worker !== undefined && iterId !== undefined && analysisRevision !== undefined;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.iterationOptimalityWaterfall(
+          runId,
+          worker,
+          iterId,
+          mode,
+          analysisRevision,
+        )
+      : [...analyzerQueryKeys.runs(), runId, 'iteration-optimality-waterfall', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getIterationOptimalityWaterfall === undefined) {
+        throw new Error('Iteration optimality waterfall requires the live Analyzer service.');
+      }
+      return repository.getIterationOptimalityWaterfall(runId, worker, iterId, mode);
     },
     enabled: enabled && ready,
     staleTime: Infinity,

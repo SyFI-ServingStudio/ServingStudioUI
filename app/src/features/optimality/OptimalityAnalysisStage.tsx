@@ -2,17 +2,24 @@ import { Stack, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { useEffect, useState } from 'react';
 
 import { useActiveRunState, useActiveRunSubject } from '../../application/ActiveRunProvider';
-import { useIterationOptimalityKernelLadderQuery } from '../../application/queries';
+import {
+  useIterationOptimalityKernelLadderQuery,
+  useIterationOptimalityWaterfallQuery,
+} from '../../application/queries';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { leafById } from '../../domain/cost-tree';
 import type { OptimalityMode } from '../../domain/optimality';
 import { useViz } from '../../store';
+import { tokens } from '../../theme';
 import {
   OptimalityBreakdownCard,
   OptimalityKernelLadderCard,
   OptimalityKernelsCard,
+  OptimalityWaterfallCard,
   projectAggregateKernelLadder,
   projectExactKernelLadder,
+  projectIterationOptimalityBreakdown,
+  type OptimalityBreakdownProjection,
   type KernelLadderProjection,
 } from '../metrics';
 
@@ -50,6 +57,10 @@ export default function OptimalityAnalysisStage() {
     activeRun.status === 'ready'
       ? activeRun.descriptor.details['iteration-optimality-kernel-ladder']
       : undefined;
+  const iterationWaterfallDetail =
+    activeRun.status === 'ready'
+      ? activeRun.descriptor.details['iteration-optimality-waterfall']
+      : undefined;
   const iterationQuery = useIterationOptimalityKernelLadderQuery(
     activeRun.status === 'ready' ? activeRun.run.id : '',
     selectedWorker?.ref,
@@ -61,6 +72,17 @@ export default function OptimalityAnalysisStage() {
       selectedOperation !== null &&
       iterationDetail?.status === 'ready',
   );
+  const iterationWaterfallQuery = useIterationOptimalityWaterfallQuery(
+    activeRun.status === 'ready' ? activeRun.run.id : '',
+    selectedWorker?.ref,
+    selectedOperation?.iterId,
+    activeRun.status === 'ready' ? activeRun.descriptor.analysis?.revision : undefined,
+    mode,
+    scope !== 'cluster' &&
+      scope !== 'pool' &&
+      selectedOperation !== null &&
+      iterationWaterfallDetail?.status === 'ready',
+  );
 
   const modeSwitch = (
     <ToggleButtonGroup
@@ -70,6 +92,19 @@ export default function OptimalityAnalysisStage() {
       aria-label="Optimality batch-size mode"
       onChange={(_event, nextMode: OptimalityMode | null) => {
         if (nextMode !== null) setMode(nextMode);
+      }}
+      sx={{
+        alignSelf: 'flex-start',
+        '& .MuiToggleButton-root': {
+          px: 1,
+          py: 0.2,
+          fontFamily: tokens.mono,
+          fontSize: 9.5,
+          lineHeight: 1.45,
+          color: tokens.sub,
+          borderColor: tokens.hair,
+          '&.Mui-selected': { color: tokens.teal, backgroundColor: tokens.tile2 },
+        },
       }}
     >
       <ToggleButton value="unlocked">Batch unlocked</ToggleButton>
@@ -167,6 +202,37 @@ export default function OptimalityAnalysisStage() {
     ladder = projectExactKernelLadder(iterationQuery.data, selectedKernelName);
   }
 
+  let iterationWaterfall: OptimalityBreakdownProjection | null = null;
+  if (selectedOperation !== null) {
+    if (iterationWaterfallDetail?.status !== 'ready') {
+      iterationWaterfall = {
+        status: iterationWaterfallDetail?.status ?? 'not_generated',
+        reason:
+          iterationWaterfallDetail && 'reason' in iterationWaterfallDetail
+            ? (iterationWaterfallDetail.reason ?? 'Exact iteration waterfall is unavailable.')
+            : 'Run descriptor does not declare exact iteration waterfall.',
+      };
+    } else if (!iterationWaterfallQuery.supported) {
+      iterationWaterfall = {
+        status: 'not_generated',
+        reason: 'Exact iteration waterfall requires the live Analyzer service.',
+      };
+    } else if (iterationWaterfallQuery.isError) {
+      iterationWaterfall = {
+        status: 'failed',
+        code: 'iteration_optimality_waterfall_load_failed',
+        reason:
+          iterationWaterfallQuery.error instanceof Error
+            ? iterationWaterfallQuery.error.message
+            : 'Could not load exact iteration waterfall.',
+      };
+    } else if (iterationWaterfallQuery.data === undefined) {
+      iterationWaterfall = { status: 'pending', reason: 'Loading exact iteration waterfall.' };
+    } else {
+      iterationWaterfall = projectIterationOptimalityBreakdown(iterationWaterfallQuery.data);
+    }
+  }
+
   const ladderTitle = selectedKernelName
     ? `Kernel optimality ladder · ${selectedKernelName}`
     : selectedOperation
@@ -181,8 +247,23 @@ export default function OptimalityAnalysisStage() {
   return (
     <Stack spacing={2}>
       {modeSwitch}
-      <OptimalityKernelLadderCard idx="a" title={ladderTitle} projection={ladder} />
-      <OptimalityKernelsCard idx="b" title={headroomTitle} projection={ladder} />
+      {iterationWaterfall !== null && (
+        <OptimalityWaterfallCard
+          idx="a"
+          title={`Iteration optimality waterfall · ${selectedWorker?.key ?? ''} · iter ${selectedOperation?.iterId ?? ''}`}
+          projection={iterationWaterfall}
+        />
+      )}
+      <OptimalityKernelLadderCard
+        idx={iterationWaterfall === null ? 'a' : 'b'}
+        title={ladderTitle}
+        projection={ladder}
+      />
+      <OptimalityKernelsCard
+        idx={iterationWaterfall === null ? 'b' : 'c'}
+        title={headroomTitle}
+        projection={ladder}
+      />
     </Stack>
   );
 }

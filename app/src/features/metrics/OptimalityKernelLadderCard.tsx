@@ -42,9 +42,9 @@ export default function OptimalityKernelLadderCard({
       title={title}
       sub={sub}
       option={reportable ? optimalityKernelLadderOption(projection, CHART_THEME) : null}
-      height={330}
+      height={Math.max(330, projection.rows.length * 38 + 90)}
       empty={reportable ? undefined : 'No kernel GPU·seconds are recorded for this scope.'}
-      caption="R0-R5 optimality ladder. Kernel colors remain stable between rungs. Idle and imbalance remain aggregate chunks because the critical-path gaps cannot be assigned to individual kernels without an attribution rule."
+      caption="R0-R5 optimality ladder. Every colored contribution is attributable to a simulator kernel; aggregate-only necessary-work bounds are shown in the separate iteration waterfall."
     />
   );
 }

@@ -219,11 +219,12 @@ composition 投影的扁平 run aggregate 不是 hierarchical worker/iteration C
 不得在 descriptor 中声称后者 ready。iteration index 必须分页，iteration detail 只在
 用户选择后请求。
 
-`iteration-optimality-kernel-ladder` detail 按
-`(pool_tag, worker_id, iter_id)` 请求，返回该 iteration 全量 cost rows 的 R0-R5
-per-kernel ladder。它不进入 run descriptor body，也不批量塞入 optimality subject。
-请求以 `mode=unlocked|batch_locked` 显式选择 counterfactual；省略时为兼容旧客户端默认
-`unlocked`。
+exact iteration optimality 按 `(pool_tag, worker_id, iter_id)` 拆成两个独立 detail：
+`iteration-optimality-waterfall` 返回该 worker/iteration 全量 cost rows 的单行完整
+waterfall；`iteration-optimality-kernel-ladder` 只返回 R0-R5 per-kernel ladder。两者都不进入
+run descriptor body，也不批量塞入 optimality subject。请求以
+`mode=unlocked|batch_locked` 显式选择 counterfactual；省略时为兼容旧客户端默认
+`unlocked`。batch-locked necessary-work 只分割 waterfall 的 R5，不进入 kernel ladder。
 iteration 没有 scheduler holding-span，合同规定 R0=R1、idle=0；imbalance 仍作为
 R1-R2 aggregate chunk，不虚构 kernel 归因。
 

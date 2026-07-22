@@ -8,6 +8,7 @@ import {
   type ChartTheme,
 } from '../../charts/platform';
 import type { ReadyKernelLadderProjection } from './optimalityKernelLadder';
+import { formatGpuSeconds } from './optimalityOption';
 
 const KERNEL_PALETTE = [
   '#355F8A',
@@ -31,13 +32,6 @@ const KERNEL_PALETTE = [
   '#89949D',
   '#C6A957',
 ] as const;
-
-function formatGpuSeconds(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  if (value >= 10) return value.toFixed(1);
-  return value.toFixed(3);
-}
 
 /** Stable across cluster/pool/worker/iteration projections, so drilling does
  * not silently recolor an unchanged kernel identity. */

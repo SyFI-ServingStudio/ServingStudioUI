@@ -60,10 +60,18 @@ export interface OptimalityStackLayout {
   normalized?: boolean;
 }
 
-function formatGpuSeconds(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toFixed(1);
+/** Preserve useful precision for exact-iteration bars, which are commonly only
+ * milliseconds of aggregate GPU time. Large aggregate scopes stay compact. */
+export function formatGpuSeconds(value: number): string {
+  const magnitude = Math.abs(value);
+  if (magnitude >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (magnitude >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  if (magnitude >= 10) return value.toFixed(1);
+  if (magnitude >= 1) return value.toFixed(2);
+  if (magnitude >= 0.01) return value.toFixed(3);
+  if (magnitude >= 0.001) return value.toFixed(4);
+  if (magnitude === 0) return '0';
+  return value.toExponential(2);
 }
 
 /** Horizontal stacked bar in GPU·seconds — one bar per scope row (cluster/pool/

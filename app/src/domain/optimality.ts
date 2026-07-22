@@ -95,6 +95,17 @@ export interface OptimalityKernelLadder {
   kernels: OptimalityKernelLadderKernel[];
 }
 
+/** Exact all-row waterfall for one selected worker iteration. This is separate
+ * from the kernel ladder because necessary-work floors have no leaf attribution. */
+export interface OptimalityIterationWaterfall {
+  worker: { poolTag: string; workerId: string };
+  iterId: string;
+  level: OptimalityLevel;
+  gpuName: string;
+  gpuSpecMatched: string | null;
+  peaksSource: string;
+}
+
 export interface Optimality {
   unit: 'gpu_seconds';
   /** Cluster hardware-optimal / Real — the headline optimality. */

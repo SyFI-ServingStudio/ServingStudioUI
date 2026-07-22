@@ -9,7 +9,11 @@ import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/ov
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { KernelThroughputAnalysis } from '../domain/kernelThroughputAnalysis';
-import type { OptimalityKernelLadder, OptimalityMode } from '../domain/optimality';
+import type {
+  OptimalityIterationWaterfall,
+  OptimalityKernelLadder,
+  OptimalityMode,
+} from '../domain/optimality';
 import type {
   WorkerCostTreeDetail,
   WorkerCostTreeRef,
@@ -73,6 +77,14 @@ export interface AnalyzerRepository {
     iterId: string,
     mode: OptimalityMode,
   ): Promise<OptimalityKernelLadder>;
+
+  /** Optional live detail: full all-row waterfall for one worker iteration. */
+  getIterationOptimalityWaterfall?(
+    runId: string,
+    worker: WorkerRef,
+    iterId: string,
+    mode: OptimalityMode,
+  ): Promise<OptimalityIterationWaterfall>;
 
   /** Return an addressable trace; repositories do not copy trace bytes into UI state. */
   getTrace(runId: string, traceName: string): Promise<TraceResource>;

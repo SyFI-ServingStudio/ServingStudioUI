@@ -6,7 +6,10 @@ import {
 import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescriptor';
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
 import { parseAnalyzerV1KernelThroughputAnalysis } from '../contracts/analyzer/v1/kernelThroughputAnalysis';
-import { decodeAnalyzerV1IterationOptimalityKernelLadder } from '../contracts/analyzer/v1/optimality';
+import {
+  decodeAnalyzerV1IterationOptimalityKernelLadder,
+  decodeAnalyzerV1IterationOptimalityWaterfall,
+} from '../contracts/analyzer/v1/optimality';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
 import {
@@ -351,6 +354,24 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     resourceUrl.searchParams.set('mode', mode);
     const input = await this.client.readJson(resourceUrl);
     return decodeAnalyzerV1IterationOptimalityKernelLadder(input, worker, iterId);
+  }
+
+  async getIterationOptimalityWaterfall(
+    runId: string,
+    worker: WorkerRef,
+    iterId: string,
+    mode: OptimalityMode,
+  ) {
+    const binding = await this.bindRun(runId);
+    this.requireReadyDetail(runId, 'iteration-optimality-waterfall', binding.descriptor);
+    const poolTag = routeSegment(worker.poolTag, 'Worker pool tag');
+    const workerId = routeSegment(worker.workerId, 'Worker id');
+    const iterationId = routeSegment(iterId, 'Iteration id');
+    const path = `workers/${poolTag}/${workerId}/iterations/${iterationId}/optimality-waterfall`;
+    const resourceUrl = this.client.resolve(binding.descriptorUrl, path);
+    resourceUrl.searchParams.set('mode', mode);
+    const input = await this.client.readJson(resourceUrl);
+    return decodeAnalyzerV1IterationOptimalityWaterfall(input, worker, iterId);
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {

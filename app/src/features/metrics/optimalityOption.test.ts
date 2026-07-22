@@ -4,6 +4,7 @@ import { CHART_THEME } from '../../charts/platform';
 import {
   OPTIMALITY_FAMILIES,
   OPTIMALITY_KERNEL_FAMILIES,
+  formatGpuSeconds,
   optimalityStackOption,
   type OptimalityStackRow,
 } from './optimalityOption';
@@ -17,6 +18,12 @@ function row(label: string, hardwareOptimal: number, idle: number): OptimalitySt
 }
 
 describe('optimalityStackOption', () => {
+  it('preserves millisecond and microsecond GPU-time precision', () => {
+    expect(formatGpuSeconds(0.0049344897)).toBe('0.0049');
+    expect(formatGpuSeconds(0.0000022168)).toBe('2.22e-6');
+    expect(formatGpuSeconds(0)).toBe('0');
+  });
+
   it('gives the primary pool row its own axis while workers share a second axis', () => {
     const option = optimalityStackOption(
       [row('attn', 80, 20), row('attn/0', 8, 2), row('attn/1', 6, 4)],

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type {
   Optimality,
+  OptimalityIterationWaterfall,
   OptimalityKernelLadder,
   OptimalityLevel,
 } from '../../../domain/optimality';
@@ -207,8 +208,7 @@ function toKernelLadder(
   };
 }
 
-function toLevels(wire: ReadyWire): OptimalityLevel[] {
-  return wire.levels.map((level) => {
+function toLevel(level: z.infer<typeof levelSchema>): OptimalityLevel {
     const floorBuckets =
       'hardware_optimal' in level.buckets
         ? {
@@ -239,7 +239,10 @@ function toLevels(wire: ReadyWire): OptimalityLevel[] {
         ...floorBuckets,
       },
     };
-  });
+}
+
+function toLevels(wire: ReadyWire): OptimalityLevel[] {
+  return wire.levels.map(toLevel);
 }
 
 function toOptimality(wire: ReadyWire): Optimality {
@@ -312,6 +315,53 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
     },
     String(wire.iter_id),
   );
+}
+
+const iterationWaterfallSchema = z.object({
+  schema_version: z.literal(1),
+  unit: z.literal('gpu_seconds'),
+  worker: z.object({
+    pool_tag: wireIdentityString,
+    worker_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+  }),
+  iter_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+  level: levelSchema,
+  meta: z.object({
+    gpu_name: z.string(),
+    gpu_spec_matched: z.string().nullable(),
+    peaks_source: z.string(),
+  }),
+});
+
+export function decodeAnalyzerV1IterationOptimalityWaterfall(
+  input: unknown,
+  expectedWorker: WorkerRef,
+  expectedIterId: string,
+): OptimalityIterationWaterfall {
+  const wire = iterationWaterfallSchema.parse(input);
+  if (
+    wire.worker.pool_tag !== expectedWorker.poolTag ||
+    String(wire.worker.worker_id) !== expectedWorker.workerId ||
+    String(wire.iter_id) !== expectedIterId
+  ) {
+    throw new Error('Iteration optimality waterfall identity does not match the request.');
+  }
+  if (wire.level.level !== 'iteration') {
+    throw new Error('Iteration optimality waterfall must contain an iteration level.');
+  }
+  const sum = bucketSum(wire.level);
+  const tolerance = Math.max(1e-6, wire.level.total * 1e-4);
+  if (Math.abs(sum - wire.level.total) > tolerance) {
+    throw new Error('Iteration optimality waterfall buckets do not reconcile with its total.');
+  }
+  return {
+    worker: { poolTag: wire.worker.pool_tag, workerId: String(wire.worker.worker_id) },
+    iterId: String(wire.iter_id),
+    level: toLevel(wire.level),
+    gpuName: wire.meta.gpu_name,
+    gpuSpecMatched: wire.meta.gpu_spec_matched,
+    peaksSource: wire.meta.peaks_source,
+  };
 }
 
 export function decodeAnalyzerV1OptimalityPayload(

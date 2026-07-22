@@ -42,6 +42,29 @@ export default function OptimalityBreakdownCard({
   scope: OptimalityScope;
 }) {
   const projection = projectOptimalityBreakdown(subject, scope);
+  return (
+    <OptimalityWaterfallCard
+      idx={idx}
+      title={title}
+      projection={projection}
+      separatePrimaryRowScale={scope.kind === 'pool'}
+    />
+  );
+}
+
+/** Render any already-projected optimality scope. Exact iteration resources use
+ * this view directly so they share the aggregate waterfall visual contract. */
+export function OptimalityWaterfallCard({
+  idx,
+  title,
+  projection,
+  separatePrimaryRowScale = false,
+}: {
+  idx?: string;
+  title: string;
+  projection: OptimalityBreakdownProjection;
+  separatePrimaryRowScale?: boolean;
+}) {
   if (projection.status !== 'ready') {
     return (
       <ChartCard
@@ -66,7 +89,6 @@ export default function OptimalityBreakdownCard({
     ? `roofline ${projection.gpuSpecMatched}`
     : `roofline unavailable (${projection.gpuName || 'unknown GPU'})`;
   const note = `${specNote} · batching ceiling: ${projection.peaksSource}`;
-  const separatePoolScale = scope.kind === 'pool';
   const families = hasNecessaryWork ? OPTIMALITY_NECESSARY_WORK_FAMILIES : OPTIMALITY_FAMILIES;
 
   return (
@@ -77,17 +99,17 @@ export default function OptimalityBreakdownCard({
       option={
         reportable
           ? optimalityStackOption(projection.rows, families, CHART_THEME, {
-              separatePrimaryRowScale: separatePoolScale,
+              separatePrimaryRowScale,
             })
           : null
       }
-      height={Math.max(separatePoolScale ? 270 : 180, projection.rows.length * 46 + 98)}
+      height={Math.max(separatePrimaryRowScale ? 270 : 180, projection.rows.length * 46 + 98)}
       note={reportable ? note : undefined}
       empty={reportable ? undefined : 'This scope recorded no GPU·seconds.'}
       caption={
         hasNecessaryWork
-          ? "Unlocked lower-bound ladder: R5 is further split into excess over per-op necessary work, cross-op fusion opportunity, and the global hardware-necessary floor. All bands telescope to the scope's Real held GPU·seconds."
-          : "Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, kernel-vs-hardware gap, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's Real held GPU·seconds."
+          ? "Necessary-work lower-bound ladder: R5 is further split into excess over per-op necessary work, cross-op fusion opportunity, and the global hardware-necessary floor. All bands telescope to the scope's total GPU·seconds."
+          : "Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, kernel-vs-hardware gap, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's total GPU·seconds."
       }
     />
   );

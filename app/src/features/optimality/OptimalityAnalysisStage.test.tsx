@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   },
   treeState: vi.fn(),
   iterationQuery: vi.fn(),
+  iterationWaterfallQuery: vi.fn(),
   activeSubject: vi.fn(),
 }));
 const workerKey = makeWorkerKey('attn', '0');
@@ -35,7 +36,10 @@ vi.mock('../../application/ActiveRunProvider', () => ({
           variants: { batch_locked: { payload: { href: 'locked' } } },
         },
       },
-      details: { 'iteration-optimality-kernel-ladder': { status: 'ready' } },
+      details: {
+        'iteration-optimality-kernel-ladder': { status: 'ready' },
+        'iteration-optimality-waterfall': { status: 'ready' },
+      },
       analysis: { revision: 'revision' },
     },
   }),
@@ -48,19 +52,28 @@ vi.mock('../../application/WorkerTreeProvider', () => ({
 
 vi.mock('../../application/queries', () => ({
   useIterationOptimalityKernelLadderQuery: mocks.iterationQuery,
+  useIterationOptimalityWaterfallQuery: mocks.iterationWaterfallQuery,
 }));
 
 vi.mock('../metrics', () => ({
   OptimalityBreakdownCard: ({ title }: { title: string }) => <div>{title}</div>,
   OptimalityKernelLadderCard: ({ title }: { title: string }) => <div>{title}</div>,
   OptimalityKernelsCard: ({ title }: { title: string }) => <div>{title}</div>,
+  OptimalityWaterfallCard: ({ title }: { title: string }) => <div>{title}</div>,
   projectAggregateKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
   projectExactKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
+  projectIterationOptimalityBreakdown: () => ({ status: 'ready', rows: [] }),
 }));
 
 beforeEach(() => {
   mocks.treeState.mockReturnValue({ status: 'idle', worker: null, tree: null });
   mocks.iterationQuery.mockReturnValue({
+    supported: true,
+    data: {},
+    error: null,
+    isError: false,
+  });
+  mocks.iterationWaterfallQuery.mockReturnValue({
     supported: true,
     data: {},
     error: null,
@@ -120,7 +133,16 @@ describe('OptimalityAnalysisStage', () => {
 
     expect(screen.getByText('Kernel optimality ladder · afd.attn.prefill')).toBeVisible();
     expect(screen.getByText('Kernel optimality sources · afd.attn.prefill')).toBeVisible();
+    expect(screen.getByText('Iteration optimality waterfall · attn/0 · iter 7')).toBeVisible();
     expect(mocks.iterationQuery).toHaveBeenCalledWith(
+      'run',
+      worker.ref,
+      '7',
+      'revision',
+      'unlocked',
+      true,
+    );
+    expect(mocks.iterationWaterfallQuery).toHaveBeenCalledWith(
       'run',
       worker.ref,
       '7',

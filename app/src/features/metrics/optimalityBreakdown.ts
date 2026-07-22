@@ -1,4 +1,8 @@
-import { OPTIMALITY_EPSILON_GPU_S, type OptimalityLevel } from '../../domain/optimality';
+import {
+  OPTIMALITY_EPSILON_GPU_S,
+  type OptimalityIterationWaterfall,
+  type OptimalityLevel,
+} from '../../domain/optimality';
 import type { SubjectResult } from '../../domain/subject';
 import type { WorkerKey } from '../../domain/worker';
 import type { OptimalityStackRow } from './optimalityOption';
@@ -19,7 +23,15 @@ export type OptimalityScope =
   | { kind: 'pool'; poolTag: string }
   | { kind: 'worker'; workerKey: WorkerKey };
 
-type OptimalityNotReady = Exclude<SubjectResult<'optimality'>, { status: 'ready' }>;
+type OptimalityNotReady =
+  | { status: 'pending'; reason?: string }
+  | { status: 'unavailable' | 'not_generated'; reason?: string; code?: string }
+  | { status: 'failed'; reason: string; code?: string }
+  | {
+      status: 'incompatible';
+      reason: string;
+      receivedSchemaVersion?: number;
+    };
 
 export type OptimalityBreakdownProjection =
   ReadyOptimalityBreakdown | OptimalityNotReady | { status: 'scope_missing'; reason: string };
@@ -99,6 +111,22 @@ export function projectOptimalityBreakdown(
     gpuName: payload.gpuName,
     gpuSpecMatched: payload.gpuSpecMatched,
     peaksSource: payload.peaksSource,
+  };
+}
+
+/** Project the independent exact-iteration resource into the same one-row
+ * waterfall view used by aggregate cluster/pool/worker levels. */
+export function projectIterationOptimalityBreakdown(
+  waterfall: OptimalityIterationWaterfall,
+): ReadyOptimalityBreakdown {
+  return {
+    status: 'ready',
+    rows: [toRow(waterfall.level)],
+    optimalityRatio: waterfall.level.optimalityRatio,
+    necessaryRatio: waterfall.level.necessaryRatio,
+    gpuName: waterfall.gpuName,
+    gpuSpecMatched: waterfall.gpuSpecMatched,
+    peaksSource: waterfall.peaksSource,
   };
 }
 
