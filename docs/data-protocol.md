@@ -221,17 +221,20 @@ composition 投影的扁平 run aggregate 不是 hierarchical worker/iteration C
 
 exact iteration optimality 按 `(pool_tag, worker_id, iter_id)` 拆成两个独立 detail：
 `iteration-optimality-waterfall` 返回该 worker/iteration 全量 cost rows 的单行完整
-waterfall；`iteration-optimality-kernel-ladder` 只返回 R0-R5 per-kernel ladder。两者都不进入
+waterfall；`iteration-optimality-kernel-ladder` 返回 per-kernel ladder。两者都不进入
 run descriptor body，也不批量塞入 optimality subject。请求以
 `mode=unlocked|batch_locked` 显式选择 counterfactual；省略时为兼容旧客户端默认
-`unlocked`。batch-locked necessary-work 只分割 waterfall 的 R5，不进入 kernel ladder。
+`unlocked`。batch-locked 且 versioned semantic-location map 完整匹配时，kernel ladder
+追加 R6 `segmented_necessary`，每个 location 同时携带 necessary/redundant/
+under-accounted GPU·seconds；否则合同整体退化为原 R0-R5，并在 meta 记录 caveat。
 iteration 没有 scheduler holding-span，合同规定 R0=R1、idle=0；imbalance 仍作为
 R1-R2 aggregate chunk，不虚构 kernel 归因。
 
 UI 的 per-kernel recoverable-source 图不定义第二套 analyzer 合同。cluster、pool 和
 worker 从同一批 worker ladder 可加和投影，iteration 使用上述精确 detail，kernel
-层只筛选所选 CostTree leaf。每根 bar 固定由 `R2-R3` batching、`R3-R4`
-communication、`R4-R5` hardware gap 和 `R5` hardware-optimal 四段组成；idle 与
+层只筛选所选 CostTree leaf。无 R6 时每根 bar 固定由 `R2-R3` batching、`R3-R4`
+communication、`R4-R5` hardware gap 和 `R5` hardware-optimal 四段组成；有 R6 时
+R5 进一步拆为 necessary-covered 与 redundant，`R6>R5` 必须显示独立 marker；idle 与
 critical-path imbalance 始终保留为 aggregate-only，不分摊到 kernel。Real scale
 直接展示 GPU·seconds；Normalized 只在 UI 中将每根 kernel bar 独立除以其 R2 total，
 不改变、缓存或重新解释 analyzer 数值。

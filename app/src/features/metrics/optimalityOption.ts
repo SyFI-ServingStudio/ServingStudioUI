@@ -44,11 +44,19 @@ export const OPTIMALITY_KERNEL_FAMILIES: readonly OptimalityFamily[] = [
   { key: 'batching', label: 'batching', color: '#F58518' },
 ];
 
+export const OPTIMALITY_KERNEL_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
+  { key: 'necessaryCovered', label: 'necessary work', color: '#2E7D32' },
+  { key: 'redundant', label: 'redundant work', color: '#A8D08D' },
+  ...OPTIMALITY_KERNEL_FAMILIES.slice(1),
+];
+
 export interface OptimalityStackRow {
   label: string;
   total: number;
   /** Per-bucket GPU·s keyed by `OptimalityFamily.key`. */
   values: Record<string, number>;
+  /** Optional absolute floor marker, used when necessary work exceeds R5. */
+  marker?: number;
 }
 
 export interface OptimalityStackLayout {
@@ -129,14 +137,35 @@ export function optimalityStackOption(
       axisTick: { show: false },
       axisLabel: { color: t.text, fontSize: 12, fontFamily: t.font, fontWeight: 600 },
     },
-    series: families.map((family) => ({
-      name: safeChartText(family.label),
-      type: 'bar' as const,
-      stack: 'optimality',
-      data: rows.map((row) => stackValue(row, family.key, normalized)),
-      itemStyle: { color: family.color },
-      barMaxWidth: 34,
-    })),
+    series: [
+      ...families.map((family) => ({
+        name: safeChartText(family.label),
+        type: 'bar' as const,
+        stack: 'optimality',
+        data: rows.map((row) => stackValue(row, family.key, normalized)),
+        itemStyle: { color: family.color },
+        barMaxWidth: 34,
+      })),
+      ...(rows.some((row) => row.marker !== undefined)
+        ? [
+            {
+              name: 'under-accounted necessary work',
+              type: 'scatter' as const,
+              symbol: 'diamond',
+              symbolSize: 11,
+              data: rows.map((row, index) =>
+                row.marker === undefined
+                  ? '-'
+                  : [
+                      normalized && row.total > 0 ? (row.marker / row.total) * 100 : row.marker,
+                      index,
+                    ],
+              ),
+              itemStyle: { color: '#C62828' },
+            },
+          ]
+        : []),
+    ],
   };
 }
 

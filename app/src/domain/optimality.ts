@@ -67,6 +67,8 @@ export interface OptimalityRungs {
   perConfigBest: number;
   ignoreNetwork: number;
   hardwareLimit: number;
+  /** Locked exact-iteration R6; absent when semantic attribution is unavailable. */
+  segmentedNecessary?: number | null;
 }
 
 export interface OptimalityKernelRungs {
@@ -74,6 +76,20 @@ export interface OptimalityKernelRungs {
   perConfigBest: number;
   ignoreNetwork: number;
   hardwareLimit: number;
+  necessaryLimit?: number | null;
+}
+
+export interface OptimalityKernelNecessaryWork {
+  semantics: string[];
+  minFlops: number;
+  minBytes: number;
+  computeGpuSeconds: number;
+  memoryGpuSeconds: number;
+  necessaryGpuSeconds: number;
+  wallSeconds: number;
+  redundantGpuSeconds: number;
+  underAccountedGpuSeconds: number;
+  bound: 'compute' | 'memory';
 }
 
 export interface OptimalityKernelLadderKernel {
@@ -81,6 +97,7 @@ export interface OptimalityKernelLadderKernel {
   kind: string;
   isComm: boolean;
   rungs: OptimalityKernelRungs;
+  necessaryWork?: OptimalityKernelNecessaryWork | null;
 }
 
 /** One worker's additive kernel contributions across R0-R5. `iterId=null`

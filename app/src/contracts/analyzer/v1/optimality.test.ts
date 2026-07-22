@@ -187,9 +187,27 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
         rungs: {
           ...workerLadder.rungs,
           real: 10,
+          segmented_necessary: 3,
         },
         special_chunks: { idle: 0, imbalance: 2 },
-        kernels: workerLadder.kernels,
+        kernels: [
+          {
+            ...workerLadder.kernels[0],
+            rungs: { ...workerLadder.kernels[0].rungs, necessary_limit: 3 },
+            necessary_work: {
+              semantics: ['gemm'],
+              min_flops: 3e12,
+              min_bytes: 2e9,
+              compute_gpu_s: 3,
+              memory_gpu_s: 1,
+              necessary_gpu_s: 3,
+              wall_s: 3,
+              redundant_gpu_s: 1,
+              under_accounted_gpu_s: 0,
+              bound: 'compute',
+            },
+          },
+        ],
         meta: {
           gpu_name: 'NVIDIA H200',
           gpu_spec_matched: 'H200-SXM-141GB',
@@ -203,6 +221,12 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     );
     expect(exact.iterId).toBe('17');
     expect(exact.specialChunks.idle).toBe(0);
+    expect(exact.rungs.segmentedNecessary).toBe(3);
+    expect(exact.kernels[0].necessaryWork).toMatchObject({
+      semantics: ['gemm'],
+      necessaryGpuSeconds: 3,
+      bound: 'compute',
+    });
 
     const waterfall = decodeAnalyzerV1IterationOptimalityWaterfall(
       {

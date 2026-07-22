@@ -46,6 +46,7 @@ export interface ReadyKernelHeadroomProjection {
   label: string;
   /** Number of lower-ranked locations represented by the final `other` row. */
   collapsedKernelCount: number;
+  underAccountedKernelCount: number;
 }
 
 export type KernelHeadroomProjection =
@@ -79,24 +80,43 @@ function sumLadders(ladders: readonly OptimalityKernelLadder[], label: string): 
   const specialChunks = { idle: 0, imbalance: 0 };
   const kernels = new Map<string, OptimalityKernelLadderKernel>();
   for (const ladder of ladders) {
-    for (const key of Object.keys(rungs) as (keyof OptimalityRungs)[]) {
+    for (const key of [
+      'real',
+      'busy',
+      'balanced',
+      'perConfigBest',
+      'ignoreNetwork',
+      'hardwareLimit',
+    ] as const) {
       rungs[key] += ladder.rungs[key];
     }
     specialChunks.idle += ladder.specialChunks.idle;
     specialChunks.imbalance += ladder.specialChunks.imbalance;
     for (const kernel of ladder.kernels) {
-      const current = kernels.get(kernel.name) ?? {
+      const existing = kernels.get(kernel.name);
+      const current = existing ?? {
         name: kernel.name,
         kind: kernel.kind,
         isComm: kernel.isComm,
         rungs: zeroKernelRungs(),
+        necessaryWork: kernel.necessaryWork,
       };
-      for (const key of Object.keys(current.rungs) as (keyof OptimalityKernelRungs)[]) {
+      for (const key of ['balanced', 'perConfigBest', 'ignoreNetwork', 'hardwareLimit'] as const) {
         current.rungs[key] += kernel.rungs[key];
+      }
+      if (kernel.rungs.necessaryLimit !== null && kernel.rungs.necessaryLimit !== undefined) {
+        current.rungs.necessaryLimit =
+          (existing?.rungs.necessaryLimit ?? 0) + kernel.rungs.necessaryLimit;
       }
       kernels.set(kernel.name, current);
     }
   }
+  rungs.segmentedNecessary = ladders.every(
+    (ladder) =>
+      ladder.rungs.segmentedNecessary !== null && ladder.rungs.segmentedNecessary !== undefined,
+  )
+    ? ladders.reduce((sum, ladder) => sum + (ladder.rungs.segmentedNecessary ?? 0), 0)
+    : null;
   return {
     label,
     rungs,
@@ -120,7 +140,7 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
     includeIdle: boolean,
   ) => {
     const row: Record<string, number> = {};
-    for (const kernel of kernels) row[kernel.name] = kernel.rungs[rung];
+    for (const kernel of kernels) row[kernel.name] = kernel.rungs[rung] ?? 0;
     if (kernelFilter === null && includeImbalance) row.__imbalance = data.specialChunks.imbalance;
     if (kernelFilter === null && includeIdle) row.__idle = data.specialChunks.idle;
     return row;
@@ -130,20 +150,24 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
     total: Object.values(rowValues).reduce((sum, value) => sum + value, 0),
     values: rowValues,
   });
+  const rows = [
+    makeRow('R0 Real', values('balanced', true, true)),
+    makeRow('R1 Busy', values('balanced', true, false)),
+    makeRow('R2 Balanced', values('balanced', false, false)),
+    makeRow('R3 Per-config best', values('perConfigBest', false, false)),
+    makeRow('R4 Ignore network', values('ignoreNetwork', false, false)),
+    makeRow('R5 Hardware limit', values('hardwareLimit', false, false)),
+  ];
+  if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
+    rows.push(makeRow('R6 Necessary work', values('necessaryLimit', false, false)));
+  }
   return {
     status: 'ready',
     label: data.label,
     kernelFilter,
     kernels,
     kernelNames,
-    rows: [
-      makeRow('R0 Real', values('balanced', true, true)),
-      makeRow('R1 Busy', values('balanced', true, false)),
-      makeRow('R2 Balanced', values('balanced', false, false)),
-      makeRow('R3 Per-config best', values('perConfigBest', false, false)),
-      makeRow('R4 Ignore network', values('ignoreNetwork', false, false)),
-      makeRow('R5 Hardware limit', values('hardwareLimit', false, false)),
-    ],
+    rows,
   };
 }
 
@@ -181,6 +205,21 @@ const MAX_HEADROOM_KERNELS = 16;
 
 function kernelHeadroomRow(kernel: OptimalityKernelLadderKernel): OptimalityStackRow {
   const { balanced, perConfigBest, ignoreNetwork, hardwareLimit } = kernel.rungs;
+  const necessary = kernel.rungs.necessaryLimit;
+  if (necessary !== null && necessary !== undefined) {
+    return {
+      label: kernel.name,
+      total: balanced,
+      marker: kernel.necessaryWork?.underAccountedGpuSeconds ? necessary : undefined,
+      values: {
+        batching: Math.max(0, balanced - perConfigBest),
+        communication: Math.max(0, perConfigBest - ignoreNetwork),
+        hardwareGap: Math.max(0, ignoreNetwork - hardwareLimit),
+        redundant: Math.max(0, hardwareLimit - necessary),
+        necessaryCovered: Math.min(hardwareLimit, necessary),
+      },
+    };
+  }
   return {
     label: kernel.name,
     total: balanced,
@@ -199,6 +238,8 @@ function collapseHeadroomRows(rows: readonly OptimalityStackRow[]): OptimalitySt
     communication: 0,
     hardwareGap: 0,
     hardwareOptimal: 0,
+    redundant: 0,
+    necessaryCovered: 0,
   };
   for (const row of rows) {
     for (const key of Object.keys(values) as (keyof typeof values)[]) {
@@ -220,8 +261,15 @@ export function projectKernelHeadroom(ladder: KernelLadderProjection): KernelHea
   const rows = ladder.kernels
     .map(kernelHeadroomRow)
     .filter((row) => row.total > OPTIMALITY_EPSILON_GPU_S);
+  const underAccountedKernelCount = rows.filter((row) => row.marker !== undefined).length;
   if (rows.length <= MAX_HEADROOM_KERNELS || ladder.kernelFilter !== null) {
-    return { status: 'ready', rows, label: ladder.label, collapsedKernelCount: 0 };
+    return {
+      status: 'ready',
+      rows,
+      label: ladder.label,
+      collapsedKernelCount: 0,
+      underAccountedKernelCount,
+    };
   }
   const visibleRows = rows.slice(0, MAX_HEADROOM_KERNELS);
   const collapsedRows = rows.slice(MAX_HEADROOM_KERNELS);
@@ -230,5 +278,6 @@ export function projectKernelHeadroom(ladder: KernelLadderProjection): KernelHea
     rows: [...visibleRows, collapseHeadroomRows(collapsedRows)],
     label: ladder.label,
     collapsedKernelCount: collapsedRows.length,
+    underAccountedKernelCount,
   };
 }

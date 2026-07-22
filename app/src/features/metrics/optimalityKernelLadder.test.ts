@@ -114,6 +114,43 @@ describe('optimality kernel ladder projection', () => {
     ]);
   });
 
+  it('adds mapped R6 and splits R5 while retaining an under-accounted marker', () => {
+    const exact = ladder('attn', '0', 1);
+    exact.iterId = '17';
+    exact.rungs.segmentedNecessary = 5;
+    exact.kernels = [
+      {
+        ...exact.kernels[0],
+        rungs: { ...exact.kernels[0].rungs, necessaryLimit: 5 },
+        necessaryWork: {
+          semantics: ['gemm'],
+          minFlops: 5e12,
+          minBytes: 1e9,
+          computeGpuSeconds: 5,
+          memoryGpuSeconds: 1,
+          necessaryGpuSeconds: 5,
+          wallSeconds: 5,
+          redundantGpuSeconds: 0,
+          underAccountedGpuSeconds: 2,
+          bound: 'compute',
+        },
+      },
+    ];
+    const projection = projectExactKernelLadder(exact);
+    expect(projection.status).toBe('ready');
+    if (projection.status !== 'ready') return;
+    expect(projection.rows.at(-1)).toMatchObject({ label: 'R6 Necessary work', total: 5 });
+
+    const headroom = projectKernelHeadroom(projection);
+    expect(headroom.status).toBe('ready');
+    if (headroom.status !== 'ready') return;
+    expect(headroom.underAccountedKernelCount).toBe(1);
+    expect(headroom.rows[0]).toMatchObject({
+      marker: 5,
+      values: { necessaryCovered: 3, redundant: 0 },
+    });
+  });
+
   it('derives scoped recoverable-source bars and collapses locations below the top 16', () => {
     const manyKernels = Array.from({ length: 18 }, (_, index) => {
       const balanced = 100 - index;

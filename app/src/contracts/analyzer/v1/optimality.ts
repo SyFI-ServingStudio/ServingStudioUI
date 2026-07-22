@@ -72,6 +72,20 @@ const rungsSchema = z.object({
   per_config_best: nonNegativeNumber,
   ignore_network: nonNegativeNumber,
   hardware_limit: nonNegativeNumber,
+  segmented_necessary: nonNegativeNumber.nullable().optional().default(null),
+});
+
+const necessaryWorkSchema = z.object({
+  semantics: z.array(z.string()),
+  min_flops: nonNegativeNumber,
+  min_bytes: nonNegativeNumber,
+  compute_gpu_s: nonNegativeNumber,
+  memory_gpu_s: nonNegativeNumber,
+  necessary_gpu_s: nonNegativeNumber,
+  wall_s: nonNegativeNumber,
+  redundant_gpu_s: nonNegativeNumber,
+  under_accounted_gpu_s: nonNegativeNumber,
+  bound: z.enum(['compute', 'memory']),
 });
 
 const ladderKernelSchema = z.object({
@@ -83,7 +97,9 @@ const ladderKernelSchema = z.object({
     per_config_best: nonNegativeNumber,
     ignore_network: nonNegativeNumber,
     hardware_limit: nonNegativeNumber,
+    necessary_limit: nonNegativeNumber.nullable().optional().default(null),
   }),
+  necessary_work: necessaryWorkSchema.nullable().optional().default(null),
 });
 
 const workerKernelLadderSchema = z.object({
@@ -189,6 +205,7 @@ function toKernelLadder(
       perConfigBest: wire.rungs.per_config_best,
       ignoreNetwork: wire.rungs.ignore_network,
       hardwareLimit: wire.rungs.hardware_limit,
+      segmentedNecessary: wire.rungs.segmented_necessary,
     },
     specialChunks: {
       idle: wire.special_chunks.idle,
@@ -203,42 +220,58 @@ function toKernelLadder(
         perConfigBest: kernel.rungs.per_config_best,
         ignoreNetwork: kernel.rungs.ignore_network,
         hardwareLimit: kernel.rungs.hardware_limit,
+        necessaryLimit: kernel.rungs.necessary_limit,
       },
+      necessaryWork:
+        kernel.necessary_work === null
+          ? null
+          : {
+              semantics: kernel.necessary_work.semantics,
+              minFlops: kernel.necessary_work.min_flops,
+              minBytes: kernel.necessary_work.min_bytes,
+              computeGpuSeconds: kernel.necessary_work.compute_gpu_s,
+              memoryGpuSeconds: kernel.necessary_work.memory_gpu_s,
+              necessaryGpuSeconds: kernel.necessary_work.necessary_gpu_s,
+              wallSeconds: kernel.necessary_work.wall_s,
+              redundantGpuSeconds: kernel.necessary_work.redundant_gpu_s,
+              underAccountedGpuSeconds: kernel.necessary_work.under_accounted_gpu_s,
+              bound: kernel.necessary_work.bound,
+            },
     })),
   };
 }
 
 function toLevel(level: z.infer<typeof levelSchema>): OptimalityLevel {
-    const floorBuckets =
-      'hardware_optimal' in level.buckets
-        ? {
-            hardwareOptimal: level.buckets.hardware_optimal,
-            excessOverNecessary: 0,
-            fusion: 0,
-            hardwareNecessary: 0,
-          }
-        : {
-            hardwareOptimal: 0,
-            excessOverNecessary: level.buckets.excess_over_necessary,
-            fusion: level.buckets.fusion,
-            hardwareNecessary: level.buckets.hardware_necessary,
-          };
-    return {
-      level: level.level,
-      key: level.key,
-      label: level.label,
-      total: level.total,
-      optimalityRatio: level.optimality_ratio,
-      necessaryRatio: 'hardware_optimal' in level.buckets ? null : level.necessary_ratio,
-      buckets: {
-        idle: level.buckets.idle,
-        imbalance: level.buckets.imbalance,
-        batching: level.buckets.batching,
-        communication: level.buckets.communication,
-        hardwareGap: level.buckets.hardware_gap,
-        ...floorBuckets,
-      },
-    };
+  const floorBuckets =
+    'hardware_optimal' in level.buckets
+      ? {
+          hardwareOptimal: level.buckets.hardware_optimal,
+          excessOverNecessary: 0,
+          fusion: 0,
+          hardwareNecessary: 0,
+        }
+      : {
+          hardwareOptimal: 0,
+          excessOverNecessary: level.buckets.excess_over_necessary,
+          fusion: level.buckets.fusion,
+          hardwareNecessary: level.buckets.hardware_necessary,
+        };
+  return {
+    level: level.level,
+    key: level.key,
+    label: level.label,
+    total: level.total,
+    optimalityRatio: level.optimality_ratio,
+    necessaryRatio: 'hardware_optimal' in level.buckets ? null : level.necessary_ratio,
+    buckets: {
+      idle: level.buckets.idle,
+      imbalance: level.buckets.imbalance,
+      batching: level.buckets.batching,
+      communication: level.buckets.communication,
+      hardwareGap: level.buckets.hardware_gap,
+      ...floorBuckets,
+    },
+  };
 }
 
 function toLevels(wire: ReadyWire): OptimalityLevel[] {
@@ -302,6 +335,25 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
     String(wire.iter_id) !== expectedIterId
   ) {
     throw new Error('Iteration optimality ladder identity does not match the request.');
+  }
+  const hasNecessaryRung = wire.rungs.segmented_necessary !== null;
+  const kernelsHaveNecessaryWork =
+    wire.kernels.length > 0 &&
+    wire.kernels.every(
+      (kernel) => kernel.rungs.necessary_limit !== null && kernel.necessary_work !== null,
+    );
+  if (hasNecessaryRung !== kernelsHaveNecessaryWork) {
+    throw new Error('Iteration necessary-work attribution must be all-or-nothing.');
+  }
+  if (hasNecessaryRung) {
+    const kernelNecessarySum = wire.kernels.reduce(
+      (sum, kernel) => sum + (kernel.rungs.necessary_limit ?? 0),
+      0,
+    );
+    const tolerance = Math.max(1e-9, (wire.rungs.segmented_necessary ?? 0) * 1e-6);
+    if (Math.abs(kernelNecessarySum - (wire.rungs.segmented_necessary ?? 0)) > tolerance) {
+      throw new Error('Iteration kernel necessary-work values do not reconcile with R6.');
+    }
   }
   return toKernelLadder(
     {
