@@ -60,7 +60,7 @@ vi.mock('../metrics', () => ({
   OptimalityKernelLadderCard: ({ title }: { title: string }) => <div>{title}</div>,
   OptimalityKernelsCard: ({ title }: { title: string }) => <div>{title}</div>,
   OptimalityWaterfallCard: ({ title }: { title: string }) => <div>{title}</div>,
-  projectAggregateKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
+  projectScopedKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
   projectExactKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
   projectIterationOptimalityBreakdown: () => ({ status: 'ready', rows: [] }),
 }));

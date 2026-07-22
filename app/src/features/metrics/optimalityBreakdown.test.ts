@@ -25,7 +25,7 @@ function levelBuckets(overrides: Partial<OptimalityBuckets> = {}): OptimalityBuc
     hardwareOptimal: 0,
     excessOverNecessary: 0,
     fusion: 0,
-    hardwareNecessary: 0,
+    scopeFusedNecessary: 0,
     ...overrides,
   };
 }

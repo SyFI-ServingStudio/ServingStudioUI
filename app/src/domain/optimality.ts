@@ -23,8 +23,8 @@ export interface OptimalityBuckets {
   excessOverNecessary: number;
   /** Unlocked-only benefit between segmented and globally fused rooflines. */
   fusion: number;
-  /** Unlocked-only global necessary-work roofline floor. */
-  hardwareNecessary: number;
+  /** Unlocked-only roofline after fusing all necessary work in this scope. */
+  scopeFusedNecessary: number;
 }
 
 export type OptimalityLevelKind = 'cluster' | 'pool' | 'worker' | 'iteration';
@@ -69,8 +69,8 @@ export interface OptimalityRungs {
   hardwareLimit: number;
   /** Location-attributed segmented necessary-work R6. */
   segmentedNecessary?: number | null;
-  /** R7 globally fused necessary-work floor; aggregate-only, not per-location. */
-  hardwareNecessary?: number | null;
+  /** R7 scope-fused necessary-work floor; aggregate-only, not per-location. */
+  scopeFusedNecessary?: number | null;
 }
 
 export interface OptimalityKernelRungs {
@@ -88,7 +88,8 @@ export interface OptimalityKernelNecessaryWork {
   computeGpuSeconds: number;
   memoryGpuSeconds: number;
   necessaryGpuSeconds: number;
-  wallSeconds: number;
+  /** Defined for one worker/iteration; aggregate GPU work has no additive wall time. */
+  wallSeconds: number | null;
   redundantGpuSeconds: number;
   underAccountedGpuSeconds: number;
   underAccountedRawGpuSeconds: number;
@@ -104,12 +105,9 @@ export interface OptimalityKernelLadderKernel {
   necessaryWork?: OptimalityKernelNecessaryWork | null;
 }
 
-/** One worker's analyzer-owned kernel contributions across R0-R7. `iterId=null`
- * denotes the run aggregate embedded in the subject; a concrete id is an exact
- * on-demand iteration detail. */
-export interface OptimalityKernelLadder {
-  worker: { poolTag: string; workerId: string };
-  iterId: string | null;
+/** Scope-independent kernel ladder data. Identity belongs in the extending
+ * worker/iteration or pool/cluster type, never in fabricated placeholder fields. */
+export interface OptimalityKernelLadderData {
   label: string;
   rungs: OptimalityRungs;
   specialChunks: { idle: number; imbalance: number; fusion?: number };
@@ -118,15 +116,17 @@ export interface OptimalityKernelLadder {
   necessaryWorkReplicationFactor?: number | null;
 }
 
-export interface OptimalityAggregateKernelLadder {
+/** One worker's analyzer-owned kernel contributions across R0-R7. `iterId=null`
+ * denotes the run aggregate embedded in the subject; a concrete id is an exact
+ * on-demand iteration detail. */
+export interface OptimalityKernelLadder extends OptimalityKernelLadderData {
+  worker: { poolTag: string; workerId: string };
+  iterId: string | null;
+}
+
+export interface OptimalityAggregateKernelLadder extends OptimalityKernelLadderData {
   level: 'cluster' | 'pool';
   key: string;
-  label: string;
-  rungs: OptimalityRungs;
-  specialChunks: { idle: number; imbalance: number; fusion?: number };
-  kernels: OptimalityKernelLadderKernel[];
-  necessaryWorkMode?: 'batch_locked' | 'replicated_large_batch' | null;
-  necessaryWorkReplicationFactor?: number | null;
 }
 
 /** Exact all-row waterfall for one selected worker iteration. This is separate

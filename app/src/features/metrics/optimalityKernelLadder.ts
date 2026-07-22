@@ -1,8 +1,8 @@
 import type {
   OptimalityKernelLadder,
+  OptimalityKernelLadderData,
   OptimalityKernelLadderKernel,
   OptimalityKernelRungs,
-  OptimalityRungs,
 } from '../../domain/optimality';
 import { OPTIMALITY_EPSILON_GPU_S } from '../../domain/optimality';
 import type { SubjectResult } from '../../domain/subject';
@@ -35,7 +35,7 @@ export type KernelLadderProjection =
     }
   | { status: 'scope_missing'; reason: string };
 
-export type AggregateKernelLadderScope =
+export type KernelLadderScope =
   | { kind: 'cluster' }
   | { kind: 'pool'; poolTag: string }
   | { kind: 'worker'; workerKey: WorkerKey };
@@ -52,18 +52,10 @@ export interface ReadyKernelHeadroomProjection {
 export type KernelHeadroomProjection =
   ReadyKernelHeadroomProjection | Exclude<KernelLadderProjection, { status: 'ready' }>;
 
-interface LadderData {
-  label: string;
-  rungs: OptimalityRungs;
-  specialChunks: { idle: number; imbalance: number; fusion?: number };
-  kernels: OptimalityKernelLadderKernel[];
-}
-
-function ladderData(ladder: LadderData): LadderData {
-  return ladder;
-}
-
-function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelLadderProjection {
+function ladderRows(
+  data: OptimalityKernelLadderData,
+  kernelFilter: string | null,
+): ReadyKernelLadderProjection {
   const kernels =
     kernelFilter === null
       ? data.kernels
@@ -96,8 +88,8 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
   if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
     rows.push(makeRow('R6 Segmented necessary', values('necessaryLimit', false, false)));
   }
-  if (data.rungs.hardwareNecessary !== null && data.rungs.hardwareNecessary !== undefined) {
-    rows.push(makeRow('R7 Globally fused', { __globalNecessary: data.rungs.hardwareNecessary }));
+  if (data.rungs.scopeFusedNecessary !== null && data.rungs.scopeFusedNecessary !== undefined) {
+    rows.push(makeRow('R7 Scope fused', { __globalNecessary: data.rungs.scopeFusedNecessary }));
   }
   return {
     status: 'ready',
@@ -109,9 +101,9 @@ function ladderRows(data: LadderData, kernelFilter: string | null): ReadyKernelL
   };
 }
 
-export function projectAggregateKernelLadder(
+export function projectScopedKernelLadder(
   subject: SubjectResult<'optimality'>,
-  scope: AggregateKernelLadderScope,
+  scope: KernelLadderScope,
   kernelFilter: string | null = null,
 ): KernelLadderProjection {
   if (subject.status !== 'ready') return subject;
@@ -130,14 +122,14 @@ export function projectAggregateKernelLadder(
   if (ladder === undefined) {
     return { status: 'scope_missing', reason: 'No kernel ladder is available for this scope.' };
   }
-  return ladderRows(ladderData(ladder), kernelFilter);
+  return ladderRows(ladder, kernelFilter);
 }
 
 export function projectExactKernelLadder(
   ladder: OptimalityKernelLadder,
   kernelFilter: string | null = null,
 ): KernelLadderProjection {
-  return ladderRows(ladderData(ladder), kernelFilter);
+  return ladderRows(ladder, kernelFilter);
 }
 
 const MAX_HEADROOM_KERNELS = 16;

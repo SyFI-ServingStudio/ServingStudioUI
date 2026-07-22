@@ -16,7 +16,7 @@ import {
   OptimalityKernelLadderCard,
   OptimalityKernelsCard,
   OptimalityWaterfallCard,
-  projectAggregateKernelLadder,
+  projectScopedKernelLadder,
   projectExactKernelLadder,
   projectIterationOptimalityBreakdown,
   type OptimalityBreakdownProjection,
@@ -115,7 +115,7 @@ export default function OptimalityAnalysisStage() {
   );
 
   if (scope === 'cluster') {
-    const ladder = projectAggregateKernelLadder(optimality, { kind: 'cluster' });
+    const ladder = projectScopedKernelLadder(optimality, { kind: 'cluster' });
     return (
       <Stack spacing={2}>
         {modeSwitch}
@@ -137,7 +137,7 @@ export default function OptimalityAnalysisStage() {
 
   if (scope === 'pool') {
     const poolTag = poolRole ?? '';
-    const ladder = projectAggregateKernelLadder(optimality, { kind: 'pool', poolTag });
+    const ladder = projectScopedKernelLadder(optimality, { kind: 'pool', poolTag });
     return (
       <Stack spacing={2}>
         {modeSwitch}
@@ -169,7 +169,7 @@ export default function OptimalityAnalysisStage() {
   if (selectedWorker === undefined || workerKey === null) {
     ladder = { status: 'scope_missing', reason: 'No worker is selected.' };
   } else if (selectedOperation === null) {
-    ladder = projectAggregateKernelLadder(
+    ladder = projectScopedKernelLadder(
       optimality,
       { kind: 'worker', workerKey },
       selectedKernelName,

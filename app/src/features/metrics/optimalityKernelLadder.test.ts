@@ -8,7 +8,7 @@ import type {
 import type { SubjectResult } from '../../domain/subject';
 import { makeWorkerKey } from '../../domain/worker';
 import {
-  projectAggregateKernelLadder,
+  projectScopedKernelLadder,
   projectExactKernelLadder,
   projectKernelHeadroom,
 } from './optimalityKernelLadder';
@@ -95,8 +95,8 @@ describe('optimality kernel ladder projection', () => {
       [ladder('attn', '0', 1), ladder('attn', '1', 2), ladder('ffn', '0', 4)],
       [aggregateLadder('cluster', 'cluster', 7), aggregateLadder('pool', 'attn', 3)],
     );
-    const cluster = projectAggregateKernelLadder(ready, { kind: 'cluster' });
-    const pool = projectAggregateKernelLadder(ready, { kind: 'pool', poolTag: 'attn' });
+    const cluster = projectScopedKernelLadder(ready, { kind: 'cluster' });
+    const pool = projectScopedKernelLadder(ready, { kind: 'pool', poolTag: 'attn' });
     expect(cluster.status).toBe('ready');
     expect(pool.status).toBe('ready');
     if (cluster.status !== 'ready' || pool.status !== 'ready') return;
@@ -105,7 +105,7 @@ describe('optimality kernel ladder projection', () => {
   });
 
   it('selects one worker by composite key', () => {
-    const projection = projectAggregateKernelLadder(
+    const projection = projectScopedKernelLadder(
       subject([ladder('attn', '0', 1), ladder('ffn', '0', 4)]),
       { kind: 'worker', workerKey: makeWorkerKey('ffn', '0') },
     );
@@ -145,7 +145,7 @@ describe('optimality kernel ladder projection', () => {
     const exact = ladder('attn', '0', 1);
     exact.iterId = '17';
     exact.rungs.segmentedNecessary = 5;
-    exact.rungs.hardwareNecessary = 2;
+    exact.rungs.scopeFusedNecessary = 2;
     exact.specialChunks.fusion = 3;
     exact.kernels = [
       {
@@ -171,7 +171,7 @@ describe('optimality kernel ladder projection', () => {
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
     expect(projection.rows.at(-2)).toMatchObject({ label: 'R6 Segmented necessary', total: 5 });
-    expect(projection.rows.at(-1)).toMatchObject({ label: 'R7 Globally fused', total: 2 });
+    expect(projection.rows.at(-1)).toMatchObject({ label: 'R7 Scope fused', total: 2 });
 
     const headroom = projectKernelHeadroom(projection);
     expect(headroom.status).toBe('ready');
@@ -199,7 +199,7 @@ describe('optimality kernel ladder projection', () => {
       };
     });
     const aggregateSource = aggregateLadder('cluster', 'cluster', 1);
-    const aggregate = projectAggregateKernelLadder(
+    const aggregate = projectScopedKernelLadder(
       subject(
         [],
         [

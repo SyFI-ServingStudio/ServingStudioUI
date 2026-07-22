@@ -30,7 +30,7 @@ export const OPTIMALITY_FAMILIES: readonly OptimalityFamily[] = [
 /** Unlocked level bars replace the plain R5 green band with two counterfactual
  * opportunities and the irreducible global necessary-work floor. */
 export const OPTIMALITY_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
-  { key: 'hardwareNecessary', label: 'hardware-necessary', color: '#2E7D32' },
+  { key: 'scopeFusedNecessary', label: 'scope-fused necessary', color: '#2E7D32' },
   { key: 'fusion', label: 'fusion', color: '#7CBF66' },
   { key: 'excessOverNecessary', label: 'excess over necessary', color: '#B7D99C' },
   ...OPTIMALITY_FAMILIES.slice(1),

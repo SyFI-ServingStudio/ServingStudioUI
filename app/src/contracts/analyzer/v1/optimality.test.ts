@@ -109,7 +109,7 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
       hardwareOptimal: 0,
       excessOverNecessary: 10,
       fusion: 10,
-      hardwareNecessary: 20,
+      scopeFusedNecessary: 20,
     });
   });
 
@@ -244,7 +244,7 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     expect(exact.necessaryWorkReplicationFactor).toBe(10000);
     expect(exact.specialChunks.idle).toBe(0);
     expect(exact.rungs.segmentedNecessary).toBe(3);
-    expect(exact.rungs.hardwareNecessary).toBe(2);
+    expect(exact.rungs.scopeFusedNecessary).toBe(2);
     expect(exact.kernels[0].necessaryWork).toMatchObject({
       semantics: ['gemm'],
       necessaryGpuSeconds: 3,
@@ -286,11 +286,67 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
       { poolTag: 'attn', workerId: '0' },
       '17',
     );
-    expect(waterfall.level.buckets.hardwareNecessary).toBe(2);
+    expect(waterfall.level.buckets.scopeFusedNecessary).toBe(2);
     expect(waterfall.level.necessaryRatio).toBe(0.2);
     expect(waterfall.level.label).toContain('fixed batch');
     expect(waterfall.necessaryWorkMode).toBe('batch_locked');
     expect(waterfall.necessaryWorkReplicationFactor).toBe(1);
+  });
+
+  it('accepts aggregate necessary work without a non-additive wall time', () => {
+    const result = decodeAnalyzerV1OptimalityPayload(
+      readyPayload({
+        aggregate_kernel_ladders: [
+          {
+            level: 'cluster',
+            key: 'cluster',
+            label: 'Cluster aggregate',
+            rungs: {
+              real: 12,
+              busy: 10,
+              balanced: 8,
+              per_config_best: 6,
+              ignore_network: 5,
+              hardware_limit: 4,
+              segmented_necessary: 3,
+              hardware_necessary: 2,
+            },
+            special_chunks: { idle: 2, imbalance: 2, fusion: 1 },
+            kernels: [
+              {
+                name: 'model.gemm',
+                kind: 'single_gemm',
+                is_comm: false,
+                rungs: {
+                  balanced: 8,
+                  per_config_best: 6,
+                  ignore_network: 5,
+                  hardware_limit: 4,
+                  necessary_limit: 3,
+                },
+                necessary_work: {
+                  semantics: ['gemm'],
+                  min_flops: 3e12,
+                  min_bytes: 2e9,
+                  compute_gpu_s: 3,
+                  memory_gpu_s: 1,
+                  necessary_gpu_s: 3,
+                  redundant_gpu_s: 1,
+                  under_accounted_gpu_s: 0,
+                  bound: 'compute',
+                },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') return;
+    expect(
+      result.payload.aggregateKernelLadders[0].kernels[0].necessaryWork?.wallSeconds,
+    ).toBeNull();
   });
 
   it('clamps a fractionally-negative bucket (analyzer clamp artifact) to zero', () => {

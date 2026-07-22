@@ -6,7 +6,7 @@ export {
 export { default as OptimalityKernelsCard } from './OptimalityKernelsCard';
 export { default as OptimalityKernelLadderCard } from './OptimalityKernelLadderCard';
 export {
-  projectAggregateKernelLadder,
+  projectScopedKernelLadder,
   projectExactKernelLadder,
   projectKernelHeadroom,
   type KernelHeadroomProjection,

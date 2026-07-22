@@ -5,6 +5,7 @@ import type {
   OptimalityAggregateKernelLadder,
   OptimalityIterationWaterfall,
   OptimalityKernelLadder,
+  OptimalityKernelLadderData,
   OptimalityLevel,
 } from '../../../domain/optimality';
 import type { WorkerRef } from '../../../domain/worker';
@@ -84,7 +85,7 @@ const necessaryWorkSchema = z.object({
   compute_gpu_s: nonNegativeNumber,
   memory_gpu_s: nonNegativeNumber,
   necessary_gpu_s: nonNegativeNumber,
-  wall_s: nonNegativeNumber,
+  wall_s: nonNegativeNumber.optional(),
   redundant_gpu_s: nonNegativeNumber,
   under_accounted_gpu_s: nonNegativeNumber,
   under_accounted_raw_gpu_s: nonNegativeNumber.optional(),
@@ -106,11 +107,7 @@ const ladderKernelSchema = z.object({
   necessary_work: necessaryWorkSchema.nullable().optional().default(null),
 });
 
-const workerKernelLadderSchema = z.object({
-  key: wireIdentityString,
-  label: z.string().trim().min(1),
-  pool_tag: wireIdentityString,
-  worker_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+const kernelLadderDataSchema = z.object({
   rungs: rungsSchema,
   special_chunks: z.object({
     idle: nonNegativeNumber,
@@ -132,29 +129,17 @@ const workerKernelLadderSchema = z.object({
     .default(null),
 });
 
-const aggregateKernelLadderSchema = z.object({
+const workerKernelLadderSchema = kernelLadderDataSchema.extend({
+  key: wireIdentityString,
+  label: z.string().trim().min(1),
+  pool_tag: wireIdentityString,
+  worker_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+});
+
+const aggregateKernelLadderSchema = kernelLadderDataSchema.extend({
   level: z.enum(['cluster', 'pool']),
   key: wireIdentityString,
   label: z.string().trim().min(1),
-  rungs: rungsSchema,
-  special_chunks: z.object({
-    idle: nonNegativeNumber,
-    imbalance: nonNegativeNumber,
-    fusion: nonNegativeNumber.optional().default(0),
-  }),
-  kernels: z.array(ladderKernelSchema),
-  necessary_work_mode: z
-    .enum(['batch_locked', 'replicated_large_batch'])
-    .nullable()
-    .optional()
-    .default(null),
-  necessary_work_replication_factor: z
-    .number()
-    .int()
-    .positive()
-    .nullable()
-    .optional()
-    .default(null),
 });
 
 const readySchema = z.object({
@@ -291,18 +276,11 @@ function semanticIssues(wire: ReadyWire): string[] {
   return issues;
 }
 
-function toKernelLadder(
-  wire: z.infer<typeof workerKernelLadderSchema>,
-  iterId: string | null,
-): OptimalityKernelLadder {
-  const runCounterfactual =
-    iterId === null && wire.necessary_work_mode === 'replicated_large_batch'
-      ? ` · ${wire.necessary_work_replication_factor ?? 1}× saturated composition`
-      : '';
+function toKernelLadderData(
+  wire: z.infer<typeof kernelLadderDataSchema> & { label: string },
+): OptimalityKernelLadderData {
   return {
-    worker: { poolTag: wire.pool_tag, workerId: String(wire.worker_id) },
-    iterId,
-    label: iterId === null ? `${wire.label}${runCounterfactual}` : `${wire.label} / iter ${iterId}`,
+    label: wire.label,
     rungs: {
       real: wire.rungs.real,
       busy: wire.rungs.busy,
@@ -311,7 +289,7 @@ function toKernelLadder(
       ignoreNetwork: wire.rungs.ignore_network,
       hardwareLimit: wire.rungs.hardware_limit,
       segmentedNecessary: wire.rungs.segmented_necessary,
-      hardwareNecessary: wire.rungs.hardware_necessary,
+      scopeFusedNecessary: wire.rungs.hardware_necessary,
     },
     specialChunks: {
       idle: wire.special_chunks.idle,
@@ -339,7 +317,7 @@ function toKernelLadder(
               computeGpuSeconds: kernel.necessary_work.compute_gpu_s,
               memoryGpuSeconds: kernel.necessary_work.memory_gpu_s,
               necessaryGpuSeconds: kernel.necessary_work.necessary_gpu_s,
-              wallSeconds: kernel.necessary_work.wall_s,
+              wallSeconds: kernel.necessary_work.wall_s ?? null,
               redundantGpuSeconds: kernel.necessary_work.redundant_gpu_s,
               underAccountedGpuSeconds: kernel.necessary_work.under_accounted_gpu_s,
               underAccountedRawGpuSeconds:
@@ -354,35 +332,34 @@ function toKernelLadder(
   };
 }
 
+function toKernelLadder(
+  wire: z.infer<typeof workerKernelLadderSchema>,
+  iterId: string | null,
+): OptimalityKernelLadder {
+  const runCounterfactual =
+    iterId === null && wire.necessary_work_mode === 'replicated_large_batch'
+      ? ` · ${wire.necessary_work_replication_factor ?? 1}× saturated work`
+      : '';
+  return {
+    ...toKernelLadderData(wire),
+    worker: { poolTag: wire.pool_tag, workerId: String(wire.worker_id) },
+    iterId,
+    label: iterId === null ? `${wire.label}${runCounterfactual}` : `${wire.label} / iter ${iterId}`,
+  };
+}
+
 function toAggregateKernelLadder(
   wire: z.infer<typeof aggregateKernelLadderSchema>,
 ): OptimalityAggregateKernelLadder {
-  const common = toKernelLadder(
-    {
-      key: wire.key,
-      label: wire.label,
-      pool_tag: wire.level === 'pool' ? wire.key : 'cluster',
-      worker_id: 0,
-      rungs: wire.rungs,
-      special_chunks: wire.special_chunks,
-      kernels: wire.kernels,
-      necessary_work_mode: wire.necessary_work_mode,
-      necessary_work_replication_factor: wire.necessary_work_replication_factor,
-    },
-    null,
-  );
+  const common = toKernelLadderData(wire);
   return {
+    ...common,
     level: wire.level,
     key: wire.key,
     label:
       wire.necessary_work_mode === 'replicated_large_batch'
-        ? `${wire.label} · ${wire.necessary_work_replication_factor ?? 1}× saturated composition`
+        ? `${wire.label} · ${wire.necessary_work_replication_factor ?? 1}× saturated work`
         : wire.label,
-    rungs: common.rungs,
-    specialChunks: common.specialChunks,
-    kernels: common.kernels,
-    necessaryWorkMode: common.necessaryWorkMode,
-    necessaryWorkReplicationFactor: common.necessaryWorkReplicationFactor,
   };
 }
 
@@ -393,13 +370,13 @@ function toLevel(level: z.infer<typeof levelSchema>): OptimalityLevel {
           hardwareOptimal: level.buckets.hardware_optimal,
           excessOverNecessary: 0,
           fusion: 0,
-          hardwareNecessary: 0,
+          scopeFusedNecessary: 0,
         }
       : {
           hardwareOptimal: 0,
           excessOverNecessary: level.buckets.excess_over_necessary,
           fusion: level.buckets.fusion,
-          hardwareNecessary: level.buckets.hardware_necessary,
+          scopeFusedNecessary: level.buckets.hardware_necessary,
         };
   return {
     level: level.level,
