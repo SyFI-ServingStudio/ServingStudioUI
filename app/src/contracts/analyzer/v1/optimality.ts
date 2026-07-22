@@ -87,6 +87,8 @@ const necessaryWorkSchema = z.object({
   wall_s: nonNegativeNumber,
   redundant_gpu_s: nonNegativeNumber,
   under_accounted_gpu_s: nonNegativeNumber,
+  under_accounted_raw_gpu_s: nonNegativeNumber.optional(),
+  accounting_tolerance_gpu_s: nonNegativeNumber.optional(),
   bound: z.enum(['compute', 'memory']),
 });
 
@@ -340,6 +342,10 @@ function toKernelLadder(
               wallSeconds: kernel.necessary_work.wall_s,
               redundantGpuSeconds: kernel.necessary_work.redundant_gpu_s,
               underAccountedGpuSeconds: kernel.necessary_work.under_accounted_gpu_s,
+              underAccountedRawGpuSeconds:
+                kernel.necessary_work.under_accounted_raw_gpu_s ??
+                kernel.necessary_work.under_accounted_gpu_s,
+              accountingToleranceGpuSeconds: kernel.necessary_work.accounting_tolerance_gpu_s ?? 0,
               bound: kernel.necessary_work.bound,
             },
     })),

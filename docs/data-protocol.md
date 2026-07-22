@@ -236,6 +236,8 @@ unlocked 将独立 batch entry 复制 10,000 倍后调用 `model.work`，再把 
 necessary/redundant/under-accounted GPU·seconds；否则合同整体退化为原 R0-R5，并在
 meta 记录 caveat。meta 还必须声明 `necessary_work_mode` 与
 `necessary_work_replication_factor`，使 UI 明确显示该 counterfactual。
+`under_accounted_raw_gpu_s` 保留 R6-R5 的正差；只有该差值超过 R6 的 0.5% 时，
+analyzer 才令 `under_accounted_gpu_s` 非零并触发 UI marker。
 iteration 没有 scheduler holding-span，合同规定 R0=R1、idle=0；imbalance 仍作为
 R1-R2 aggregate chunk，不虚构 kernel 归因。
 

@@ -161,6 +161,8 @@ describe('optimality kernel ladder projection', () => {
           wallSeconds: 5,
           redundantGpuSeconds: 0,
           underAccountedGpuSeconds: 2,
+          underAccountedRawGpuSeconds: 2,
+          accountingToleranceGpuSeconds: 0.025,
           bound: 'compute',
         },
       },

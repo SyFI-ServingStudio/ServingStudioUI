@@ -69,7 +69,7 @@ export default function OptimalityKernelsCard({
       : 'Bar length uses real GPU·seconds.';
   const hasNecessaryWork = projection.rows.some((row) => row.values.necessaryCovered !== undefined);
   const attributionDescription = hasNecessaryWork
-    ? `R5 is split into necessary and redundant work; a red diamond marks ${projection.underAccountedKernelCount} location(s) where the independent necessary floor exceeds R5.`
+    ? `R5 is split into necessary and redundant work; a red diamond marks ${projection.underAccountedKernelCount} location(s) where the independent necessary floor exceeds R5 by more than the analyzer's 0.5% sampling tolerance.`
     : 'R5 remains the hardware-optimal floor because mapped necessary work is unavailable for this scope.';
   const controls = (
     <ToggleButtonGroup

@@ -91,6 +91,8 @@ export interface OptimalityKernelNecessaryWork {
   wallSeconds: number;
   redundantGpuSeconds: number;
   underAccountedGpuSeconds: number;
+  underAccountedRawGpuSeconds: number;
+  accountingToleranceGpuSeconds: number;
   bound: 'compute' | 'memory';
 }
 
