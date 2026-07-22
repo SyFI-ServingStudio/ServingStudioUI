@@ -7,6 +7,8 @@
 /** Below this many GPU·seconds a scope has no reportable work. */
 export const OPTIMALITY_EPSILON_GPU_S = 1e-9;
 
+export type OptimalityMode = 'unlocked' | 'batch_locked';
+
 /** Telescoping waterfall buckets (GPU·s), top of the Real bar → the floor.
  * They sum to the level's `total`. `idle` is 0 for the iteration level. */
 export interface OptimalityBuckets {

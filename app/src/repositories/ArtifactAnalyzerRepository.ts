@@ -190,6 +190,7 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
   async getSubject<Name extends SubjectName>(
     runId: string,
     subject: Name,
+    variant?: string,
   ): Promise<SubjectResult<Name>> {
     let binding: BoundArtifactRun;
     try {
@@ -207,7 +208,16 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
       } as SubjectResult<Name>;
     }
     if (artifact.status !== 'ready') return nonReadySubject(subject, artifact);
-    if (artifact.payload === undefined) {
+    const selectedVariant = variant === undefined ? artifact : artifact.variants?.[variant];
+    if (selectedVariant === undefined) {
+      return {
+        subject,
+        status: 'not_generated',
+        reason: `Analyzer subject ${subject} does not declare variant ${variant}.`,
+      } as SubjectResult<Name>;
+    }
+    const selectedPayload = 'payload' in selectedVariant ? selectedVariant.payload : undefined;
+    if (selectedPayload === undefined) {
       return {
         subject,
         status: 'incompatible',
@@ -217,7 +227,7 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
     }
 
     try {
-      const input = await this.readRunArtifact(binding, artifact.payload.href);
+      const input = await this.readRunArtifact(binding, selectedPayload.href);
       const sourceRun = binding.descriptor.provenance;
       const expectedLogDir = sourceRun?.source === 'fixture' ? sourceRun.sourceRun : undefined;
       const decoded = decodeAnalyzerV1SubjectPayload(subject, input, { expectedLogDir });

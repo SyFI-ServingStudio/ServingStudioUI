@@ -7,6 +7,7 @@ import type {
   OverviewResourceResult,
   WorkloadOverviewResource,
 } from '../domain/overviewResources';
+import type { OptimalityMode } from '../domain/optimality';
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { WorkerCostTreeRef } from '../domain/workerOperation';
@@ -43,12 +44,19 @@ export const analyzerQueryKeys = {
       `schema-v${schemaVersion}`,
     ] as const,
   descriptor: (runId: string) => [...analyzerQueryKeys.runs(), runId, 'descriptor'] as const,
-  subject: (runId: string, subject: string, schemaVersion: number, analysisRevision: string) =>
+  subject: (
+    runId: string,
+    subject: string,
+    schemaVersion: number,
+    analysisRevision: string,
+    variant = 'primary',
+  ) =>
     [
       ...analyzerQueryKeys.runs(),
       runId,
       'subject',
       subject,
+      `variant-${variant}`,
       `schema-v${schemaVersion}`,
       `analysis-${analysisRevision}`,
     ] as const,
@@ -99,6 +107,7 @@ export const analyzerQueryKeys = {
     runId: string,
     worker: WorkerRef,
     iterId: string,
+    mode: OptimalityMode,
     analysisRevision: string,
   ) =>
     [
@@ -110,6 +119,7 @@ export const analyzerQueryKeys = {
       'iteration',
       iterId,
       'optimality-kernel-ladder',
+      `mode-${mode}`,
       `analysis-${analysisRevision}`,
     ] as const,
   workerOperations: (
@@ -302,6 +312,7 @@ function errorReason(error: unknown, subject: SubjectName): string {
 function resolveSubjectResult<Name extends SubjectName>(
   descriptor: RunDescriptor | undefined,
   subject: Name,
+  variant: string | undefined,
   query: SubjectQuerySnapshot<Name>,
 ): SubjectResult<Name> {
   if (descriptor === undefined) {
@@ -317,6 +328,13 @@ function resolveSubjectResult<Name extends SubjectName>(
     };
   }
   if (artifact.status !== 'ready') return { subject, ...artifact };
+  if (variant !== undefined && artifact.variants?.[variant] === undefined) {
+    return {
+      subject,
+      status: 'not_generated',
+      reason: `Run descriptor does not declare variant ${variant} for this analyzer subject.`,
+    };
+  }
 
   if (descriptor.analysis?.revision === undefined) {
     return {
@@ -361,6 +379,7 @@ function resolveSubjectResult<Name extends SubjectName>(
 export function useDescriptorSubjectQuery<Name extends SubjectName>(
   descriptor: RunDescriptor | undefined,
   subject: Name,
+  variant?: string,
 ): SubjectResult<Name> {
   const repository = useAnalyzerRepository();
   const artifact = descriptor?.subjects[subject];
@@ -389,18 +408,19 @@ export function useDescriptorSubjectQuery<Name extends SubjectName>(
             subject,
             request.schemaVersion,
             request.analysisRevision,
+            variant,
           ),
     queryFn: (): Promise<SubjectResult<Name>> => {
       if (request === null) {
         throw new Error(`Subject query ${subject} is not loadable from this descriptor.`);
       }
-      return repository.getSubject(request.runId, subject);
+      return repository.getSubject(request.runId, subject, variant);
     },
     enabled: request !== null,
     staleTime: Infinity,
   });
 
-  return resolveSubjectResult(descriptor, subject, {
+  return resolveSubjectResult(descriptor, subject, variant, {
     data: query.data,
     error: query.error,
     isError: query.isError,
@@ -485,6 +505,7 @@ export function useIterationOptimalityKernelLadderQuery(
   worker: WorkerRef | undefined,
   iterId: string | undefined,
   analysisRevision: string | undefined,
+  mode: OptimalityMode,
   enabled: boolean,
 ) {
   const repository = useAnalyzerRepository();
@@ -493,13 +514,19 @@ export function useIterationOptimalityKernelLadderQuery(
     supported && worker !== undefined && iterId !== undefined && analysisRevision !== undefined;
   const query = useQuery({
     queryKey: ready
-      ? analyzerQueryKeys.iterationOptimalityKernelLadder(runId, worker, iterId, analysisRevision)
+      ? analyzerQueryKeys.iterationOptimalityKernelLadder(
+          runId,
+          worker,
+          iterId,
+          mode,
+          analysisRevision,
+        )
       : [...analyzerQueryKeys.runs(), runId, 'iteration-optimality-kernel-ladder', 'not-ready'],
     queryFn: () => {
       if (!ready || repository.getIterationOptimalityKernelLadder === undefined) {
         throw new Error('Iteration optimality requires the live Analyzer service.');
       }
-      return repository.getIterationOptimalityKernelLadder(runId, worker, iterId);
+      return repository.getIterationOptimalityKernelLadder(runId, worker, iterId, mode);
     },
     enabled: enabled && ready,
     staleTime: Infinity,

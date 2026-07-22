@@ -1,9 +1,11 @@
-import { Stack } from '@mui/material';
+import { Stack, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { useEffect, useState } from 'react';
 
 import { useActiveRunState, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import { useIterationOptimalityKernelLadderQuery } from '../../application/queries';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { leafById } from '../../domain/cost-tree';
+import type { OptimalityMode } from '../../domain/optimality';
 import { useViz } from '../../store';
 import {
   OptimalityBreakdownCard,
@@ -19,7 +21,20 @@ import {
  * iteration endpoint without mixing run-aggregate and iteration data. */
 export default function OptimalityAnalysisStage() {
   const activeRun = useActiveRunState();
-  const optimality = useActiveRunSubject('optimality');
+  const [mode, setMode] = useState<OptimalityMode>('unlocked');
+  const optimalityArtifact =
+    activeRun.status === 'ready' ? activeRun.descriptor.subjects.optimality : undefined;
+  const batchLockedAvailable =
+    optimalityArtifact?.status === 'ready' &&
+    optimalityArtifact.variants?.batch_locked !== undefined;
+  const activeRunId = activeRun.status === 'ready' ? activeRun.run.id : null;
+  useEffect(() => {
+    if (!batchLockedAvailable) setMode('unlocked');
+  }, [activeRunId, batchLockedAvailable]);
+  const optimality = useActiveRunSubject(
+    'optimality',
+    mode === 'batch_locked' ? 'batch_locked' : undefined,
+  );
   const treeState = useActiveWorkerTreeState();
   const scope = useViz((state) => state.scope);
   const poolRole = useViz((state) => state.poolRole);
@@ -40,16 +55,35 @@ export default function OptimalityAnalysisStage() {
     selectedWorker?.ref,
     selectedOperation?.iterId,
     activeRun.status === 'ready' ? activeRun.descriptor.analysis?.revision : undefined,
+    mode,
     scope !== 'cluster' &&
       scope !== 'pool' &&
       selectedOperation !== null &&
       iterationDetail?.status === 'ready',
   );
 
+  const modeSwitch = (
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={mode}
+      aria-label="Optimality batch-size mode"
+      onChange={(_event, nextMode: OptimalityMode | null) => {
+        if (nextMode !== null) setMode(nextMode);
+      }}
+    >
+      <ToggleButton value="unlocked">Batch unlocked</ToggleButton>
+      <ToggleButton value="batch_locked" disabled={!batchLockedAvailable}>
+        Batch locked
+      </ToggleButton>
+    </ToggleButtonGroup>
+  );
+
   if (scope === 'cluster') {
     const ladder = projectAggregateKernelLadder(optimality, { kind: 'cluster' });
     return (
       <Stack spacing={2}>
+        {modeSwitch}
         <OptimalityBreakdownCard
           idx="a"
           title="Cluster optimality waterfall"
@@ -71,6 +105,7 @@ export default function OptimalityAnalysisStage() {
     const ladder = projectAggregateKernelLadder(optimality, { kind: 'pool', poolTag });
     return (
       <Stack spacing={2}>
+        {modeSwitch}
         <OptimalityBreakdownCard
           idx="a"
           title={`Pool optimality waterfall · ${poolTag}`}
@@ -145,6 +180,7 @@ export default function OptimalityAnalysisStage() {
 
   return (
     <Stack spacing={2}>
+      {modeSwitch}
       <OptimalityKernelLadderCard idx="a" title={ladderTitle} projection={ladder} />
       <OptimalityKernelsCard idx="b" title={headroomTitle} projection={ladder} />
     </Stack>

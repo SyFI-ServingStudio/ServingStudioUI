@@ -68,12 +68,23 @@ const failedSchema = z
   })
   .strict();
 
+const readySubjectFilesSchema = z
+  .object({
+    report_href: analyzerV1ArtifactHrefSchema.optional(),
+    payload_href: analyzerV1ArtifactHrefSchema.optional(),
+  })
+  .strict()
+  .refine((resource) => resource.report_href !== undefined || resource.payload_href !== undefined, {
+    message: 'ready subject requires report_href or payload_href',
+  });
+
 const readySubjectSchema = z
   .object({
     status: z.literal('ready'),
     schema_version: z.number().int().positive(),
     report_href: analyzerV1ArtifactHrefSchema.optional(),
     payload_href: analyzerV1ArtifactHrefSchema.optional(),
+    variants: z.record(opaqueIdentityString, readySubjectFilesSchema).optional(),
   })
   .strict()
   .refine((resource) => resource.report_href !== undefined || resource.payload_href !== undefined, {
@@ -254,12 +265,33 @@ function toSubjectArtifact(resource: WireSubjectArtifact): SubjectArtifact {
   };
   const report = resource.report_href === undefined ? undefined : { href: resource.report_href };
   const payload = resource.payload_href === undefined ? undefined : { href: resource.payload_href };
+  const variants =
+    resource.variants === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(resource.variants).map(([name, variant]) => {
+            const variantReport =
+              variant.report_href === undefined ? undefined : { href: variant.report_href };
+            const variantPayload =
+              variant.payload_href === undefined ? undefined : { href: variant.payload_href };
+            return [
+              name,
+              variantReport === undefined
+                ? { payload: variantPayload! }
+                : {
+                    report: variantReport,
+                    ...(variantPayload === undefined ? {} : { payload: variantPayload }),
+                  },
+            ];
+          }),
+        );
+  const variantFields = variants === undefined ? {} : { variants };
 
   if (report !== undefined)
-    return { ...common, report, ...(payload === undefined ? {} : { payload }) };
+    return { ...common, ...variantFields, report, ...(payload === undefined ? {} : { payload }) };
   // Reaching this guard would mean the schema and mapper invariants diverged.
   if (payload === undefined) throw new Error('Validated ready subject has no artifact href');
-  return { ...common, payload };
+  return { ...common, ...variantFields, payload };
 }
 
 function toTraceResource(resource: WireTraceResource): TraceResource {

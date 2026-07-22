@@ -150,10 +150,13 @@ export function useActiveRunDescriptor(): RunDescriptor {
 /** Components subscribe only to the subject they render. The hook is total:
  * before core readiness it returns an explicit pending result, and once ready
  * it preserves descriptor/non-ready/error/incompatible states independently. */
-export function useActiveRunSubject<Name extends SubjectName>(subject: Name): SubjectResult<Name> {
+export function useActiveRunSubject<Name extends SubjectName>(
+  subject: Name,
+  variant?: string,
+): SubjectResult<Name> {
   const state = useActiveRunState();
   const descriptor = state.status === 'ready' ? state.descriptor : undefined;
-  return useDescriptorSubjectQuery(descriptor, subject);
+  return useDescriptorSubjectQuery(descriptor, subject, variant);
 }
 
 export function useActiveRunModel(): OverviewResourceResult<ModelConfigResource> {

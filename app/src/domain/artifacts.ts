@@ -70,11 +70,16 @@ export type FailedArtifact = {
 type ReadySubjectArtifactBase = {
   status: 'ready';
   schemaVersion: number;
+  /** Alternate computations of the same subject schema. Variants inherit the
+   * subject schema version and are selected explicitly by application features. */
+  variants?: Readonly<Record<string, ReadySubjectArtifactFiles>>;
 };
 
+export type ReadySubjectArtifactFiles =
+  { report: ArtifactRef; payload?: ArtifactRef } | { report?: ArtifactRef; payload: ArtifactRef };
+
 /** A ready subject must expose at least its report or its plot payload. */
-export type ReadySubjectArtifact = ReadySubjectArtifactBase &
-  ({ report: ArtifactRef; payload?: ArtifactRef } | { report?: ArtifactRef; payload: ArtifactRef });
+export type ReadySubjectArtifact = ReadySubjectArtifactBase & ReadySubjectArtifactFiles;
 
 export type SubjectArtifact =
   | ReadySubjectArtifact

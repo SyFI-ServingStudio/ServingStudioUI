@@ -25,6 +25,12 @@ function validWireDescriptor(): Record<string, unknown> {
         schema_version: 1,
         report_href: 'reports/slo.json',
         payload_href: 'payloads/slo.json',
+        variants: {
+          batch_locked: {
+            report_href: 'reports/slo-locked.json',
+            payload_href: 'payloads/slo-locked.json',
+          },
+        },
       },
       backpressure: {
         status: 'unavailable',
@@ -72,6 +78,14 @@ describe('parseAnalyzerV1RunDescriptor', () => {
       ],
     });
     expect(descriptor.subjects.slo).toMatchObject({ status: 'ready', schemaVersion: 1 });
+    expect(
+      descriptor.subjects.slo?.status === 'ready'
+        ? descriptor.subjects.slo.variants?.batch_locked
+        : undefined,
+    ).toEqual({
+      report: { href: 'reports/slo-locked.json' },
+      payload: { href: 'payloads/slo-locked.json' },
+    });
     expect(descriptor.subjects.backpressure).toEqual({
       status: 'unavailable',
       code: 'missing_queue_events',

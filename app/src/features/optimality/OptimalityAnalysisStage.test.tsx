@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf } from '../../domain/cost-tree';
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   },
   treeState: vi.fn(),
   iterationQuery: vi.fn(),
+  activeSubject: vi.fn(),
 }));
 const workerKey = makeWorkerKey('attn', '0');
 const worker = { ...mocks.worker, key: workerKey };
@@ -25,11 +27,19 @@ vi.mock('../../application/ActiveRunProvider', () => ({
     status: 'ready',
     run: { id: 'run', workerList: [mocks.worker] },
     descriptor: {
+      subjects: {
+        optimality: {
+          status: 'ready',
+          schemaVersion: 1,
+          payload: { href: 'subjects/optimality/payload' },
+          variants: { batch_locked: { payload: { href: 'locked' } } },
+        },
+      },
       details: { 'iteration-optimality-kernel-ladder': { status: 'ready' } },
       analysis: { revision: 'revision' },
     },
   }),
-  useActiveRunSubject: () => ({ status: 'not_generated', reason: 'Not generated.' }),
+  useActiveRunSubject: mocks.activeSubject,
 }));
 
 vi.mock('../../application/WorkerTreeProvider', () => ({
@@ -56,6 +66,7 @@ beforeEach(() => {
     error: null,
     isError: false,
   });
+  mocks.activeSubject.mockReturnValue({ status: 'not_generated', reason: 'Not generated.' });
   useViz.setState({
     scope: 'cluster',
     poolRole: null,
@@ -82,6 +93,15 @@ describe('OptimalityAnalysisStage', () => {
     expect(screen.getByText('Pool per-kernel optimality · attn')).toBeVisible();
   });
 
+  it('selects the batch-locked optimality artifact variant', async () => {
+    const user = userEvent.setup();
+    render(<OptimalityAnalysisStage />);
+
+    await user.click(screen.getByRole('button', { name: 'Batch locked' }));
+
+    expect(mocks.activeSubject).toHaveBeenLastCalledWith('optimality', 'batch_locked');
+  });
+
   it('uses exact iteration data and then filters to a selected kernel leaf', () => {
     useViz.setState({
       scope: 'kernel',
@@ -100,6 +120,13 @@ describe('OptimalityAnalysisStage', () => {
 
     expect(screen.getByText('Kernel optimality ladder · afd.attn.prefill')).toBeVisible();
     expect(screen.getByText('Kernel optimality sources · afd.attn.prefill')).toBeVisible();
-    expect(mocks.iterationQuery).toHaveBeenCalledWith('run', worker.ref, '7', 'revision', true);
+    expect(mocks.iterationQuery).toHaveBeenCalledWith(
+      'run',
+      worker.ref,
+      '7',
+      'revision',
+      'unlocked',
+      true,
+    );
   });
 });

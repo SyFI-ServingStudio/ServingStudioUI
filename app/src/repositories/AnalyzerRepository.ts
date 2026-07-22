@@ -9,7 +9,7 @@ import type { ModelConfigResource, WorkloadOverviewResource } from '../domain/ov
 import type { SubjectName, SubjectResult } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { KernelThroughputAnalysis } from '../domain/kernelThroughputAnalysis';
-import type { OptimalityKernelLadder } from '../domain/optimality';
+import type { OptimalityKernelLadder, OptimalityMode } from '../domain/optimality';
 import type {
   WorkerCostTreeDetail,
   WorkerCostTreeRef,
@@ -35,7 +35,11 @@ export interface AnalyzerRepository {
 
   getRunDescriptor(runId: string): Promise<RunDescriptor>;
 
-  getSubject<Name extends SubjectName>(runId: string, subject: Name): Promise<SubjectResult<Name>>;
+  getSubject<Name extends SubjectName>(
+    runId: string,
+    subject: Name,
+    variant?: string,
+  ): Promise<SubjectResult<Name>>;
 
   /** Read only the independently versioned `worker-cost-tree` detail declared
    * by RunDescriptor.details. Aggregate kernel-time subjects never satisfy it. */
@@ -67,6 +71,7 @@ export interface AnalyzerRepository {
     runId: string,
     worker: WorkerRef,
     iterId: string,
+    mode: OptimalityMode,
   ): Promise<OptimalityKernelLadder>;
 
   /** Return an addressable trace; repositories do not copy trace bytes into UI state. */

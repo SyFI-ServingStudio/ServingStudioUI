@@ -26,6 +26,7 @@ import type {
   TraceResource,
 } from '../domain/artifacts';
 import type { Topology } from '../domain/run';
+import type { OptimalityMode } from '../domain/optimality';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
 import type { WorkerRef } from '../domain/worker';
 import type { WorkerCostTreeRef } from '../domain/workerOperation';
@@ -192,6 +193,7 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
   async getSubject<Name extends SubjectName>(
     runId: string,
     subject: Name,
+    variant?: string,
   ): Promise<SubjectResult<Name>> {
     let binding: BoundHttpRun;
     try {
@@ -209,7 +211,16 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       } as SubjectResult<Name>;
     }
     if (artifact.status !== 'ready') return nonReadySubject(subject, artifact);
-    if (artifact.payload === undefined) {
+    const selectedVariant = variant === undefined ? artifact : artifact.variants?.[variant];
+    if (selectedVariant === undefined) {
+      return {
+        subject,
+        status: 'not_generated',
+        reason: `Analyzer subject ${subject} does not declare variant ${variant}.`,
+      } as SubjectResult<Name>;
+    }
+    const selectedPayload = 'payload' in selectedVariant ? selectedVariant.payload : undefined;
+    if (selectedPayload === undefined) {
       return {
         subject,
         status: 'incompatible',
@@ -220,7 +231,7 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
 
     try {
       const input = await this.client.readJson(
-        this.client.resolve(binding.descriptorUrl, artifact.payload.href),
+        this.client.resolve(binding.descriptorUrl, selectedPayload.href),
       );
       const decoded = decodeAnalyzerV1SubjectPayload(subject, input);
       if (decoded.status === 'unavailable') {
@@ -324,14 +335,21 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     return parseAnalyzerV1KernelThroughputAnalysis(input, ref, leafId);
   }
 
-  async getIterationOptimalityKernelLadder(runId: string, worker: WorkerRef, iterId: string) {
+  async getIterationOptimalityKernelLadder(
+    runId: string,
+    worker: WorkerRef,
+    iterId: string,
+    mode: OptimalityMode,
+  ) {
     const binding = await this.bindRun(runId);
     this.requireReadyDetail(runId, 'iteration-optimality-kernel-ladder', binding.descriptor);
     const poolTag = routeSegment(worker.poolTag, 'Worker pool tag');
     const workerId = routeSegment(worker.workerId, 'Worker id');
     const iterationId = routeSegment(iterId, 'Iteration id');
     const path = `workers/${poolTag}/${workerId}/iterations/${iterationId}/optimality-kernel-ladder`;
-    const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
+    const resourceUrl = this.client.resolve(binding.descriptorUrl, path);
+    resourceUrl.searchParams.set('mode', mode);
+    const input = await this.client.readJson(resourceUrl);
     return decodeAnalyzerV1IterationOptimalityKernelLadder(input, worker, iterId);
   }
 
