@@ -230,8 +230,8 @@ waterfall；`iteration-optimality-kernel-ladder` 返回 per-kernel ladder。两�
 run descriptor body，也不批量塞入 optimality subject。请求以
 `mode=unlocked|batch_locked` 显式选择 counterfactual；省略时为兼容旧客户端默认
 `unlocked`。两种 mode 都计算 iteration necessary work：batch-locked 使用原始 batch，
-unlocked 将独立 batch entry 复制 1000 倍后调用 `model.work`，再把 FLOPs、bytes 和时间
-全部除以 1000；该过程不会放大 sequence length。versioned semantic-location map 完整
+unlocked 将独立 batch entry 复制 10,000 倍后调用 `model.work`，再把 FLOPs、bytes 和时间
+全部除以 10,000；该过程不会放大 sequence length。versioned semantic-location map 完整
 匹配时，kernel ladder 追加 R6 `segmented_necessary`，每个 location 同时携带
 necessary/redundant/under-accounted GPU·seconds；否则合同整体退化为原 R0-R5，并在
 meta 记录 caveat。meta 还必须声明 `necessary_work_mode` 与

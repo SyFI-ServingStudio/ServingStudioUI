@@ -215,16 +215,16 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
           gpu_count: 1,
           folded_rows: 2,
           necessary_work_mode: 'replicated_large_batch',
-          necessary_work_replication_factor: 1000,
+          necessary_work_replication_factor: 10000,
         },
       },
       { poolTag: 'attn', workerId: '0' },
       '17',
     );
     expect(exact.iterId).toBe('17');
-    expect(exact.label).toContain('1000× large-batch');
+    expect(exact.label).toContain('10000× large-batch');
     expect(exact.necessaryWorkMode).toBe('replicated_large_batch');
-    expect(exact.necessaryWorkReplicationFactor).toBe(1000);
+    expect(exact.necessaryWorkReplicationFactor).toBe(10000);
     expect(exact.specialChunks.idle).toBe(0);
     expect(exact.rungs.segmentedNecessary).toBe(3);
     expect(exact.kernels[0].necessaryWork).toMatchObject({
