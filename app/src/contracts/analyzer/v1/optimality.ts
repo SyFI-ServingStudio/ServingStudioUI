@@ -320,6 +320,18 @@ const iterationKernelLadderSchema = z.object({
     peaks_source: z.string(),
     gpu_count: nonNegativeNumber,
     folded_rows: z.number().int().positive(),
+    necessary_work_mode: z
+      .enum(['batch_locked', 'replicated_large_batch'])
+      .nullable()
+      .optional()
+      .default(null),
+    necessary_work_replication_factor: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .optional()
+      .default(null),
   }),
 });
 
@@ -355,7 +367,7 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
       throw new Error('Iteration kernel necessary-work values do not reconcile with R6.');
     }
   }
-  return toKernelLadder(
+  const ladder = toKernelLadder(
     {
       key: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
       label: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
@@ -367,6 +379,18 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
     },
     String(wire.iter_id),
   );
+  const counterfactual =
+    wire.meta.necessary_work_mode === 'replicated_large_batch'
+      ? `${wire.meta.necessary_work_replication_factor ?? 1}× large-batch`
+      : wire.meta.necessary_work_mode === 'batch_locked'
+        ? 'fixed batch'
+        : null;
+  return {
+    ...ladder,
+    label: counterfactual === null ? ladder.label : `${ladder.label} · ${counterfactual}`,
+    necessaryWorkMode: wire.meta.necessary_work_mode,
+    necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
+  };
 }
 
 const iterationWaterfallSchema = z.object({
@@ -382,6 +406,18 @@ const iterationWaterfallSchema = z.object({
     gpu_name: z.string(),
     gpu_spec_matched: z.string().nullable(),
     peaks_source: z.string(),
+    necessary_work_mode: z
+      .enum(['batch_locked', 'replicated_large_batch'])
+      .nullable()
+      .optional()
+      .default(null),
+    necessary_work_replication_factor: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .optional()
+      .default(null),
   }),
 });
 
@@ -406,13 +442,23 @@ export function decodeAnalyzerV1IterationOptimalityWaterfall(
   if (Math.abs(sum - wire.level.total) > tolerance) {
     throw new Error('Iteration optimality waterfall buckets do not reconcile with its total.');
   }
+  const level = toLevel(wire.level);
+  const counterfactual =
+    wire.meta.necessary_work_mode === 'replicated_large_batch'
+      ? `${wire.meta.necessary_work_replication_factor ?? 1}× large-batch`
+      : wire.meta.necessary_work_mode === 'batch_locked'
+        ? 'fixed batch'
+        : null;
   return {
     worker: { poolTag: wire.worker.pool_tag, workerId: String(wire.worker.worker_id) },
     iterId: String(wire.iter_id),
-    level: toLevel(wire.level),
+    level:
+      counterfactual === null ? level : { ...level, label: `${level.label} · ${counterfactual}` },
     gpuName: wire.meta.gpu_name,
     gpuSpecMatched: wire.meta.gpu_spec_matched,
     peaksSource: wire.meta.peaks_source,
+    necessaryWorkMode: wire.meta.necessary_work_mode,
+    necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
   };
 }
 

@@ -110,6 +110,8 @@ export interface OptimalityKernelLadder {
   rungs: OptimalityRungs;
   specialChunks: { idle: number; imbalance: number };
   kernels: OptimalityKernelLadderKernel[];
+  necessaryWorkMode?: 'batch_locked' | 'replicated_large_batch' | null;
+  necessaryWorkReplicationFactor?: number | null;
 }
 
 /** Exact all-row waterfall for one selected worker iteration. This is separate
@@ -121,6 +123,8 @@ export interface OptimalityIterationWaterfall {
   gpuName: string;
   gpuSpecMatched: string | null;
   peaksSource: string;
+  necessaryWorkMode: 'batch_locked' | 'replicated_large_batch' | null;
+  necessaryWorkReplicationFactor: number | null;
 }
 
 export interface Optimality {

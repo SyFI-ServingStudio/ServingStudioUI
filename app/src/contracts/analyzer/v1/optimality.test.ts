@@ -214,12 +214,17 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
           peaks_source: 'sidecar',
           gpu_count: 1,
           folded_rows: 2,
+          necessary_work_mode: 'replicated_large_batch',
+          necessary_work_replication_factor: 1000,
         },
       },
       { poolTag: 'attn', workerId: '0' },
       '17',
     );
     expect(exact.iterId).toBe('17');
+    expect(exact.label).toContain('1000× large-batch');
+    expect(exact.necessaryWorkMode).toBe('replicated_large_batch');
+    expect(exact.necessaryWorkReplicationFactor).toBe(1000);
     expect(exact.specialChunks.idle).toBe(0);
     expect(exact.rungs.segmentedNecessary).toBe(3);
     expect(exact.kernels[0].necessaryWork).toMatchObject({
@@ -256,6 +261,8 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
           gpu_name: 'NVIDIA H200',
           gpu_spec_matched: 'H200-SXM-141GB',
           peaks_source: 'batch_locked',
+          necessary_work_mode: 'batch_locked',
+          necessary_work_replication_factor: 1,
         },
       },
       { poolTag: 'attn', workerId: '0' },
@@ -263,6 +270,9 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     );
     expect(waterfall.level.buckets.hardwareNecessary).toBe(2);
     expect(waterfall.level.necessaryRatio).toBe(0.2);
+    expect(waterfall.level.label).toContain('fixed batch');
+    expect(waterfall.necessaryWorkMode).toBe('batch_locked');
+    expect(waterfall.necessaryWorkReplicationFactor).toBe(1);
   });
 
   it('clamps a fractionally-negative bucket (analyzer clamp artifact) to zero', () => {
