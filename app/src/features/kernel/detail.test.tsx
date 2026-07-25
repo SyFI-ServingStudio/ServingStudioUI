@@ -190,10 +190,7 @@ describe('kernel feature evidence boundaries', () => {
     fireEvent.click(screen.getByRole('button', { name: 'TFLOP/s' }));
 
     expect(screen.getByRole('img', { name: /in TFLOP\/s/ })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'TFLOP/s' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'TFLOP/s' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('ranks two-dimensional shapes on an evenly spaced categorical axis', () => {

@@ -2,10 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
-import {
-  useActiveRun,
-  useActiveRunDescriptor,
-} from '../../application/ActiveRunProvider';
+import { useActiveRun, useActiveRunDescriptor } from '../../application/ActiveRunProvider';
 import { useKernelThroughputAnalysisQuery } from '../../application/queries';
 import { currentWorker } from '../../application/runSelection';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';

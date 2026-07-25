@@ -4,7 +4,10 @@ import type { KernelThroughputAnalysis } from '../../../domain/kernelThroughputA
 import type { JsonValue } from '../../../domain/cost-tree';
 import type { WorkerCostTreeRef } from '../../../domain/workerOperation';
 
-const decimalId = z.union([z.number().int().nonnegative().safe(), z.string().regex(/^(0|[1-9]\d*)$/)]);
+const decimalId = z.union([
+  z.number().int().nonnegative().safe(),
+  z.string().regex(/^(0|[1-9]\d*)$/),
+]);
 const finite = z.number().finite();
 const jsonValue: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([z.null(), z.boolean(), finite, z.string(), z.array(jsonValue), z.record(jsonValue)]),

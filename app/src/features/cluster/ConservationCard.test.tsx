@@ -24,9 +24,7 @@ describe('ConservationCard', () => {
     );
 
     expect(screen.getByText('ffn_token_pass')).toBeVisible();
-    expect(
-      screen.getByRole('heading', { name: /Workload conservation/, level: 3 }),
-    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: /Workload conservation/, level: 3 })).toBeVisible();
     expect(screen.getByText('65')).toBeVisible();
     expect(screen.getByText('0% vs exp')).toBeVisible();
     expect(screen.queryByText('verbose analyzer accounting formula')).not.toBeInTheDocument();

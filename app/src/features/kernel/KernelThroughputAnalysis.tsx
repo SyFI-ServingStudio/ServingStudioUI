@@ -16,7 +16,8 @@ type ThroughputMetric = 'tflops' | 'gbps';
 const COMPUTE_BOUND_FLOPS_PER_BYTE = 150;
 
 function nearest(axis: readonly number[], target: unknown): number {
-  if (typeof target !== 'number' || !Number.isFinite(target)) return axis[Math.floor(axis.length / 2)];
+  if (typeof target !== 'number' || !Number.isFinite(target))
+    return axis[Math.floor(axis.length / 2)];
   return axis.reduce((best, value) =>
     Math.abs(value - target) < Math.abs(best - target) ? value : best,
   );
@@ -98,9 +99,7 @@ export default function KernelThroughputAnalysis({
   };
   const [selectedMetric, setSelectedMetric] = useState<ThroughputMetric | null>(suggestedMetric);
   const activeMetric =
-    selectedMetric !== null && availableMetrics[selectedMetric]
-      ? selectedMetric
-      : suggestedMetric;
+    selectedMetric !== null && availableMetrics[selectedMetric] ? selectedMetric : suggestedMetric;
   const rate = metric(activeMetric, node);
   const series: (LineSeriesOption | ScatterSeriesOption)[] = [];
   let xAxis: EChartsOption['xAxis'];

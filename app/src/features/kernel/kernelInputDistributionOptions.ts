@@ -56,9 +56,7 @@ function flattenCurrentInput(input: JsonValue): ReadonlyMap<string, number> {
       if (
         rows.length === value.length &&
         width > 0 &&
-        rows.every(
-          (row) => row.length === width && row.every((entry) => typeof entry === 'number'),
-        )
+        rows.every((row) => row.length === width && row.every((entry) => typeof entry === 'number'))
       ) {
         for (let column = 0; column < width; column += 1) {
           insertAggregates(
@@ -111,13 +109,10 @@ function currentProjection(
 function oneDimensionalDensity(position: KernelInputPosition): readonly DensitySeries[] {
   const totalWeight = position.points.reduce((sum, point) => sum + point.count, 0);
   if (totalWeight <= 0) return [];
-  const mean =
-    position.points.reduce((sum, point) => sum + point.x * point.count, 0) / totalWeight;
+  const mean = position.points.reduce((sum, point) => sum + point.x * point.count, 0) / totalWeight;
   const variance =
-    position.points.reduce(
-      (sum, point) => sum + (point.x - mean) ** 2 * point.count,
-      0,
-    ) / totalWeight;
+    position.points.reduce((sum, point) => sum + (point.x - mean) ** 2 * point.count, 0) /
+    totalWeight;
   const xs = position.points.map((point) => point.x);
   const rawMin = Math.min(...xs);
   const rawMax = Math.max(...xs);
