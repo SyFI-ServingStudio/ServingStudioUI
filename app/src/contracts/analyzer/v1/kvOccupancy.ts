@@ -1,20 +1,18 @@
 import { z } from 'zod';
 
 import type { KvSeries } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
 import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
 import {
   duplicateKeyIssues,
-  formatZodIssue,
-  incompatiblePayload,
   nonNegativeNumber,
   nonNegativeCount,
   parallelLengthIssue,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
   wireIdentityString,
-  type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
+import {
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const workerIdSchema = z.union([
   wireIdentityString,
@@ -61,19 +59,9 @@ const unavailableSchema = z.object({
   series: z.array(z.unknown()).length(0),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
 
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return 'available' in wire.meta && wire.meta.available === false;
-}
-
-export type KvOccupancyDecodeResult =
-  | Extract<SubjectResult<'kv'>, { status: 'ready' }>
-  | Extract<SubjectResult<'kv'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'kv'>, { status: 'incompatible' }>;
+export type KvOccupancyDecodeResult = AnalyzerV1PayloadDecodeResult<'kv'>;
 
 function semanticIssues(wire: ReadyWire): string[] {
   const issues = duplicateKeyIssues('series', wire.series, (series) => series.key);
@@ -145,35 +133,11 @@ function toKvSeries(wire: ReadyWire): KvSeries {
   };
 }
 
-export function decodeAnalyzerV1KvOccupancyPayload(
-  input: unknown,
-  options: AnalyzerV1PayloadDecodeOptions = {},
-): KvOccupancyDecodeResult {
-  const unsupported = unsupportedV1Payload('kv-occupancy', input);
-  if (unsupported) return { subject: 'kv', ...unsupported };
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'kv',
-      ...incompatiblePayload('kv-occupancy', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return { subject: 'kv', ...incompatiblePayload('kv-occupancy', [sourceIssue], 1) };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'kv', status: 'unavailable', reason: wire.meta.reason };
-  }
-  const issues = semanticIssues(wire);
-  if (issues.length > 0) {
-    return { subject: 'kv', ...incompatiblePayload('kv-occupancy', issues, 1) };
-  }
-  return {
-    subject: 'kv',
-    status: 'ready',
-    schemaVersion: 1,
-    payload: toKvSeries(wire),
-  };
-}
+export const decodeAnalyzerV1KvOccupancyPayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'kv',
+  label: 'kv-occupancy',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toKvSeries,
+});

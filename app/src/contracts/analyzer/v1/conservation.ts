@@ -1,17 +1,11 @@
 import { z } from 'zod';
 
 import type { CheckStatus, Conservation } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
+import { duplicateKeyIssues, finiteNumber, wireIdentityString } from './subjectDecode';
 import {
-  duplicateKeyIssues,
-  finiteNumber,
-  formatZodIssue,
-  incompatiblePayload,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
-  wireIdentityString,
-  type AnalyzerV1PayloadDecodeOptions,
-} from './subjectDecode';
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const checkSchema = z.object({
   actual: finiteNumber,
@@ -42,19 +36,9 @@ const unavailableSchema = z.object({
   checks: z.array(z.unknown()).length(0),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
 
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return wire.meta.available === false;
-}
-
-export type ConservationDecodeResult =
-  | Extract<SubjectResult<'conservation'>, { status: 'ready' }>
-  | Extract<SubjectResult<'conservation'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'conservation'>, { status: 'incompatible' }>;
+export type ConservationDecodeResult = AnalyzerV1PayloadDecodeResult<'conservation'>;
 
 function checkStatus(status: ReadyWire['checks'][number]['status']): CheckStatus {
   if (status === 'OK') return 'ok';
@@ -85,41 +69,11 @@ function toConservation(wire: ReadyWire): Conservation {
   };
 }
 
-export function decodeAnalyzerV1ConservationPayload(
-  input: unknown,
-  options: AnalyzerV1PayloadDecodeOptions = {},
-): ConservationDecodeResult {
-  const unsupported = unsupportedV1Payload('workload-conservation', input);
-  if (unsupported) return { subject: 'conservation', ...unsupported };
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'conservation',
-      ...incompatiblePayload('workload-conservation', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return {
-      subject: 'conservation',
-      ...incompatiblePayload('workload-conservation', [sourceIssue], 1),
-    };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'conservation', status: 'unavailable', reason: wire.meta.reason };
-  }
-  const issues = semanticIssues(wire);
-  if (issues.length > 0) {
-    return {
-      subject: 'conservation',
-      ...incompatiblePayload('workload-conservation', issues, 1),
-    };
-  }
-  return {
-    subject: 'conservation',
-    status: 'ready',
-    schemaVersion: 1,
-    payload: toConservation(wire),
-  };
-}
+export const decodeAnalyzerV1ConservationPayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'conservation',
+  label: 'workload-conservation',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toConservation,
+});

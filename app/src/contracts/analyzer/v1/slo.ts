@@ -1,21 +1,20 @@
 import { z } from 'zod';
 
 import type { Slo, SloMetric } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
 import {
   duplicateKeyIssues,
   finiteNumber,
-  formatZodIssue,
-  incompatiblePayload,
   nonDecreasingIssue,
   nonNegativeCount,
   nonNegativeNumber,
   parallelLengthIssue,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
   wireIdentityString,
   type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
+import {
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const markersSchema = z.object({
   p50: nonNegativeNumber,
@@ -49,24 +48,14 @@ const unavailableSchema = z.object({
   series: z.array(z.unknown()).length(0),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
 type SeriesWire = z.infer<typeof seriesSchema>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
-
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return 'available' in wire.meta && wire.meta.available === false;
-}
 
 export interface SloDecodeOptions extends AnalyzerV1PayloadDecodeOptions {
   expectedCompletedRequests?: number;
 }
 
-export type SloDecodeResult =
-  | Extract<SubjectResult<'slo'>, { status: 'ready' }>
-  | Extract<SubjectResult<'slo'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'slo'>, { status: 'incompatible' }>;
+export type SloDecodeResult = AnalyzerV1PayloadDecodeResult<'slo'>;
 
 const EXPECTED_UNITS = { ttft: 'ms', tpot: 'ms/token', e2e: 'ms' } as const;
 
@@ -128,32 +117,11 @@ function toSlo(wire: ReadyWire): Slo {
   };
 }
 
-export function decodeAnalyzerV1SloPayload(
-  input: unknown,
-  options: SloDecodeOptions = {},
-): SloDecodeResult {
-  const unsupported = unsupportedV1Payload('slo-general', input);
-  if (unsupported) return { subject: 'slo', ...unsupported };
-
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'slo',
-      ...incompatiblePayload('slo-general', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return { subject: 'slo', ...incompatiblePayload('slo-general', [sourceIssue], 1) };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'slo', status: 'unavailable', reason: wire.meta.reason };
-  }
-
-  const issues = semanticIssues(wire, options);
-  if (issues.length > 0) {
-    return { subject: 'slo', ...incompatiblePayload('slo-general', issues, 1) };
-  }
-  return { subject: 'slo', status: 'ready', schemaVersion: 1, payload: toSlo(wire) };
-}
+export const decodeAnalyzerV1SloPayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'slo',
+  label: 'slo-general',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toSlo,
+});

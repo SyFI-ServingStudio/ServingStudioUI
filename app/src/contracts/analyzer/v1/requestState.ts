@@ -1,20 +1,18 @@
 import { z } from 'zod';
 
 import type { RequestState } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
 import { makeWorkerRef } from '../../../domain/worker';
 import {
   duplicateKeyIssues,
-  formatZodIssue,
-  incompatiblePayload,
   nonNegativeNumber,
   parallelLengthIssue,
   positiveCount,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
   wireIdentityString,
-  type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
+import {
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const workerIdSchema = z.union([
   wireIdentityString,
@@ -63,14 +61,7 @@ const unavailableSchema = z.object({
   pools: z.array(z.unknown()).length(0),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
-
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return 'available' in wire.meta && wire.meta.available === false;
-}
 
 function semanticIssues(wire: ReadyWire): string[] {
   const issues = duplicateKeyIssues(
@@ -177,40 +168,13 @@ function toRequestState(wire: ReadyWire): RequestState {
   };
 }
 
-export type RequestStateDecodeResult =
-  | Extract<SubjectResult<'requestState'>, { status: 'ready' }>
-  | Extract<SubjectResult<'requestState'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'requestState'>, { status: 'incompatible' }>;
+export type RequestStateDecodeResult = AnalyzerV1PayloadDecodeResult<'requestState'>;
 
-export function decodeAnalyzerV1RequestStatePayload(
-  input: unknown,
-  options: AnalyzerV1PayloadDecodeOptions = {},
-): RequestStateDecodeResult {
-  const unsupported = unsupportedV1Payload('requestState', input);
-  if (unsupported) return { subject: 'requestState', ...unsupported };
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'requestState',
-      ...incompatiblePayload('requestState', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return { subject: 'requestState', ...incompatiblePayload('requestState', [sourceIssue], 1) };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'requestState', status: 'unavailable', reason: wire.meta.reason };
-  }
-  const issues = semanticIssues(wire);
-  if (issues.length > 0) {
-    return { subject: 'requestState', ...incompatiblePayload('requestState', issues, 1) };
-  }
-  return {
-    subject: 'requestState',
-    status: 'ready',
-    schemaVersion: 1,
-    payload: toRequestState(wire),
-  };
-}
+export const decodeAnalyzerV1RequestStatePayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'requestState',
+  label: 'requestState',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toRequestState,
+});

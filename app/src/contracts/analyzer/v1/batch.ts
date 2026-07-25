@@ -1,22 +1,20 @@
 import { z } from 'zod';
 
 import type { BatchSeries, BatchSubject } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
 import { makeWorkerKey, makeWorkerRef } from '../../../domain/worker';
 import {
   duplicateKeyIssues,
-  formatZodIssue,
-  incompatiblePayload,
   nonDecreasingIssue,
   nonNegativeCount,
   nonNegativeNumber,
   parallelLengthIssue,
   positiveCount,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
   wireIdentityString,
-  type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
+import {
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const valueSeriesSchema = z.object({
   key: wireIdentityString,
@@ -63,21 +61,11 @@ const unavailableSchema = z.object({
   workers: z.array(z.unknown()).length(0).optional(),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
 type PoolWire = z.infer<typeof poolSchema>;
 type CompositionWire = Pick<PoolWire, 'time_ms' | 'series'>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
 
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return !('available' in wire) || wire.available !== true;
-}
-
-export type BatchDecodeResult =
-  | Extract<SubjectResult<'batch'>, { status: 'ready' }>
-  | Extract<SubjectResult<'batch'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'batch'>, { status: 'incompatible' }>;
+export type BatchDecodeResult = AnalyzerV1PayloadDecodeResult<'batch'>;
 
 const SERIES_KEYS = ['batch_tokens', 'prefill_tokens', 'decode_request_count'] as const;
 
@@ -174,35 +162,11 @@ function toBatchSubject(wire: ReadyWire): BatchSubject {
   };
 }
 
-export function decodeAnalyzerV1BatchPayload(
-  input: unknown,
-  options: AnalyzerV1PayloadDecodeOptions = {},
-): BatchDecodeResult {
-  const unsupported = unsupportedV1Payload('batch', input);
-  if (unsupported) return { subject: 'batch', ...unsupported };
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'batch',
-      ...incompatiblePayload('batch', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return { subject: 'batch', ...incompatiblePayload('batch', [sourceIssue], 1) };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'batch', status: 'unavailable', reason: wire.meta.reason };
-  }
-  const issues = semanticIssues(wire);
-  if (issues.length > 0) {
-    return { subject: 'batch', ...incompatiblePayload('batch', issues, 1) };
-  }
-  return {
-    subject: 'batch',
-    status: 'ready',
-    schemaVersion: 1,
-    payload: toBatchSubject(wire),
-  };
-}
+export const decodeAnalyzerV1BatchPayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'batch',
+  label: 'batch',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toBatchSubject,
+});

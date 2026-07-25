@@ -1,19 +1,18 @@
 import { z } from 'zod';
 
 import type { Throughput } from '../../../domain/run';
-import type { SubjectResult } from '../../../domain/subject';
 import {
   duplicateKeyIssues,
-  formatZodIssue,
-  incompatiblePayload,
   nonNegativeNumber,
   parallelLengthIssue,
   positiveCount,
-  sourceLogDirIssue,
-  unsupportedV1Payload,
   wireIdentityString,
   type AnalyzerV1PayloadDecodeOptions,
 } from './subjectDecode';
+import {
+  defineAnalyzerV1PayloadDecoder,
+  type AnalyzerV1PayloadDecodeResult,
+} from './subjectEnvelope';
 
 const seriesSchema = z.object({
   key: wireIdentityString,
@@ -46,24 +45,14 @@ const unavailableSchema = z.object({
   series: z.array(z.unknown()).length(0),
 });
 
-const wireSchema = z.union([readySchema, unavailableSchema]);
 type ReadyWire = z.infer<typeof readySchema>;
-type Wire = z.infer<typeof wireSchema>;
-type UnavailableWire = z.infer<typeof unavailableSchema>;
-
-function isUnavailable(wire: Wire): wire is UnavailableWire {
-  return 'available' in wire.meta && wire.meta.available === false;
-}
 
 export interface ThroughputDecodeOptions extends AnalyzerV1PayloadDecodeOptions {
   expectedGpuName?: string;
   expectedNumGpus?: number;
 }
 
-export type ThroughputDecodeResult =
-  | Extract<SubjectResult<'throughput'>, { status: 'ready' }>
-  | Extract<SubjectResult<'throughput'>, { status: 'unavailable' }>
-  | Extract<SubjectResult<'throughput'>, { status: 'incompatible' }>;
+export type ThroughputDecodeResult = AnalyzerV1PayloadDecodeResult<'throughput'>;
 
 const SERIES_KEYS = ['total', 'prefill', 'decode'] as const;
 
@@ -121,35 +110,11 @@ function toThroughput(wire: ReadyWire): Throughput {
   };
 }
 
-export function decodeAnalyzerV1ThroughputPayload(
-  input: unknown,
-  options: ThroughputDecodeOptions = {},
-): ThroughputDecodeResult {
-  const unsupported = unsupportedV1Payload('throughput', input);
-  if (unsupported) return { subject: 'throughput', ...unsupported };
-  const parsed = wireSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      subject: 'throughput',
-      ...incompatiblePayload('throughput', parsed.error.issues.map(formatZodIssue), 1),
-    };
-  }
-  const sourceIssue = sourceLogDirIssue(parsed.data.meta.log_dir, options);
-  if (sourceIssue) {
-    return { subject: 'throughput', ...incompatiblePayload('throughput', [sourceIssue], 1) };
-  }
-  const wire = parsed.data;
-  if (isUnavailable(wire)) {
-    return { subject: 'throughput', status: 'unavailable', reason: wire.meta.reason };
-  }
-  const issues = semanticIssues(wire, options);
-  if (issues.length > 0) {
-    return { subject: 'throughput', ...incompatiblePayload('throughput', issues, 1) };
-  }
-  return {
-    subject: 'throughput',
-    status: 'ready',
-    schemaVersion: 1,
-    payload: toThroughput(wire),
-  };
-}
+export const decodeAnalyzerV1ThroughputPayload = defineAnalyzerV1PayloadDecoder({
+  subject: 'throughput',
+  label: 'throughput',
+  readySchema,
+  unavailableSchema,
+  semanticIssues,
+  toPayload: toThroughput,
+});
