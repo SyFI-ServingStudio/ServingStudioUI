@@ -8,6 +8,9 @@ import { useViz } from '../../store';
 import OptimalityAnalysisStage from './OptimalityAnalysisStage';
 
 const mocks = vi.hoisted(() => ({
+  // The cards render only their title here: this suite covers the stage's scope
+  // and mode wiring, not chart output.
+  titleOnlyCard: ({ title }: { title: string }) => <div>{title}</div>,
   worker: {
     key: 'attn/0',
     ref: { poolTag: 'attn', workerId: '0' },
@@ -55,14 +58,18 @@ vi.mock('../../application/queries', () => ({
   useIterationOptimalityWaterfallQuery: mocks.iterationWaterfallQuery,
 }));
 
-vi.mock('../metrics', () => ({
-  OptimalityBreakdownCard: ({ title }: { title: string }) => <div>{title}</div>,
-  OptimalityKernelLadderCard: ({ title }: { title: string }) => <div>{title}</div>,
-  OptimalityKernelsCard: ({ title }: { title: string }) => <div>{title}</div>,
-  OptimalityWaterfallCard: ({ title }: { title: string }) => <div>{title}</div>,
+vi.mock('./OptimalityBreakdownCard', () => ({
+  default: mocks.titleOnlyCard,
+  OptimalityWaterfallCard: mocks.titleOnlyCard,
+}));
+vi.mock('./OptimalityKernelLadderCard', () => ({ default: mocks.titleOnlyCard }));
+vi.mock('./OptimalityKernelsCard', () => ({ default: mocks.titleOnlyCard }));
+vi.mock('./optimalityBreakdown', () => ({
+  projectIterationOptimalityBreakdown: () => ({ status: 'ready', rows: [] }),
+}));
+vi.mock('./optimalityKernelLadder', () => ({
   projectScopedKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
   projectExactKernelLadder: () => ({ status: 'scope_missing', reason: 'fixture' }),
-  projectIterationOptimalityBreakdown: () => ({ status: 'ready', rows: [] }),
 }));
 
 beforeEach(() => {

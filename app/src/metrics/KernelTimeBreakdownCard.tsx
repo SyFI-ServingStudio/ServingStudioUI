@@ -1,4 +1,4 @@
-import type { SubjectResult } from '../../domain/subject';
+import type { SubjectResult } from '../domain/subject';
 import {
   hasReportableKernelTime,
   projectKernelTimeBreakdown,
@@ -6,8 +6,8 @@ import {
   type KernelTimeBreakdownScope,
 } from './kernelTimeBreakdown';
 import { kernelTimeStackOption } from './options';
-import { CHART_THEME } from '../../charts/platform';
-import ChartCard from '../../components/ChartCard';
+import { CHART_THEME } from '../charts/platform';
+import ChartCard from '../components/ChartCard';
 
 function unavailableMessage(projection: KernelTimeBreakdownProjection): string {
   if (projection.status === 'scope_missing') return projection.reason;

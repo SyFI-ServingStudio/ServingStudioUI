@@ -2,7 +2,7 @@ import { useActiveRunSubject } from '../../application/ActiveRunProvider';
 import ChartCard from '../../components/ChartCard';
 import { KERNEL_TIME_EPSILON_MS } from '../../domain/kernelTimeShare';
 import type { WorkerKey } from '../../domain/worker';
-import { projectKernelTimeBreakdown } from '../metrics/kernelTimeBreakdown';
+import { projectKernelTimeBreakdown } from '../../metrics';
 import {
   projectWorkerKernelPositions,
   type WorkerKernelPositionBreakdown,

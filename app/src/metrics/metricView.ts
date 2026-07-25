@@ -1,6 +1,6 @@
 import type { EChartsOption } from 'echarts';
 import { throughputOption, utilizationOption, kvOption, pendingQueueOption } from './options';
-import { CHART_THEME } from '../../charts/platform';
+import { CHART_THEME } from '../charts/platform';
 import {
   cursorSeconds,
   scopedUtil,
@@ -10,10 +10,10 @@ import {
   scopedPendingQueue,
   poolInScope,
   type RunSelection,
-} from '../../application/runSelection';
-import type { Run } from '../../domain/run';
-import type { SubjectResult } from '../../domain/subject';
-import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
+} from '../application/runSelection';
+import type { Run } from '../domain/run';
+import type { SubjectResult } from '../domain/subject';
+import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
 
 export type MetricKey = 'throughput' | 'utilization' | 'kv' | 'backpressure';
 

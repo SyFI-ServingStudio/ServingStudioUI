@@ -1,11 +1,11 @@
 import type { EChartsOption, TooltipComponentOption } from 'echarts';
 import { describe, expect, it } from 'vitest';
 
-import type { ScopedPendingQueue } from '../../application/runSelection';
-import { CHART_THEME } from '../../charts/platform';
-import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../../domain/run';
+import type { ScopedPendingQueue } from '../application/runSelection';
+import { CHART_THEME } from '../charts/platform';
+import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../domain/run';
 import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
-import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
+import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
 import {
   batchMetricOption,
   kernelTimeStackOption,

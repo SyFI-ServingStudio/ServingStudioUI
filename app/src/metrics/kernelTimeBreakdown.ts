@@ -3,10 +3,10 @@ import {
   type AggregateKernelComposition,
   type AggregateWorkerKernelComposition,
   type KernelTimeShare,
-} from '../../domain/kernelTimeShare';
-import type { SubjectResult } from '../../domain/subject';
-import { GROUP, groupOf } from '../../domain/cost-tree';
-import type { WorkerKey } from '../../domain/worker';
+} from '../domain/kernelTimeShare';
+import type { SubjectResult } from '../domain/subject';
+import { GROUP, groupOf } from '../domain/cost-tree';
+import type { WorkerKey } from '../domain/worker';
 
 export interface KernelStackFamily {
   group: string;

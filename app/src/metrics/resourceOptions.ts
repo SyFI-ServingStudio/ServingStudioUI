@@ -1,8 +1,8 @@
 import type { EChartsOption } from 'echarts';
 
-import type { ScopedPendingQueue } from '../../application/runSelection';
-import type { BatchSeries, KvSeries, UtilSeries } from '../../domain/run';
-import { tokens } from '../../theme';
+import type { ScopedPendingQueue } from '../application/runSelection';
+import type { BatchSeries, KvSeries, UtilSeries } from '../domain/run';
+import { tokens } from '../theme';
 import {
   baseChartOption,
   chartAxisLine,
@@ -12,7 +12,7 @@ import {
   safeChartText,
   tooltipLines,
   type ChartTheme,
-} from '../../charts/platform';
+} from '../charts/platform';
 
 export function utilizationOption(
   util: UtilSeries,

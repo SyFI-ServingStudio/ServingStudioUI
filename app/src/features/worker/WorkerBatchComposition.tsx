@@ -9,7 +9,7 @@ import ChartCard from '../../components/ChartCard';
 import type { BatchSeries } from '../../domain/run';
 import type { WorkerKey } from '../../domain/worker';
 import { useViz } from '../../store';
-import { batchMetricOption } from '../metrics';
+import { batchMetricOption } from '../../metrics';
 
 interface BatchCardSpec {
   readonly idx: string;

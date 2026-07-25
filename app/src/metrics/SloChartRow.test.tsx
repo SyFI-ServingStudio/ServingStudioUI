@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ChartFocusProvider } from '../../components/ChartFocusProvider';
-import { useChartFocusDialog, type ChartFocusPayload } from '../../components/ChartFocusContext';
-import type { Slo } from '../../domain/run';
+import { ChartFocusProvider } from '../components/ChartFocusProvider';
+import { useChartFocusDialog, type ChartFocusPayload } from '../components/ChartFocusContext';
+import type { Slo } from '../domain/run';
 import SloChartRow from './SloChartRow';
 
 vi.mock('../../components/EChart', () => ({

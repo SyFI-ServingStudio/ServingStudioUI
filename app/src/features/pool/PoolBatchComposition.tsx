@@ -7,7 +7,7 @@ import { subjectStatusLabel, subjectStatusMessage } from '../../application/subj
 import { CHART_THEME } from '../../charts/platform';
 import ChartCard from '../../components/ChartCard';
 import { useViz } from '../../store';
-import { poolBatchMetricOption } from '../metrics';
+import { poolBatchMetricOption } from '../../metrics';
 import { buildPoolBatchSnapshots } from './poolBatchSnapshots';
 
 const CARD_SPECS = [

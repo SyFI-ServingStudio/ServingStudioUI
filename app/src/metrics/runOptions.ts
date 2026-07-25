@@ -1,6 +1,6 @@
 import type { EChartsOption } from 'echarts';
 
-import type { SloMetric, Throughput } from '../../domain/run';
+import type { SloMetric, Throughput } from '../domain/run';
 import {
   baseChartOption,
   cursorMarker,
@@ -8,7 +8,7 @@ import {
   safeChartText,
   tooltipLines,
   type ChartTheme,
-} from '../../charts/platform';
+} from '../charts/platform';
 
 export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string): EChartsOption {
   const opt = baseChartOption(t);

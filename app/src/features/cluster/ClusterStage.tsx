@@ -10,7 +10,7 @@ import {
   metricView,
   METRIC_TITLES,
   METRIC_CAPTIONS,
-} from '../metrics';
+} from '../../metrics';
 import ConservationCard from './ConservationCard';
 import RequestStateCard from './RequestStateCard';
 

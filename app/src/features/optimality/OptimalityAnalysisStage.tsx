@@ -11,17 +11,18 @@ import { leafById } from '../../domain/cost-tree';
 import type { OptimalityMode } from '../../domain/optimality';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import OptimalityBreakdownCard, { OptimalityWaterfallCard } from './OptimalityBreakdownCard';
+import OptimalityKernelLadderCard from './OptimalityKernelLadderCard';
+import OptimalityKernelsCard from './OptimalityKernelsCard';
 import {
-  OptimalityBreakdownCard,
-  OptimalityKernelLadderCard,
-  OptimalityKernelsCard,
-  OptimalityWaterfallCard,
-  projectScopedKernelLadder,
-  projectExactKernelLadder,
   projectIterationOptimalityBreakdown,
   type OptimalityBreakdownProjection,
+} from './optimalityBreakdown';
+import {
+  projectExactKernelLadder,
+  projectScopedKernelLadder,
   type KernelLadderProjection,
-} from '../metrics';
+} from './optimalityKernelLadder';
 
 /** Scope-adaptive optimality section. Aggregate scopes consume the bounded
  * subject; an exact operation switches worker/kernel views to the on-demand

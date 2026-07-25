@@ -4,7 +4,7 @@ import { useViz } from '../../store';
 import { poolInScope } from '../../application/runSelection';
 import { useActiveRun, useActiveRunSubject } from '../../application/ActiveRunProvider';
 import ChartCard from '../../components/ChartCard';
-import { KernelTimeBreakdownCard, metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../metrics';
+import { KernelTimeBreakdownCard, metricView, METRIC_TITLES, METRIC_CAPTIONS } from '../../metrics';
 import PoolBatchComposition from './PoolBatchComposition';
 import PoolRequestStateCard from './PoolRequestStateCard';
 

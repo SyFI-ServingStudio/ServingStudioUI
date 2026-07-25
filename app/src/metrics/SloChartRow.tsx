@@ -1,10 +1,10 @@
 import { Box } from '@mui/material';
 
-import { subjectStatusLabel, subjectStatusMessage } from '../../application/subjectStatus';
-import { CHART_THEME } from '../../charts/platform';
-import ChartCard from '../../components/ChartCard';
-import type { Slo } from '../../domain/run';
-import type { SubjectResult } from '../../domain/subject';
+import { subjectStatusLabel, subjectStatusMessage } from '../application/subjectStatus';
+import { CHART_THEME } from '../charts/platform';
+import ChartCard from '../components/ChartCard';
+import type { Slo } from '../domain/run';
+import type { SubjectResult } from '../domain/subject';
 import { sloMetricOption } from './options';
 
 const SLO_CARDS: ReadonlyArray<{

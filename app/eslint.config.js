@@ -50,12 +50,32 @@ export default tseslint.config(
         {
           patterns: [
             {
+              // Every feature except `worker`: reach a feature only through its
+              // index.ts so a stage cannot quietly become a shared bucket that
+              // its siblings deep-import. Bare directory names (not
+              // `**/features/<name>/*`) so a sibling writing `../cluster/X` is
+              // caught too — that spelling is how the shared-bucket drift
+              // started. `worker` is deliberately absent: App.tsx and the canvas
+              // demo import single modules out of it precisely to keep the lazy
+              // cost-tree chunk off the eager entry path, and its barrel would
+              // drag that chunk back in.
               group: [
-                '**/features/run-overview/*',
-                '**/features/system-map/*',
-                '**/features/timeline/*',
+                '**/cluster/*',
+                '**/kernel/*',
+                '**/optimality/*',
+                '**/pool/*',
+                '**/run-overview/*',
+                '**/system-map/*',
+                '**/timeline/*',
+                '**/trace/*',
               ],
               message: 'Import this feature through its public index.ts entry.',
+            },
+            {
+              // The shared metric-chart layer is a layer, not a feature: it has
+              // one public surface and no stage-specific internals.
+              group: ['**/metrics/*'],
+              message: 'Import the shared metric layer through src/metrics/index.ts.',
             },
           ],
         },

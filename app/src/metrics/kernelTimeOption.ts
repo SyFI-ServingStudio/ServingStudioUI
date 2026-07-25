@@ -1,13 +1,13 @@
 import type { EChartsOption } from 'echarts';
 
-import { KERNEL_TIME_EPSILON_MS } from '../../domain/kernelTimeShare';
+import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
 import {
   chartAxisLine,
   chartGrid,
   richTextTooltip,
   safeChartText,
   type ChartTheme,
-} from '../../charts/platform';
+} from '../charts/platform';
 import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
 
 // ---- critical-path kernel time breakdown — aggregate scope stacked bars ----

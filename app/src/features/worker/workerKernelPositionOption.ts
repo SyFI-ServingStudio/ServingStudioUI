@@ -9,7 +9,7 @@ import {
   tooltipLines,
 } from '../../charts/platform';
 import { KERNEL_TIME_EPSILON_MS } from '../../domain/kernelTimeShare';
-import type { ReadyKernelTimeBreakdown } from '../metrics/kernelTimeBreakdown';
+import type { ReadyKernelTimeBreakdown } from '../../metrics';
 import type { WorkerKernelPositionBreakdown } from './workerKernelTimeBreakdown';
 
 type ReadyPositions = Extract<WorkerKernelPositionBreakdown, { status: 'ready' }>;

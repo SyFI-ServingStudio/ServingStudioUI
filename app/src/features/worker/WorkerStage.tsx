@@ -12,7 +12,7 @@ import type { OperationRef } from '../../domain/workerOperation';
 import { useViz } from '../../store';
 import ChartCard from '../../components/ChartCard';
 import { KernelEvidence, KernelInspector, ParallelDetail } from '../kernel';
-import { metricView, METRIC_CAPTIONS, METRIC_TITLES } from '../metrics';
+import { metricView, METRIC_CAPTIONS, METRIC_TITLES } from '../../metrics';
 import { tokens } from '../../theme';
 import CostTreeFlow from './CostTreeFlow';
 import {
