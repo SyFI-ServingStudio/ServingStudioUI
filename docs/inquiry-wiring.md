@@ -26,21 +26,21 @@ agent 通道、以及**卡片与 run 之间的链接**。最后一块最不明�
 
 以下均为已验证事实,不是推测:
 
-| 资产 | 位置 | 与新形态的关系 |
-|---|---|---|
-| `VizState` | `app/src/store.ts` | **它本身就是 context payload**。Run selection 字段全部可序列化,不必另造一份 selection state |
-| `AnalyzerRepository` | `app/src/repositories/AnalyzerRepository.ts` | 12 个方法全部以 `runId` 为键;agent 产出的 run 目录已是 `manifest.json` / `payloads/` / `reports/` 布局,`ArtifactAnalyzerRepository` 今天就能读 |
-| 13 个 subject | `app/src/contracts/analyzer/v1/subjectIds.ts` | 全部复用 |
-| 9 个 feature stage | `app/src/features/` | 全部复用(cost tree、timeline、Perfetto、optimality) |
-| lifecycle 轮询策略 | `app/src/application/lifecyclePolling.ts` | **直接复用于"phase 正在跑"**:`pending` 2 s、`not_started`/catalog 30 s、focus 时强制重取 |
-| agent 后端 | `user-facing-ui/backend/app.py` | 已有多轮会话、SSE 流、按 `cid` 隔离的 workspace、artifact 列举与下载 |
+| 资产                 | 位置                                          | 与新形态的关系                                                                                                                                 |
+| -------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VizState`           | `app/src/store.ts`                            | **它本身就是 context payload**。Run selection 字段全部可序列化,不必另造一份 selection state                                                    |
+| `AnalyzerRepository` | `app/src/repositories/AnalyzerRepository.ts`  | 12 个方法全部以 `runId` 为键;agent 产出的 run 目录已是 `manifest.json` / `payloads/` / `reports/` 布局,`ArtifactAnalyzerRepository` 今天就能读 |
+| 13 个 subject        | `app/src/contracts/analyzer/v1/subjectIds.ts` | 全部复用                                                                                                                                       |
+| 9 个 feature stage   | `app/src/features/`                           | 全部复用(cost tree、timeline、Perfetto、optimality)                                                                                            |
+| lifecycle 轮询策略   | `app/src/application/lifecyclePolling.ts`     | **直接复用于"phase 正在跑"**:`pending` 2 s、`not_started`/catalog 30 s、focus 时强制重取                                                       |
+| agent 后端           | `user-facing-ui/backend/app.py`               | 已有多轮会话、SSE 流、按 `cid` 隔离的 workspace、artifact 列举与下载                                                                           |
 
 ### 1.1 一处必须修改的既有代码
 
 - [x] **`store.ts::setRun` 支持显式保留选择。**
 
   ```ts
-  setRun(runId, { keepSelection: true })
+  setRun(runId, { keepSelection: true });
   ```
 
   普通 run 切换继续清空不适用的 drill state；citation 明确要求“另一个 run 的同一
@@ -125,13 +125,12 @@ agent 通道、以及**卡片与 run 之间的链接**。最后一块最不明�
       docked 与 spine 之间切换时 Agent pane 保持 mounted，以宽度、透明度和轻微位移共同
       过渡；边界 tab 随 grid boundary 连续移动，不能因条件卸载导致内容或 Analyzer
       panels 在动画终点跳变。
-      `b-real.html` 里有三个已修 bug 值得带过去:
-      1. 指针捕获结束时仍派发 `click`,会把刚折叠的面板立刻弹回;
-      2. 头部按钮的 click 冒泡到"点书脊展开"处理器,同上;
-      3. grid 用隐式 `auto` 行 + `height:100vh` 会把 composer 顶出视口,必须
-         `grid-template-rows: minmax(0,1fr)`;两列都要显式 `grid-column`,
-         否则某一列 `display:none` 时另一列会被自动放置到坍缩的那一列。
-- [ ] **context chip 与 payload。** payload 必须可展开为字面 `VizState`——
+      `b-real.html` 里有三个已修 bug 值得带过去: 1. 指针捕获结束时仍派发 `click`,会把刚折叠的面板立刻弹回; 2. 头部按钮的 click 冒泡到"点书脊展开"处理器,同上; 3. grid 用隐式 `auto` 行 + `height:100vh` 会把 composer 顶出视口,必须
+      `grid-template-rows: minmax(0,1fr)`;两列都要显式 `grid-column`,
+      否则某一列 `display:none` 时另一列会被自动放置到坍缩的那一列。
+- [x] **context chip 与 payload。** payload 可展开为字面 `VizState`，发送 turn 时同一
+      selection 与 bounded citation dictionary 作为 `analyzerContext` 进入 conversation
+      backend；面板几何不进入 payload。
       这是 Chrome DevTools AI assistance 的信任机制,不要藏。
 - [ ] **降级路径。** 选中一个尚未分析完的 run 必须显式降级(显示 lifecycle 两段状态),
       不能白屏。这与 `WORKPLAN.md` P1 里"对 unavailable / not generated / failed 提供
@@ -162,13 +161,14 @@ At `exp.tp2.rate20.throughput`, throughput reaches 8,420 tok/s.
 现有 commentary collector 的纯文本可以直接承载 inline-code token。Agent 不写 URI、
 percent encoding、JSON 或 opaque IDs；sidecar 只持久化已解析的 frozen target。
 
-- [ ] 把 aggregate-only `EvidenceRefV1` 提升为 `aggregate | run` union
-- [ ] 建立 React evidence registry 和 symbolic dictionary；panel 显式注册 target
-- [ ] Conversation request 保存并发送 bounded dictionary snapshot
-- [ ] Agent instruction 只允许使用 dictionary 中的 symbolic token
-- [ ] Markdown inline-code AST resolver + frozen citation persistence；禁止扫描普通 prose
-- [ ] Citation click bridge；未点击不得改变 Analyzer
-- [ ] 持久化每个 turn 的 Markdown、dictionary identity、frozen targets 与 DSL version
+- [x] 把 aggregate-only `EvidenceRefV1` 提升为 `aggregate | run` union
+- [x] 建立 React evidence registry 和 symbolic dictionary；aggregate 从 launcher axis
+      order、真实 member allowlist 与 metric panel registry 生成，run target 冻结完整 drill state
+- [x] Conversation request 保存并发送 bounded dictionary snapshot
+- [x] Agent instruction 只允许使用 dictionary 中的 symbolic token
+- [x] 单 backtick inline-code resolver + frozen citation persistence；禁止扫描普通 prose
+- [x] Citation click bridge；未点击不得改变 Analyzer，点击后等待 `navigation-result`
+- [x] 持久化每个 turn 的 Markdown、dictionary identity、frozen targets 与 DSL version
 
 ---
 
@@ -177,16 +177,17 @@ percent encoding、JSON 或 opaque IDs；sidecar 只持久化已解析的 frozen
 viz-ui 今天**完全没有**写入侧:`AnalyzerRepository` 是严格只读的 artifact 接口,
 没有"发问题"的方法,也没有接收 turn 的流。
 
-- [ ] **`ConversationRepository`**,与 `AnalyzerRepository` 平级、方向相反:
+- [x] **`ConversationRepository`**,与 `AnalyzerRepository` 平级、方向相反:
       一个读 artifact,一个收发 turn。
-- [ ] **复用既有后端。** `user-facing-ui/backend/app.py` 已提供
+- [x] **复用既有后端。** `user-facing-ui/backend/app.py` 已提供
       `POST /api/conversations/{cid}/messages`、`GET /api/conversations/{cid}/stream`(SSE)、
       `POST /api/conversations/{cid}/cancel`,以及 token 门控的 agent 侧
       `/api/agent/conversations*`。不要重写。
-- [ ] **决定部署形态。** viz-ui 今天没有后端。是把它挂到 user-facing-ui 的 FastAPI 后面,
-      还是让 viz-ui 的 `/api/v1/` 代理转发?这个决定同时影响鉴权
-      (`VIBESIM_API_TOKEN`)和 workspace 的可见性。
-- [ ] **提问时携带 `VizState`。** 载荷即字面 run selection 字段 +
+- [x] **决定部署形态。** 开发环境保持浏览器同源：Vite 将 `/api/conversations` 转发到
+      `user-facing-ui`（默认 8765），其余 `/api` 仍转发到只读 Analyzer（默认 8787）。
+      Codex container 的 Analyzer MCP 明确区分 `source="host"`（UI 已选实验）与
+      `source="workspace"`（Agent 在隔离 workspace 内新产出的 simulation）。
+- [x] **提问时携带 `VizState`。** 载荷即字面 run selection 字段 +
       `inquiryId` / `phaseId`，并附带 Citation DSL 所需的 bounded evidence registry。
 - [ ] **注意笔记会被去重。** `(role, text)` 精确去重意味着 UI 拿到的笔记序列
       **不保证完整**;不要基于"笔记条数"做任何推断。

@@ -13,6 +13,7 @@ function commaSeparatedValues(value: string | undefined): string[] | undefined {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const analyzerTarget = env.ANALYZER_PROXY_TARGET || 'http://127.0.0.1:8787';
+  const conversationTarget = env.CONVERSATION_PROXY_TARGET || 'http://127.0.0.1:8765';
   const serverHost = env.VIBESIM_UI_HOST || '127.0.0.1';
   const allowedHosts = commaSeparatedValues(env.VIBESIM_UI_ALLOWED_HOSTS);
 
@@ -27,7 +28,12 @@ export default defineConfig(({ mode }) => {
       // The browser remains same-origin; only Vite knows where the local Rust
       // service listens. Rewriting Host lets the analyzer enforce its own
       // target-host allowlist instead of trusting the browser-facing hostname.
-      proxy: { '/api': { target: analyzerTarget, changeOrigin: true } },
+      proxy: {
+        // Conversation writes belong to the existing user-facing-ui backend;
+        // Analyzer remains the owner of all read-only /api/v1 artifact routes.
+        '/api/conversations': { target: conversationTarget, changeOrigin: true },
+        '/api': { target: analyzerTarget, changeOrigin: true },
+      },
     },
     preview: { host: serverHost, port: 8778, allowedHosts },
   };

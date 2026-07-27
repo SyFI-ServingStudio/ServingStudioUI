@@ -19,6 +19,7 @@ import {
   type AnalyzerNavigationResultV1,
   type EvidenceRefV1,
 } from '../../domain/analyzerNavigation';
+import type { AggregateEvidenceRefV1 } from '../../domain/evidenceRef';
 import type { AggregateAnalyzerSelectionV1 } from '../../domain/analyzerSelection';
 import type {
   SweepAnalysis,
@@ -385,7 +386,9 @@ function copySweepCoordinates(
   return copied;
 }
 
-function aggregateSelectionFromEvidence(target: EvidenceRefV1): AggregateAnalyzerSelectionV1 {
+function aggregateSelectionFromEvidence(
+  target: AggregateEvidenceRefV1,
+): AggregateAnalyzerSelectionV1 {
   return {
     kind: 'aggregate',
     experimentId: target.experimentId,
@@ -397,9 +400,12 @@ function aggregateSelectionFromEvidence(target: EvidenceRefV1): AggregateAnalyze
   };
 }
 
-function evidenceFromAggregateSelection(selection: AggregateAnalyzerSelectionV1): EvidenceRefV1 {
+function evidenceFromAggregateSelection(
+  selection: AggregateAnalyzerSelectionV1,
+): AggregateEvidenceRefV1 {
   return {
     protocol: 'vibesim.analyzer/v1',
+    kind: 'aggregate',
     experimentId: selection.experimentId,
     ...(selection.panelId ? { panelId: selection.panelId } : {}),
     ...(selection.metricKey ? { metricKey: selection.metricKey } : {}),
@@ -409,10 +415,15 @@ function evidenceFromAggregateSelection(selection: AggregateAnalyzerSelectionV1)
   };
 }
 
+function aggregateEvidenceFromHash(hash: string): AggregateEvidenceRefV1 | null {
+  const evidence = evidenceRefFromHash(hash);
+  return evidence?.kind === 'aggregate' ? evidence : null;
+}
+
 export default function SweepPage({ integrated = false }: { integrated?: boolean }) {
   const sweepList = useSweepListQuery();
-  const [navigationTarget, setNavigationTarget] = useState<EvidenceRefV1 | null>(() =>
-    evidenceRefFromHash(window.location.hash),
+  const [navigationTarget, setNavigationTarget] = useState<AggregateEvidenceRefV1 | null>(() =>
+    aggregateEvidenceFromHash(window.location.hash),
   );
   const metricPanelsRef = useRef<HTMLDivElement>(null);
   const panelRefs = useRef(new Map<string, HTMLDivElement>());
@@ -424,7 +435,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
 
   useEffect(() => {
     const syncNavigationTarget = () =>
-      setNavigationTarget(evidenceRefFromHash(window.location.hash));
+      setNavigationTarget(aggregateEvidenceFromHash(window.location.hash));
     window.addEventListener('hashchange', syncNavigationTarget);
     return () => window.removeEventListener('hashchange', syncNavigationTarget);
   }, []);
@@ -455,6 +466,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
     setAggregateSelection(defaultSelection);
     replaceAnalyzerEvidenceHref({
       protocol: 'vibesim.analyzer/v1',
+      kind: 'aggregate',
       experimentId: defaultSweep.sweepId,
     });
   }, [navigationTarget, selectedSweepId, setAggregateSelection, sweepList.data]);
@@ -581,7 +593,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
       typeof data.coordinates === 'object' &&
       !Array.isArray(data.coordinates)
         ? {
-            coordinates: data.coordinates as EvidenceRefV1['coordinates'],
+            coordinates: data.coordinates as AggregateEvidenceRefV1['coordinates'],
           }
         : {}),
     };

@@ -113,6 +113,7 @@ test('accepts a same-origin agent navigation command and acknowledges it', async
         type: 'navigate',
         target: {
           protocol: 'vibesim.analyzer/v1',
+          kind: 'aggregate',
           experimentId: 's_fixture_llama3_8b_tp_rate',
           panelId: 'ttft',
           metricKey: 'ttft_mean_ms',
@@ -159,6 +160,41 @@ test('accepts a same-origin agent navigation command and acknowledges it', async
         }),
       }),
     );
+});
+
+test('restores a complete run selection from an agent navigation command', async ({ page }) => {
+  await page.goto('/#/aggregate');
+  await page.evaluate(() => {
+    window.postMessage(
+      {
+        protocol: 'vibesim.analyzer/v1',
+        requestId: 'agent-run-request-1',
+        type: 'navigate',
+        target: {
+          protocol: 'vibesim.analyzer/v1',
+          kind: 'run',
+          runId: 'fixture-afd-qwen3-v1',
+          panelId: 'utilization',
+          scope: 'cluster',
+          poolRole: null,
+          workerKey: null,
+          leafId: null,
+          parId: null,
+          cursorMs: null,
+          cursorNeedsSeek: false,
+          operation: null,
+          workerAnalysisLevel: 'worker',
+        },
+      },
+      window.location.origin,
+    );
+  });
+
+  await expect(page).toHaveURL(/#\/run\?/);
+  await expect(page.getByRole('heading', { name: 'VibeSim — Run', level: 1 })).toBeVisible();
+  await expect(
+    page.locator('[data-evidence-id="panel:utilization"][data-agent-selected="true"]'),
+  ).toBeVisible();
 });
 
 test('opens the FFN pool through the same stable pool control', async ({ page }) => {

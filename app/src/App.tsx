@@ -1,5 +1,5 @@
 import { Box, Link, Stack, Typography } from '@mui/material';
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode, useEffect } from 'react';
 import { useViz, type Scope } from './store';
 import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
@@ -15,6 +15,11 @@ import { OptimalityAnalysisStage } from './features/optimality';
 import WorkerAnalysisLevelControl from './features/worker/WorkerAnalysisLevelControl';
 import FocusDialog from './components/FocusDialog';
 import { SurfaceAccentProvider } from './components/SurfaceCard';
+import {
+  ANALYZER_NAVIGATION_RESULT_EVENT,
+  analyzerEvidenceHref,
+  evidenceRefFromHash,
+} from './domain/analyzerNavigation';
 
 // Worker, kernel, and parallel scopes share the cost-tree/Motion feature. Keep
 // that feature out of the cluster/pool entry path and load it at the drill edge.
@@ -284,6 +289,27 @@ export default function App() {
   const poolRole = useViz((state) => state.poolRole);
   const workerKey = useViz((state) => state.workerKey);
   const workerAnalysisLevel = useViz((state) => state.workerAnalysisLevel);
+  useEffect(() => {
+    const evidence = evidenceRefFromHash(window.location.hash);
+    if (
+      evidence?.kind !== 'run' ||
+      activeRun.status === 'loading' ||
+      activeRun.status === 'selecting'
+    ) {
+      return;
+    }
+    const status =
+      activeRun.status === 'ready'
+        ? activeRun.run.id === evidence.runId
+          ? 'ok'
+          : 'not-found'
+        : 'not-found';
+    window.dispatchEvent(
+      new CustomEvent(ANALYZER_NAVIGATION_RESULT_EVENT, {
+        detail: { href: analyzerEvidenceHref(evidence), status },
+      }),
+    );
+  }, [activeRun]);
   if (!run) {
     return (
       <Box

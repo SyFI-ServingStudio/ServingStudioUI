@@ -22,6 +22,7 @@ function navigateToExperiment(entry: SweepListItem): void {
   destination.search = '?workspace=1';
   destination.hash = analyzerEvidenceHref({
     protocol: 'vibesim.analyzer/v1',
+    kind: 'aggregate',
     experimentId: entry.sweepId,
   });
   window.location.assign(destination);

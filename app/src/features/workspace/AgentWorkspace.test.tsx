@@ -1,38 +1,91 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import AgentPane, { AgentConversation } from './AgentWorkspace';
 import { useViz } from '../../store';
+import AgentPane from './AgentWorkspace';
 
-describe('AgentConversation', () => {
-  it('makes execution roles, handoffs, and evidence explicit', async () => {
+const conversation = {
+  id: 'c_test',
+  title: 'Test',
+  messages: [
+    { role: 'user', content: 'Compare TP choices.' },
+    {
+      role: 'assistant',
+      content: 'Inspect `exp.tp2.rate20.throughput`.',
+      activity: [
+        { kind: 'intermediate_output', role: 'orchestrator', text: 'Plan the comparison.' },
+        { kind: 'usage', role: 'orchestrator', duration_ms: 10, tokens: {} },
+        { kind: 'decision', action: 'delegate', task: 'Compare the coordinates.' },
+        { kind: 'intermediate_output', role: 'implementer', text: 'Read the sweep.' },
+        { kind: 'usage', role: 'implementer', duration_ms: 10, tokens: {} },
+        { kind: 'implementer', text: 'The evidence is ready.' },
+        { kind: 'final', text: 'Inspect `exp.tp2.rate20.throughput`.' },
+      ],
+      citations: [
+        {
+          protocol: 'vibesim.citation/v1',
+          token: 'exp.tp2.rate20.throughput',
+          sourceStart: 8,
+          sourceEnd: 35,
+          displayLabel: 'TP=2 · rate=20 · Throughput',
+          target: {
+            protocol: 'vibesim.analyzer/v1',
+            kind: 'aggregate',
+            experimentId: 's_test',
+            panelId: 'total_tps',
+            metricKey: 'total_tps',
+            runId: 'r_test',
+            coordinates: { tensor_parallel: 2, request_rate: 20 },
+          },
+        },
+      ],
+    },
+  ],
+};
+
+beforeEach(() => {
+  window.sessionStorage.setItem('vibesim.conversation.id', 'c_test');
+  window.history.replaceState(null, '', '/');
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/stream')) return new Response('', { status: 409 });
+      return new Response(JSON.stringify(conversation), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }),
+  );
+});
+
+describe('AgentPane', () => {
+  it('renders persisted roles, handoffs, and a frozen clickable citation', async () => {
     const user = userEvent.setup();
-    const onEvidence = vi.fn();
-    render(<AgentConversation prompt="Compare TP choices." onEvidence={onEvidence} />);
+    const postMessage = vi.spyOn(window, 'postMessage');
+    render(<AgentPane prompt="Compare TP choices." />);
 
-    expect(screen.getByText('Orchestrator')).toBeInTheDocument();
+    expect(await screen.findByText('Orchestrator')).toBeInTheDocument();
     expect(screen.getByText('Implementer')).toBeInTheDocument();
     expect(screen.getByText('Answer')).toBeInTheDocument();
     expect(screen.getByText('Orchestrator to Implementer')).toBeInTheDocument();
     expect(screen.getByText('Implementer to Orchestrator')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Open Total throughput evidence' }));
-    expect(onEvidence).toHaveBeenCalledOnce();
+    expect(postMessage).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /TP=2 · rate=20 · Throughput/ }));
+    expect(postMessage).toHaveBeenCalledOnce();
+    expect(postMessage.mock.calls[0]?.[0]).toMatchObject({
+      type: 'navigate',
+      target: { kind: 'aggregate', runId: 'r_test' },
+    });
   });
 
   it('exposes fold and full-page controls in the pane header', async () => {
     const user = userEvent.setup();
     const onFold = vi.fn();
     const onToggleFull = vi.fn();
-    render(
-      <AgentPane
-        prompt="Inspect the sweep."
-        onEvidence={vi.fn()}
-        onFold={onFold}
-        onToggleFull={onToggleFull}
-      />,
-    );
+    render(<AgentPane prompt="Inspect the sweep." onFold={onFold} onToggleFull={onToggleFull} />);
 
     await user.click(screen.getByRole('button', { name: 'Expand Agent to full page' }));
     await user.click(screen.getByRole('button', { name: 'Fold Agent' }));
@@ -41,7 +94,7 @@ describe('AgentConversation', () => {
     expect(onFold).toHaveBeenCalledOnce();
   });
 
-  it('reflects the active Analyzer selection above the composer', () => {
+  it('shows the literal active Analyzer selection above the composer', async () => {
     act(() => {
       useViz.getState().setAggregateSelection({
         kind: 'aggregate',
@@ -51,12 +104,13 @@ describe('AgentConversation', () => {
         coordinates: { request_rate: 20, tensor_parallel: 2 },
       });
     });
-    render(<AgentPane prompt="Inspect the sweep." onEvidence={vi.fn()} showSelectionContext />);
+    const user = userEvent.setup();
+    render(<AgentPane prompt="Inspect the sweep." showSelectionContext />);
 
     const context = screen.getByRole('status', { name: 'Active Analyzer selection' });
     expect(context).toHaveTextContent('aggregate');
-    expect(context).toHaveTextContent('total_tps');
     expect(context).toHaveTextContent('request_rate=20');
-    expect(context).toHaveTextContent('tensor_parallel=2');
+    await user.click(screen.getByRole('button', { name: 'view JSON' }));
+    expect(context).toHaveTextContent('"experimentId": "s_test"');
   });
 });

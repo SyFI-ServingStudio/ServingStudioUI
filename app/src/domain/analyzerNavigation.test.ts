@@ -10,6 +10,7 @@ describe('analyzer navigation protocol', () => {
   it('round-trips a bounded aggregate evidence reference through the URL', () => {
     const target = {
       protocol: 'vibesim.analyzer/v1' as const,
+      kind: 'aggregate' as const,
       experimentId: 's_exp',
       panelId: 'tpot',
       metricKey: 'tpot_p99_ms',
@@ -21,7 +22,31 @@ describe('analyzer navigation protocol', () => {
     expect(evidenceRefFromHash(analyzerEvidenceHref(target))).toEqual(target);
   });
 
-  it('rejects malformed coordinates and non-aggregate routes', () => {
+  it('round-trips a complete run evidence reference through the URL', () => {
+    const target = {
+      protocol: 'vibesim.analyzer/v1' as const,
+      kind: 'run' as const,
+      runId: 'r_member',
+      panelId: 'kernel-breakdown',
+      scope: 'kernel' as const,
+      poolRole: 'decode',
+      workerKey: 'decode-0',
+      leafId: 12,
+      parId: 3,
+      cursorMs: 42.5,
+      cursorNeedsSeek: true,
+      operation: {
+        iterId: 'iter-1',
+        batchId: 'batch-2',
+        operationId: 'operation-3',
+      },
+      workerAnalysisLevel: 'iteration' as const,
+    };
+
+    expect(evidenceRefFromHash(analyzerEvidenceHref(target))).toEqual(target);
+  });
+
+  it('rejects malformed coordinates and incomplete run routes', () => {
     expect(evidenceRefFromHash('#/run?experiment=s_exp')).toBeNull();
     expect(evidenceRefFromHash('#/aggregate?experiment=s_exp&coordinates=%7Bbad')).toBeNull();
   });
@@ -34,6 +59,7 @@ describe('analyzer navigation protocol', () => {
         type: 'navigate',
         target: {
           protocol: 'vibesim.analyzer/v1',
+          kind: 'aggregate',
           experimentId: 's_exp',
           panelId: 'ttft',
         },
@@ -44,7 +70,11 @@ describe('analyzer navigation protocol', () => {
         protocol: 'vibesim.analyzer/v1',
         requestId: 'request-1',
         type: 'navigate',
-        target: { protocol: 'vibesim.analyzer/v1', experimentId: 's_exp' },
+        target: {
+          protocol: 'vibesim.analyzer/v1',
+          kind: 'aggregate',
+          experimentId: 's_exp',
+        },
         selector: '.chart',
       }).success,
     ).toBe(false);

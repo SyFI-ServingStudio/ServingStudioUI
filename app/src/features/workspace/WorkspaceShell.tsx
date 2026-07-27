@@ -13,12 +13,13 @@ import {
 } from 'react';
 
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
-import { analyzerEvidenceHref, evidenceRefFromHash } from '../../domain/analyzerNavigation';
+import { analyzerSelectionFromVizState } from '../../application/analyzerSelection';
+import { evidenceRefFromHash } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import AgentPane from './AgentWorkspace';
+import { analyzerTurnContext } from './citationDictionary';
 import CatalogTag from './CatalogTag';
-import { firstThroughputEvidence } from './agentEvidence';
 import { MAX_AGENT_PANEL_WIDTH, MIN_AGENT_PANEL_WIDTH, useWorkspaceUi } from './workspaceUiStore';
 
 function leaveWorkspace(): void {
@@ -96,11 +97,18 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const narrow = useMediaQuery('(max-width:900px)');
   const sweepList = useSweepListQuery();
   const aggregateSelection = useViz((state) => state.aggregateSelection);
+  const analyzerSelection = useViz(analyzerSelectionFromVizState);
   const hashEvidence = evidenceRefFromHash(window.location.hash);
-  const experimentId = hashEvidence?.experimentId ?? aggregateSelection?.experimentId ?? null;
+  const experimentId =
+    (hashEvidence?.kind === 'aggregate' ? hashEvidence.experimentId : null) ??
+    aggregateSelection?.experimentId ??
+    null;
   const experiment = sweepList.data?.find((entry) => entry.sweepId === experimentId) ?? null;
   const sweep = useSweepQuery(experimentId, experiment?.status === 'ready');
-  const throughputEvidence = useMemo(() => firstThroughputEvidence(sweep.data), [sweep.data]);
+  const turnContext = useMemo(
+    () => analyzerTurnContext(analyzerSelection, sweep.data),
+    [analyzerSelection, sweep.data],
+  );
   const agentPanelMode = useWorkspaceUi((state) => state.agentPanelMode);
   const agentPanelWidth = useWorkspaceUi((state) => state.agentPanelWidth);
   const setAgentPanelMode = useWorkspaceUi((state) => state.setAgentPanelMode);
@@ -167,21 +175,6 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     window.addEventListener('resize', clampToViewport);
     return () => window.removeEventListener('resize', clampToViewport);
   }, []);
-
-  const openEvidence = () => {
-    if (!experimentId) return;
-    const evidenceHref = analyzerEvidenceHref({
-      protocol: 'vibesim.analyzer/v1',
-      experimentId,
-      ...throughputEvidence,
-    });
-    if (window.location.hash === evidenceHref) {
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-    } else {
-      window.location.hash = evidenceHref;
-    }
-    if (narrow || agentPanelMode === 'full') setAgentPanelMode('docked');
-  };
 
   const beginResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -268,7 +261,9 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           prompt={prompt}
           onFold={narrow ? () => setAgentPanelMode('spine') : undefined}
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
-          onEvidence={openEvidence}
+          analyzerContext={turnContext}
+          enabled={agentPaneVisible}
+          requireAnalyzerContext
           expanded={agentPanelMode === 'full'}
           showSelectionContext
         />

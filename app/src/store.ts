@@ -4,7 +4,10 @@
  * Server data, panel geometry, drafts, and chart snapshots live elsewhere.
  */
 import { create } from 'zustand';
-import type { AggregateAnalyzerSelectionV1 } from './domain/analyzerSelection';
+import type {
+  AggregateAnalyzerSelectionV1,
+  RunAnalyzerSelectionV1,
+} from './domain/analyzerSelection';
 import { makeWorkerKey, type WorkerKey, type WorkerRef } from './domain/worker';
 import type { OperationRef, OperationSummary } from './domain/workerOperation';
 
@@ -36,6 +39,7 @@ export interface VizState {
   setAggregateSelection: (selection: AggregateAnalyzerSelectionV1) => void;
   setInquiryContextIdentity: (inquiryId: string | null, phaseId: string | null) => void;
   setRun: (runId: string, options?: SetRunOptions) => void;
+  restoreRunSelection: (selection: RunAnalyzerSelectionV1) => void;
   selectRunPanel: (panelId: string) => void;
   setCluster: () => void;
   selectPool: (role: string) => void;
@@ -90,6 +94,21 @@ export const useViz = create<VizState>((set) => ({
             workerAnalysisLevel: 'worker',
           },
     ),
+  restoreRunSelection: (selection) =>
+    set({
+      selectionSurface: 'run',
+      runId: selection.runId,
+      runPanelId: selection.panelId,
+      scope: selection.scope,
+      poolRole: selection.poolRole,
+      workerKey: selection.workerKey as WorkerKey | null,
+      leafId: selection.leafId,
+      parId: selection.parId,
+      cursorMs: selection.cursorMs,
+      cursorNeedsSeek: selection.cursorNeedsSeek,
+      operation: selection.operation,
+      workerAnalysisLevel: selection.workerAnalysisLevel,
+    }),
   setCluster: () =>
     set({
       scope: 'cluster',

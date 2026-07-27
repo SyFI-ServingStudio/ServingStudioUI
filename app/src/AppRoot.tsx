@@ -6,6 +6,7 @@ import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
   analyzerEvidenceHref,
   analyzerNavigateCommandV1Schema,
+  evidenceRefFromHash,
   navigationResult,
 } from './domain/analyzerNavigation';
 import { useViz } from './store';
@@ -42,7 +43,11 @@ export default function AppRoot() {
       destination.hash = '#/';
       window.history.replaceState(null, '', destination);
     }
-    const updateView = () => setView(appViewFromHash(window.location.hash));
+    const updateView = () => {
+      const evidence = evidenceRefFromHash(window.location.hash);
+      if (evidence?.kind === 'run') useViz.getState().restoreRunSelection(evidence);
+      setView(appViewFromHash(window.location.hash));
+    };
     const receiveAgentNavigation = (event: MessageEvent<unknown>) => {
       if (event.origin !== window.location.origin || event.source === null) return;
       const parsed = analyzerNavigateCommandV1Schema.safeParse(event.data);
@@ -52,6 +57,9 @@ export default function AppRoot() {
         origin: event.origin,
         href: analyzerEvidenceHref(parsed.data.target),
       });
+      if (parsed.data.target.kind === 'run') {
+        useViz.getState().restoreRunSelection(parsed.data.target);
+      }
       const href = analyzerEvidenceHref(parsed.data.target);
       if (window.location.hash === href) {
         window.dispatchEvent(new HashChangeEvent('hashchange'));
@@ -59,6 +67,7 @@ export default function AppRoot() {
         window.location.hash = href;
       }
     };
+    updateView();
     const returnNavigationResult = (event: Event) => {
       const detail = (
         event as CustomEvent<{

@@ -176,6 +176,7 @@ export default function SweepHeatmap({
             return (
               <ButtonBase
                 key={coordinatePairKey(xValue, yValue)}
+                aria-pressed={selected}
                 aria-label={`${metric.label}, ${xAxisName} ${coordinateLabel(xValue)}, ${yAxisName} ${coordinateLabel(yValue)}, ${cellValueLabel(displayedValue)} ${metric.unit}`}
                 onClick={(event) => {
                   event.stopPropagation();
