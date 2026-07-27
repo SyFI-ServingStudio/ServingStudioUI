@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VibeSim · Viz — wiring the agent conversation into viz-ui</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+/* Contents page for the four directions. Same tokens as the mocks it indexes —
+   viz-ui app/src/theme.ts. The picker is itself the front matter of the volume. */
+:root{
+  --paper:#f4efe4; --tile:#faf7f0; --tile-2:#f7f2e7; --leafbg:#fffdf8;
+  --ink:#2a2622; --sub:#685f54; --sub-2:#736a5e; --hair:#e3dccb;
+  --teal:#1f6f6b; --terra:#a84b2e; --gold:#806600; --olive:#566a2e; --violet:#6548dc;
+  --serif:'Fraunces',Georgia,serif; --body:'Hanken Grotesk',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --shadow:0 1px 0 rgba(42,38,34,.02), 0 10px 30px -22px rgba(42,38,34,.35);
+  --shadow-lift:0 22px 64px -30px rgba(42,38,34,.55);
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  background-image:radial-gradient(circle at 10% 6%,rgba(168,75,46,.04),transparent 44%),radial-gradient(circle at 92% 2%,rgba(31,111,107,.045),transparent 48%);
+  background-attachment:fixed;padding:44px clamp(18px,5vw,64px) 90px}
+::selection{background:rgba(31,111,107,.18)}
+@keyframes rise{to{opacity:1;transform:none}}
+.rev{opacity:0;transform:translateY(18px);animation:rise .75s var(--ease) forwards;animation-delay:var(--d,0ms)}
+@media (prefers-reduced-motion:reduce){.rev{animation:none;opacity:1;transform:none}}
+
+.board{max-width:1560px;margin:0 auto}
+.kicker{display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--sub);margin-bottom:14px}
+.kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--terra);box-shadow:0 0 0 4px rgba(168,75,46,.14)}
+.kicker .rule{flex:1;height:1px;background:var(--hair)}
+h1{font-family:var(--serif);font-weight:600;font-optical-sizing:auto;font-size:clamp(34px,5.6vw,72px);line-height:.94;letter-spacing:-.024em;margin:0 0 20px;max-width:26ch}
+h1 em{font-style:italic;font-weight:500;color:var(--teal)}
+.top{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:8px 56px;align-items:start;
+  padding-bottom:26px;border-bottom:1.5px solid var(--ink)}
+.lede{font-family:var(--serif);font-weight:400;font-size:18px;line-height:1.5;letter-spacing:-.008em;color:#3a352f;max-width:56ch;margin:0 0 14px}
+.lede b{font-weight:700;color:var(--ink)}
+.prose{font-size:13.5px;line-height:1.62;color:var(--sub);max-width:60ch}
+.prose p{margin:0 0 .6em} .prose p:last-child{margin-bottom:0}
+.prose code{font-family:var(--mono);font-size:.85em;background:rgba(42,38,34,.055);padding:.1em .4em;border-radius:5px;color:var(--terra)}
+.prose strong{color:var(--ink);font-weight:700}
+
+/* the three gestures, as a legend */
+.legend{border-left:1px solid var(--hair);padding-left:20px}
+.legend h4{margin:0 0 12px;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sub-2);font-weight:500}
+.g{display:flex;gap:11px;padding:9px 0;border-bottom:1px dotted var(--hair)}
+.g:last-child{border-bottom:0}
+.g .num{flex:0 0 auto;font-family:var(--mono);font-size:10px;color:var(--terra);padding-top:2px}
+.g .txt{font-size:12.5px;line-height:1.5;color:var(--sub)}
+.g .txt b{color:var(--ink);font-weight:600}
+
+/* role translation table */
+.xlate{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+.sw{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--hair);background:var(--tile);border-radius:999px;padding:4px 12px 4px 5px;font-family:var(--mono);font-size:10.5px;color:var(--sub);box-shadow:var(--shadow)}
+.sw i{width:16px;height:16px;border-radius:5px;display:inline-block}
+.sw b{color:var(--ink);font-weight:600}
+.sw .from{color:var(--sub-2);opacity:.8}
+
+/* ── contents grid ── */
+.grid{margin-top:38px;display:grid;grid-template-columns:repeat(auto-fit,minmax(348px,1fr));gap:22px}
+a.card{position:relative;display:flex;flex-direction:column;text-decoration:none;color:inherit;overflow:hidden;
+  background:var(--tile);border:1px solid var(--hair);border-left:3px solid var(--edge,var(--sub));border-radius:16px;
+  box-shadow:var(--shadow);padding:20px 22px 18px;transition:transform .3s var(--ease),box-shadow .3s var(--ease),border-color .3s var(--ease)}
+a.card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lift);border-color:#cabf9f;border-left-color:var(--edge)}
+a.card.pick{background:linear-gradient(180deg,rgba(31,111,107,.055),var(--tile) 58%)}
+.flag{position:absolute;top:15px;right:16px;font-family:var(--mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--edge);border:1px solid var(--edge);border-radius:999px;padding:2px 9px;opacity:.85}
+.idx{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--edge)}
+.cname{font-family:var(--serif);font-weight:600;font-optical-sizing:auto;font-size:27px;line-height:1.05;letter-spacing:-.02em;margin:7px 0 4px;max-width:20ch}
+.cname em{font-style:italic;font-weight:500;color:var(--teal)}
+.csub{font-family:var(--serif);font-style:italic;font-size:13.5px;line-height:1.45;color:var(--sub);min-height:38px;max-width:38ch}
+pre.mini{margin:15px 0 14px;padding:13px 14px;background:var(--leafbg);border:1px solid var(--hair);border-radius:10px;
+  font-family:var(--mono);font-size:10px;line-height:1.5;color:var(--sub-2);white-space:pre;overflow-x:auto;overflow-y:hidden;flex:1}
+.rows{display:flex;flex-direction:column;gap:6px}
+.row{display:flex;gap:10px;font-size:12.5px;line-height:1.45}
+.row .k{flex:0 0 78px;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--sub-2);padding-top:3px}
+.row .v{color:#3a352f}
+.row.cost .v{color:var(--terra)}
+.open{margin-top:16px;padding-top:13px;border-top:1px solid var(--hair);display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--edge);font-weight:600}
+.open .arrow{transition:transform .3s var(--ease)}
+a.card:hover .open .arrow{transform:translateX(5px)}
+
+footer{margin-top:46px;padding-top:22px;border-top:1px solid var(--hair);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:26px 44px}
+footer h5{margin:0 0 9px;font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--sub-2);font-weight:500}
+footer .prose{font-size:12.5px}
+footer a{color:var(--teal)}
+@media (max-width:980px){.top{grid-template-columns:minmax(0,1fr)}.legend{border-left:0;padding-left:0;border-top:1px solid var(--hair);padding-top:18px;margin-top:6px}}
+</style>
+</head>
+<body>
+<div class="board">
+
+  <header class="top rev">
+    <div>
+      <div class="kicker"><span class="dot"></span><span>VibeSim · Viz</span><span class="rule"></span><span>mocks · no wiring</span></div>
+      <h1>Wiring the agent conversation into <em>viz-ui</em></h1>
+      <p class="lede">The agent already writes a quantitative research log. Every number in it is a real simulation sitting on disk in a layout viz-ui <b>already reads</b>. What's missing is not analysis — it's a way for the argument to point at its own evidence.</p>
+      <div class="prose">
+        <p>So: <strong>viz-ui is the host</strong>. The orchestrator ↔ implementer card loop moves in, unchanged in substance, re-set in viz-ui's own type and palette. Nothing is re-invented and no third design language is introduced.</p>
+        <p>The organising metaphor is a <strong>printed research paper</strong> — the conversation is the article, the analyzer's charts and cost trees are numbered <em>plates</em>, numeric claims are <strong>footnote references</strong>, and the current selection is a <strong>margin annotation</strong>. Four directions below, differing only in where the article sits relative to the plates.</p>
+      </div>
+      <div class="xlate">
+        <span class="sw"><i style="background:rgba(128,102,0,.14);border:1px solid rgba(128,102,0,.4)"></i><b>orchestrator</b> <span class="from">amber → gold</span></span>
+        <span class="sw"><i style="background:rgba(31,111,107,.13);border:1px solid rgba(31,111,107,.4)"></i><b>implementer</b> <span class="from">teal → teal</span></span>
+        <span class="sw"><i style="background:rgba(168,75,46,.14);border:1px solid rgba(168,75,46,.4)"></i><b>answer</b> <span class="from">rose → terra</span></span>
+      </div>
+    </div>
+
+    <aside class="legend">
+      <h4>every direction demonstrates</h4>
+      <div class="g"><span class="num">01</span><div class="txt"><b>A footnote opens its run.</b> A number inside an implementer note is a citation; one click lands the analyzer on the run that produced it.</div></div>
+      <div class="g"><span class="num">02</span><div class="txt"><b>One round's sweep is one object.</b> Nine runs read as a boundary search with a crossing marker — not nine separate run switches.</div></div>
+      <div class="g"><span class="num">03</span><div class="txt"><b>Select → chip → ask.</b> A worker or cost-tree leaf becomes a composer chip that expands to the literal <code>VizState</code> payload the agent receives.</div></div>
+      <div class="g"><span class="num">+</span><div class="txt">Plus the two states real use is dominated by: a round <b>still working</b>, and a run whose <b>analysis is pending</b>.</div></div>
+    </aside>
+  </header>
+
+  <div class="grid">
+
+    <a class="card rev pick" style="--edge:var(--teal);--d:40ms;grid-column:1/-1" href="b-real.html">
+      <span class="flag">start here</span>
+      <div class="idx">direction B · realised</div>
+      <div class="cname">Inquiry → <em>Run</em>, wired end to end</div>
+      <div class="csub">B with both halves built: an aggregate page that compares N runs, and the run page it opens — a redraw of the shipped <code>App.tsx</code>.</div>
+<pre class="mini">╭ AGGREGATE ─────────────────────────────╮   click a row, a cell, or a chart point   ╭ DETAIL ──────────────────────────────╮
+│ 01 the sweep   ⟨coarse⟩⟨int⟩⟨0.1⟩⟨p99●⟩│  ──────────────────────────────────────▶  │ ‹ back to inquiry 01 · refine_p99_02 │
+│    44.4 44.5 44.6┊44.7 44.8  45.0      │                                           │ 00 overview   model│deploy│workload  │
+│     ✓    ✓    ▓  ┊ ✗    ✗   analysing  │   ◀──────────────────────────────────────  │ 01 system map  attn⟨0⟩⟨1⟩ ffn⟨0..3⟩  │
+│    ┌ mean/p99 vs request_rate ───────┐ │        ‹ back, phase preserved            │    timeline ▒▒▒ ▒▒▒ ▒▒▒  perfetto ↗   │
+│    │ ·····•···•···┊•···•·· ← 32 ms   │ │                                           │ 02 cluster ⇄ pool ⇄ worker ⇄ kernel  │
+│    └────────────────────────────────┘ │   footnote ⁷ in the thread jumps straight   │ 03 optimality R0──R5 ▓▓▓▒▒░          │
+│ 02 runs  r │ rate │ mean │ p90 │ p99 …│   to either side, carrying the selection    │                                      │
+╰────────────────────────────────────────╯                                           ╰──────────────────────────────────────╯</pre>
+      <div class="rows">
+        <div class="row"><span class="k">aggregate</span><span class="v">4 phases (one per round), pass/fail against the inquiry's constraint, a real cross-run chart, and a 13-column run table. One phase is still filling in — <code>simulating</code> / <code>queued</code> rows included.</span></div>
+        <div class="row"><span class="k">detail</span><span class="v">Qwen3-235B AFD on 8×H200: 2 pools, 6 workers, the full Run ▸ Pool ▸ Worker ▸ Kernel drill with the stage actually swapping, worker/iteration levels, a 6-leaf MoE cost tree, timeline cursor.</span></div>
+        <div class="row"><span class="k">context</span><span class="v">The chip payload is the literal <code>VizState</code> — all ten fields — plus the two the inquiry layer has to add, marked apart.</span></div>
+      </div>
+      <div class="open"><span>open the realised mock</span><span class="arrow">→</span></div>
+    </a>
+
+    <a class="card rev" style="--edge:var(--gold);--d:80ms" href="a-inquiry-section.html">
+      <span class="flag">simplest</span>
+      <div class="idx">direction A</div>
+      <div class="cname">The <em>Inquiry</em> section</div>
+      <div class="csub">One more numbered section, above section 01 — the conversation is just how the report opens.</div>
+<pre class="mini">┌ 00 · INQUIRY ───────────────────────────┐
+│ ⟨article, two columns⟩      ⟨margin⟩    │
+│  ⚙ orchestrator  round 1    selection   │
+│  🔧 implementer  round 1    run  r18_6  │
+│     • 18.6 passes ⁷ ↴       leaf 41     │
+│  ✓ answer                               │
+└─────────────────────────────────────────┘
+┌ 01 · RUN OVERVIEW ──────────────────────┐
+┌ 02 · THE BOUNDARY ──────────────────────┐
+      ⟨composer docked at the bottom⟩</pre>
+      <div class="rows">
+        <div class="row"><span class="k">shape</span><span class="v">Scrolls with the report. Nothing new to learn — the page just grew a preface.</span></div>
+        <div class="row"><span class="k">gesture 01</span><span class="v">Citation scrolls down to its plate and flashes the cell.</span></div>
+        <div class="row cost"><span class="k">cost</span><span class="v">Plates are below the fold while you read the argument.</span></div>
+      </div>
+      <div class="open"><span>open direction A</span><span class="arrow">→</span></div>
+    </a>
+
+    <a class="card rev" style="--edge:var(--violet);--d:170ms" href="b-margin-rail.html">
+      <span class="flag">sketch</span>
+      <div class="idx">direction B</div>
+      <div class="cname">The left <em>panel</em></div>
+      <div class="csub">Conversation on the left, plates on the right. Four states: hidden, spine, docked, full screen.</div>
+<pre class="mini">┌ panel 376px ─┬ plates ──────────────────┐
+│ ⚙ orch  r1   │ 01 run overview          │
+│ 🔧 impl r1   │ 02 the boundary          │
+│  • 18.6 ⁷  ⇢ │   18.4 18.5 18.6┊18.7    │
+│ ⚙ orch  r2   │    ✓    ✓    ▓  ┊ ✗      │
+│ 🔧 impl ◌    │ 03 where time goes       │
+│ ⟨composer⟩   │   ⟦paged_attn⟧⟦gemm⟧     │
+└──────────────╫──────────────────────────┘
+      drag ↔ ──╜   ⤢ full   ‹ spine   × hide
+ hidden →  ┃ INQUIRY · ROUND 2 ┃  edge tab</pre>
+      <div class="rows">
+        <div class="row"><span class="k">shape</span><span class="v">Watch a 10-minute round advance while you inspect. Drag the binding edge to resize, or take the whole screen for reading.</span></div>
+        <div class="row"><span class="k">gesture 01</span><span class="v">Citation drives the plates to its right — and pulls the panel out of full screen if it was covering them.</span></div>
+        <div class="row cost"><span class="k">cost</span><span class="v">Docked, the panel taxes plate width — hence spine and hide.</span></div>
+      </div>
+      <div class="open"><span>open direction B</span><span class="arrow">→</span></div>
+    </a>
+
+    <a class="card rev" style="--edge:var(--teal);--d:260ms" href="c-register.html">
+      <div class="idx">direction C</div>
+      <div class="cname">The <em>Register</em></div>
+      <div class="csub">Inquiries replace the run switcher outright. You navigate by question, not by run id.</div>
+<pre class="mini">┌ register ─────────────┬ plates ─────────┐
+│ ▾ 01 tpot ≤ 25 ms     │ plate for r18_6 │
+│    coarse/       5    │ asked in inq 01 │
+│    refine_st_01  9 ▓  │ ─────────────── │
+│    ⚙🔧 thread ↓       │ 24.61ms  361.4  │
+│  ▸ 02 p99 restatement │ 18.6┊18.7 ✓┊✗   │
+│  ▸ 03 tp2 comparison  │ ⟦leaf 41⟧⟦52⟧   │
+│   ⟨composer⟩          │                 │
+└───────────────────────┴─────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span class="k">shape</span><span class="v">The one direction that fixes the real gap: <code>run_catalog.json</code> is a flat list, so today runs have no provenance. Here the question <em>is</em> the grouping.</span></div>
+        <div class="row"><span class="k">gesture 01</span><span class="v">Citation expands its inquiry's register and selects the run.</span></div>
+        <div class="row cost"><span class="k">cost</span><span class="v">Needs experiment grouping the catalog doesn't yet carry.</span></div>
+      </div>
+      <div class="open"><span>open direction C</span><span class="arrow">→</span></div>
+    </a>
+
+    <a class="card rev" style="--edge:var(--terra);--d:350ms" href="d-recto-verso.html">
+      <span class="flag">widest</span>
+      <div class="idx">direction D</div>
+      <div class="cname"><em>Recto</em> / verso</div>
+      <div class="csub">Two full-measure spreads. The argument on one side, the plates on the other. A footnote turns the page.</div>
+<pre class="mini">  ╭ RECTO ╮╭ verso ╮        ← page tabs
+┌─┴───────┴┴───────┴───────────────────┐
+│ “what rate holds TPOT under 25 ms?”  │
+│  ⚙ orchestrator   🔧 implementer     │
+│     • 18.6 passes ⁷  ← click         │
+└──────────────────────────────────────┘
+          ⇣ turns the page ⇣
+  ╭ recto ╮╭ VERSO ╮
+┌─┴───────┴┴───────┴───────────────────┐
+│ plate for r18_6 — 18.6 r/s           │
+│ 18.4 18.5 18.6┊18.7 ⟦leaf 41⟧⟦52⟧   │
+└──────────────────────────────────────┘</pre>
+      <div class="rows">
+        <div class="row"><span class="k">shape</span><span class="v">Never two dense surfaces at once — each gets the entire 1560 px. The composer sits on both pages, so context never resets.</span></div>
+        <div class="row"><span class="k">gesture 01</span><span class="v">Citation turns to the verso <em>and</em> flashes the cell — the most legible version of the gesture.</span></div>
+        <div class="row cost"><span class="k">cost</span><span class="v">You cannot read a note and its plate side by side.</span></div>
+      </div>
+      <div class="open"><span>open direction D</span><span class="arrow">→</span></div>
+    </a>
+
+  </div>
+
+  <footer>
+    <div>
+      <h5>what these are</h5>
+      <div class="prose"><p>Four standalone HTML files. No build step, no framework, fonts from the Google CDN, a <code>:root</code> block copied from <code>app/src/theme.ts</code>, and a small inline script only for the interactions that must be <em>felt</em>. Every number is invented but internally consistent: Qwen3-32B on one H200, 512 in / 512 out, boundary at 18.6 r/s.</p></div>
+    </div>
+    <div>
+      <h5>what they are not</h5>
+      <div class="prose"><p>Not wiring. No <code>/api/v1/</code> adapter, no run-catalog generation for workspace runs, no change under <code>app/</code>. The conversation payload is drawn from <code>app/src/store.ts</code>'s <code>VizState</code> so the wiring target is unambiguous — but the wiring itself gets designed once a direction is picked.</p></div>
+    </div>
+    <div>
+      <h5>reference points</h5>
+      <div class="prose"><p>Chrome DevTools AI assistance (context pre-selected by where you invoked from, and <em>inspectable</em>), Grafana Assistant (a rail that survives navigation), Hex Notebook Agent (progressive context disclosure), Perfetto (their documented lesson: panes that appear and disappear on selection change confuse people — so no direction mutates its layout when context changes).</p></div>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

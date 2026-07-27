@@ -9,7 +9,7 @@ import type {
 } from '../../domain/sweep';
 import { tokens } from '../../theme';
 
-const OUTCOME_SCALE = ['#edf3f5', '#d7e7ed', '#b7d2de', '#8eb8ca', '#5f91aa'] as const;
+export const SWEEP_OUTCOME_SCALE = ['#edf3f5', '#d7e7ed', '#b7d2de', '#8eb8ca', '#5f91aa'] as const;
 
 export interface SweepFacet {
   key: string;
@@ -54,22 +54,25 @@ export function sweepFacets(analysis: SweepAnalysis): readonly SweepFacet[] {
   }));
 }
 
-function displayValue(metric: SweepMetric, value: number): number {
+export function sweepMetricDisplayValue(metric: SweepMetric, value: number): number {
   return metric.key === 'gpu_utilization' ? value * 100 : value;
 }
 
 export function formatMetricValue(metric: SweepMetric, value: number | null | undefined): string {
   if (value === null || value === undefined) return 'missing';
-  const displayed = displayValue(metric, value);
+  const displayed = sweepMetricDisplayValue(metric, value);
   const digits = Math.abs(displayed) >= 100 ? 0 : Math.abs(displayed) >= 10 ? 1 : 2;
   return `${displayed.toLocaleString(undefined, { maximumFractionDigits: digits })} ${metric.unit}`;
 }
 
-function metricBounds(metric: SweepMetric, runs: readonly SweepRun[]): [number, number] {
+export function sweepMetricBounds(
+  metric: SweepMetric,
+  runs: readonly SweepRun[],
+): [number, number] {
   const values = runs
     .map((run) => run.metrics[metric.key])
     .filter((value): value is number => value !== null && value !== undefined)
-    .map((value) => displayValue(metric, value));
+    .map((value) => sweepMetricDisplayValue(metric, value));
   if (values.length === 0) return [0, 1];
   const minimum = Math.min(...values);
   const maximum = Math.max(...values);
@@ -82,7 +85,7 @@ export function sweepChartOption(
   facet: SweepFacet,
   selectedRunKey: string | null,
 ): EChartsOption {
-  const [minimum, maximum] = metricBounds(metric, analysis.runs);
+  const [minimum, maximum] = sweepMetricBounds(metric, analysis.runs);
   const xAxisName = analysis.axes[0];
   const xDomain = analysis.domains[xAxisName] ?? [];
   if (analysis.axes.length === 1) {
@@ -91,13 +94,13 @@ export function sweepChartOption(
     );
     return {
       animationDuration: 260,
-      grid: chartGrid({ left: 72, right: 24, top: 28, bottom: 60 }),
+      grid: chartGrid({ left: 64, right: 14, top: 14, bottom: 50 }),
       tooltip: { show: false },
       xAxis: {
         type: 'category',
         name: xAxisName,
         nameLocation: 'middle',
-        nameGap: 40,
+        nameGap: 34,
         nameTextStyle: {
           color: tokens.ink,
           fontFamily: tokens.mono,
@@ -146,7 +149,7 @@ export function sweepChartOption(
             const runKey = run ? runCoordinateKey(analysis, run) : null;
             const selected = runKey !== null && runKey === selectedRunKey;
             return {
-              value: [index, value == null ? null : displayValue(metric, value)],
+              value: [index, value == null ? null : sweepMetricDisplayValue(metric, value)],
               runId: run?.runId ?? null,
               runKey,
               coordinates: run?.coordinates,
@@ -178,7 +181,7 @@ export function sweepChartOption(
     if (metricValue == null || xIndex === undefined || yIndex === undefined) return [];
     return [
       {
-        value: [xIndex, yIndex, displayValue(metric, metricValue)],
+        value: [xIndex, yIndex, sweepMetricDisplayValue(metric, metricValue)],
         runId: run.runId,
         runKey: runCoordinateKey(analysis, run),
         coordinates: run.coordinates,
@@ -191,13 +194,13 @@ export function sweepChartOption(
   const minimizes = metric.objective === 'minimize';
   return {
     animationDuration: 260,
-    grid: chartGrid({ left: 96, right: 84, top: 22, bottom: 64 }),
+    grid: chartGrid({ left: 78, right: 60, top: 12, bottom: 50 }),
     tooltip: { show: false },
     xAxis: {
       type: 'category',
       name: xAxisName,
       nameLocation: 'middle',
-      nameGap: 44,
+      nameGap: 34,
       nameTextStyle: {
         color: tokens.ink,
         fontFamily: tokens.mono,
@@ -218,7 +221,7 @@ export function sweepChartOption(
       type: 'category',
       name: yAxisName,
       nameLocation: 'middle',
-      nameGap: 70,
+      nameGap: 54,
       nameTextStyle: {
         color: tokens.ink,
         fontFamily: tokens.mono,
@@ -240,15 +243,17 @@ export function sweepChartOption(
       min: minimum,
       max: maximum,
       orient: 'vertical',
-      right: 8,
+      right: 1,
       top: 'middle',
-      itemHeight: 116,
+      itemHeight: 92,
       itemWidth: 9,
       calculable: false,
       text: minimizes ? ['worse', 'better'] : ['better', 'worse'],
-      textGap: 5,
+      textGap: 3,
       textStyle: { color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 },
-      inRange: { color: minimizes ? [...OUTCOME_SCALE].reverse() : [...OUTCOME_SCALE] },
+      inRange: {
+        color: minimizes ? [...SWEEP_OUTCOME_SCALE].reverse() : [...SWEEP_OUTCOME_SCALE],
+      },
     },
     series: [
       {

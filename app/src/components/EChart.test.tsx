@@ -1,13 +1,17 @@
 import { render, screen } from '@testing-library/react';
+import { forwardRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ECHARTS_THEME_NAME } from '../charts/platform';
 import EChart from './EChart';
 
 vi.mock('echarts-for-react/lib/core', () => ({
-  default: ({ theme, opts }: { theme?: string; opts?: { renderer?: string } }) => (
-    <div data-testid="echarts-core" data-theme={theme} data-renderer={opts?.renderer} />
-  ),
+  default: forwardRef(function EChartsCoreMock(
+    { theme, opts }: { theme?: string; opts?: { renderer?: string } },
+    _ref,
+  ) {
+    return <div data-testid="echarts-core" data-theme={theme} data-renderer={opts?.renderer} />;
+  }),
 }));
 
 describe('EChart', () => {

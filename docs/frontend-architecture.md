@@ -208,8 +208,23 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   Heatmap 统一使用“更好结果更深”的 sequential color 语义。前端必须读取 metric descriptor
   的 `objective`：`maximize` 将高值映射到深色，`minimize` 将低值映射到深色；不能从
   `ttft`、`tpot` 等 key/name 猜测方向。右侧 visual scale 显示 `better` / `worse`，不再只写
-  与优化目标无关的 `high` / `low`。
-- Aggregate 是 workspace 默认入口。Experiment selector 采用 TraceLab session picker
+  与优化目标无关的 `high` / `low`。Aggregate 图表必须优先保留可读的 axis name / tick
+  字号，同时对 axis `nameGap`、ECharts `grid` gutter、visual scale 和 chart height
+  设置紧凑的有界留白；不能用缩小文字换取 plot area。共享 `EChart` wrapper 必须监听
+  容器尺寸，并在 workspace 折叠、展开和拖拽过程中按 animation frame resize，使 panel
+  图面随 shell 连续变化，不能只在 CSS transition 终点突然伸缩。二维 categorical
+  sweep 使用原生 CSS Grid heatmap，使 cells、axis ticks、selection boundary 与 legend
+  随 panel 布局直接伸缩；不能为这类小矩阵启动多个需要逐帧 resize 的 ECharts renderer。
+- Workspace 默认入口是 Page 0。它提供 `Existing experiments` 与 `Work with Agent` 两种
+  起点，默认展示 existing experiments。Experiment catalog 采用固定列 table：日期、
+  experiment name、deployment、trace 与 sweep axes；deployment / trace / axes 列头各自
+  打开同列的多选 label filter，同组 OR、跨组 AND。Catalog 按日期倒序，表体最多显示
+  六行，超出后只滚动表体，Page 0 顶部与列头不能随筛选结果重新居中或跳动。显式选择
+  experiment 后进入 integrated Aggregate，并把 experiment identity 固定在 workspace
+  header；integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
+  更换 experiment。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer
+  的 discovery 入口。
+- 独立 Aggregate 的 Experiment selector 采用 TraceLab session picker
   的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
   option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment
   多选标签，并显示 visible/total 计数。同一标签组内按 OR 匹配，两组之间按 AND 匹配；
@@ -234,6 +249,11 @@ Previous/Next 与键盘逐 operation 导航继续可用。
 
 ### Agent → Analyzer navigation
 
+- Agent prose 中的 evidence link 遵循 [`citation-dsl.md`](citation-dsl.md)。Agent 只写
+  citation dictionary 公布的 symbolic inline-code token，例如
+  `` `exp.tp2.rate20.throughput` ``；Conversation host 在 ingestion 时将 token 冻结为
+  `EvidenceRefV1`。渲染、hover 和流式完成禁止导航，只有用户 activation 才能把 frozen
+  target 转成下述 navigation command。
 - `domain/analyzerNavigation.ts` 拥有 browser-side `vibesim.analyzer/v1` 合同。Agent 和
   Analyzer 之间传递稳定的 `EvidenceRefV1`（experiment、panel、metric/statistic、
   run/coordinates），禁止传 CSS selector、DOM id、显示文字或颜色。

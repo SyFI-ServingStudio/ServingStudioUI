@@ -1,6 +1,6 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import type { EChartsOption } from 'echarts';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
 import EChart from '../../components/EChart';
@@ -30,6 +30,7 @@ import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { metricStatisticLabel, sweepMetricSections, type SweepMetricPanel } from './metricSections';
 import ExperimentSelector from './ExperimentSelector';
+import SweepHeatmap from './SweepHeatmap';
 import {
   formatMetricValue,
   runCoordinateKey,
@@ -206,11 +207,19 @@ function MetricPanelCard({
     }),
     [selectedMetric],
   );
+  const selectHeatmapCell = useCallback(
+    (event: unknown) => onChartClickRef.current(event, selectedMetric),
+    [selectedMetric],
+  );
+  const openHeatmapCell = useCallback((event: unknown) => onChartDoubleClickRef.current(event), []);
   const facetCharts = useMemo(
     () =>
       facets.map((facet) => ({
         facet,
-        option: sweepChartOption(analysis, selectedMetric, facet, selectedRunKey),
+        option:
+          analysis.axes.length === 1
+            ? sweepChartOption(analysis, selectedMetric, facet, selectedRunKey)
+            : null,
         ariaLabel: `${selectedMetric.label} by ${analysis.axes.join(' and ')}${
           facets.length > 1 ? `, ${facet.label}` : ''
         }`,
@@ -223,7 +232,7 @@ function MetricPanelCard({
       selectedForAgent={selectedForAgent}
       onEvidenceSelect={() => onPanelSelect(selectedMetric)}
       sx={{
-        p: { xs: 1.4, md: 1.8 },
+        p: { xs: 1.3, md: 1.5 },
       }}
     >
       <Stack
@@ -317,12 +326,27 @@ function MetricPanelCard({
                   {facet.label}
                 </Typography>
               )}
-              <StableSweepChart
-                option={option}
-                ariaLabel={ariaLabel}
-                onEvents={chartEvents}
-                height={facets.length > 1 ? 290 : 320}
-              />
+              {analysis.axes.length >= 2 ? (
+                <SweepHeatmap
+                  analysis={analysis}
+                  metric={selectedMetric}
+                  facet={facet}
+                  selectedRunKey={selectedRunKey}
+                  ariaLabel={ariaLabel}
+                  height={facets.length > 1 ? 258 : 280}
+                  onCellClick={selectHeatmapCell}
+                  onCellDoubleClick={openHeatmapCell}
+                />
+              ) : (
+                option && (
+                  <StableSweepChart
+                    option={option}
+                    ariaLabel={ariaLabel}
+                    onEvents={chartEvents}
+                    height={facets.length > 1 ? 258 : 280}
+                  />
+                )
+              )}
             </Box>
           ))}
         </Box>
@@ -385,7 +409,7 @@ function evidenceFromAggregateSelection(selection: AggregateAnalyzerSelectionV1)
   };
 }
 
-export default function SweepPage() {
+export default function SweepPage({ integrated = false }: { integrated?: boolean }) {
   const sweepList = useSweepListQuery();
   const [navigationTarget, setNavigationTarget] = useState<EvidenceRefV1 | null>(() =>
     evidenceRefFromHash(window.location.hash),
@@ -645,7 +669,7 @@ export default function SweepPage() {
             VibeSim Analyzer
           </Typography>
           <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
-          <WorkspaceNav current="aggregate" />
+          {!integrated && <WorkspaceNav current="aggregate" />}
         </Stack>
         <Typography
           component="h1"
@@ -686,29 +710,31 @@ export default function SweepPage() {
         />
       ) : (
         <>
-          <Box sx={{ mt: 2.5 }}>
-            <ExperimentSelector
-              entries={sweepList.data}
-              selectedId={selectedSweepId}
-              autoSelectFallback={navigationTarget === null}
-              onSelect={(sweepId) => {
-                setNavigationTarget(null);
-                const selection: AggregateAnalyzerSelectionV1 = {
-                  kind: 'aggregate',
-                  experimentId: sweepId,
-                };
-                setAggregateSelection(selection);
-                replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
-              }}
-              onActivate={activateSweep}
-            />
+          <Box sx={{ mt: integrated ? 1.6 : 2.5 }}>
+            {!integrated && (
+              <ExperimentSelector
+                entries={sweepList.data}
+                selectedId={selectedSweepId}
+                autoSelectFallback={navigationTarget === null}
+                onSelect={(sweepId) => {
+                  setNavigationTarget(null);
+                  const selection: AggregateAnalyzerSelectionV1 = {
+                    kind: 'aggregate',
+                    experimentId: sweepId,
+                  };
+                  setAggregateSelection(selection);
+                  replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
+                }}
+                onActivate={activateSweep}
+              />
+            )}
             {analysis && (
               <Stack
                 direction="row"
                 justifyContent="flex-end"
                 useFlexGap
                 flexWrap="wrap"
-                sx={{ gap: { xs: 2.5, md: 4 }, mt: 1.4 }}
+                sx={{ gap: { xs: 2.5, md: 4 }, mt: integrated ? 0 : 1.4 }}
               >
                 <Stat value={String(analysis.runs.length)} label="member runs" />
                 <Stat value={String(analysis.axes.length)} label="sweep axes" />
@@ -789,12 +815,12 @@ export default function SweepPage() {
                     </ButtonBase>
                   )}
                 </Stack>
-                <Stack spacing={2.4}>
+                <Stack spacing={1.8}>
                   {metricSections.map((section) => (
                     <Box key={section.id}>
                       <Box
                         sx={{
-                          mb: 0.9,
+                          mb: 0.65,
                           display: 'flex',
                           alignItems: 'baseline',
                           gap: 1,
@@ -820,7 +846,7 @@ export default function SweepPage() {
                             xs: '1fr',
                             lg: 'repeat(2, minmax(0, 1fr))',
                           },
-                          gap: 1.5,
+                          gap: 1.15,
                         }}
                       >
                         {section.panels.map((panel) => (
