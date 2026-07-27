@@ -2,6 +2,13 @@
 
 第一批真实 fixture 来自 `main/logs/20260715_1_afd_ui_reanalysis`。该目录是 `20260703_4_qwen3_coder_480b_send_trace` 的事实数据副本，并使用 2026-07-15 的 analyzer 重新计算；`reanalysis_source.json` 明确记录 simulation 未重跑。它用于验证当前 analyzer v1 的真实差异，不用于伪造尚不存在的数据源。
 
+aggregate fixture 来自
+`main/logs/20260727_0_llama3_8b_tp_rate/payloads/sweep_metrics_grid.json`。
+checked-in payload 保留真实的 request-rate × tensor-parallel 坐标与指标值，并确定性裁剪为
+`request_rate ∈ {10, 50, 90}`、`tensor_parallel ∈ {1, 4}` 的六个成员。静态 export
+没有对应 run catalog identity，因此其 `run_id` 明确为 `null`；live HTTP 服务会把相同
+manifest member 映射为 opaque run id。
+
 ## 目录与范围
 
 ```text

@@ -222,14 +222,36 @@ describe('ArtifactAnalyzerRepository', () => {
 
 describe('bundled analyzer-v1 artifact export', () => {
   it('loads the real catalog, core and aggregate subjects without claiming worker detail', async () => {
-    const [runs, descriptor, summary, topology] = await Promise.all([
+    const [runs, sweeps, descriptor, summary, topology] = await Promise.all([
       bundledArtifactAnalyzerRepository.listRuns(),
+      bundledArtifactAnalyzerRepository.listSweeps(),
       bundledArtifactAnalyzerRepository.getRunDescriptor(RUN_ID),
       bundledArtifactAnalyzerRepository.getRunSummary(RUN_ID),
       bundledArtifactAnalyzerRepository.getRunTopology(RUN_ID),
     ]);
 
     expect(runs[0]).toMatchObject({ runId: RUN_ID, displayName: descriptor.displayName });
+    expect(sweeps[0]).toMatchObject({
+      sweepId: 's_fixture_llama3_8b_tp_rate',
+      kind: 'sweep',
+      axes: ['request_rate', 'tensor_parallel'],
+      numRuns: 6,
+      status: 'ready',
+      experimentDate: '2026-07-27',
+      deployments: ['unified'],
+      traces: ['aime_long.csv'],
+    });
+    await expect(
+      bundledArtifactAnalyzerRepository.getSweep('s_fixture_llama3_8b_tp_rate'),
+    ).resolves.toMatchObject({
+      axes: ['request_rate', 'tensor_parallel'],
+      runs: expect.arrayContaining([
+        expect.objectContaining({
+          coordinates: { request_rate: 90, tensor_parallel: 4 },
+          metrics: expect.objectContaining({ total_tps: 54511.6 }),
+        }),
+      ]),
+    });
     expect(summary.numGpus).toBe(48);
     expect(topology.pools.flatMap((pool) => pool.groups[0].workers)).toHaveLength(10);
 

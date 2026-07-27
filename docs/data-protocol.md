@@ -352,6 +352,8 @@ UI 适配器还可以产生 `incompatible`，表示拿到了 artifact，但版�
 ```ts
 interface AnalyzerRepository {
   listRuns(): Promise<RunSummary[]>;
+  listSweeps(): Promise<SweepSummary[]>;
+  getSweep(sweepId: string): Promise<SweepAnalysis>;
   getRunDescriptor(runId: string): Promise<RunDescriptor>;
   getRunSummary(runId: string): Promise<RunSummaryArtifact>;
   getRunTopology(runId: string): Promise<Topology>;
@@ -369,6 +371,38 @@ interface AnalyzerRepository {
   getTrace(runId: string, kind: TraceKind): Promise<TraceResource>;
 }
 ```
+
+Sweep analysis is an independent cross-run resource, not an optional subject of
+the active run. The HTTP transport is:
+
+```text
+GET /api/v1/sweeps
+GET /api/v1/sweeps/{sweep_id}/payload
+```
+
+`GET /api/v1/sweeps` 的每个 entry 除 identity、axes 与 lifecycle 外，还包含
+`experiment_date: "YYYY-MM-DD" | null`、`deployments: string[]` 和
+`traces: string[]`。这些字段只用于 catalog selection/filtering：manifest sweep
+仅合并 manifest members 的 params metadata，singleton 仅使用自身 metadata；
+`traces` 只发布 basename，不把本地文件系统路径作为 catalog identity。
+
+The catalog entry contains opaque `sweep_id`, `display_name`, ordered `axes`,
+`num_runs`, `status`, `payload_href`, and `updated_at`. `status` is `ready` when
+the analyzer payload exists and `pending` when only the launcher manifest
+exists. The payload contains the ordered axes, domains, metric definitions, and
+one row per manifest member. A row may contain an opaque `run_id` for
+drill-down, or `null` when that member is not a discoverable run.
+Each metric definition includes `objective: "minimize" | "maximize"`. This is
+Analyzer-owned semantic metadata, not a UI inference from metric names. The UI
+uses it to keep the aggregate heatmap convention stable: better outcomes use
+the darker end of the sequential scale.
+
+The service removes absolute `meta.experiment_dir` and member `path` values from
+the browser projection. UI code must not reconstruct either value or infer a
+run id from coordinates, labels, display names, or href text. Experiment
+membership remains exactly the launcher manifest; the service does not merge
+adjacent folders. One run does not trigger aggregate analysis because it is not
+a sweep envelope.
 
 `getRunSummary` 与 `getRunTopology` 是有界、typed artifact read；它们不能返回组件用的整页 `Run` view-model。application 层只把 descriptor、summary 和 topology 组装为稳定的 core `Run`。每个 feature 通过 `useActiveRunSubject(name)` 单独订阅带 run id、schema version 和 analysis revision 的 Query cache entry；subject 不复制到 `Run`、Zustand 或一个全量 subjects context。这样 HTTP repository 不会被迫 eager 返回所有 subject、worker tree 或 iteration 数据，且 unavailable/failed/incompatible 状态不会在组装前丢失或牵连无关 feature 重绘。
 

@@ -1,10 +1,11 @@
-import { BarChart, LineChart, ScatterChart } from 'echarts/charts';
+import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts';
 import {
   GridComponent,
   LegendComponent,
   MarkLineComponent,
   TitleComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { SVGRenderer } from 'echarts/renderers';
@@ -16,6 +17,8 @@ import { ECHARTS_THEME, ECHARTS_THEME_NAME } from './platform';
 // browser smoke tests; importing the full `echarts` entry defeats tree shaking.
 echarts.use([
   BarChart,
+  CustomChart,
+  HeatmapChart,
   LineChart,
   ScatterChart,
   GridComponent,
@@ -23,6 +26,7 @@ echarts.use([
   MarkLineComponent,
   TitleComponent,
   TooltipComponent,
+  VisualMapComponent,
   SVGRenderer,
 ]);
 echarts.registerTheme(ECHARTS_THEME_NAME, ECHARTS_THEME);

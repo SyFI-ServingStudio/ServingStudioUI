@@ -1,6 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
 const ci = Boolean(process.env.CI);
+const playwrightPort = Number(process.env.PLAYWRIGHT_PORT ?? 5177);
+const playwrightOrigin = `http://127.0.0.1:${playwrightPort}`;
 
 export default defineConfig({
   testDir: './e2e',
@@ -14,15 +16,15 @@ export default defineConfig({
     ['html', { outputFolder: '../.artifacts/playwright-test/report', open: 'never' }],
   ],
   use: {
-    baseURL: 'http://127.0.0.1:5177',
+    baseURL: playwrightOrigin,
     colorScheme: 'light',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
-    url: 'http://127.0.0.1:5177',
+    command: `npm run dev -- --host 127.0.0.1 --port ${playwrightPort}`,
+    url: playwrightOrigin,
     reuseExistingServer: !ci,
     timeout: 120_000,
   },

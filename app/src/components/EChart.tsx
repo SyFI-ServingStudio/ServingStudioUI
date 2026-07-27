@@ -13,10 +13,12 @@ export default function EChart({
   option,
   style,
   ariaLabel,
+  onEvents,
 }: {
   option: EChartsOption;
   style?: CSSProperties;
   ariaLabel: string;
+  onEvents?: Readonly<Record<string, (event: unknown) => void>>;
 }) {
   return (
     <div role="img" aria-label={ariaLabel} style={{ height: '100%', width: '100%', ...style }}>
@@ -27,6 +29,7 @@ export default function EChart({
         notMerge
         lazyUpdate
         opts={{ renderer: 'svg' }}
+        onEvents={onEvents}
         style={{ height: '100%', width: '100%' }}
       />
     </div>

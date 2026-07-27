@@ -25,6 +25,8 @@ import { currentTimelineInteractionId, timelineProfileEvent } from './timelinePr
 export const analyzerQueryKeys = {
   all: ['analyzer'] as const,
   runs: () => [...analyzerQueryKeys.all, 'runs'] as const,
+  sweeps: () => [...analyzerQueryKeys.all, 'sweeps'] as const,
+  sweep: (sweepId: string) => [...analyzerQueryKeys.sweeps(), sweepId, 'payload'] as const,
   summary: (runId: string, analysisRevision: string) =>
     [...analyzerQueryKeys.runs(), runId, 'summary', `analysis-${analysisRevision}`] as const,
   topology: (runId: string, analysisRevision: string) =>
@@ -282,6 +284,32 @@ export function useRunListQuery() {
     refetchInterval: CATALOG_POLL_INTERVAL_MS,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
+  });
+}
+
+export function useSweepListQuery() {
+  const repository = useAnalyzerRepository();
+  return useQuery({
+    queryKey: analyzerQueryKeys.sweeps(),
+    queryFn: () => repository.listSweeps(),
+    refetchInterval: CATALOG_POLL_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: LIFECYCLE_REFETCH_ON_WINDOW_FOCUS,
+  });
+}
+
+export function useSweepQuery(sweepId: string | null, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useQuery({
+    queryKey:
+      sweepId === null
+        ? [...analyzerQueryKeys.sweeps(), 'no-selection']
+        : analyzerQueryKeys.sweep(sweepId),
+    queryFn: () => {
+      if (sweepId === null) throw new Error('Cannot load a sweep without a selected id.');
+      return repository.getSweep(sweepId);
+    },
+    enabled: enabled && sweepId !== null,
   });
 }
 

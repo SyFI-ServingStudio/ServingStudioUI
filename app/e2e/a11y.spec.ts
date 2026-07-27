@@ -27,3 +27,9 @@ test('worker aggregate meets automated WCAG A/AA checks', async ({ page }) => {
   await scopeToWorker(page, 'attn/0');
   await expectNoA11yViolations(page);
 });
+
+test('sweep aggregate meets automated WCAG A/AA checks', async ({ page }) => {
+  await page.goto('/#/aggregate');
+  await expect(page.getByRole('heading', { name: 'Sweep aggregate', level: 1 })).toBeVisible();
+  await expectNoA11yViolations(page);
+});

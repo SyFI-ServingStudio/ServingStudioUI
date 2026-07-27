@@ -4,15 +4,10 @@ export const REAL_RUN_ID = '20260715_1_afd_ui_reanalysis';
 
 export async function openRealRun(page: Page): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
-  await page.goto('/');
-  const runSwitcher = page.getByRole('combobox', { name: 'Simulation folder' });
-  await expect(runSwitcher).toBeEnabled();
-  if ((await runSwitcher.inputValue()) !== REAL_RUN_ID) {
-    await runSwitcher.fill(REAL_RUN_ID);
-    await page.getByRole('option').filter({ hasText: REAL_RUN_ID }).click();
-  }
-  await expect(runSwitcher).toHaveValue(REAL_RUN_ID);
-  await expect(page.getByRole('heading', { name: 'Model overview', level: 2 })).toBeVisible();
+  await page.goto('/#/run');
+  await expect(page.getByText('Current run', { exact: true })).toBeVisible();
+  await expect(page.getByText(REAL_RUN_ID, { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Model overview', level: 3 })).toBeVisible();
 }
 
 export async function scopeToPool(page: Page, poolTag: string): Promise<void> {
@@ -28,7 +23,6 @@ export async function scopeToWorker(page: Page, workerKey: string): Promise<void
   await expect(
     page.getByRole('heading', { name: `Worker · ${workerKey}`, level: 2 }),
   ).toBeVisible();
-  await expect(page.getByText('Aggregate worker evidence only', { exact: true })).toBeVisible();
 }
 
 export async function expectRenderedCharts(page: Page): Promise<void> {

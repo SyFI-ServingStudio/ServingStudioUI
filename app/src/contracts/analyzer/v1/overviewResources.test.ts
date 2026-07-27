@@ -69,7 +69,7 @@ describe('analyzer-v1 overview resources', () => {
     ).toThrow(/normalized repository-relative path/);
     expect(() =>
       parseAnalyzerV1WorkloadResource({ ...workload, source_paths: ['other/test.csv'] }),
-    ).toThrow(/must be below trace/);
+    ).toThrow(/must be inside a trace directory/);
   });
 
   it('accepts bounded parallel workload series', () => {
@@ -80,6 +80,12 @@ describe('analyzer-v1 overview resources', () => {
       tokenLengths: [16, 32],
       arrivalSeconds: [0, 0.5],
     });
+    expect(
+      parseAnalyzerV1WorkloadResource({
+        ...workload,
+        source_paths: ['logs/experiment/trace/workload.csv'],
+      }).sourcePaths,
+    ).toEqual(['logs/experiment/trace/workload.csv']);
   });
 
   it('rejects mismatched, non-finite and oversized workload series', () => {

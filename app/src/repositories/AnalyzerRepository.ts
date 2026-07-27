@@ -20,6 +20,7 @@ import type {
   WorkerOperationBuffer,
   WorkerOperationSeekResult,
 } from '../domain/workerOperation';
+import type { SweepAnalysis, SweepListItem } from '../domain/sweep';
 
 /**
  * The only analyzer-data boundary visible to application features.
@@ -28,6 +29,10 @@ import type {
  */
 export interface AnalyzerRepository {
   listRuns(): Promise<readonly RunListItem[]>;
+
+  listSweeps(): Promise<readonly SweepListItem[]>;
+
+  getSweep(sweepId: string): Promise<SweepAnalysis>;
 
   getRunSummary(runId: string): Promise<RunSummaryArtifact>;
 

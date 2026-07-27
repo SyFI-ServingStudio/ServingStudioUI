@@ -24,8 +24,8 @@ const modelSourcePath = repoSourcePath.refine(
   'must be below model/config',
 );
 const traceSourcePath = repoSourcePath.refine(
-  (path) => path.startsWith('trace/'),
-  'must be below trace',
+  (path) => path.split('/').slice(0, -1).includes('trace'),
+  'must be inside a trace directory',
 );
 
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>

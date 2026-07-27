@@ -193,6 +193,44 @@ Previous/Next 与键盘逐 operation 导航继续可用。
 - 大 feature 在 drill boundary lazy-load；不要为躲避入口预算把同一 eagerly-needed
   代码机械拆成 chunk。
 - 新图表必须有显式 loading/empty/error 文案、单位合同、窄屏行为和 accessible name。
+- Sweep aggregate 直接从全部 metric panels 开始，不另建一套重复的 coordinate card
+  matrix。单击任意 panel 的数据点只改变页面本地的 member selection，并在所有 panels
+  标出同一坐标；鼠标双击才进入 opaque `run_id` 对应的单 run 页面。没有 `run_id` 的
+  member 可被选择但不能 drill-down。
+- Sweep metric panels 按 `Throughput`、`Utilization`、`Request SLO` 语义 section
+  组织。同一指标的 `mean` / `p99` 共用一张 panel，由 panel header 内的 segmented knob
+  切换 statistic，不能复制成两张并列 panel。Statistic selection 由对应 panel 本地持有，
+  切换时不能使 sibling panels 重新生成 ECharts option 或重绘。切换 experiment 时各 panel
+  恢复其默认 statistic。Heatmap 的跨 panel member selection 必须由
+  独立于数据 series 的高层 overlay 绘制，避免同层相邻 cell 覆盖选中边框。
+  Aggregate chart hover 只使用 series emphasis 与右侧 visual scale 反馈，不显示重复数值的
+  黑色 tooltip 浮层；精确 member selection 仍由单击完成。
+  Heatmap 统一使用“更好结果更深”的 sequential color 语义。前端必须读取 metric descriptor
+  的 `objective`：`maximize` 将高值映射到深色，`minimize` 将低值映射到深色；不能从
+  `ttft`、`tpot` 等 key/name 猜测方向。右侧 visual scale 显示 `better` / `worse`，不再只写
+  与优化目标无关的 `high` / `low`。
+- Aggregate 是 workspace 默认入口。Experiment selector 采用 TraceLab session picker
+  的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
+  option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment
+  多选标签，并显示 visible/total 计数。同一标签组内按 OR 匹配，两组之间按 AND 匹配；
+  标签必须支持再次点击取消、清空全部筛选和 `aria-pressed` 状态，不能使用 dropdown。
+  日期来自 catalog 的 `experiment_date`，缺失时以 `updated_at` 的日期作为
+  `Undated` fallback 排序依据；不能把 discovery 收缩成只有当前值可见的 dropdown，
+  也不能再依赖难以扫描的横向 card rail。option 必须保留原生 listbox/option 语义与清晰
+  的键盘 focus/selected 状态。若 display name 以 `YYYYMMDD_<index>_` 开头，card title
+  隐藏已由左侧 date group 表达的 `YYYYMMDD_`，但保留 `<index>_` 以区分同日实验；
+  搜索仍匹配完整原始名称。用户显式点击一个 experiment option 后，页面自动定位到
+  metric panels；filter 引发的隐式 fallback selection 不能抢走当前滚动位置。自动定位
+  必须遵循 `prefers-reduced-motion`。
+  单 run 是从 Aggregate evidence drill-down 得到的详情页，不再重复展示全量 Simulation runs
+  catalog；masthead 提供唯一的 Aggregate overview 返回入口，并保留当前 run identity。
+  Run view 不复用 `Aggregate / Run` segmented navigation，也不把返回入口包装成
+  `SurfaceCard`；返回入口是右上角紧凑的全圆角 button，run identity 作为普通 masthead
+  文字呈现，避免两个同义导航与可点击 card shell。
+- Aggregate catalog 同时展示 manifest-defined sweep 与未被任何 manifest 收录的 singleton
+  run；singleton 是零 axis、单 member 的独立 envelope，不能与 sibling 自动合并。它复用
+  相同的 Throughput、Utilization、Request SLO sections，但每张 panel 直接显示 scalar
+  value，不伪造只有一个 cell 的 heatmap，并在 section header 提供一次 `Inspect run` drill。
 
 ## 6. 变更完成标准
 

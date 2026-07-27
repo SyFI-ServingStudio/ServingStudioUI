@@ -21,6 +21,11 @@ import {
   parseAnalyzerV1WorkerOperationRange,
   parseAnalyzerV1WorkerOperationSeek,
 } from '../contracts/analyzer/v1/workerOperation';
+import {
+  parseAnalyzerV1SweepCatalog,
+  parseAnalyzerV1SweepPayload,
+  type AnalyzerV1SweepCatalog,
+} from '../contracts/analyzer/v1/sweep';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -123,7 +128,9 @@ function routeSegment(value: string, label: string): string {
 export class HttpAnalyzerRepository implements AnalyzerRepository {
   private readonly client: HttpJsonClient;
   private readonly catalogUrl: URL;
+  private readonly sweepCatalogUrl: URL;
   private catalog: AnalyzerV1RunCatalog | undefined;
+  private sweepCatalog: AnalyzerV1SweepCatalog | undefined;
   private catalogRefresh: Promise<AnalyzerV1RunCatalog> | undefined;
   private readonly bindings = new Map<string, BoundHttpRun>();
   private readonly bindingRefreshes = new Map<string, Promise<BoundHttpRun>>();
@@ -131,6 +138,7 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
   constructor(options: HttpAnalyzerRepositoryOptions = {}) {
     this.client = new HttpJsonClient(options.apiBaseUrl ?? '/api/v1/', options.fetch);
     this.catalogUrl = this.client.endpoint('runs');
+    this.sweepCatalogUrl = this.client.endpoint('sweeps');
   }
 
   async listRuns(): Promise<readonly RunListItem[]> {
@@ -141,6 +149,27 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       displayName: entry.displayName,
       lifecycle: entry.lifecycle,
     }));
+  }
+
+  async listSweeps() {
+    const catalog = await this.refreshSweepCatalog();
+    return catalog.sweeps.map(({ payloadHref: _payloadHref, ...sweep }) => sweep);
+  }
+
+  async getSweep(sweepId: string) {
+    const catalog = this.sweepCatalog ?? (await this.refreshSweepCatalog());
+    const entry = catalog.sweeps.find((sweep) => sweep.sweepId === sweepId);
+    if (entry === undefined) {
+      throw new HttpRunBindingError(`Analyzer service catalog has no sweep ${sweepId}.`);
+    }
+    const payloadUrl = this.client.resolve(this.sweepCatalogUrl, entry.payloadHref);
+    const payload = parseAnalyzerV1SweepPayload(await this.client.readJson(payloadUrl));
+    if (payload.sweepId !== sweepId) {
+      throw new HttpRunBindingError(
+        `Sweep payload id ${payload.sweepId} does not match requested opaque id ${sweepId}.`,
+      );
+    }
+    return payload;
   }
 
   async getRunDescriptor(runId: string): Promise<RunDescriptor> {
@@ -418,6 +447,12 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       });
     this.catalogRefresh = refresh;
     return refresh;
+  }
+
+  private async refreshSweepCatalog(): Promise<AnalyzerV1SweepCatalog> {
+    const catalog = parseAnalyzerV1SweepCatalog(await this.client.readJson(this.sweepCatalogUrl));
+    this.sweepCatalog = catalog;
+    return catalog;
   }
 
   private async catalogEntry(runId: string): Promise<AnalyzerV1RunCatalogEntry> {

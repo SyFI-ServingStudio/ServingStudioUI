@@ -1,11 +1,10 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Link, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode } from 'react';
 import { useViz, type Scope } from './store';
 import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
 import { tokens } from './theme';
 import type { Deployment } from './domain/deployment';
-import RunSwitcher from './components/RunSwitcher';
 import { KpiStatline, RunOverviewRow } from './features/run-overview';
 import { ScopeBreadcrumbs, SystemMapBand } from './features/system-map';
 import { TimelineBand } from './features/timeline';
@@ -163,7 +162,7 @@ function deploymentMapLabel(deployment: Deployment): string {
   return 'unified';
 }
 
-function Masthead({ hasRun }: { hasRun: boolean }) {
+function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
   return (
     <Box sx={{ borderBottom: `1.5px solid ${tokens.ink}`, pb: 2.5 }}>
       <Stack
@@ -190,7 +189,34 @@ function Masthead({ hasRun }: { hasRun: boolean }) {
         />
         <span>VibeSim Analyzer</span>
         <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
-        <span>results + topology</span>
+        <Link
+          href="#/aggregate"
+          underline="none"
+          aria-label="Return to aggregate overview"
+          sx={{
+            display: 'inline-flex',
+            minHeight: 30,
+            alignItems: 'center',
+            px: 1.35,
+            border: `1px solid ${tokens.hair}`,
+            borderRadius: 999,
+            background: tokens.tile,
+            color: tokens.ink,
+            fontFamily: tokens.mono,
+            fontSize: 9.5,
+            fontWeight: 600,
+            letterSpacing: '.08em',
+            textTransform: 'none',
+            transition: `background 160ms ${tokens.ease}, border-color 160ms ${tokens.ease}`,
+            '&:hover': { background: tokens.tile2, borderColor: tokens.teal },
+            '&:focus-visible': {
+              outline: `2px solid ${tokens.teal}`,
+              outlineOffset: 2,
+            },
+          }}
+        >
+          ← Aggregate
+        </Link>
       </Stack>
       <Typography
         component="h1"
@@ -216,7 +242,35 @@ function Masthead({ hasRun }: { hasRun: boolean }) {
         useFlexGap
         sx={{ gap: 3.75, mt: 2.25 }}
       >
-        <RunSwitcher />
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography
+            sx={{
+              color: tokens.sub,
+              fontFamily: tokens.mono,
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: '.12em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Current run
+          </Typography>
+          <Typography
+            title={runName}
+            sx={{
+              mt: 0.3,
+              overflow: 'hidden',
+              color: tokens.ink,
+              fontFamily: tokens.serif,
+              fontSize: 15,
+              fontWeight: 600,
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {runName ?? 'Run identity unavailable'}
+          </Typography>
+        </Box>
         {hasRun && <KpiStatline />}
       </Stack>
     </Box>
@@ -314,7 +368,7 @@ export default function App() {
         component="main"
         sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
       >
-        <Masthead hasRun />
+        <Masthead hasRun runName={run.name} />
 
         <ScopeBreadcrumbs />
 

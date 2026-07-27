@@ -331,6 +331,12 @@ export function createTestRepository(
         },
       ];
     },
+    async listSweeps() {
+      return [];
+    },
+    async getSweep() {
+      throw new Error('Test repository has no sweep payload.');
+    },
     async getRunDescriptor() {
       calls.descriptor += 1;
       return descriptor;

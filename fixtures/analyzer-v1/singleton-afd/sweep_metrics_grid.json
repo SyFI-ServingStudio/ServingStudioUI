@@ -1,0 +1,110 @@
+{
+  "protocol_version": 1,
+  "schema_version": 1,
+  "sweep_id": "s_fixture_singleton_afd",
+  "display_name": "20260715_1_afd_ui_reanalysis",
+  "meta": { "num_axes": 0, "num_runs": 1 },
+  "axes": [],
+  "domains": {},
+  "metrics": [
+    {
+      "key": "tpot_mean_ms",
+      "label": "Mean TPOT",
+      "unit": "ms/token",
+      "group": "tpot",
+      "objective": "minimize"
+    },
+    {
+      "key": "tpot_p99_ms",
+      "label": "P99 TPOT",
+      "unit": "ms/token",
+      "group": "tpot",
+      "objective": "minimize"
+    },
+    {
+      "key": "ttft_mean_ms",
+      "label": "Mean TTFT",
+      "unit": "ms",
+      "group": "ttft",
+      "objective": "minimize"
+    },
+    {
+      "key": "ttft_p99_ms",
+      "label": "P99 TTFT",
+      "unit": "ms",
+      "group": "ttft",
+      "objective": "minimize"
+    },
+    {
+      "key": "total_tps",
+      "label": "Total throughput",
+      "unit": "tok/s",
+      "group": "throughput",
+      "objective": "maximize"
+    },
+    {
+      "key": "decode_tps",
+      "label": "Decode throughput",
+      "unit": "tok/s",
+      "group": "throughput",
+      "objective": "maximize"
+    },
+    {
+      "key": "total_tps_per_gpu",
+      "label": "Throughput / GPU",
+      "unit": "tok/s",
+      "group": "throughput_per_gpu",
+      "objective": "maximize"
+    },
+    {
+      "key": "gpu_utilization",
+      "label": "GPU utilization",
+      "unit": "%",
+      "group": "utilization",
+      "objective": "maximize"
+    },
+    {
+      "key": "completed_req_s",
+      "label": "Completed requests / s",
+      "unit": "req/s",
+      "group": "completion",
+      "objective": "maximize"
+    },
+    {
+      "key": "requests_finished",
+      "label": "Finished requests",
+      "unit": "requests",
+      "group": "finished",
+      "objective": "maximize"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "fixture-afd-qwen3-v1",
+      "coordinates": {},
+      "labels": {},
+      "lifecycle": { "simulation": "complete", "analysis": "complete" },
+      "metrics": {
+        "tpot_mean_ms": 66.7046456897709,
+        "tpot_p99_ms": 70.29729614257812,
+        "ttft_mean_ms": 202370.31173936563,
+        "ttft_p99_ms": 1332174.83,
+        "total_tps": 54635.432,
+        "decode_tps": 53998.847,
+        "total_tps_per_gpu": 1138.2381666666668,
+        "gpu_utilization": 0.6889685637766372,
+        "completed_req_s": 2.7935,
+        "requests_finished": 5587
+      }
+    }
+  ],
+  "definitions": {
+    "axis_order": "singleton aggregates have no sweep axes",
+    "completion": "copied from the run's simulator summary.json",
+    "latency": "copied from the ready run's slo_general_report.json",
+    "membership": "one discovered run not claimed by any sweep manifest; siblings are never merged",
+    "missing": "missing or unsuccessful source artifacts produce null metrics and remain visible through lifecycle",
+    "throughput": "copied from the ready run's throughput_report.json totals",
+    "utilization": "copied from the ready run's utilization_report.json totals.overall_avg"
+  }
+}

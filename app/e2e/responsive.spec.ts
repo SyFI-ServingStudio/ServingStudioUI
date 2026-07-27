@@ -61,3 +61,9 @@ test('SLO distributions share one desktop row and stack within 390px', async ({
   expect(mobileCards[2].top).toBeGreaterThan(mobileCards[1].top);
   expect(mobileCards.every((card) => card.left >= -1 && card.right <= 391)).toBe(true);
 });
+
+test('aggregate metric sections stay inside the viewport', async ({ page }) => {
+  await page.goto('/#/aggregate');
+  await expect(page.getByRole('heading', { name: 'Sweep aggregate', level: 1 })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});

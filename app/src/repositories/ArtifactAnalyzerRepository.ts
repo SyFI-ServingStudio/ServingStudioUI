@@ -16,6 +16,11 @@ import {
   parseAnalyzerV1WorkerOperationRange,
   parseAnalyzerV1WorkerOperationSeek,
 } from '../contracts/analyzer/v1/workerOperation';
+import {
+  parseAnalyzerV1SweepCatalog,
+  parseAnalyzerV1SweepPayload,
+  type AnalyzerV1SweepCatalog,
+} from '../contracts/analyzer/v1/sweep';
 import type {
   DetailArtifact,
   RunDescriptor,
@@ -35,6 +40,7 @@ import {
 import type { ArtifactModuleReader } from './artifact/ArtifactModuleReader';
 
 const DEFAULT_CATALOG_PATH = 'run_catalog.json';
+const DEFAULT_SWEEP_CATALOG_PATH = 'sweep_catalog.json';
 const TOPOLOGY_PARAMS_HREF = 'raw/params.json';
 const TOPOLOGY_RUN_META_HREF = 'raw/run_meta.json';
 
@@ -49,6 +55,7 @@ interface BoundArtifactRun {
 
 export interface ArtifactAnalyzerRepositoryOptions {
   catalogPath?: string;
+  sweepCatalogPath?: string;
   /** Reserved for the first documented direct topology artifact schema. Static
    * analyzer-v1 exports without one use the explicit params+run_meta fallback. */
   topologyArtifactDecoder?: (input: unknown) => Topology;
@@ -119,7 +126,9 @@ function nonReadySubject<Name extends SubjectName>(
  * every other resource must be declared by the selected descriptor. */
 export class ArtifactAnalyzerRepository implements AnalyzerRepository {
   private readonly catalogPath: string;
+  private readonly sweepCatalogPath: string;
   private catalogPromise: Promise<AnalyzerV1RunCatalog> | null = null;
+  private sweepCatalogPromise: Promise<AnalyzerV1SweepCatalog> | null = null;
   private readonly bindingPromises = new Map<string, Promise<BoundArtifactRun>>();
 
   constructor(
@@ -127,6 +136,7 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
     private readonly options: ArtifactAnalyzerRepositoryOptions = {},
   ) {
     this.catalogPath = options.catalogPath ?? DEFAULT_CATALOG_PATH;
+    this.sweepCatalogPath = options.sweepCatalogPath ?? DEFAULT_SWEEP_CATALOG_PATH;
   }
 
   async listRuns(): Promise<readonly RunListItem[]> {
@@ -137,6 +147,31 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
       displayName: entry.displayName,
       lifecycle: entry.lifecycle,
     }));
+  }
+
+  async listSweeps() {
+    return (await this.loadSweepCatalog()).sweeps.map(
+      ({ payloadHref: _payloadHref, ...sweep }) => sweep,
+    );
+  }
+
+  async getSweep(sweepId: string) {
+    const catalog = await this.loadSweepCatalog();
+    const entry = catalog.sweeps.find((sweep) => sweep.sweepId === sweepId);
+    if (entry === undefined) {
+      throw new ArtifactRunBindingError(`Analyzer sweep catalog has no sweep ${sweepId}.`);
+    }
+    const payloadPath = resolveAnalyzerV1ArtifactPath({
+      containingArtifactPath: this.sweepCatalogPath,
+      artifactHref: entry.payloadHref,
+    });
+    const payload = parseAnalyzerV1SweepPayload(await this.reader.read(payloadPath));
+    if (payload.sweepId !== sweepId) {
+      throw new ArtifactRunBindingError(
+        `Sweep payload id ${payload.sweepId} does not match requested opaque id ${sweepId}.`,
+      );
+    }
+    return payload;
   }
 
   async getRunDescriptor(runId: string): Promise<RunDescriptor> {
@@ -337,6 +372,19 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
         throw error;
       });
     this.catalogPromise = promise;
+    return promise;
+  }
+
+  private loadSweepCatalog() {
+    if (this.sweepCatalogPromise !== null) return this.sweepCatalogPromise;
+    const promise = this.reader
+      .read(this.sweepCatalogPath)
+      .then(parseAnalyzerV1SweepCatalog)
+      .catch((error: unknown) => {
+        if (this.sweepCatalogPromise === promise) this.sweepCatalogPromise = null;
+        throw error;
+      });
+    this.sweepCatalogPromise = promise;
     return promise;
   }
 
