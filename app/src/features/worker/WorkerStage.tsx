@@ -55,6 +55,7 @@ function WorkerAggregateStage() {
         sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
       >
         <ChartCard
+          evidenceId="utilization"
           idx="a"
           title={METRIC_TITLES.utilization}
           sub={utilization.sub}
@@ -64,6 +65,7 @@ function WorkerAggregateStage() {
           caption={METRIC_CAPTIONS.utilization}
         />
         <ChartCard
+          evidenceId="kv-cache"
           idx="b"
           title={METRIC_TITLES.kv}
           sub={kv.sub}

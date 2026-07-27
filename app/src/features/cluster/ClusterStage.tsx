@@ -39,6 +39,7 @@ export default function ClusterStage() {
       <SloChartRow subject={sloSubject} />
 
       <ChartCard
+        evidenceId="throughput"
         idx="b"
         title={METRIC_TITLES.throughput}
         sub={tp.sub}
@@ -48,6 +49,7 @@ export default function ClusterStage() {
       />
 
       <ChartCard
+        evidenceId="utilization"
         idx="c"
         title="GPU utilization · all pools"
         sub={
@@ -64,6 +66,7 @@ export default function ClusterStage() {
         <ConservationCard idx="d" data={conservation.payload} />
       ) : (
         <ChartCard
+          evidenceId="workload-conservation"
           idx="d"
           title="Workload conservation"
           sub={subjectStatusLabel(conservation)}

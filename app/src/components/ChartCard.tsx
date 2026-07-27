@@ -2,15 +2,39 @@ import { Box, IconButton, Stack, Typography } from '@mui/material';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
+import type { EvidenceSurfaceCardProps } from './EvidenceSurfaceCard';
+import { useViz } from '../store';
 import { tokens } from '../theme';
 import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
-import SurfaceCard from './SurfaceCard';
+import { EvidenceSurfaceCard, EvidenceTitleButton } from './EvidenceSurfaceCard';
+
+function RunEvidenceSurfaceCard({
+  evidenceId,
+  children,
+  ...props
+}: Omit<EvidenceSurfaceCardProps, 'selectedForAgent' | 'onEvidenceSelect'>) {
+  const selectedForAgent = useViz(
+    (state) => state.selectionSurface === 'run' && state.runPanelId === evidenceId,
+  );
+  const selectRunPanel = useViz((state) => state.selectRunPanel);
+  return (
+    <EvidenceSurfaceCard
+      {...props}
+      evidenceId={evidenceId}
+      selectedForAgent={selectedForAgent}
+      onEvidenceSelect={() => selectRunPanel(evidenceId)}
+    >
+      {children}
+    </EvidenceSurfaceCard>
+  );
+}
 
 /** Generic chart tile: header (idx · title · sub), a chart (or empty note), an
  *  optional footnote, and a hover-reveal expand button that pushes the chart
  *  into the shared FocusDialog. Used by every scope stage. */
 export default function ChartCard({
+  evidenceId,
   idx,
   title,
   sub,
@@ -21,6 +45,7 @@ export default function ChartCard({
   controls,
   height = 216,
 }: {
+  evidenceId: string;
   idx?: string;
   title: string;
   sub?: string;
@@ -33,7 +58,9 @@ export default function ChartCard({
 }) {
   const openFocus = useOpenChartFocus();
   return (
-    <SurfaceCard
+    <RunEvidenceSurfaceCard
+      evidenceId={evidenceId}
+      badgePlacement="top-edge"
       sx={{
         p: '16px 16px 14px',
         position: 'relative',
@@ -100,7 +127,7 @@ export default function ChartCard({
               {idx}
             </Box>
           )}
-          {title}
+          <EvidenceTitleButton label={title}>{title}</EvidenceTitleButton>
         </Typography>
         <Stack
           direction="row"
@@ -159,6 +186,6 @@ export default function ChartCard({
           {note}
         </Typography>
       )}
-    </SurfaceCard>
+    </RunEvidenceSurfaceCard>
   );
 }

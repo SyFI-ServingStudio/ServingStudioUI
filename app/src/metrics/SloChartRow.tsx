@@ -59,6 +59,7 @@ export default function SloChartRow({ subject }: { subject: SubjectResult<'slo'>
         return (
           <ChartCard
             key={card.key}
+            evidenceId={`slo:${card.key}`}
             idx={card.idx}
             title={card.title}
             sub={sub}

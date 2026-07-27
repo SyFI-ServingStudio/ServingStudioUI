@@ -68,6 +68,7 @@ export function OptimalityWaterfallCard({
   if (projection.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="optimality-breakdown"
         idx={idx}
         title={title}
         sub={projection.status.replace('_', ' ')}
@@ -93,6 +94,7 @@ export function OptimalityWaterfallCard({
 
   return (
     <ChartCard
+      evidenceId="optimality-breakdown"
       idx={idx}
       title={title}
       sub={sub}

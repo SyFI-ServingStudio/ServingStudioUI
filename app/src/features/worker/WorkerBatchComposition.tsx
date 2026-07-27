@@ -69,6 +69,7 @@ function BatchMetricCard({
   const unavailable = unavailableReason(spec.metric, workerKind);
   return (
     <ChartCard
+      evidenceId={`batch:${spec.metric}`}
       idx={spec.idx}
       title={spec.title}
       sub={unavailable ? 'unavailable for this worker kind' : `worker: ${workerKey}`}
@@ -108,6 +109,7 @@ export default function WorkerBatchComposition({ workerKey }: { workerKey: Worke
         : subjectStatusMessage(subject);
     return (
       <ChartCard
+        evidenceId="batch"
         idx="d"
         title="Batch composition"
         sub={sub}

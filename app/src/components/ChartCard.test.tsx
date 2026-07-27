@@ -19,7 +19,7 @@ vi.mock('./EChart', () => ({
 
 beforeEach(() => {
   chartRender.mockClear();
-  useViz.setState({ cursorMs: null });
+  useViz.setState({ selectionSurface: 'run', runPanelId: null, cursorMs: null });
 });
 
 function renderWithFocus(ui: ReactNode, observe?: (focus: ChartFocusPayload | null) => void) {
@@ -39,7 +39,9 @@ function renderWithFocus(ui: ReactNode, observe?: (focus: ChartFocusPayload | nu
 describe('ChartCard', () => {
   it('keeps the expand control visible when reached from the keyboard', async () => {
     const user = userEvent.setup();
-    renderWithFocus(<ChartCard title="Throughput" option={{ series: [] }} />);
+    renderWithFocus(
+      <ChartCard evidenceId="throughput" title="Throughput" option={{ series: [] }} />,
+    );
 
     const expand = screen.getByRole('button', { name: 'Expand Throughput' });
     await user.tab();
@@ -53,7 +55,12 @@ describe('ChartCard', () => {
     const option = { series: [] };
     let observed: ChartFocusPayload | null = null;
     renderWithFocus(
-      <ChartCard title="GPU utilization" caption="GPU busy fraction" option={option} />,
+      <ChartCard
+        evidenceId="utilization"
+        title="GPU utilization"
+        caption="GPU busy fraction"
+        option={option}
+      />,
       (focus) => {
         observed = focus;
       },
@@ -69,6 +76,25 @@ describe('ChartCard', () => {
       caption: 'GPU busy fraction',
       option,
     });
+    expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
+  });
+
+  it('selects the whole evidence surface without rerendering its chart', async () => {
+    const user = userEvent.setup();
+    renderWithFocus(
+      <ChartCard evidenceId="throughput" title="Throughput" option={{ series: [] }} />,
+    );
+    const initialChartRenders = chartRender.mock.calls.length;
+    const surface = screen
+      .getByRole('button', { name: 'Select Throughput panel' })
+      .closest('[data-evidence-id]');
+
+    expect(surface).not.toBeNull();
+    await user.click(surface!);
+
+    expect(useViz.getState().runPanelId).toBe('throughput');
+    expect(surface).toHaveAttribute('data-agent-selected', 'true');
+    expect(screen.getByText('Selected for agent')).toBeVisible();
     expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
   });
 });

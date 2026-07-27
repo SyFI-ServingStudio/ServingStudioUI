@@ -48,6 +48,7 @@ export default function OptimalityKernelsCard({
   if (projection.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="optimality-kernels"
         idx={idx}
         title={title}
         sub={projection.status.replace('_', ' ')}
@@ -100,6 +101,7 @@ export default function OptimalityKernelsCard({
   );
   return (
     <ChartCard
+      evidenceId="optimality-kernels"
       idx={idx}
       title={title}
       sub={`${projection.label} / ${rowSummary}`}

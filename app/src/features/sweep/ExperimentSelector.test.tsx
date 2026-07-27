@@ -106,4 +106,19 @@ describe('ExperimentSelector', () => {
     expect(onActivate).toHaveBeenCalledWith('recent-singleton');
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it('preserves an unresolved agent target instead of auto-selecting a fallback', () => {
+    const onSelect = vi.fn();
+
+    render(
+      <ExperimentSelector
+        entries={entries}
+        selectedId={null}
+        autoSelectFallback={false}
+        onSelect={onSelect}
+      />,
+    );
+
+    expect(onSelect).not.toHaveBeenCalled();
+  });
 });

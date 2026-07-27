@@ -33,6 +33,7 @@ export default function PoolStage() {
         sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2,1fr)' }, gap: 2 }}
       >
         <ChartCard
+          evidenceId="utilization"
           idx="a"
           title={METRIC_TITLES.utilization}
           sub={util.sub}
@@ -42,6 +43,7 @@ export default function PoolStage() {
           empty={util.empty}
         />
         <ChartCard
+          evidenceId="kv-cache"
           idx="b"
           title={METRIC_TITLES.kv}
           sub={kv.sub}

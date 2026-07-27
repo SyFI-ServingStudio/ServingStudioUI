@@ -15,6 +15,11 @@ const operation: OperationSummary = {
 
 beforeEach(() => {
   useViz.setState({
+    selectionSurface: 'aggregate',
+    aggregateSelection: null,
+    inquiryId: null,
+    phaseId: null,
+    runPanelId: null,
     scope: 'cluster',
     poolRole: null,
     workerKey: null,
@@ -28,6 +33,43 @@ beforeEach(() => {
 });
 
 describe('worker analysis level', () => {
+  it('can carry a detail selection to another run when a citation requests it', () => {
+    useViz.setState({
+      runId: 'r_1',
+      runPanelId: 'kernel-time-breakdown',
+      scope: 'kernel',
+      poolRole: 'ffn',
+      workerKey: makeWorkerKey('ffn', '1'),
+      leafId: 52,
+      cursorMs: 120,
+      workerAnalysisLevel: 'iteration',
+    });
+
+    useViz.getState().setRun('r_2', { keepSelection: true });
+    expect(useViz.getState()).toMatchObject({
+      runId: 'r_2',
+      runPanelId: 'kernel-time-breakdown',
+      scope: 'kernel',
+      poolRole: 'ffn',
+      workerKey: makeWorkerKey('ffn', '1'),
+      leafId: 52,
+      cursorMs: 120,
+      workerAnalysisLevel: 'iteration',
+    });
+
+    useViz.getState().setRun('r_3');
+    expect(useViz.getState()).toMatchObject({
+      runId: 'r_3',
+      runPanelId: null,
+      scope: 'cluster',
+      poolRole: null,
+      workerKey: null,
+      leafId: null,
+      cursorMs: null,
+      workerAnalysisLevel: 'worker',
+    });
+  });
+
   it('selects a worker at aggregate level while preserving only the free cursor', () => {
     useViz.setState({ cursorMs: 120 });
 

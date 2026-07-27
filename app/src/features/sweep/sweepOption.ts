@@ -149,6 +149,7 @@ export function sweepChartOption(
               value: [index, value == null ? null : displayValue(metric, value)],
               runId: run?.runId ?? null,
               runKey,
+              coordinates: run?.coordinates,
               symbolSize: selected ? 13 : 8,
               itemStyle: selected
                 ? {
@@ -180,6 +181,7 @@ export function sweepChartOption(
         value: [xIndex, yIndex, displayValue(metric, metricValue)],
         runId: run.runId,
         runKey: runCoordinateKey(analysis, run),
+        coordinates: run.coordinates,
         simulation: run.lifecycle.simulation,
         analysis: run.lifecycle.analysis,
       },

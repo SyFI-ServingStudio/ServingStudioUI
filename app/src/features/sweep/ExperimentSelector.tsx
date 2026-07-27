@@ -140,11 +140,13 @@ function LabelFilter({
 export default function ExperimentSelector({
   entries,
   selectedId,
+  autoSelectFallback = true,
   onSelect,
   onActivate,
 }: {
   entries: readonly SweepListItem[];
   selectedId: string | null;
+  autoSelectFallback?: boolean;
   onSelect: (id: string) => void;
   onActivate?: (id: string) => void;
 }) {
@@ -176,10 +178,14 @@ export default function ExperimentSelector({
   };
 
   useEffect(() => {
-    if (visibleIds.length > 0 && (selectedId === null || !visibleIds.includes(selectedId))) {
+    if (
+      autoSelectFallback &&
+      visibleIds.length > 0 &&
+      (selectedId === null || !visibleIds.includes(selectedId))
+    ) {
       onSelect(visibleIds[0]);
     }
-  }, [onSelect, selectedId, visibleIds]);
+  }, [autoSelectFallback, onSelect, selectedId, visibleIds]);
 
   const moveSelection = (event: React.KeyboardEvent, destination: number) => {
     if (visibleIds.length === 0) return;

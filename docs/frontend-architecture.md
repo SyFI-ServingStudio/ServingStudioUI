@@ -232,6 +232,59 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   相同的 Throughput、Utilization、Request SLO sections，但每张 panel 直接显示 scalar
   value，不伪造只有一个 cell 的 heatmap，并在 section header 提供一次 `Inspect run` drill。
 
+### Agent → Analyzer navigation
+
+- `domain/analyzerNavigation.ts` 拥有 browser-side `vibesim.analyzer/v1` 合同。Agent 和
+  Analyzer 之间传递稳定的 `EvidenceRefV1`（experiment、panel、metric/statistic、
+  run/coordinates），禁止传 CSS selector、DOM id、显示文字或颜色。
+- 可复制 URL 是 canonical navigation state：
+  `#/aggregate?experiment=…&panel=…&metric=…&statistic=…&run=…&coordinates=…`。
+  `AppRoot` 的 route parser 必须忽略 query string；刷新 URL 后仍按 experiment → panel →
+  metric → run coordinate 的顺序恢复状态。
+- live integration 接受同源 `window.postMessage` 的 `AnalyzerNavigateCommandV1`，并以相同
+  `requestId` 返回 `AnalyzerNavigationResultV1`。结果只有 `ok`、`not-found`、
+  `unavailable`；跨 origin message 必须忽略。该 transport 只是 URL navigation 的即时入口，
+  不能维护第二份隐藏 navigation state。
+- 成功导航到 panel 后，使用稳定 `panel.id` 找到注册的 panel boundary，滚动到 panel 并提供
+  不改变布局尺寸的静态 teal 内描边、向外渐淡的柔和 halo 与 inner tint；header 显示紧凑的
+  `Selected for agent` badge。选中反馈禁止使用持续 pulse。Metric knob 接受 URL 请求的
+  metric/statistic，run/coordinates 则恢复现有跨 panel point selection。
+- Aggregate metric panel 与 run-level `ChartCard` 必须复用
+  `EvidenceSurfaceCard` 的完整 card pointer boundary、静态边框、渐淡 halo 和 badge，不得在
+  feature 中复制 selection CSS。每张 panel 的整个 card surface 都允许 pointer 将 panel
+  选为 evidence；可见 title
+  同时保留原生 button 作为键盘入口，不能要求用户必须命中 title 或 chart point。选择 card
+  保留现有 member coordinate，因而 `Total throughput` 这类没有 statistic knob 的 panel
+  仍可独立进入 context。
+- 纯 panel selection 只更新 card shell、URL 与 context，不得重新构造或更新任何 ECharts
+  instance。Panel 内的 option 必须按 analysis、metric、facet、member identity memoize；
+  glow/outline 变化不能进入 chart render path。
+- 用户手动选择 experiment、statistic 或 coordinate 时同步 replace canonical URL，但不能
+  因 URL 同步重新触发图表重绘。message navigation 才产生 result response；普通 URL
+  navigation 没有隐式 agent acknowledgement。
+
+### Analyzer → Agent selection context
+
+- `domain/analyzerSelection.ts` 定义可序列化的 `AnalyzerSelectionV1`。它是
+  discriminated union：aggregate variant 保存 experiment、panel、metric/statistic 与
+  run/coordinates；run variant 必须逐字段投影 `VizState` 的 selection 字段，包括稳定
+  `panelId`，保留显式 `null`，不能把“未选择”改成字段缺失。Panel identity 由 feature
+  显式声明，禁止从显示 title、DOM selector 或颜色推导。
+- Zustand 是同页 Inquiry rail 与 Analyzer 的唯一 selection source。`store.ts` 保存当前
+  `selectionSurface`、aggregate selection 和 inquiry/phase identity；run selection 继续由
+  既有字段与 action 拥有。不得再在 aggregate feature 内维护第二份 panel/member selected
+  state。
+- `application/analyzerSelection.ts` 只负责把 store 投影为
+  `AnalyzerSelectionV1` / `InquiryContextV1`。同页 Inquiry rail 直接订阅 store；跨 iframe
+  或外部 shell 才消费 versioned `selection-change` notification。Notification 不能被当作
+  navigation command 回放，从而避免双向同步环。
+- `InquiryContextV1` 只在 `inquiryId` 与 `phaseId` 都已知时出现，载荷为这两个 identity 加
+  当前 selection。panel 的 hidden/spine/docked/full、宽度、composer draft 等纯 UI 状态禁止
+  进入载荷。
+- 普通 run 切换仍清空不适用于新 run 的 drill state；citation 明确要求“同一 selection，
+  另一个 run”时使用 `setRun(runId, { keepSelection: true })`。目标 run 的 topology/subject
+  无法解析所保留 identity 时，后续 resolver 必须显式降级到 cluster，而不是伪造 detail。
+
 ## 6. 变更完成标准
 
 每次 feature 迁移或数据接线至少验证：

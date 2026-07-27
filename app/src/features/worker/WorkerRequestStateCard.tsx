@@ -25,6 +25,7 @@ export default function WorkerRequestStateCard({ workerKey }: { workerKey: Worke
 
   return (
     <ChartCard
+      evidenceId="request-state"
       idx="e"
       title="Request state"
       sub={

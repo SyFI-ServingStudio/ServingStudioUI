@@ -25,6 +25,7 @@ export default function WorkerKernelPositionBreakdownCard({ workerKey }: { worke
   if (positions.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="kernel-position-breakdown"
         idx="f"
         title={`Worker kernel time breakdown · ${workerKey}`}
         sub={positions.status.replace('_', ' ')}
@@ -37,6 +38,7 @@ export default function WorkerKernelPositionBreakdownCard({ workerKey }: { worke
   if (families.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="kernel-position-breakdown"
         idx="f"
         title={`Worker kernel time breakdown · ${workerKey}`}
         sub={families.status.replace('_', ' ')}
@@ -55,6 +57,7 @@ export default function WorkerKernelPositionBreakdownCard({ workerKey }: { worke
   const note = `${positions.totalMs.toLocaleString('en-US', { maximumFractionDigits: 2 })} ms total · ${positions.sampledRows.toLocaleString('en-US')} / ${positions.rawRows.toLocaleString('en-US')} rows replayed`;
   return (
     <ChartCard
+      evidenceId="kernel-position-breakdown"
       idx="f"
       title={`Worker kernel time breakdown · ${workerKey}`}
       sub={sub}

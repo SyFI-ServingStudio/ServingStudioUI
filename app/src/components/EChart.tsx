@@ -1,6 +1,6 @@
 import type { EChartsOption } from 'echarts';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
-import type { CSSProperties } from 'react';
+import { memo, type CSSProperties } from 'react';
 
 import { echarts } from '../charts/echartsRuntime';
 import { ECHARTS_THEME_NAME } from '../charts/platform';
@@ -9,7 +9,7 @@ import { ECHARTS_THEME_NAME } from '../charts/platform';
  * as SVG text, and replaces (not merges) options so scope changes redraw
  * cleanly. Analyzer chart payloads are bounded before reaching this layer; a
  * future canvas exception must therefore be justified by measured density. */
-export default function EChart({
+function EChart({
   option,
   style,
   ariaLabel,
@@ -35,3 +35,7 @@ export default function EChart({
     </div>
   );
 }
+
+/** A selected evidence shell must not ask ECharts to reconcile an unchanged
+ * option merely because the surrounding card acquired a glow. */
+export default memo(EChart);

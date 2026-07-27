@@ -1,16 +1,42 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { EChartsOption } from 'echarts';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
 import EChart from '../../components/EChart';
 import SurfaceCard, { SurfaceAccentProvider } from '../../components/SurfaceCard';
+import {
+  EvidenceSelectionBadge,
+  EvidenceSurfaceCard,
+  EvidenceTitleButton,
+} from '../../components/EvidenceSurfaceCard';
 import WorkspaceNav from '../../components/WorkspaceNav';
-import type { SweepAnalysis, SweepMetric } from '../../domain/sweep';
+import {
+  ANALYZER_NAVIGATION_RESULT_EVENT,
+  analyzerEvidenceHref,
+  evidenceRefFromHash,
+  replaceAnalyzerEvidenceHref,
+  type AnalyzerNavigationResultV1,
+  type EvidenceRefV1,
+} from '../../domain/analyzerNavigation';
+import type { AggregateAnalyzerSelectionV1 } from '../../domain/analyzerSelection';
+import type {
+  SweepAnalysis,
+  SweepCoordinateValue,
+  SweepMetric,
+  SweepPrimitive,
+} from '../../domain/sweep';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { metricStatisticLabel, sweepMetricSections, type SweepMetricPanel } from './metricSections';
 import ExperimentSelector from './ExperimentSelector';
-import { formatMetricValue, sweepChartOption, sweepFacets, type SweepFacet } from './sweepOption';
+import {
+  formatMetricValue,
+  runCoordinateKey,
+  sweepChartOption,
+  sweepFacets,
+  type SweepFacet,
+} from './sweepOption';
 
 function StatePanel({ title, detail }: { title: string; detail: string }) {
   return (
@@ -117,28 +143,89 @@ function StatisticKnob({
   );
 }
 
+const StableSweepChart = memo(function StableSweepChart({
+  option,
+  ariaLabel,
+  onEvents,
+  height,
+}: {
+  option: EChartsOption;
+  ariaLabel: string;
+  onEvents: Readonly<Record<string, (event: unknown) => void>>;
+  height: number;
+}) {
+  return <EChart option={option} ariaLabel={ariaLabel} onEvents={onEvents} style={{ height }} />;
+});
+
 function MetricPanelCard({
   analysis,
   panel,
   selectedRunKey,
+  selectedForAgent,
+  requestedMetricKey,
+  requestedStatistic,
   facets,
+  onPanelSelect,
+  onMetricChange,
   onChartClick,
   onChartDoubleClick,
 }: {
   analysis: SweepAnalysis;
   panel: SweepMetricPanel;
   selectedRunKey: string | null;
+  selectedForAgent: boolean;
+  requestedMetricKey?: string;
+  requestedStatistic?: 'mean' | 'p99';
   facets: readonly SweepFacet[];
-  onChartClick: (event: unknown) => void;
+  onPanelSelect: (metric: SweepMetric) => void;
+  onMetricChange: (metric: SweepMetric) => void;
+  onChartClick: (event: unknown, metric: SweepMetric) => void;
   onChartDoubleClick: (event: unknown) => void;
 }) {
   const [selectedMetricKey, setSelectedMetricKey] = useState<string>();
+  useEffect(() => {
+    const requestedMetric =
+      panel.metrics.find((metric) => metric.key === requestedMetricKey) ??
+      panel.metrics.find(
+        (metric) => metricStatisticLabel(metric)?.toLowerCase() === requestedStatistic,
+      );
+    if (requestedMetric) setSelectedMetricKey(requestedMetric.key);
+  }, [panel.metrics, requestedMetricKey, requestedStatistic]);
+  // sweepMetricSections only creates panels from at least one descriptor.
   const selectedMetric =
-    panel.metrics.find((metric) => metric.key === selectedMetricKey) ?? panel.metrics[0];
-  if (!selectedMetric) return null;
+    panel.metrics.find((metric) => metric.key === selectedMetricKey) ?? panel.metrics[0]!;
   const singletonRun = analysis.axes.length === 0 ? analysis.runs[0] : undefined;
+  const onChartClickRef = useRef(onChartClick);
+  const onChartDoubleClickRef = useRef(onChartDoubleClick);
+  onChartClickRef.current = onChartClick;
+  onChartDoubleClickRef.current = onChartDoubleClick;
+  const chartEvents = useMemo(
+    () => ({
+      click: (event: unknown) => onChartClickRef.current(event, selectedMetric),
+      dblclick: (event: unknown) => onChartDoubleClickRef.current(event),
+    }),
+    [selectedMetric],
+  );
+  const facetCharts = useMemo(
+    () =>
+      facets.map((facet) => ({
+        facet,
+        option: sweepChartOption(analysis, selectedMetric, facet, selectedRunKey),
+        ariaLabel: `${selectedMetric.label} by ${analysis.axes.join(' and ')}${
+          facets.length > 1 ? `, ${facet.label}` : ''
+        }`,
+      })),
+    [analysis, facets, selectedMetric, selectedRunKey],
+  );
   return (
-    <SurfaceCard sx={{ p: { xs: 1.4, md: 1.8 } }}>
+    <EvidenceSurfaceCard
+      evidenceId={panel.id}
+      selectedForAgent={selectedForAgent}
+      onEvidenceSelect={() => onPanelSelect(selectedMetric)}
+      sx={{
+        p: { xs: 1.4, md: 1.8 },
+      }}
+    >
       <Stack
         direction="row"
         alignItems="center"
@@ -151,17 +238,24 @@ function MetricPanelCard({
             component="h4"
             sx={{ fontFamily: tokens.serif, fontSize: 17, fontWeight: 600 }}
           >
-            {panel.label}
+            <EvidenceTitleButton label={panel.label}>{panel.label}</EvidenceTitleButton>
           </Typography>
           <Typography sx={{ mt: 0.1, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}>
             {selectedMetric.unit}
           </Typography>
         </Box>
-        <StatisticKnob
-          metrics={panel.metrics}
-          selectedMetric={selectedMetric}
-          onChange={setSelectedMetricKey}
-        />
+        <Stack direction="row" alignItems="center" useFlexGap sx={{ gap: 0.8 }}>
+          {selectedForAgent && <EvidenceSelectionBadge />}
+          <StatisticKnob
+            metrics={panel.metrics}
+            selectedMetric={selectedMetric}
+            onChange={(metricKey) => {
+              setSelectedMetricKey(metricKey);
+              const metric = panel.metrics.find((candidate) => candidate.key === metricKey);
+              if (metric) onMetricChange(metric);
+            }}
+          />
+        </Stack>
       </Stack>
       {singletonRun ? (
         <Box
@@ -208,7 +302,7 @@ function MetricPanelCard({
             gap: 1,
           }}
         >
-          {facets.map((facet) => (
+          {facetCharts.map(({ facet, option, ariaLabel }) => (
             <Box key={facet.key} sx={{ minWidth: 0 }}>
               {facets.length > 1 && (
                 <Typography
@@ -223,38 +317,123 @@ function MetricPanelCard({
                   {facet.label}
                 </Typography>
               )}
-              <EChart
-                option={sweepChartOption(analysis, selectedMetric, facet, selectedRunKey)}
-                ariaLabel={`${selectedMetric.label} by ${analysis.axes.join(' and ')}${facets.length > 1 ? `, ${facet.label}` : ''}`}
-                onEvents={{
-                  click: onChartClick,
-                  dblclick: onChartDoubleClick,
-                }}
-                style={{ height: facets.length > 1 ? 290 : 320 }}
+              <StableSweepChart
+                option={option}
+                ariaLabel={ariaLabel}
+                onEvents={chartEvents}
+                height={facets.length > 1 ? 290 : 320}
               />
             </Box>
           ))}
         </Box>
       )}
-    </SurfaceCard>
+    </EvidenceSurfaceCard>
   );
+}
+
+function announceNavigationResult(
+  target: EvidenceRefV1,
+  status: AnalyzerNavigationResultV1['status'],
+) {
+  window.dispatchEvent(
+    new CustomEvent(ANALYZER_NAVIGATION_RESULT_EVENT, {
+      detail: { href: analyzerEvidenceHref(target), status },
+    }),
+  );
+}
+
+function coordinatesMatch(
+  coordinates: Readonly<Record<string, unknown>>,
+  requested: Readonly<Record<string, unknown>>,
+): boolean {
+  return Object.entries(requested).every(
+    ([axis, value]) => JSON.stringify(coordinates[axis]) === JSON.stringify(value),
+  );
+}
+
+function copySweepCoordinates(
+  coordinates: Readonly<Record<string, SweepCoordinateValue>>,
+): NonNullable<AggregateAnalyzerSelectionV1['coordinates']> {
+  const copied: NonNullable<AggregateAnalyzerSelectionV1['coordinates']> = {};
+  Object.entries(coordinates).forEach(([axis, value]) => {
+    copied[axis] = Array.isArray(value) ? [...value] : (value as SweepPrimitive);
+  });
+  return copied;
+}
+
+function aggregateSelectionFromEvidence(target: EvidenceRefV1): AggregateAnalyzerSelectionV1 {
+  return {
+    kind: 'aggregate',
+    experimentId: target.experimentId,
+    ...(target.panelId ? { panelId: target.panelId } : {}),
+    ...(target.metricKey ? { metricKey: target.metricKey } : {}),
+    ...(target.statistic ? { statistic: target.statistic } : {}),
+    ...(target.runId ? { runId: target.runId } : {}),
+    ...(target.coordinates ? { coordinates: target.coordinates } : {}),
+  };
+}
+
+function evidenceFromAggregateSelection(selection: AggregateAnalyzerSelectionV1): EvidenceRefV1 {
+  return {
+    protocol: 'vibesim.analyzer/v1',
+    experimentId: selection.experimentId,
+    ...(selection.panelId ? { panelId: selection.panelId } : {}),
+    ...(selection.metricKey ? { metricKey: selection.metricKey } : {}),
+    ...(selection.statistic ? { statistic: selection.statistic } : {}),
+    ...(selection.runId ? { runId: selection.runId } : {}),
+    ...(selection.coordinates ? { coordinates: selection.coordinates } : {}),
+  };
 }
 
 export default function SweepPage() {
   const sweepList = useSweepListQuery();
-  const [selectedSweepId, setSelectedSweepId] = useState<string | null>(null);
-  const [selectedRunKey, setSelectedRunKey] = useState<string | null>(null);
+  const [navigationTarget, setNavigationTarget] = useState<EvidenceRefV1 | null>(() =>
+    evidenceRefFromHash(window.location.hash),
+  );
   const metricPanelsRef = useRef<HTMLDivElement>(null);
+  const panelRefs = useRef(new Map<string, HTMLDivElement>());
   const setRun = useViz((state) => state.setRun);
+  const aggregateSelection = useViz((state) => state.aggregateSelection);
+  const setAggregateSelection = useViz((state) => state.setAggregateSelection);
+  const selectedSweepId = aggregateSelection?.experimentId ?? null;
   const selectedSweep = sweepList.data?.find((sweep) => sweep.sweepId === selectedSweepId) ?? null;
 
   useEffect(() => {
-    if (selectedSweepId !== null || !sweepList.data?.length) return;
-    setSelectedSweepId(
-      sweepList.data.find((sweep) => sweep.status === 'ready')?.sweepId ??
-        sweepList.data[0].sweepId,
-    );
-  }, [selectedSweepId, sweepList.data]);
+    const syncNavigationTarget = () =>
+      setNavigationTarget(evidenceRefFromHash(window.location.hash));
+    window.addEventListener('hashchange', syncNavigationTarget);
+    return () => window.removeEventListener('hashchange', syncNavigationTarget);
+  }, []);
+
+  useEffect(() => {
+    if (!sweepList.data?.length) return;
+    if (navigationTarget) {
+      const requestedSweep = sweepList.data.find(
+        (sweepEntry) => sweepEntry.sweepId === navigationTarget.experimentId,
+      );
+      if (!requestedSweep) {
+        announceNavigationResult(navigationTarget, 'not-found');
+        return;
+      }
+      setAggregateSelection(aggregateSelectionFromEvidence(navigationTarget));
+      if (requestedSweep.status === 'pending') {
+        announceNavigationResult(navigationTarget, 'unavailable');
+      }
+      return;
+    }
+    if (selectedSweepId !== null) return;
+    const defaultSweep =
+      sweepList.data.find((sweepEntry) => sweepEntry.status === 'ready') ?? sweepList.data[0];
+    const defaultSelection: AggregateAnalyzerSelectionV1 = {
+      kind: 'aggregate',
+      experimentId: defaultSweep.sweepId,
+    };
+    setAggregateSelection(defaultSelection);
+    replaceAnalyzerEvidenceHref({
+      protocol: 'vibesim.analyzer/v1',
+      experimentId: defaultSweep.sweepId,
+    });
+  }, [navigationTarget, selectedSweepId, setAggregateSelection, sweepList.data]);
 
   useEffect(() => {
     document.title = 'VibeSim · Sweep aggregate';
@@ -270,14 +449,143 @@ export default function SweepPage() {
     () => (analysis ? sweepMetricSections(analysis.metrics) : []),
     [analysis],
   );
+  const selectedRunKey = useMemo(() => {
+    if (!analysis || aggregateSelection?.experimentId !== analysis.sweepId) return null;
+    const selectedRun =
+      analysis.runs.find((run) => run.runId === aggregateSelection.runId) ??
+      (aggregateSelection.coordinates
+        ? analysis.runs.find((run) =>
+            coordinatesMatch(run.coordinates, aggregateSelection.coordinates ?? {}),
+          )
+        : undefined);
+    return selectedRun ? runCoordinateKey(analysis, selectedRun) : null;
+  }, [aggregateSelection, analysis]);
+  const selectedPanelId =
+    aggregateSelection && aggregateSelection.experimentId === analysis?.sweepId
+      ? (aggregateSelection.panelId ?? null)
+      : null;
 
   useEffect(() => {
-    setSelectedRunKey(null);
-  }, [selectedSweepId]);
+    if (!navigationTarget || !analysis || analysis.sweepId !== navigationTarget.experimentId) {
+      return;
+    }
+    const panels = metricSections.flatMap((section) => section.panels);
+    const requestedPanel =
+      panels.find((panel) => panel.id === navigationTarget.panelId) ??
+      panels.find((panel) =>
+        panel.metrics.some((metric) => metric.key === navigationTarget.metricKey),
+      );
+    if (
+      (navigationTarget.panelId || navigationTarget.metricKey || navigationTarget.statistic) &&
+      !requestedPanel
+    ) {
+      announceNavigationResult(navigationTarget, 'not-found');
+      return;
+    }
+    if (
+      navigationTarget.metricKey &&
+      !requestedPanel?.metrics.some((metric) => metric.key === navigationTarget.metricKey)
+    ) {
+      announceNavigationResult(navigationTarget, 'not-found');
+      return;
+    }
+    if (
+      navigationTarget.statistic &&
+      !requestedPanel?.metrics.some(
+        (metric) => metricStatisticLabel(metric)?.toLowerCase() === navigationTarget.statistic,
+      )
+    ) {
+      announceNavigationResult(navigationTarget, 'not-found');
+      return;
+    }
 
-  const selectChartRun = (event: unknown) => {
-    const runKey = (event as { data?: { runKey?: unknown } }).data?.runKey;
-    if (typeof runKey === 'string') setSelectedRunKey(runKey);
+    const requestedRun =
+      analysis.runs.find((run) => run.runId === navigationTarget.runId) ??
+      (navigationTarget.coordinates
+        ? analysis.runs.find((run) =>
+            coordinatesMatch(run.coordinates, navigationTarget.coordinates ?? {}),
+          )
+        : undefined);
+    if ((navigationTarget.runId || navigationTarget.coordinates) && !requestedRun) {
+      announceNavigationResult(navigationTarget, 'not-found');
+      return;
+    }
+    setAggregateSelection({
+      ...aggregateSelectionFromEvidence(navigationTarget),
+      ...(requestedPanel ? { panelId: requestedPanel.id } : {}),
+      ...(requestedRun?.runId ? { runId: requestedRun.runId } : {}),
+      ...(requestedRun ? { coordinates: copySweepCoordinates(requestedRun.coordinates) } : {}),
+    });
+
+    window.requestAnimationFrame(() => {
+      if (requestedPanel) {
+        const panelElement = panelRefs.current.get(requestedPanel.id);
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        panelElement?.scrollIntoView({
+          behavior: reduceMotion ? 'auto' : 'smooth',
+          block: 'start',
+        });
+        panelElement?.focus({ preventScroll: true });
+      }
+      announceNavigationResult(navigationTarget, 'ok');
+    });
+  }, [analysis, metricSections, navigationTarget, setAggregateSelection]);
+
+  const selectChartRun = (panel: SweepMetricPanel, event: unknown, metric: SweepMetric) => {
+    const data = (
+      event as {
+        data?: {
+          runKey?: unknown;
+          runId?: unknown;
+          coordinates?: unknown;
+        };
+      }
+    ).data;
+    if (typeof data?.runKey !== 'string' || selectedSweepId === null) return;
+    const selection: AggregateAnalyzerSelectionV1 = {
+      kind: 'aggregate',
+      experimentId: selectedSweepId,
+      panelId: panel.id,
+      metricKey: metric.key,
+      ...(metricStatisticLabel(metric)
+        ? {
+            statistic: metricStatisticLabel(metric)?.toLowerCase() as 'mean' | 'p99',
+          }
+        : {}),
+      ...(typeof data.runId === 'string' ? { runId: data.runId } : {}),
+      ...(data.coordinates &&
+      typeof data.coordinates === 'object' &&
+      !Array.isArray(data.coordinates)
+        ? {
+            coordinates: data.coordinates as EvidenceRefV1['coordinates'],
+          }
+        : {}),
+    };
+    setAggregateSelection(selection);
+    replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
+  };
+
+  const selectMetricPanel = (panel: SweepMetricPanel, metric: SweepMetric) => {
+    if (selectedSweepId === null) return;
+    const selection: AggregateAnalyzerSelectionV1 = {
+      kind: 'aggregate',
+      experimentId: selectedSweepId,
+      panelId: panel.id,
+      metricKey: metric.key,
+      ...(aggregateSelection?.experimentId === selectedSweepId && aggregateSelection.runId
+        ? { runId: aggregateSelection.runId }
+        : {}),
+      ...(aggregateSelection?.experimentId === selectedSweepId && aggregateSelection.coordinates
+        ? { coordinates: aggregateSelection.coordinates }
+        : {}),
+      ...(metricStatisticLabel(metric)
+        ? {
+            statistic: metricStatisticLabel(metric)?.toLowerCase() as 'mean' | 'p99',
+          }
+        : {}),
+    };
+    setAggregateSelection(selection);
+    replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
   };
 
   const openChartRun = (event: unknown) => {
@@ -298,7 +606,13 @@ export default function SweepPage() {
     window.location.hash = '/run';
   };
   const activateSweep = (sweepId: string) => {
-    setSelectedSweepId(sweepId);
+    setNavigationTarget(null);
+    const selection: AggregateAnalyzerSelectionV1 = {
+      kind: 'aggregate',
+      experimentId: sweepId,
+    };
+    setAggregateSelection(selection);
+    replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
     window.requestAnimationFrame(() => {
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       metricPanelsRef.current?.scrollIntoView({
@@ -376,7 +690,16 @@ export default function SweepPage() {
             <ExperimentSelector
               entries={sweepList.data}
               selectedId={selectedSweepId}
-              onSelect={setSelectedSweepId}
+              autoSelectFallback={navigationTarget === null}
+              onSelect={(sweepId) => {
+                setNavigationTarget(null);
+                const selection: AggregateAnalyzerSelectionV1 = {
+                  kind: 'aggregate',
+                  experimentId: sweepId,
+                };
+                setAggregateSelection(selection);
+                replaceAnalyzerEvidenceHref(evidenceFromAggregateSelection(selection));
+              }}
               onActivate={activateSweep}
             />
             {analysis && (
@@ -501,15 +824,37 @@ export default function SweepPage() {
                         }}
                       >
                         {section.panels.map((panel) => (
-                          <MetricPanelCard
+                          <Box
                             key={`${analysis.sweepId}:${panel.id}`}
-                            analysis={analysis}
-                            panel={panel}
-                            selectedRunKey={selectedRunKey}
-                            facets={facets}
-                            onChartClick={selectChartRun}
-                            onChartDoubleClick={openChartRun}
-                          />
+                            ref={(node: HTMLDivElement | null) => {
+                              if (node) panelRefs.current.set(panel.id, node);
+                              else panelRefs.current.delete(panel.id);
+                            }}
+                            tabIndex={-1}
+                            sx={{ minWidth: 0, scrollMarginTop: 16, outline: 'none' }}
+                          >
+                            <MetricPanelCard
+                              analysis={analysis}
+                              panel={panel}
+                              selectedRunKey={selectedRunKey}
+                              selectedForAgent={selectedPanelId === panel.id}
+                              requestedMetricKey={
+                                selectedPanelId === panel.id
+                                  ? aggregateSelection?.metricKey
+                                  : undefined
+                              }
+                              requestedStatistic={
+                                selectedPanelId === panel.id
+                                  ? aggregateSelection?.statistic
+                                  : undefined
+                              }
+                              facets={facets}
+                              onPanelSelect={(metric) => selectMetricPanel(panel, metric)}
+                              onMetricChange={(metric) => selectMetricPanel(panel, metric)}
+                              onChartClick={(event, metric) => selectChartRun(panel, event, metric)}
+                              onChartDoubleClick={openChartRun}
+                            />
+                          </Box>
                         ))}
                       </Box>
                     </Box>

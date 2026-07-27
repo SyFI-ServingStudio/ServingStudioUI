@@ -40,6 +40,7 @@ export default function KernelTimeBreakdownCard({
   if (projection.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="kernel-time-breakdown"
         idx={idx}
         title={title}
         sub={projection.status.replace('_', ' ')}
@@ -70,6 +71,7 @@ export default function KernelTimeBreakdownCard({
 
   return (
     <ChartCard
+      evidenceId="kernel-time-breakdown"
       idx={idx}
       title={title}
       sub={sub}

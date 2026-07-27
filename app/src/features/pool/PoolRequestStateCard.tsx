@@ -22,6 +22,7 @@ export default function PoolRequestStateCard({ poolTag }: { poolTag: string }) {
 
   return (
     <ChartCard
+      evidenceId="request-state"
       idx="e"
       title={`Request state · ${poolTag}`}
       sub={

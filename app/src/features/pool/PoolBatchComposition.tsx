@@ -72,6 +72,7 @@ export default function PoolBatchComposition({ poolTag }: { poolTag: string }) {
         return (
           <ChartCard
             key={spec.metric}
+            evidenceId={`batch:${spec.metric}`}
             idx={spec.idx}
             title={spec.title}
             sub={

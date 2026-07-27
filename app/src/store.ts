@@ -1,16 +1,28 @@
 /*
- * store.ts — app state (zustand). Holds the Run ▸ Pool ▸ Worker ▸ Kernel drill
- * selection. Server data and ephemeral chart snapshots live outside Zustand.
+ * store.ts — app state (zustand). Holds the shared Aggregate / Run ▸ Pool ▸
+ * Worker ▸ Kernel selection consumed by the Analyzer and future Inquiry rail.
+ * Server data, panel geometry, drafts, and chart snapshots live elsewhere.
  */
 import { create } from 'zustand';
+import type { AggregateAnalyzerSelectionV1 } from './domain/analyzerSelection';
 import { makeWorkerKey, type WorkerKey, type WorkerRef } from './domain/worker';
 import type { OperationRef, OperationSummary } from './domain/workerOperation';
 
 export type Scope = 'cluster' | 'pool' | 'worker' | 'kernel' | 'parallel';
 export type WorkerAnalysisLevel = 'worker' | 'iteration';
+export type AnalyzerSurface = 'aggregate' | 'run';
+
+export interface SetRunOptions {
+  readonly keepSelection?: boolean;
+}
 
 export interface VizState {
+  selectionSurface: AnalyzerSurface;
+  aggregateSelection: AggregateAnalyzerSelectionV1 | null;
+  inquiryId: string | null;
+  phaseId: string | null;
   runId: string | null;
+  runPanelId: string | null;
   scope: Scope;
   poolRole: string | null;
   workerKey: WorkerKey | null;
@@ -20,7 +32,11 @@ export interface VizState {
   cursorNeedsSeek: boolean; // iteration mode has not resolved the free cursor against the worker
   operation: OperationRef | null;
   workerAnalysisLevel: WorkerAnalysisLevel;
-  setRun: (runId: string) => void;
+  setSelectionSurface: (surface: AnalyzerSurface) => void;
+  setAggregateSelection: (selection: AggregateAnalyzerSelectionV1) => void;
+  setInquiryContextIdentity: (inquiryId: string | null, phaseId: string | null) => void;
+  setRun: (runId: string, options?: SetRunOptions) => void;
+  selectRunPanel: (panelId: string) => void;
   setCluster: () => void;
   selectPool: (role: string) => void;
   selectWorker: (worker: WorkerRef) => void;
@@ -35,7 +51,12 @@ export interface VizState {
 }
 
 export const useViz = create<VizState>((set) => ({
+  selectionSurface: 'aggregate',
+  aggregateSelection: null,
+  inquiryId: null,
+  phaseId: null,
   runId: null,
+  runPanelId: null,
   scope: 'cluster',
   poolRole: null,
   workerKey: null,
@@ -46,22 +67,33 @@ export const useViz = create<VizState>((set) => ({
   operation: null,
   workerAnalysisLevel: 'worker',
 
-  setRun: (runId) =>
-    set({
-      runId,
-      scope: 'cluster',
-      poolRole: null,
-      leafId: null,
-      parId: null,
-      cursorMs: null,
-      cursorNeedsSeek: false,
-      workerKey: null,
-      operation: null,
-      workerAnalysisLevel: 'worker',
-    }),
+  setSelectionSurface: (selectionSurface) => set({ selectionSurface }),
+  setAggregateSelection: (aggregateSelection) =>
+    set({ selectionSurface: 'aggregate', aggregateSelection }),
+  setInquiryContextIdentity: (inquiryId, phaseId) => set({ inquiryId, phaseId }),
+  selectRunPanel: (runPanelId) => set({ selectionSurface: 'run', runPanelId }),
+  setRun: (runId, options) =>
+    set(
+      options?.keepSelection
+        ? { runId }
+        : {
+            runId,
+            runPanelId: null,
+            scope: 'cluster',
+            poolRole: null,
+            leafId: null,
+            parId: null,
+            cursorMs: null,
+            cursorNeedsSeek: false,
+            workerKey: null,
+            operation: null,
+            workerAnalysisLevel: 'worker',
+          },
+    ),
   setCluster: () =>
     set({
       scope: 'cluster',
+      runPanelId: null,
       poolRole: null,
       leafId: null,
       parId: null,
@@ -72,6 +104,7 @@ export const useViz = create<VizState>((set) => ({
   selectPool: (role) =>
     set({
       scope: 'pool',
+      runPanelId: null,
       poolRole: role,
       leafId: null,
       parId: null,
@@ -82,6 +115,7 @@ export const useViz = create<VizState>((set) => ({
   selectWorker: (worker) =>
     set({
       scope: 'worker',
+      runPanelId: null,
       workerKey: makeWorkerKey(worker),
       poolRole: worker.poolTag,
       leafId: null,
@@ -93,6 +127,7 @@ export const useViz = create<VizState>((set) => ({
   showWorkerAnalysis: () =>
     set({
       scope: 'worker',
+      runPanelId: null,
       workerAnalysisLevel: 'worker',
       operation: null,
       leafId: null,
@@ -102,15 +137,28 @@ export const useViz = create<VizState>((set) => ({
   showIterationAnalysis: () =>
     set((state) => ({
       scope: 'worker',
+      runPanelId: null,
       workerAnalysisLevel: 'iteration',
       leafId: null,
       parId: null,
       cursorNeedsSeek: state.operation === null && state.cursorMs !== null,
     })),
   selectKernel: (leafId) =>
-    set({ scope: 'kernel', workerAnalysisLevel: 'iteration', leafId, parId: null }),
+    set({
+      scope: 'kernel',
+      runPanelId: null,
+      workerAnalysisLevel: 'iteration',
+      leafId,
+      parId: null,
+    }),
   selectParallel: (parId) =>
-    set({ scope: 'parallel', workerAnalysisLevel: 'iteration', parId, leafId: null }),
+    set({
+      scope: 'parallel',
+      runPanelId: null,
+      workerAnalysisLevel: 'iteration',
+      parId,
+      leafId: null,
+    }),
   // A free wall-clock cursor starts an asynchronous reverse lookup. Preserve
   // the currently rendered operation until the fused seek+buffer response is
   // ready; the provider then replaces or clears it in the same render as the

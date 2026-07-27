@@ -25,6 +25,7 @@ export default function RequestStateCard({ idx }: { idx: string }) {
 
   return (
     <ChartCard
+      evidenceId="request-state"
       idx={idx}
       title="Request state"
       sub={

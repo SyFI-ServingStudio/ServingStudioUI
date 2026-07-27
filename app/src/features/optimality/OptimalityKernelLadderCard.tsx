@@ -23,6 +23,7 @@ export default function OptimalityKernelLadderCard({
   if (projection.status !== 'ready') {
     return (
       <ChartCard
+        evidenceId="optimality-kernel-ladder"
         idx={idx}
         title={title}
         sub={projection.status.replace('_', ' ')}
@@ -38,6 +39,7 @@ export default function OptimalityKernelLadderCard({
     : `${projection.label} / ${projection.kernelNames.length} kernels`;
   return (
     <ChartCard
+      evidenceId="optimality-kernel-ladder"
       idx={idx}
       title={title}
       sub={sub}
