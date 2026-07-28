@@ -7,6 +7,7 @@ import ExperimentSelector from './ExperimentSelector';
 
 const entries: readonly SweepListItem[] = [
   {
+    workspaceId: 'w_main',
     sweepId: 'recent-sweep',
     kind: 'sweep',
     displayName: '20260727_0_rate_sweep',
@@ -19,6 +20,7 @@ const entries: readonly SweepListItem[] = [
     updatedAt: '2026-07-27T10:00:00Z',
   },
   {
+    workspaceId: 'w_main',
     sweepId: 'recent-singleton',
     kind: 'singleton',
     displayName: '20260727_1_smoke',
@@ -31,6 +33,7 @@ const entries: readonly SweepListItem[] = [
     updatedAt: '2026-07-27T09:00:00Z',
   },
   {
+    workspaceId: 'w_main',
     sweepId: 'older-singleton',
     kind: 'singleton',
     displayName: '20260720_0_afd',

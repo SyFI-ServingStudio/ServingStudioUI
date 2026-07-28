@@ -14,6 +14,7 @@ const lifecycleStage = z.enum(['not_started', 'pending', 'complete', 'failed']);
 
 const sweepCatalogEntry = z
   .object({
+    workspace_id: nonEmptyString,
     sweep_id: nonEmptyString,
     kind: z.enum(['sweep', 'singleton']),
     display_name: nonEmptyString,
@@ -53,6 +54,7 @@ const sweepPayloadSchema = z
   .object({
     protocol_version: z.literal(1),
     schema_version: z.literal(1),
+    workspace_id: nonEmptyString,
     sweep_id: nonEmptyString,
     display_name: nonEmptyString,
     meta: z
@@ -143,6 +145,7 @@ function toCatalog(wire: WireSweepCatalog): AnalyzerV1SweepCatalog {
     protocolVersion: 1,
     generatedAt: wire.generated_at,
     sweeps: wire.sweeps.map((sweep) => ({
+      workspaceId: sweep.workspace_id,
       sweepId: sweep.sweep_id,
       kind: sweep.kind,
       displayName: sweep.display_name,
@@ -162,6 +165,7 @@ function toAnalysis(wire: WireSweepPayload): SweepAnalysis {
   return {
     protocolVersion: 1,
     schemaVersion: 1,
+    workspaceId: wire.workspace_id,
     sweepId: wire.sweep_id,
     displayName: wire.display_name,
     axes: wire.axes,

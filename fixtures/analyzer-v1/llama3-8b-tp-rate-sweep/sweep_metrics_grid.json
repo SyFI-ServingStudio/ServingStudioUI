@@ -1,6 +1,7 @@
 {
   "protocol_version": 1,
   "schema_version": 1,
+  "workspace_id": "w_main",
   "sweep_id": "s_fixture_llama3_8b_tp_rate",
   "display_name": "20260727_0_llama3_8b_tp_rate",
   "meta": { "num_axes": 2, "num_runs": 6 },

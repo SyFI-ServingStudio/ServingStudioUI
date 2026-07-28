@@ -103,6 +103,7 @@ export type TraceResource =
   | FailedArtifact;
 
 export interface RunListItem {
+  workspaceId: string;
   runId: string;
   kind: RunKind;
   displayName?: string;

@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  analyzerSelectionChangeV1Schema,
-  analyzerSelectionV1Schema,
-  inquiryContextV1Schema,
+  analyzerSelectionChangeV2Schema,
+  analyzerSelectionV2Schema,
+  inquiryContextV2Schema,
 } from './analyzerSelection';
 
 const runSelection = {
   kind: 'run' as const,
+  workspaceId: 'w_main',
   runId: 'r_1',
   panelId: 'kernel-time-breakdown',
   scope: 'kernel' as const,
@@ -24,8 +25,9 @@ const runSelection = {
 describe('analyzer selection protocol', () => {
   it('accepts aggregate and literal run VizState selections', () => {
     expect(
-      analyzerSelectionV1Schema.parse({
+      analyzerSelectionV2Schema.parse({
         kind: 'aggregate',
+        workspaceId: 'w_main',
         experimentId: 's_1',
         panelId: 'tpot',
         metricKey: 'tpot_p99_ms',
@@ -33,13 +35,13 @@ describe('analyzer selection protocol', () => {
         coordinates: { request_rate: 44.6, tensor_parallel: 4 },
       }),
     ).toMatchObject({ kind: 'aggregate', panelId: 'tpot' });
-    expect(analyzerSelectionV1Schema.parse(runSelection)).toEqual(runSelection);
+    expect(analyzerSelectionV2Schema.parse(runSelection)).toEqual(runSelection);
   });
 
   it('keeps inquiry identity outside the analyzer selection', () => {
     expect(
-      inquiryContextV1Schema.parse({
-        protocol: 'vibesim.inquiry-context/v1',
+      inquiryContextV2Schema.parse({
+        protocol: 'vibesim.inquiry-context/v2',
         inquiryId: 'inq_01',
         phaseId: 'refine_01',
         selection: runSelection,
@@ -49,8 +51,8 @@ describe('analyzer selection protocol', () => {
 
   it('requires a positive revision for selection notifications', () => {
     expect(
-      analyzerSelectionChangeV1Schema.safeParse({
-        protocol: 'vibesim.analyzer/v1',
+      analyzerSelectionChangeV2Schema.safeParse({
+        protocol: 'vibesim.analyzer/v2',
         type: 'selection-change',
         revision: 0,
         selection: runSelection,

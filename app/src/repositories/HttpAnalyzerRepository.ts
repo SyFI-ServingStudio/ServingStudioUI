@@ -144,6 +144,7 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
   async listRuns(): Promise<readonly RunListItem[]> {
     const catalog = await this.refreshCatalog();
     return catalog.runs.map((entry) => ({
+      workspaceId: entry.workspaceId,
       runId: entry.runId,
       kind: entry.kind,
       displayName: entry.displayName,

@@ -29,14 +29,15 @@ const conversation = {
       ],
       citations: [
         {
-          protocol: 'vibesim.citation/v1',
+          protocol: 'vibesim.citation/v2',
           token: 'exp.tp2.rate20.throughput',
           sourceStart: 8,
           sourceEnd: 35,
           displayLabel: 'TP=2 · rate=20 · Throughput',
           target: {
-            protocol: 'vibesim.analyzer/v1',
+            protocol: 'vibesim.analyzer/v2',
             kind: 'aggregate',
+            workspaceId: 'w_main',
             experimentId: 's_test',
             panelId: 'total_tps',
             metricKey: 'total_tps',
@@ -50,7 +51,7 @@ const conversation = {
 };
 
 beforeEach(() => {
-  window.sessionStorage.setItem('vibesim.conversation.id', 'c_test');
+  window.sessionStorage.setItem('vibesim.conversation.id.w_main', 'c_test');
   window.localStorage.clear();
   window.history.replaceState(null, '', '/');
   vi.stubGlobal(
@@ -121,7 +122,7 @@ describe('AgentPane', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url === '/api/conversations') {
+        if (url === '/api/workspaces/w_main/conversations') {
           return new Response(
             JSON.stringify({
               conversations: [
@@ -163,7 +164,7 @@ describe('AgentPane', () => {
     await user.click(screen.getByRole('button', { name: 'Open H200 goodput boundary' }));
 
     expect(await screen.findByText('The saved answer.')).toBeInTheDocument();
-    expect(window.sessionStorage.getItem('vibesim.conversation.id')).toBe('c_older');
+    expect(window.sessionStorage.getItem('vibesim.conversation.id.w_main')).toBe('c_older');
     expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
   });
 
@@ -208,6 +209,7 @@ describe('AgentPane', () => {
     act(() => {
       useViz.getState().setAggregateSelection({
         kind: 'aggregate',
+        workspaceId: 'w_main',
         experimentId: 's_test',
         panelId: 'total_tps',
         metricKey: 'total_tps',
@@ -250,10 +252,10 @@ describe('AgentPane', () => {
   });
 
   it('creates one conversation and sends the first prompt under StrictMode', async () => {
-    window.sessionStorage.removeItem('vibesim.conversation.id');
+    window.sessionStorage.removeItem('vibesim.conversation.id.w_main');
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url === '/api/conversations' && init?.method === 'POST') {
+      if (url === '/api/workspaces/w_main/conversations' && init?.method === 'POST') {
         return new Response(JSON.stringify({ id: 'c_new', title: 'New chat', messages: [] }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -299,7 +301,8 @@ describe('AgentPane', () => {
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.filter(
-          ([input, init]) => String(input) === '/api/conversations' && init?.method === 'POST',
+          ([input, init]) =>
+            String(input) === '/api/workspaces/w_main/conversations' && init?.method === 'POST',
         ),
       ).toHaveLength(1);
       expect(
@@ -307,6 +310,28 @@ describe('AgentPane', () => {
           ([input, init]) => String(input).endsWith('/messages') && init?.method === 'POST',
         ),
       ).toHaveLength(1);
+    });
+  });
+
+  it('does not create a conversation until the user sends the first prompt', async () => {
+    window.sessionStorage.removeItem('vibesim.conversation.id.w_main');
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(JSON.stringify({ conversations: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <StrictMode>
+        <AgentPane full prompt="" />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByRole('textbox')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
     });
   });
 

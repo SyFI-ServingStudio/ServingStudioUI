@@ -142,6 +142,7 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
   async listRuns(): Promise<readonly RunListItem[]> {
     const catalog = await this.loadCatalog();
     return catalog.runs.map((entry) => ({
+      workspaceId: entry.workspaceId,
       runId: entry.runId,
       kind: entry.kind,
       displayName: entry.displayName,

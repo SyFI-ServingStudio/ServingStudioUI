@@ -7,6 +7,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -14,6 +15,8 @@ import {
 
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
 import { analyzerSelectionFromVizState } from '../../application/analyzerSelection';
+import { listWorkspaces } from '../../application/workspaceRepository';
+import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import { evidenceRefFromHash } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
@@ -95,6 +98,8 @@ function AgentEdgeToggle({
 
 export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const narrow = useMediaQuery('(max-width:900px)');
+  const workspaceId = workspaceIdFromLocation();
+  const [workspaceName, setWorkspaceName] = useState<string>();
   const sweepList = useSweepListQuery();
   const aggregateSelection = useViz((state) => state.aggregateSelection);
   const analyzerSelection = useViz(analyzerSelectionFromVizState);
@@ -103,7 +108,10 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     (hashEvidence?.kind === 'aggregate' ? hashEvidence.experimentId : null) ??
     aggregateSelection?.experimentId ??
     null;
-  const experiment = sweepList.data?.find((entry) => entry.sweepId === experimentId) ?? null;
+  const experiment =
+    sweepList.data?.find(
+      (entry) => entry.workspaceId === workspaceId && entry.sweepId === experimentId,
+    ) ?? null;
   const sweep = useSweepQuery(experimentId, experiment?.status === 'ready');
   const turnContext = useMemo(
     () => analyzerTurnContext(analyzerSelection, sweep.data),
@@ -117,9 +125,28 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
     pointerX: number;
     panelWidth: number;
   } | null>(null);
-  const prompt =
-    window.sessionStorage.getItem('vibesim.entry.prompt') ??
-    'Explain the active experiment and guide me to the most useful evidence.';
+  const prompt = window.sessionStorage.getItem('vibesim.entry.prompt') ?? '';
+  const consumeInitialPrompt = useCallback(() => {
+    window.sessionStorage.removeItem('vibesim.entry.prompt');
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    void listWorkspaces()
+      .then((workspaces) => {
+        if (!disposed) {
+          setWorkspaceName(
+            workspaces.find((workspace) => workspace.workspaceId === workspaceId)?.displayName,
+          );
+        }
+      })
+      .catch(() => {
+        if (!disposed) setWorkspaceName(undefined);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [workspaceId]);
 
   useEffect(() => {
     const currentMode = useWorkspaceUi.getState().agentPanelMode;
@@ -258,7 +285,11 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
         }}
       >
         <AgentPane
+          key={workspaceId}
+          workspaceId={workspaceId}
+          workspaceName={workspaceName}
           prompt={prompt}
+          onInitialPromptStarted={consumeInitialPrompt}
           onFold={narrow ? () => setAgentPanelMode('spine') : undefined}
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
           analyzerContext={turnContext}

@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-import { analyzerSelectionV1Schema } from './analyzerSelection';
-import { evidenceRefV1Schema } from './evidenceRef';
+import { analyzerSelectionV2Schema } from './analyzerSelection';
+import { evidenceRefV2Schema } from './evidenceRef';
 
-export const citationDictionaryEntryV1Schema = z
+export const citationDictionaryEntryV2Schema = z
   .object({
     token: z
       .string()
@@ -11,16 +11,16 @@ export const citationDictionaryEntryV1Schema = z
       .max(160)
       .regex(/^(?:exp|run)\.[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$/),
     displayLabel: z.string().min(1).max(240),
-    target: evidenceRefV1Schema,
+    target: evidenceRefV2Schema,
   })
   .strict();
 
-export const citationDictionarySnapshotV1Schema = z
+export const citationDictionarySnapshotV2Schema = z
   .object({
-    protocol: z.literal('vibesim.citation-dictionary/v1'),
+    protocol: z.literal('vibesim.citation-dictionary/v2'),
     identity: z.string().min(1).max(160),
     document: z.string().min(1).max(64_000),
-    entries: z.array(citationDictionaryEntryV1Schema).max(2_000),
+    entries: z.array(citationDictionaryEntryV2Schema).max(2_000),
   })
   .strict()
   .superRefine((snapshot, context) => {
@@ -30,29 +30,29 @@ export const citationDictionarySnapshotV1Schema = z
     }
   });
 
-export const analyzerTurnContextV1Schema = z
+export const analyzerTurnContextV2Schema = z
   .object({
-    protocol: z.literal('vibesim.conversation-context/v1'),
-    selection: analyzerSelectionV1Schema.nullable(),
-    citationDictionary: citationDictionarySnapshotV1Schema,
+    protocol: z.literal('vibesim.conversation-context/v2'),
+    selection: analyzerSelectionV2Schema.nullable(),
+    citationDictionary: citationDictionarySnapshotV2Schema,
   })
   .strict();
 
-export const frozenCitationV1Schema = z
+export const frozenCitationV2Schema = z
   .object({
-    protocol: z.literal('vibesim.citation/v1'),
+    protocol: z.literal('vibesim.citation/v2'),
     token: z.string(),
     sourceStart: z.number().int().nonnegative(),
     sourceEnd: z.number().int().nonnegative(),
     displayLabel: z.string(),
-    target: evidenceRefV1Schema,
+    target: evidenceRefV2Schema,
   })
   .strict()
   .refine((citation) => citation.sourceEnd > citation.sourceStart, {
     message: 'citation source range must be non-empty',
   });
 
-export type CitationDictionaryEntryV1 = z.infer<typeof citationDictionaryEntryV1Schema>;
-export type CitationDictionarySnapshotV1 = z.infer<typeof citationDictionarySnapshotV1Schema>;
-export type AnalyzerTurnContextV1 = z.infer<typeof analyzerTurnContextV1Schema>;
-export type FrozenCitationV1 = z.infer<typeof frozenCitationV1Schema>;
+export type CitationDictionaryEntryV2 = z.infer<typeof citationDictionaryEntryV2Schema>;
+export type CitationDictionarySnapshotV2 = z.infer<typeof citationDictionarySnapshotV2Schema>;
+export type AnalyzerTurnContextV2 = z.infer<typeof analyzerTurnContextV2Schema>;
+export type FrozenCitationV2 = z.infer<typeof frozenCitationV2Schema>;

@@ -5,7 +5,7 @@ import { ChartFocusProvider } from './components/ChartFocusProvider';
 import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
   analyzerEvidenceHref,
-  analyzerNavigateCommandV1Schema,
+  analyzerNavigateCommandV2Schema,
   evidenceRefFromHash,
   navigationResult,
 } from './domain/analyzerNavigation';
@@ -50,7 +50,7 @@ export default function AppRoot() {
     };
     const receiveAgentNavigation = (event: MessageEvent<unknown>) => {
       if (event.origin !== window.location.origin || event.source === null) return;
-      const parsed = analyzerNavigateCommandV1Schema.safeParse(event.data);
+      const parsed = analyzerNavigateCommandV2Schema.safeParse(event.data);
       if (!parsed.success) return;
       pendingNavigationResponses.current.set(parsed.data.requestId, {
         source: event.source as WindowProxy,
@@ -90,11 +90,10 @@ export default function AppRoot() {
       window.removeEventListener(ANALYZER_NAVIGATION_RESULT_EVENT, returnNavigationResult);
     };
   }, []);
-  const integrated = new URLSearchParams(window.location.search).get('workspace') === '1';
   let content;
   if (view === 'entry') content = <EntryPage />;
   else if (view === 'agent') content = <AgentPage />;
-  else if (view === 'aggregate') content = <SweepPage integrated={integrated} />;
+  else if (view === 'aggregate') content = <SweepPage integrated />;
   else {
     content = (
       <ChartFocusProvider resetKey={runId}>
@@ -104,7 +103,7 @@ export default function AppRoot() {
   }
   return (
     <Suspense fallback={null}>
-      {integrated && (view === 'aggregate' || view === 'run') ? (
+      {view === 'aggregate' || view === 'run' ? (
         <WorkspaceShell>{content}</WorkspaceShell>
       ) : (
         content

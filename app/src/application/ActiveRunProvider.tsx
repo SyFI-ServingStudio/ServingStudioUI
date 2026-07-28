@@ -40,16 +40,30 @@ function asError(error: unknown, fallback: string): Error {
  * facts; optional subjects are subscribed independently by name. */
 export function ActiveRunProvider({ children }: { children: ReactNode }) {
   const requestedRunId = useViz((state) => state.runId);
+  const requestedWorkspaceId = useViz((state) => state.runWorkspaceId);
   const setRun = useViz((state) => state.setRun);
   const catalog = useRunListQuery();
   const catalogRuns = catalog.data ?? [];
   const requestedExists =
-    requestedRunId !== null && catalogRuns.some((run) => run.runId === requestedRunId);
-  const resolvedRunId = requestedExists ? requestedRunId : (catalogRuns[0]?.runId ?? null);
+    requestedRunId !== null &&
+    catalogRuns.some(
+      (run) => run.runId === requestedRunId && run.workspaceId === requestedWorkspaceId,
+    );
+  const resolvedRun = requestedExists
+    ? catalogRuns.find(
+        (run) => run.runId === requestedRunId && run.workspaceId === requestedWorkspaceId,
+      )
+    : catalogRuns[0];
+  const resolvedRunId = resolvedRun?.runId ?? null;
 
   useEffect(() => {
-    if (resolvedRunId !== null && resolvedRunId !== requestedRunId) setRun(resolvedRunId);
-  }, [requestedRunId, resolvedRunId, setRun]);
+    if (
+      resolvedRunId !== null &&
+      (resolvedRunId !== requestedRunId || resolvedRun?.workspaceId !== requestedWorkspaceId)
+    ) {
+      setRun(resolvedRunId, { workspaceId: resolvedRun?.workspaceId });
+    }
+  }, [requestedRunId, requestedWorkspaceId, resolvedRun?.workspaceId, resolvedRunId, setRun]);
 
   const descriptor = useRunDescriptorQuery(resolvedRunId ?? '');
   // Simulation completion is the only lifecycle barrier for summary/topology.

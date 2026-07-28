@@ -6,6 +6,7 @@ import { analyzerTurnContext } from './citationDictionary';
 const analysis: SweepAnalysis = {
   protocolVersion: 1,
   schemaVersion: 1,
+  workspaceId: 'w_main',
   sweepId: 's_test',
   displayName: 'TP and rate sweep',
   axes: ['tensor_parallel', 'request_rate'],
@@ -51,7 +52,10 @@ const analysis: SweepAnalysis = {
 
 describe('citation dictionary', () => {
   it('preserves launcher axis order and only publishes actual members', () => {
-    const context = analyzerTurnContext({ kind: 'aggregate', experimentId: 's_test' }, analysis);
+    const context = analyzerTurnContext(
+      { kind: 'aggregate', workspaceId: 'w_main', experimentId: 's_test' },
+      analysis,
+    );
     const tokens = context?.citationDictionary.entries.map((entry) => entry.token) ?? [];
 
     expect(tokens).toContain('exp.tp1.rate10.throughput');
@@ -61,14 +65,18 @@ describe('citation dictionary', () => {
   });
 
   it('freezes the exact experiment, run, coordinates, panel, and metric', () => {
-    const context = analyzerTurnContext({ kind: 'aggregate', experimentId: 's_test' }, analysis);
+    const context = analyzerTurnContext(
+      { kind: 'aggregate', workspaceId: 'w_main', experimentId: 's_test' },
+      analysis,
+    );
     const entry = context?.citationDictionary.entries.find(
       (candidate) => candidate.token === 'exp.tp2.rate20.throughput',
     );
 
     expect(entry?.target).toEqual({
-      protocol: 'vibesim.analyzer/v1',
+      protocol: 'vibesim.analyzer/v2',
       kind: 'aggregate',
+      workspaceId: 'w_main',
       experimentId: 's_test',
       panelId: 'total_tps',
       metricKey: 'total_tps',
@@ -80,6 +88,7 @@ describe('citation dictionary', () => {
   it('builds run references from the full literal run selection', () => {
     const context = analyzerTurnContext({
       kind: 'run',
+      workspaceId: 'w_main',
       runId: 'r_2_20',
       panelId: null,
       scope: 'worker',

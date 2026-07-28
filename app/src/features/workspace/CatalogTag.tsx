@@ -3,9 +3,14 @@ import type { ReactNode } from 'react';
 
 import { tokens } from '../../theme';
 
-export type CatalogTagTone = 'deployment' | 'trace' | 'axis' | 'singleton';
+export type CatalogTagTone = 'workspace' | 'deployment' | 'trace' | 'axis' | 'singleton';
 
 const toneStyles: Record<CatalogTagTone, { color: string; border: string; background: string }> = {
+  workspace: {
+    color: tokens.gold,
+    border: 'rgba(128,102,0,.27)',
+    background: 'rgba(128,102,0,.065)',
+  },
   deployment: {
     color: tokens.teal,
     border: 'rgba(31,111,107,.28)',

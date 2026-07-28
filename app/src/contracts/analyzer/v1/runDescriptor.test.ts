@@ -5,6 +5,7 @@ import { parseAnalyzerV1RunDescriptor } from './runDescriptor';
 function validWireDescriptor(): Record<string, unknown> {
   return {
     protocol_version: 1,
+    workspace_id: 'w_main',
     run_id: '20260715_1_test',
     kind: 'simulation',
     display_name: 'Test run',
@@ -66,6 +67,7 @@ describe('parseAnalyzerV1RunDescriptor', () => {
 
     expect(descriptor).toMatchObject({
       protocolVersion: 1,
+      workspaceId: 'w_main',
       runId: '20260715_1_test',
       modelName: 'model/test.json',
       deployment: 'afd',

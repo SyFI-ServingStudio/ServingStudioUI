@@ -1,10 +1,10 @@
-import type { AnalyzerSelectionV1 } from '../../domain/analyzerSelection';
+import type { AnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import {
-  analyzerTurnContextV1Schema,
-  citationDictionarySnapshotV1Schema,
-  type AnalyzerTurnContextV1,
-  type CitationDictionaryEntryV1,
-  type CitationDictionarySnapshotV1,
+  analyzerTurnContextV2Schema,
+  citationDictionarySnapshotV2Schema,
+  type AnalyzerTurnContextV2,
+  type CitationDictionaryEntryV2,
+  type CitationDictionarySnapshotV2,
 } from '../../domain/citation';
 import type {
   SweepAnalysis,
@@ -129,9 +129,9 @@ function memberPrefix(run: SweepRun, axes: readonly AxisDictionary[]): string | 
   return segments.join('.');
 }
 
-function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapshotV1 {
+function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapshotV2 {
   const axes = buildAxisDictionaries(analysis);
-  const entries: CitationDictionaryEntryV1[] = [];
+  const entries: CitationDictionaryEntryV2[] = [];
   const metrics = analysis.metrics.map((metric) => ({
     metric,
     path: metricPath(metric),
@@ -146,8 +146,9 @@ function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapsho
       token: `exp.${path}`,
       displayLabel: `${metric.label} · all coordinates`,
       target: {
-        protocol: 'vibesim.analyzer/v1',
+        protocol: 'vibesim.analyzer/v2',
         kind: 'aggregate',
+        workspaceId: analysis.workspaceId,
         experimentId: analysis.sweepId,
         panelId,
         metricKey: metric.key,
@@ -185,8 +186,9 @@ function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapsho
         token: `exp.${prefix}.${path}`,
         displayLabel: `${coordinateLabel} · ${metric.label}`,
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'aggregate',
+          workspaceId: analysis.workspaceId,
           experimentId: analysis.sweepId,
           panelId,
           metricKey: metric.key,
@@ -224,8 +226,8 @@ function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapsho
   const identitySource = entries
     .map((entry) => `${entry.token}:${entry.target.runId ?? ''}`)
     .join('|');
-  return citationDictionarySnapshotV1Schema.parse({
-    protocol: 'vibesim.citation-dictionary/v1',
+  return citationDictionarySnapshotV2Schema.parse({
+    protocol: 'vibesim.citation-dictionary/v2',
     identity: `aggregate-${shortIdentity(`${analysis.sweepId}|${identitySource}`)}`,
     document,
     entries,
@@ -236,7 +238,7 @@ interface RunPanelDescriptor {
   token: string;
   panelId: string;
   label: string;
-  scopes: readonly Extract<AnalyzerSelectionV1, { kind: 'run' }>['scope'][];
+  scopes: readonly Extract<AnalyzerSelectionV2, { kind: 'run' }>['scope'][];
 }
 
 const RUN_PANELS: readonly RunPanelDescriptor[] = [
@@ -274,8 +276,8 @@ const RUN_PANELS: readonly RunPanelDescriptor[] = [
 ];
 
 function runDictionary(
-  selection: Extract<AnalyzerSelectionV1, { kind: 'run' }>,
-): CitationDictionarySnapshotV1 {
+  selection: Extract<AnalyzerSelectionV2, { kind: 'run' }>,
+): CitationDictionarySnapshotV2 {
   const descriptors = [
     ...RUN_PANELS.filter((descriptor) => descriptor.scopes.includes(selection.scope)),
     ...(selection.panelId &&
@@ -290,11 +292,11 @@ function runDictionary(
         ]
       : []),
   ];
-  const entries = descriptors.map<CitationDictionaryEntryV1>((descriptor) => ({
+  const entries = descriptors.map<CitationDictionaryEntryV2>((descriptor) => ({
     token: `run.${selection.scope}.${descriptor.token}`,
     displayLabel: descriptor.label,
     target: {
-      protocol: 'vibesim.analyzer/v1',
+      protocol: 'vibesim.analyzer/v2',
       ...selection,
       panelId: descriptor.panelId,
     },
@@ -307,8 +309,8 @@ function runDictionary(
     'Current run `run`',
     ...entries.map((entry) => `- \`${entry.token}\`: ${entry.displayLabel}`),
   ].join('\n');
-  return citationDictionarySnapshotV1Schema.parse({
-    protocol: 'vibesim.citation-dictionary/v1',
+  return citationDictionarySnapshotV2Schema.parse({
+    protocol: 'vibesim.citation-dictionary/v2',
     identity: `run-${shortIdentity(`${selection.runId}|${JSON.stringify(selection)}|${entries.map((entry) => entry.token).join('|')}`)}`,
     document,
     entries,
@@ -316,20 +318,22 @@ function runDictionary(
 }
 
 export function analyzerTurnContext(
-  selection: AnalyzerSelectionV1 | null,
+  selection: AnalyzerSelectionV2 | null,
   analysis?: SweepAnalysis,
-): AnalyzerTurnContextV1 | null {
+): AnalyzerTurnContextV2 | null {
   if (selection === null) return null;
   if (
     selection.kind === 'aggregate' &&
-    (!analysis || analysis.sweepId !== selection.experimentId)
+    (!analysis ||
+      analysis.workspaceId !== selection.workspaceId ||
+      analysis.sweepId !== selection.experimentId)
   ) {
     return null;
   }
   const citationDictionary =
     selection.kind === 'aggregate' ? aggregateDictionary(analysis!) : runDictionary(selection);
-  return analyzerTurnContextV1Schema.parse({
-    protocol: 'vibesim.conversation-context/v1',
+  return analyzerTurnContextV2Schema.parse({
+    protocol: 'vibesim.conversation-context/v2',
     selection,
     citationDictionary,
   });

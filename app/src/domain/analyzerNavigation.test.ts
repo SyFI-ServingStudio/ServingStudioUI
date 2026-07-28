@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   analyzerEvidenceHref,
-  analyzerNavigateCommandV1Schema,
+  analyzerNavigateCommandV2Schema,
   evidenceRefFromHash,
 } from './analyzerNavigation';
 
 describe('analyzer navigation protocol', () => {
   it('round-trips a bounded aggregate evidence reference through the URL', () => {
     const target = {
-      protocol: 'vibesim.analyzer/v1' as const,
+      protocol: 'vibesim.analyzer/v2' as const,
       kind: 'aggregate' as const,
+      workspaceId: 'w_main',
       experimentId: 's_exp',
       panelId: 'tpot',
       metricKey: 'tpot_p99_ms',
@@ -24,8 +25,9 @@ describe('analyzer navigation protocol', () => {
 
   it('round-trips a complete run evidence reference through the URL', () => {
     const target = {
-      protocol: 'vibesim.analyzer/v1' as const,
+      protocol: 'vibesim.analyzer/v2' as const,
       kind: 'run' as const,
+      workspaceId: 'w_main',
       runId: 'r_member',
       panelId: 'kernel-breakdown',
       scope: 'kernel' as const,
@@ -53,26 +55,28 @@ describe('analyzer navigation protocol', () => {
 
   it('accepts only strict versioned navigate commands', () => {
     expect(
-      analyzerNavigateCommandV1Schema.safeParse({
-        protocol: 'vibesim.analyzer/v1',
+      analyzerNavigateCommandV2Schema.safeParse({
+        protocol: 'vibesim.analyzer/v2',
         requestId: 'request-1',
         type: 'navigate',
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'aggregate',
+          workspaceId: 'w_main',
           experimentId: 's_exp',
           panelId: 'ttft',
         },
       }).success,
     ).toBe(true);
     expect(
-      analyzerNavigateCommandV1Schema.safeParse({
-        protocol: 'vibesim.analyzer/v1',
+      analyzerNavigateCommandV2Schema.safeParse({
+        protocol: 'vibesim.analyzer/v2',
         requestId: 'request-1',
         type: 'navigate',
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'aggregate',
+          workspaceId: 'w_main',
           experimentId: 's_exp',
         },
         selector: '.chart',

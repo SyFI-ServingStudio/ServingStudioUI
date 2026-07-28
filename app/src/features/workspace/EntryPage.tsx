@@ -1,9 +1,15 @@
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
-import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSweepListQuery } from '../../application/queries';
+import {
+  createWorkspace,
+  listWorkspaces,
+  type WorkspaceSummary,
+} from '../../application/workspaceRepository';
+import { agentWorkspaceHref } from '../../application/workspaceRoute';
 import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
@@ -19,20 +25,21 @@ const PROMPT_STARTERS = [
 
 function navigateToExperiment(entry: SweepListItem): void {
   const destination = new URL(window.location.href);
-  destination.search = '?workspace=1';
+  destination.search = '';
   destination.hash = analyzerEvidenceHref({
-    protocol: 'vibesim.analyzer/v1',
+    protocol: 'vibesim.analyzer/v2',
     kind: 'aggregate',
+    workspaceId: entry.workspaceId,
     experimentId: entry.sweepId,
   });
   window.location.assign(destination);
 }
 
-function navigateToAgent(prompt: string): void {
+function navigateToAgent(prompt: string, workspaceId: string): void {
   window.sessionStorage.setItem('vibesim.entry.prompt', prompt);
   const destination = new URL(window.location.href);
-  destination.search = '?inquiry=preview';
-  destination.hash = '#/agent';
+  destination.search = '';
+  destination.hash = agentWorkspaceHref(workspaceId);
   window.location.assign(destination);
 }
 
@@ -84,13 +91,28 @@ function ModeSwitch({ mode, onChange }: { mode: EntryMode; onChange: (mode: Entr
   );
 }
 
-function AgentStart() {
+function workspaceNameFromPrompt(prompt: string): string {
+  const normalized = prompt.replace(/\s+/g, ' ').trim();
+  return normalized.length <= 56 ? normalized : `${normalized.slice(0, 53).trimEnd()}…`;
+}
+
+function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
   const [prompt, setPrompt] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [creationError, setCreationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = prompt.trim();
-    if (text) navigateToAgent(text);
+    if (!text || creating) return;
+    setCreating(true);
+    setCreationError(null);
+    void createWorkspace(workspaceNameFromPrompt(text))
+      .then((workspace) => navigateToAgent(text, workspace.workspaceId))
+      .catch((caught) => {
+        setCreationError(caught instanceof Error ? caught.message : 'Workspace creation failed');
+        setCreating(false);
+      });
   };
   return (
     <Box>
@@ -175,7 +197,7 @@ function AgentStart() {
           </Stack>
           <ButtonBase
             type="submit"
-            disabled={!prompt.trim()}
+            disabled={!prompt.trim() || creating}
             aria-label="Send"
             sx={{
               width: 36,
@@ -220,15 +242,78 @@ function AgentStart() {
           </ButtonBase>
         ))}
       </Stack>
+      {creationError && (
+        <Typography role="alert" sx={{ mt: 1.2, color: tokens.terra, textAlign: 'center' }}>
+          {creationError}
+        </Typography>
+      )}
+      {workspaces.length > 0 && (
+        <Box sx={{ maxWidth: 760, mx: 'auto', mt: 3.2 }}>
+          <Typography
+            sx={{
+              mb: 0.8,
+              color: tokens.sub2,
+              fontFamily: tokens.mono,
+              fontSize: 8.5,
+              letterSpacing: '.1em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Continue a workspace
+          </Typography>
+          <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.6 }}>
+            {workspaces.slice(0, 8).map((workspace) => (
+              <ButtonBase
+                key={workspace.workspaceId}
+                onClick={() => navigateToAgent('', workspace.workspaceId)}
+                sx={{
+                  px: 1,
+                  py: 0.6,
+                  border: `1px solid ${tokens.hair}`,
+                  borderRadius: 0.65,
+                  background:
+                    workspace.workspaceId === 'w_main' ? 'rgba(31,111,107,.055)' : tokens.tile,
+                  color: workspace.workspaceId === 'w_main' ? tokens.teal : tokens.sub,
+                  fontSize: 10,
+                  '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                }}
+              >
+                {workspace.displayName}
+              </ButtonBase>
+            ))}
+          </Stack>
+        </Box>
+      )}
     </Box>
   );
 }
 
 export default function EntryPage() {
   const [mode, setMode] = useState<EntryMode>('experiments');
+  const [workspaces, setWorkspaces] = useState<readonly WorkspaceSummary[]>([]);
+  const workspaceNames = useMemo(
+    () =>
+      Object.fromEntries(
+        workspaces.map((workspace) => [workspace.workspaceId, workspace.displayName]),
+      ),
+    [workspaces],
+  );
   const sweepList = useSweepListQuery();
   useEffect(() => {
     document.title = 'VibeSim';
+  }, []);
+  useEffect(() => {
+    let disposed = false;
+    void listWorkspaces()
+      .then((items) => {
+        if (!disposed) setWorkspaces(items);
+      })
+      .catch(() => {
+        if (!disposed) setWorkspaces([]);
+      });
+    return () => {
+      disposed = true;
+    };
   }, []);
   return (
     <Box
@@ -320,11 +405,15 @@ export default function EntryPage() {
                   No experiments are available.
                 </Typography>
               ) : (
-                <ExperimentCatalog entries={sweepList.data} onActivate={navigateToExperiment} />
+                <ExperimentCatalog
+                  entries={sweepList.data}
+                  workspaceNames={workspaceNames}
+                  onActivate={navigateToExperiment}
+                />
               )}
             </Box>
           ) : (
-            <AgentStart />
+            <AgentStart workspaces={workspaces} />
           )}
         </Box>
       </Box>

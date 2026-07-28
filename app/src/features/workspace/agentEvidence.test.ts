@@ -6,6 +6,7 @@ import { firstThroughputEvidence } from './agentEvidence';
 const analysis: SweepAnalysis = {
   protocolVersion: 1,
   schemaVersion: 1,
+  workspaceId: 'w_main',
   sweepId: 's_test',
   displayName: 'test',
   axes: ['request_rate'],

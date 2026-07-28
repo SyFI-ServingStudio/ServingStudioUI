@@ -24,6 +24,7 @@ const lifecycleSchema = z
 
 const runCatalogEntrySchema = z
   .object({
+    workspace_id: nonEmptyString,
     run_id: nonEmptyString,
     kind: z.literal('simulation'),
     display_name: nonEmptyString,
@@ -57,6 +58,7 @@ export const analyzerV1RunCatalogSchema = z
 
 /** Domain-facing catalog row. The repository resolves descriptorHref. */
 export interface AnalyzerV1RunCatalogEntry {
+  workspaceId: string;
   runId: string;
   kind: RunKind;
   displayName: string;
@@ -79,6 +81,7 @@ function toRunCatalog(wire: WireRunCatalog): AnalyzerV1RunCatalog {
     protocolVersion: 1,
     generatedAt: wire.generated_at,
     runs: wire.runs.map((run) => ({
+      workspaceId: run.workspace_id,
       runId: run.run_id,
       kind: 'simulation',
       displayName: run.display_name,

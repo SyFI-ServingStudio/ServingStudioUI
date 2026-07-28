@@ -2,7 +2,7 @@
   "analysis": {
     "generated_at": "2026-07-15T05:11:27Z",
     "generator_version": "fixture-export-v1+analyzer-v1",
-    "revision": "fixture-sha256-2b12e3416b434c356c88f7b8ee103c5fd18258f8cbc27f537f314236a76e4ddb"
+    "revision": "fixture-sha256-1c0dcce5c25dfde9efb043145cbf71ee294ce1ff38bc1a76dd963fb2bccd0c25"
   },
   "deployment": "afd",
   "details": {
@@ -153,5 +153,6 @@
       "pool_tag": "ffn",
       "worker_id": 1
     }
-  ]
+  ],
+  "workspace_id": "w_main"
 }

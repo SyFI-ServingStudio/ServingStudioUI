@@ -9,9 +9,10 @@ export const analyzerCoordinateValueSchema = z.union([
   z.array(z.union([z.string(), z.number().finite(), z.boolean(), z.null()])),
 ]);
 
-export const aggregateAnalyzerSelectionV1Schema = z
+export const aggregateAnalyzerSelectionV2Schema = z
   .object({
     kind: z.literal('aggregate'),
+    workspaceId: nonEmptyString,
     experimentId: nonEmptyString,
     panelId: nonEmptyString.optional(),
     metricKey: nonEmptyString.optional(),
@@ -21,7 +22,7 @@ export const aggregateAnalyzerSelectionV1Schema = z
   })
   .strict();
 
-export type AggregateAnalyzerSelectionV1 = z.infer<typeof aggregateAnalyzerSelectionV1Schema>;
+export type AggregateAnalyzerSelectionV2 = z.infer<typeof aggregateAnalyzerSelectionV2Schema>;
 
 const operationRefSchema = z
   .object({
@@ -34,9 +35,10 @@ const operationRefSchema = z
 /** Literal, serializable projection of the run-detail evidence fields in VizState.
  * Keep nulls: the inquiry payload must show what is unselected, not silently
  * erase fields and make the agent infer their state. */
-export const runAnalyzerSelectionV1Schema = z
+export const runAnalyzerSelectionV2Schema = z
   .object({
     kind: z.literal('run'),
+    workspaceId: nonEmptyString,
     runId: nonEmptyString,
     panelId: nonEmptyString.nullable(),
     scope: z.enum(['cluster', 'pool', 'worker', 'kernel', 'parallel']),
@@ -51,34 +53,34 @@ export const runAnalyzerSelectionV1Schema = z
   })
   .strict();
 
-export type RunAnalyzerSelectionV1 = z.infer<typeof runAnalyzerSelectionV1Schema>;
+export type RunAnalyzerSelectionV2 = z.infer<typeof runAnalyzerSelectionV2Schema>;
 
-export const analyzerSelectionV1Schema = z.discriminatedUnion('kind', [
-  aggregateAnalyzerSelectionV1Schema,
-  runAnalyzerSelectionV1Schema,
+export const analyzerSelectionV2Schema = z.discriminatedUnion('kind', [
+  aggregateAnalyzerSelectionV2Schema,
+  runAnalyzerSelectionV2Schema,
 ]);
 
-export type AnalyzerSelectionV1 = z.infer<typeof analyzerSelectionV1Schema>;
+export type AnalyzerSelectionV2 = z.infer<typeof analyzerSelectionV2Schema>;
 
-export const inquiryContextV1Schema = z
+export const inquiryContextV2Schema = z
   .object({
-    protocol: z.literal('vibesim.inquiry-context/v1'),
+    protocol: z.literal('vibesim.inquiry-context/v2'),
     inquiryId: nonEmptyString,
     phaseId: nonEmptyString,
-    selection: analyzerSelectionV1Schema,
+    selection: analyzerSelectionV2Schema,
   })
   .strict();
 
-export type InquiryContextV1 = z.infer<typeof inquiryContextV1Schema>;
+export type InquiryContextV2 = z.infer<typeof inquiryContextV2Schema>;
 
-export const analyzerSelectionChangeV1Schema = z
+export const analyzerSelectionChangeV2Schema = z
   .object({
-    protocol: z.literal('vibesim.analyzer/v1'),
+    protocol: z.literal('vibesim.analyzer/v2'),
     type: z.literal('selection-change'),
     revision: z.number().int().positive(),
-    selection: analyzerSelectionV1Schema,
-    context: inquiryContextV1Schema.optional(),
+    selection: analyzerSelectionV2Schema,
+    context: inquiryContextV2Schema.optional(),
   })
   .strict();
 
-export type AnalyzerSelectionChangeV1 = z.infer<typeof analyzerSelectionChangeV1Schema>;
+export type AnalyzerSelectionChangeV2 = z.infer<typeof analyzerSelectionChangeV2Schema>;

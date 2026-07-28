@@ -3,6 +3,7 @@
   "generated_at": "2026-07-27T00:00:00Z",
   "sweeps": [
     {
+      "workspace_id": "w_main",
       "sweep_id": "s_fixture_llama3_8b_tp_rate",
       "kind": "sweep",
       "display_name": "20260727_0_llama3_8b_tp_rate",
@@ -16,6 +17,7 @@
       "updated_at": "2026-07-27T00:00:00Z"
     },
     {
+      "workspace_id": "w_main",
       "sweep_id": "s_fixture_singleton_afd",
       "kind": "singleton",
       "display_name": "20260715_1_afd_ui_reanalysis",

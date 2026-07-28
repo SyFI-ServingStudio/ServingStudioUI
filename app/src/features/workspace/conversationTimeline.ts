@@ -16,6 +16,13 @@ export type ConversationCard =
       done: boolean;
     }
   | { type: 'handoff'; variant: 'delegated-task' | 'conclusion'; text: string }
+  | {
+      type: 'job';
+      workspaceId: string;
+      experimentId: string;
+      experimentPath: string;
+      status: string;
+    }
   | { type: 'error'; text: string }
   | { type: 'answer'; text: string };
 
@@ -87,6 +94,15 @@ export function conversationCards(
       current = null;
     } else if (event.kind === 'implementer') {
       cards.push({ type: 'handoff', variant: 'conclusion', text: event.text });
+      current = null;
+    } else if (event.kind === 'job') {
+      cards.push({
+        type: 'job',
+        workspaceId: event.workspaceId,
+        experimentId: event.experimentId,
+        experimentPath: event.experimentPath,
+        status: event.status,
+      });
       current = null;
     } else if (event.kind === 'error') {
       cards.push({ type: 'error', text: event.text });

@@ -207,6 +207,7 @@ const analysisSchema = z
 export const analyzerV1RunDescriptorSchema = z
   .object({
     protocol_version: z.literal(1),
+    workspace_id: opaqueIdentityString,
     run_id: opaqueIdentityString,
     kind: z.literal('simulation'),
     display_name: nonEmptyString.optional(),
@@ -358,6 +359,7 @@ function toRunDescriptor(wire: z.infer<typeof analyzerV1RunDescriptorSchema>): R
 
   return {
     protocolVersion: 1,
+    workspaceId: wire.workspace_id,
     runId: wire.run_id,
     kind: 'simulation',
     ...(wire.display_name === undefined ? {} : { displayName: wire.display_name }),

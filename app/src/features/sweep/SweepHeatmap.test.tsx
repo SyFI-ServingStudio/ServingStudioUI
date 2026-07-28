@@ -16,6 +16,7 @@ const metric: SweepMetric = {
 const analysis: SweepAnalysis = {
   protocolVersion: 1,
   schemaVersion: 1,
+  workspaceId: 'w_main',
   sweepId: 's_grid',
   displayName: 'grid sweep',
   axes: ['request_rate', 'tensor_parallel'],

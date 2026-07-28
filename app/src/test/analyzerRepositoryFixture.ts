@@ -42,6 +42,7 @@ const readyArtifact = (subject: string): SubjectArtifact => ({
 export function makeTestDescriptor(overrides: Partial<RunDescriptor> = {}): RunDescriptor {
   return {
     protocolVersion: 1,
+    workspaceId: 'w_main',
     runId: 'test-run',
     kind: 'simulation',
     displayName: 'Test run',
@@ -321,6 +322,7 @@ export function createTestRepository(
       calls.list += 1;
       return [
         {
+          workspaceId: descriptor.workspaceId,
           runId: descriptor.runId,
           kind: descriptor.kind,
           displayName: descriptor.displayName,

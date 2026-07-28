@@ -38,9 +38,13 @@ import {
   type ConversationSummary,
   type ConversationTurnEvent,
 } from '../../application/conversationRepository';
-import type { AnalyzerSelectionV1 } from '../../domain/analyzerSelection';
-import type { AnalyzerTurnContextV1, FrozenCitationV1 } from '../../domain/citation';
-import { analyzerNavigateCommandV1Schema, navigationResult } from '../../domain/analyzerNavigation';
+import type { AnalyzerSelectionV2 } from '../../domain/analyzerSelection';
+import type { AnalyzerTurnContextV2, FrozenCitationV2 } from '../../domain/citation';
+import {
+  analyzerEvidenceHref,
+  analyzerNavigateCommandV2Schema,
+  navigationResult,
+} from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { conversationCards } from './conversationTimeline';
@@ -284,18 +288,18 @@ function Handoff({
 type NavigationStatus = 'opening' | 'ok' | 'not-found' | 'unavailable';
 
 function navigateToFrozenEvidence(
-  target: FrozenCitationV1['target'],
+  target: FrozenCitationV2['target'],
   onStatus: (status: NavigationStatus) => void,
 ): void {
   const requestId = globalThis.crypto?.randomUUID?.() ?? `evidence-${Date.now()}`;
-  const command = analyzerNavigateCommandV1Schema.parse({
-    protocol: 'vibesim.analyzer/v1',
+  const command = analyzerNavigateCommandV2Schema.parse({
+    protocol: 'vibesim.analyzer/v2',
     requestId,
     type: 'navigate',
     target,
   });
   const destination = new URL(window.location.href);
-  destination.search = '?workspace=1&agent=1';
+  destination.search = '';
   window.history.replaceState(null, '', destination);
   onStatus('opening');
   const receiveResult = (event: MessageEvent<unknown>) => {
@@ -323,7 +327,7 @@ function MarkdownBody({
   compact = false,
 }: {
   text: string;
-  citations: readonly FrozenCitationV1[];
+  citations: readonly FrozenCitationV2[];
   compact?: boolean;
 }) {
   const [statuses, setStatuses] = useState<Record<number, NavigationStatus>>({});
@@ -751,6 +755,60 @@ function AssistantTimeline({
         </RoleCard>
       );
     }
+    if (card.type === 'job') {
+      const ready = card.status === 'ready' || card.status === 'experiment.ready';
+      const failed = card.status === 'failed' || card.status === 'interrupted';
+      return (
+        <ButtonBase
+          key={index}
+          disabled={!ready}
+          onClick={() => {
+            window.location.hash = analyzerEvidenceHref({
+              protocol: 'vibesim.analyzer/v2',
+              kind: 'aggregate',
+              workspaceId: card.workspaceId,
+              experimentId: card.experimentId,
+            });
+          }}
+          sx={{
+            width: '100%',
+            p: 1.25,
+            justifyContent: 'flex-start',
+            border: `1px solid ${
+              failed ? 'rgba(154,69,56,.3)' : ready ? 'rgba(31,111,107,.34)' : tokens.hair
+            }`,
+            borderLeft: `2px solid ${failed ? '#9a4538' : tokens.teal}`,
+            borderRadius: 1.1,
+            background: ready ? 'rgba(31,111,107,.055)' : 'rgba(91,82,71,.035)',
+            textAlign: 'left',
+            '&:hover': ready ? { background: 'rgba(31,111,107,.09)' } : undefined,
+            '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+          }}
+        >
+          <Stack direction="row" alignItems="center" sx={{ width: '100%', minWidth: 0, gap: 1 }}>
+            {failed ? (
+              <ErrorOutlineRounded sx={{ color: '#9a4538', fontSize: 16 }} />
+            ) : ready ? (
+              <CheckCircleOutlineRounded sx={{ color: tokens.teal, fontSize: 16 }} />
+            ) : (
+              <AdjustRounded sx={{ color: tokens.gold, fontSize: 16 }} />
+            )}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 700 }}>
+                {ready ? 'Experiment ready' : failed ? 'Experiment stopped' : 'Simulation running'}
+              </Typography>
+              <Typography
+                noWrap
+                sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+              >
+                {card.experimentPath}
+              </Typography>
+            </Box>
+            {ready && <NorthEastRounded sx={{ ml: 'auto', color: tokens.teal, fontSize: 15 }} />}
+          </Stack>
+        </ButtonBase>
+      );
+    }
     if (card.type === 'error') {
       return <FailureCard key={index} text={card.text} />;
     }
@@ -768,7 +826,7 @@ function AssistantTimeline({
   });
 }
 
-function contextValues(selection: AnalyzerSelectionV1 | null): readonly string[] {
+function contextValues(selection: AnalyzerSelectionV2 | null): readonly string[] {
   if (selection === null) return [];
   if (selection.kind === 'aggregate') {
     return [
@@ -1286,8 +1344,12 @@ function ConversationHistory({
   );
 }
 
-const CONVERSATION_ID_KEY = 'vibesim.conversation.id';
+const CONVERSATION_ID_KEY_PREFIX = 'vibesim.conversation.id';
 const HISTORY_PINNED_KEY = 'vibesim.conversation.history.pinned';
+
+function conversationIdKey(workspaceId: string): string {
+  return `${CONVERSATION_ID_KEY_PREFIX}.${workspaceId}`;
+}
 
 function savedHistoryPinned(): boolean {
   try {
@@ -1310,10 +1372,12 @@ function saveHistoryPinned(pinned: boolean): void {
 }
 
 function useAgentConversation(
+  workspaceId: string,
   prompt: string,
-  analyzerContext: AnalyzerTurnContextV1 | null,
+  analyzerContext: AnalyzerTurnContextV2 | null,
   enabled: boolean,
   requireAnalyzerContext: boolean,
+  onInitialPromptStarted?: () => void,
 ) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
@@ -1327,7 +1391,7 @@ function useAgentConversation(
   const streamingRef = useRef(false);
   // StrictMode replays effect setup/cleanup. Both setups must join the same
   // initialization rather than orphaning the just-created conversation.
-  const initializationPromise = useRef<Promise<Conversation> | null>(null);
+  const initializationPromise = useRef<Promise<Conversation | null> | null>(null);
   const initialPromptStarted = useRef(false);
   const abortController = useRef<AbortController | null>(null);
   const setStreamingState = useCallback((nextStreaming: boolean) => {
@@ -1338,7 +1402,7 @@ function useAgentConversation(
     setHistoryLoading(true);
     setHistoryError(null);
     try {
-      const nextConversations = await listConversations();
+      const nextConversations = await listConversations(workspaceId);
       setConversations(nextConversations);
       return nextConversations;
     } catch (caught) {
@@ -1347,11 +1411,11 @@ function useAgentConversation(
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [workspaceId]);
   const installConversation = useCallback(
     (conversation: Conversation, markInitialPromptHandled: boolean) => {
       initializationPromise.current = Promise.resolve(conversation);
-      window.sessionStorage.setItem(CONVERSATION_ID_KEY, conversation.id);
+      window.sessionStorage.setItem(conversationIdKey(workspaceId), conversation.id);
       setConversationId(conversation.id);
       setMessages(conversation.messages);
       setLiveEvents([]);
@@ -1359,11 +1423,11 @@ function useAgentConversation(
       setError(null);
       if (markInitialPromptHandled) initialPromptStarted.current = true;
     },
-    [],
+    [workspaceId],
   );
 
   const runTurn = useCallback(
-    async (activeConversationId: string, text: string, context: AnalyzerTurnContextV1 | null) => {
+    async (activeConversationId: string, text: string, context: AnalyzerTurnContextV2 | null) => {
       const trimmed = text.trim();
       if (!trimmed || streamingRef.current) return;
       const controller = new AbortController();
@@ -1376,6 +1440,7 @@ function useAgentConversation(
       let completionMessage: ConversationMessage | null = null;
       try {
         await sendConversationTurn(
+          workspaceId,
           activeConversationId,
           trimmed,
           context,
@@ -1396,7 +1461,7 @@ function useAgentConversation(
           },
           controller.signal,
         );
-        const refreshed = await getConversation(activeConversationId);
+        const refreshed = await getConversation(workspaceId, activeConversationId);
         if (refreshed) setMessages(refreshed.messages);
         else if (completionMessage) setMessages((current) => [...current, completionMessage!]);
         void refreshHistory();
@@ -1411,14 +1476,14 @@ function useAgentConversation(
         setProgress('');
       }
     },
-    [refreshHistory, setStreamingState],
+    [refreshHistory, setStreamingState, workspaceId],
   );
 
   const selectConversation = useCallback(
     async (nextConversationId: string) => {
       if (streamingRef.current || nextConversationId === conversationId) return;
       try {
-        const nextConversation = await getConversation(nextConversationId);
+        const nextConversation = await getConversation(workspaceId, nextConversationId);
         if (!nextConversation) {
           setHistoryError('That conversation is no longer available.');
           void refreshHistory();
@@ -1429,43 +1494,54 @@ function useAgentConversation(
         setHistoryError(caught instanceof Error ? caught.message : 'Load conversation failed');
       }
     },
-    [conversationId, installConversation, refreshHistory],
+    [conversationId, installConversation, refreshHistory, workspaceId],
   );
 
   const startConversation = useCallback(async () => {
     if (streamingRef.current) return;
-    try {
-      const nextConversation = await createConversation();
-      installConversation(nextConversation, true);
-      await refreshHistory();
-    } catch (caught) {
-      setHistoryError(caught instanceof Error ? caught.message : 'New conversation failed');
-    }
-  }, [installConversation, refreshHistory]);
+    initializationPromise.current = null;
+    initialPromptStarted.current = true;
+    window.sessionStorage.removeItem(conversationIdKey(workspaceId));
+    setConversationId(null);
+    setMessages([]);
+    setLiveEvents([]);
+    setProgress('');
+    setError(null);
+  }, [workspaceId]);
+
+  const materializeConversation = useCallback(async (): Promise<Conversation> => {
+    const creation = createConversation(workspaceId);
+    initializationPromise.current = creation;
+    const conversation = await creation;
+    installConversation(conversation, true);
+    await refreshHistory();
+    return conversation;
+  }, [installConversation, refreshHistory, workspaceId]);
 
   const removeConversation = useCallback(
     async (removedConversationId: string) => {
       if (streamingRef.current) return;
       try {
-        await deleteConversation(removedConversationId);
+        await deleteConversation(workspaceId, removedConversationId);
         const remainingConversations = await refreshHistory();
         if (removedConversationId !== conversationId || remainingConversations === null) return;
         const replacementSummary = remainingConversations[0];
         if (replacementSummary) {
-          const replacement = await getConversation(replacementSummary.id);
+          const replacement = await getConversation(workspaceId, replacementSummary.id);
           if (replacement) {
             installConversation(replacement, true);
             return;
           }
         }
-        const replacement = await createConversation();
-        installConversation(replacement, true);
-        await refreshHistory();
+        initializationPromise.current = null;
+        window.sessionStorage.removeItem(conversationIdKey(workspaceId));
+        setConversationId(null);
+        setMessages([]);
       } catch (caught) {
         setHistoryError(caught instanceof Error ? caught.message : 'Delete conversation failed');
       }
     },
-    [conversationId, installConversation, refreshHistory],
+    [conversationId, installConversation, refreshHistory, workspaceId],
   );
 
   useEffect(() => {
@@ -1474,13 +1550,8 @@ function useAgentConversation(
     let resumeController: AbortController | null = null;
     if (initializationPromise.current === null) {
       initializationPromise.current = (async () => {
-        const rememberedId = window.sessionStorage.getItem(CONVERSATION_ID_KEY);
-        let conversation = rememberedId ? await getConversation(rememberedId) : null;
-        if (!conversation) {
-          conversation = await createConversation();
-          window.sessionStorage.setItem(CONVERSATION_ID_KEY, conversation.id);
-        }
-        return conversation;
+        const rememberedId = window.sessionStorage.getItem(conversationIdKey(workspaceId));
+        return rememberedId ? getConversation(workspaceId, rememberedId) : null;
       })();
     }
     const currentInitialization = initializationPromise.current;
@@ -1488,12 +1559,18 @@ function useAgentConversation(
       try {
         const conversation = await currentInitialization;
         if (disposed) return;
-        installConversation(conversation, false);
         void refreshHistory();
+        if (!conversation) {
+          setConversationId(null);
+          setMessages([]);
+          return;
+        }
+        installConversation(conversation, false);
         resumeController = new AbortController();
         abortController.current = resumeController;
         setStreamingState(true);
         const resumed = await resumeConversationTurn(
+          workspaceId,
           conversation.id,
           {
             progress: setProgress,
@@ -1505,7 +1582,7 @@ function useAgentConversation(
         abortController.current = null;
         setStreamingState(false);
         if (resumed) {
-          const refreshed = await getConversation(conversation.id);
+          const refreshed = await getConversation(workspaceId, conversation.id);
           if (refreshed && !disposed) setMessages(refreshed.messages);
           setLiveEvents([]);
         }
@@ -1523,12 +1600,11 @@ function useAgentConversation(
       disposed = true;
       resumeController?.abort();
     };
-  }, [enabled, installConversation, refreshHistory, setStreamingState]);
+  }, [enabled, installConversation, refreshHistory, setStreamingState, workspaceId]);
 
   useEffect(() => {
     if (
       !enabled ||
-      conversationId === null ||
       messages.length > 0 ||
       streaming ||
       initialPromptStarted.current ||
@@ -1538,12 +1614,22 @@ function useAgentConversation(
       return;
     }
     initialPromptStarted.current = true;
-    void runTurn(conversationId, prompt, analyzerContext);
+    onInitialPromptStarted?.();
+    void (async () => {
+      try {
+        const activeConversation = conversationId === null ? await materializeConversation() : null;
+        await runTurn(activeConversation?.id ?? conversationId!, prompt, analyzerContext);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : 'Conversation could not be started');
+      }
+    })();
   }, [
     analyzerContext,
     conversationId,
     enabled,
     messages.length,
+    materializeConversation,
+    onInitialPromptStarted,
     prompt,
     requireAnalyzerContext,
     runTurn,
@@ -1561,7 +1647,11 @@ function useAgentConversation(
     historyLoading,
     historyError,
     send: (text: string) =>
-      conversationId ? runTurn(conversationId, text, analyzerContext) : Promise.resolve(),
+      conversationId
+        ? runTurn(conversationId, text, analyzerContext)
+        : materializeConversation().then((conversation) =>
+            runTurn(conversation.id, text, analyzerContext),
+          ),
     cancel: () => abortController.current?.abort(),
     selectConversation,
     startConversation,
@@ -1570,6 +1660,8 @@ function useAgentConversation(
 }
 
 export default function AgentPane({
+  workspaceId = 'w_main',
+  workspaceName,
   prompt,
   onClose,
   onFold,
@@ -1580,26 +1672,32 @@ export default function AgentPane({
   full = false,
   expanded = false,
   showSelectionContext = false,
+  onInitialPromptStarted,
 }: {
+  workspaceId?: string;
+  workspaceName?: string;
   prompt: string;
   onClose?: () => void;
   onFold?: () => void;
   onToggleFull?: () => void;
-  analyzerContext?: AnalyzerTurnContextV1 | null;
+  analyzerContext?: AnalyzerTurnContextV2 | null;
   enabled?: boolean;
   requireAnalyzerContext?: boolean;
   full?: boolean;
   expanded?: boolean;
   showSelectionContext?: boolean;
+  onInitialPromptStarted?: () => void;
 }) {
   const [input, setInput] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPinned, setHistoryPinned] = useState(savedHistoryPinned);
   const conversation = useAgentConversation(
+    workspaceId,
     prompt,
     analyzerContext,
     enabled,
     requireAnalyzerContext,
+    onInitialPromptStarted,
   );
   // A persistent rail belongs to the roomy agent surfaces. Docked mode keeps the saved
   // preference but uses the overlay so history never consumes most of the analysis column.
@@ -1608,7 +1706,7 @@ export default function AgentPane({
   const readingColumnWidth = full || expanded ? 'min(720px,calc(100% - 40px))' : '100%';
   const activeConversationTitle =
     conversation.conversations.find((item) => item.id === conversation.conversationId)?.title ??
-    'Inquiry workspace';
+    'New conversation';
   const scrollRef = useRef<HTMLDivElement>(null);
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -1674,7 +1772,9 @@ export default function AgentPane({
             VibeSim Agent
           </Typography>
           <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
-            {activeConversationTitle}
+            {workspaceName
+              ? `${workspaceName} · ${activeConversationTitle}`
+              : activeConversationTitle}
           </Typography>
         </Box>
         <Stack direction="row" sx={{ gap: 0.55 }}>
@@ -1890,7 +1990,7 @@ export default function AgentPane({
             />
             <ButtonBase
               type="submit"
-              disabled={!input.trim() || conversation.streaming || !conversation.conversationId}
+              disabled={!input.trim() || conversation.streaming}
               aria-label="Send follow-up"
               sx={{
                 width: 34,

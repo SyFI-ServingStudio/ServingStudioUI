@@ -1,10 +1,4 @@
-import {
-  expectKernelShareSelectionStable,
-  expectRenderedCharts,
-  openRealRun,
-  scopeToPool,
-  scopeToWorker,
-} from './helpers';
+import { expectRenderedCharts, openRealRun, scopeToPool, scopeToWorker } from './helpers';
 import { expect, test } from './quality.fixture';
 
 test('loads the real analyzer folder and drills through a composite worker identity', async ({
@@ -23,7 +17,7 @@ test('loads the real analyzer folder and drills through a composite worker ident
   await expect(page.getByRole('heading', { name: 'Pool · attn', level: 2 })).toBeVisible();
 
   await scopeToWorker(page, 'attn/0');
-  await expectKernelShareSelectionStable(page);
+  await expect(page.getByRole('button', { name: 'Select GPU utilization panel' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Scope to whole deployment' }).click();
   await expect(page.getByRole('heading', { name: 'Cluster outcome', level: 2 })).toBeVisible();
@@ -40,7 +34,7 @@ test('uses one fully rounded aggregate return in the run masthead', async ({ pag
       return radius >= element.getBoundingClientRect().height / 2;
     }),
   ).toBe(true);
-  await expect(page.getByRole('navigation', { name: 'Analyzer workspace' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Back to experiments' })).toBeVisible();
   await expect(page.getByText('Current run', { exact: true })).toBeVisible();
 });
 
@@ -59,7 +53,7 @@ test('selects a run-level chart as agent evidence from the whole card', async ({
 
 test('restores aggregate evidence from a canonical agent deep link', async ({ page }) => {
   await page.goto(
-    '/#/aggregate?experiment=s_fixture_llama3_8b_tp_rate&panel=tpot&metric=tpot_mean_ms&statistic=mean&coordinates=%7B%22request_rate%22%3A50%2C%22tensor_parallel%22%3A4%7D',
+    '/#/aggregate?workspace=w_main&experiment=s_fixture_llama3_8b_tp_rate&panel=tpot&metric=tpot_mean_ms&statistic=mean&coordinates=%7B%22request_rate%22%3A50%2C%22tensor_parallel%22%3A4%7D',
   );
 
   const selectedPanel = page.locator('[data-evidence-id="panel:tpot"][data-agent-selected="true"]');
@@ -108,12 +102,13 @@ test('accepts a same-origin agent navigation command and acknowledges it', async
     });
     window.postMessage(
       {
-        protocol: 'vibesim.analyzer/v1',
+        protocol: 'vibesim.analyzer/v2',
         requestId: 'agent-request-1',
         type: 'navigate',
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'aggregate',
+          workspaceId: 'w_main',
           experimentId: 's_fixture_llama3_8b_tp_rate',
           panelId: 'ttft',
           metricKey: 'ttft_mean_ms',
@@ -167,12 +162,13 @@ test('restores a complete run selection from an agent navigation command', async
   await page.evaluate(() => {
     window.postMessage(
       {
-        protocol: 'vibesim.analyzer/v1',
+        protocol: 'vibesim.analyzer/v2',
         requestId: 'agent-run-request-1',
         type: 'navigate',
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'run',
+          workspaceId: 'w_main',
           runId: 'fixture-afd-qwen3-v1',
           panelId: 'utilization',
           scope: 'cluster',
@@ -211,22 +207,11 @@ test('opens the launcher-defined sweep aggregate workspace', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Throughput', level: 3 })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Request SLO', level: 3 })).toBeVisible();
   await expect(page.getByRole('img', { name: /Total throughput by request_rate/ })).toBeVisible();
-
-  await page.getByRole('button', { name: 'unified' }).click();
-  await expect(page.getByRole('listbox', { name: 'Experiments by date' })).toContainText(
-    '0_llama3_8b_tp_rate',
-  );
-  await expect(page.getByText('1/2 shown', { exact: true })).toBeVisible();
-
-  const scrollBeforeSelection = await page.evaluate(() => window.scrollY);
-  await page.getByRole('option', { name: '20260727_0_llama3_8b_tp_rate' }).click();
-  await expect
-    .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(scrollBeforeSelection);
+  await expect(page.getByRole('button', { name: 'Back to experiments' })).toBeVisible();
 });
 
 test('opens an unclaimed run through the singleton aggregate interface', async ({ page }) => {
-  await page.goto('/#/aggregate');
+  await page.goto('/#/');
   await page.getByRole('option', { name: /20260715_1_afd_ui_reanalysis/ }).click();
 
   await expect(page.getByText('54,635 tok/s', { exact: true })).toBeVisible();

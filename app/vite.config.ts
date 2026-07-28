@@ -29,10 +29,14 @@ export default defineConfig(({ mode }) => {
       // service listens. Rewriting Host lets the analyzer enforce its own
       // target-host allowlist instead of trusting the browser-facing hostname.
       proxy: {
-        // Conversation writes belong to the existing user-facing-ui backend;
-        // Analyzer remains the owner of all read-only /api/v1 artifact routes.
-        '/api/conversations': { target: conversationTarget, changeOrigin: true },
-        '/api': { target: analyzerTarget, changeOrigin: true },
+        // The Rust Analyzer owns only its versioned, read-only artifact API.
+        // Workspace, conversation, and managed-run state belong to the shared
+        // conversation backend; explicit prefixes prevent accidental overlap.
+        '/api/v1': { target: analyzerTarget, changeOrigin: true },
+        '/api/workspaces': { target: conversationTarget, changeOrigin: true },
+        '/api/agent': { target: conversationTarget, changeOrigin: true },
+        '/api/internal': { target: conversationTarget, changeOrigin: true },
+        '/api/eval': { target: conversationTarget, changeOrigin: true },
       },
     },
     preview: { host: serverHost, port: 8778, allowedHosts },

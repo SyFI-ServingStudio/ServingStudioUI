@@ -1,7 +1,7 @@
 import {
-  frozenCitationV1Schema,
-  type AnalyzerTurnContextV1,
-  type FrozenCitationV1,
+  frozenCitationV2Schema,
+  type AnalyzerTurnContextV2,
+  type FrozenCitationV2,
 } from '../domain/citation';
 
 export interface ConversationTokens {
@@ -21,13 +21,21 @@ export type ConversationTurnEvent =
   | { kind: 'implementer'; text: string }
   | { kind: 'usage'; role: string; duration_ms: number; tokens: ConversationTokens }
   | { kind: 'error'; text: string }
+  | {
+      kind: 'job';
+      workspaceId: string;
+      status: string;
+      experimentId: string;
+      experimentPath: string;
+      jobId: string;
+    }
   | { kind: 'final'; text: string };
 
 export interface ConversationMessage {
   role: string;
   content: string;
   activity?: readonly ConversationTurnEvent[] | null;
-  citations?: readonly FrozenCitationV1[] | null;
+  citations?: readonly FrozenCitationV2[] | null;
   citation_dictionary_id?: string | null;
   citation_dsl_version?: string | null;
   failure?: ConversationFailure | null;
@@ -51,7 +59,7 @@ interface ConversationListResponse {
 
 export interface TurnCompletion {
   text: string;
-  citations: readonly FrozenCitationV1[];
+  citations: readonly FrozenCitationV2[];
   citationDictionaryId: string | null;
   citationDslVersion: string | null;
   failure: ConversationFailure | null;
@@ -63,7 +71,9 @@ export interface ConversationStreamHandlers {
   done?: (completion: TurnCompletion) => void;
 }
 
-const CONVERSATION_API = '/api/conversations';
+function conversationApi(workspaceId: string): string {
+  return `/api/workspaces/${encodeURIComponent(workspaceId)}/conversations`;
+}
 
 async function requireResponse(response: Response, action: string): Promise<Response> {
   if (!response.ok) throw new Error(`${action} failed (${response.status})`);
@@ -92,9 +102,9 @@ function conversationFailureFrom(value: unknown, legacyContent = ''): Conversati
   };
 }
 
-export async function createConversation(): Promise<Conversation> {
+export async function createConversation(workspaceId: string): Promise<Conversation> {
   const response = await requireResponse(
-    await fetch(CONVERSATION_API, {
+    await fetch(conversationApi(workspaceId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sandbox: 'workspace-write', autonomous: true }),
@@ -104,21 +114,32 @@ export async function createConversation(): Promise<Conversation> {
   return response.json() as Promise<Conversation>;
 }
 
-export async function listConversations(): Promise<readonly ConversationSummary[]> {
-  const response = await requireResponse(await fetch(CONVERSATION_API), 'List conversations');
+export async function listConversations(
+  workspaceId: string,
+): Promise<readonly ConversationSummary[]> {
+  const response = await requireResponse(
+    await fetch(conversationApi(workspaceId)),
+    'List conversations',
+  );
   const payload = (await response.json()) as ConversationListResponse;
   return Array.isArray(payload.conversations) ? payload.conversations : [];
 }
 
-export async function deleteConversation(conversationId: string): Promise<void> {
+export async function deleteConversation(
+  workspaceId: string,
+  conversationId: string,
+): Promise<void> {
   await requireResponse(
-    await fetch(`${CONVERSATION_API}/${conversationId}`, { method: 'DELETE' }),
+    await fetch(`${conversationApi(workspaceId)}/${conversationId}`, { method: 'DELETE' }),
     'Delete conversation',
   );
 }
 
-export async function getConversation(conversationId: string): Promise<Conversation | null> {
-  const response = await fetch(`${CONVERSATION_API}/${conversationId}?limit=100`);
+export async function getConversation(
+  workspaceId: string,
+  conversationId: string,
+): Promise<Conversation | null> {
+  const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}?limit=100`);
   if (response.status === 404) return null;
   await requireResponse(response, 'Load conversation');
   const conversation = (await response.json()) as Conversation;
@@ -128,7 +149,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
       ...message,
       failure: conversationFailureFrom(message.failure, message.content),
       citations: (message.citations ?? []).flatMap((citation) => {
-        const parsed = frozenCitationV1Schema.safeParse(citation);
+        const parsed = frozenCitationV2Schema.safeParse(citation);
         return parsed.success ? [parsed.data] : [];
       }),
     })),
@@ -136,13 +157,14 @@ export async function getConversation(conversationId: string): Promise<Conversat
 }
 
 export async function sendConversationTurn(
+  workspaceId: string,
   conversationId: string,
   text: string,
-  analyzerContext: AnalyzerTurnContextV1 | null,
+  analyzerContext: AnalyzerTurnContextV2 | null,
   handlers: ConversationStreamHandlers,
   signal: AbortSignal,
 ): Promise<void> {
-  const response = await fetch(`${CONVERSATION_API}/${conversationId}/messages`, {
+  const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -157,11 +179,14 @@ export async function sendConversationTurn(
 }
 
 export async function resumeConversationTurn(
+  workspaceId: string,
   conversationId: string,
   handlers: ConversationStreamHandlers,
   signal: AbortSignal,
 ): Promise<boolean> {
-  const response = await fetch(`${CONVERSATION_API}/${conversationId}/stream`, { signal });
+  const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}/stream`, {
+    signal,
+  });
   // 204 is the current idle contract; 409 remains accepted while a rolling
   // deployment may still have the previous backend version.
   if (response.status === 204 || response.status === 409) return false;
@@ -169,9 +194,12 @@ export async function resumeConversationTurn(
   return true;
 }
 
-export async function cancelConversationTurn(conversationId: string): Promise<boolean> {
+export async function cancelConversationTurn(
+  workspaceId: string,
+  conversationId: string,
+): Promise<boolean> {
   const response = await requireResponse(
-    await fetch(`${CONVERSATION_API}/${conversationId}/cancel`, { method: 'POST' }),
+    await fetch(`${conversationApi(workspaceId)}/${conversationId}/cancel`, { method: 'POST' }),
     'Cancel turn',
   );
   return Boolean(((await response.json()) as { cancelled?: boolean }).cancelled);
@@ -230,13 +258,22 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
       duration_ms: numberOrZero(data.duration_ms),
       tokens: tokensFrom(data.tokens),
     });
+  } else if (event === 'job') {
+    handlers.event?.({
+      kind: 'job',
+      workspaceId: String(data.workspaceId ?? ''),
+      status: String(data.status ?? data.kind ?? ''),
+      experimentId: String(data.experimentId ?? ''),
+      experimentPath: String(data.experimentPath ?? ''),
+      jobId: String(data.jobId ?? ''),
+    });
   } else if (event === 'done') {
     const text = String(data.text ?? '');
     const failure = conversationFailureFrom(data.failure, text);
     handlers.event?.(failure ? { kind: 'error', text: failure.message } : { kind: 'final', text });
     const citations = Array.isArray(data.citations)
       ? data.citations.flatMap((citation) => {
-          const parsed = frozenCitationV1Schema.safeParse(citation);
+          const parsed = frozenCitationV2Schema.safeParse(citation);
           return parsed.success ? [parsed.data] : [];
         })
       : [];

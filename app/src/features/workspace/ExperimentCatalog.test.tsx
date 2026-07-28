@@ -7,6 +7,7 @@ import ExperimentCatalog from './ExperimentCatalog';
 
 const entries: readonly SweepListItem[] = [
   {
+    workspaceId: 'w_main',
     sweepId: 's_new',
     kind: 'sweep',
     displayName: '20260727_0_llama3_8b_tp_rate',
@@ -19,6 +20,7 @@ const entries: readonly SweepListItem[] = [
     updatedAt: '2026-07-27T12:00:00Z',
   },
   {
+    workspaceId: 'w_main',
     sweepId: 's_old',
     kind: 'singleton',
     displayName: '20260715_1_afd_ui_reanalysis',

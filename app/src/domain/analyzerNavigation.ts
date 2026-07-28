@@ -1,22 +1,22 @@
 import { z } from 'zod';
-import { evidenceRefV1Schema, type EvidenceRefV1, type RunEvidenceRefV1 } from './evidenceRef';
+import { evidenceRefV2Schema, type EvidenceRefV2, type RunEvidenceRefV2 } from './evidenceRef';
 
 const nonEmptyString = z.string().min(1);
-export { evidenceRefV1Schema, type EvidenceRefV1 } from './evidenceRef';
+export { evidenceRefV2Schema, type EvidenceRefV2 } from './evidenceRef';
 
-export const analyzerNavigateCommandV1Schema = z
+export const analyzerNavigateCommandV2Schema = z
   .object({
-    protocol: z.literal('vibesim.analyzer/v1'),
+    protocol: z.literal('vibesim.analyzer/v2'),
     requestId: nonEmptyString,
     type: z.literal('navigate'),
-    target: evidenceRefV1Schema,
+    target: evidenceRefV2Schema,
   })
   .strict();
 
-export type AnalyzerNavigateCommandV1 = z.infer<typeof analyzerNavigateCommandV1Schema>;
+export type AnalyzerNavigateCommandV2 = z.infer<typeof analyzerNavigateCommandV2Schema>;
 
-export interface AnalyzerNavigationResultV1 {
-  protocol: 'vibesim.analyzer/v1';
+export interface AnalyzerNavigationResultV2 {
+  protocol: 'vibesim.analyzer/v2';
   requestId: string;
   type: 'navigation-result';
   status: 'ok' | 'not-found' | 'unavailable';
@@ -26,10 +26,11 @@ const AGGREGATE_PATH = '#/aggregate';
 const RUN_PATH = '#/run';
 export const ANALYZER_NAVIGATION_RESULT_EVENT = 'vibesim:analyzer-navigation-result';
 
-export function analyzerEvidenceHref(target: EvidenceRefV1): string {
-  const validated = evidenceRefV1Schema.parse(target);
+export function analyzerEvidenceHref(target: EvidenceRefV2): string {
+  const validated = evidenceRefV2Schema.parse(target);
   if (validated.kind === 'run') {
     const query = new URLSearchParams({
+      workspace: validated.workspaceId,
       run: validated.runId,
       scope: validated.scope,
       cursorNeedsSeek: String(validated.cursorNeedsSeek),
@@ -48,7 +49,10 @@ export function analyzerEvidenceHref(target: EvidenceRefV1): string {
     }
     return `${RUN_PATH}?${query.toString()}`;
   }
-  const query = new URLSearchParams({ experiment: validated.experimentId });
+  const query = new URLSearchParams({
+    workspace: validated.workspaceId,
+    experiment: validated.experimentId,
+  });
   if (validated.panelId) query.set('panel', validated.panelId);
   if (validated.metricKey) query.set('metric', validated.metricKey);
   if (validated.statistic) query.set('statistic', validated.statistic);
@@ -57,13 +61,14 @@ export function analyzerEvidenceHref(target: EvidenceRefV1): string {
   return `${AGGREGATE_PATH}?${query.toString()}`;
 }
 
-export function evidenceRefFromHash(hash: string): EvidenceRefV1 | null {
+export function evidenceRefFromHash(hash: string): EvidenceRefV2 | null {
   const [path, queryString = ''] = hash.split('?', 2);
   const query = new URLSearchParams(queryString);
   if (path === RUN_PATH) return runEvidenceRefFromQuery(query);
   if (path !== AGGREGATE_PATH) return null;
   const experimentId = query.get('experiment');
-  if (!experimentId) return null;
+  const workspaceId = query.get('workspace');
+  if (!workspaceId || !experimentId) return null;
 
   let coordinates: unknown;
   const encodedCoordinates = query.get('coordinates');
@@ -76,8 +81,9 @@ export function evidenceRefFromHash(hash: string): EvidenceRefV1 | null {
   }
 
   const candidate = {
-    protocol: 'vibesim.analyzer/v1',
+    protocol: 'vibesim.analyzer/v2',
     kind: 'aggregate',
+    workspaceId,
     experimentId,
     ...(query.get('panel') ? { panelId: query.get('panel') } : {}),
     ...(query.get('metric') ? { metricKey: query.get('metric') } : {}),
@@ -85,7 +91,7 @@ export function evidenceRefFromHash(hash: string): EvidenceRefV1 | null {
     ...(query.get('run') ? { runId: query.get('run') } : {}),
     ...(coordinates === undefined ? {} : { coordinates }),
   };
-  const parsed = evidenceRefV1Schema.safeParse(candidate);
+  const parsed = evidenceRefV2Schema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 }
 
@@ -95,11 +101,12 @@ function nullableNonnegativeNumber(value: string | null): number | null | undefi
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
-function runEvidenceRefFromQuery(query: URLSearchParams): RunEvidenceRefV1 | null {
+function runEvidenceRefFromQuery(query: URLSearchParams): RunEvidenceRefV2 | null {
+  const workspaceId = query.get('workspace');
   const runId = query.get('run');
   const scope = query.get('scope');
   const workerAnalysisLevel = query.get('workerAnalysisLevel');
-  if (!runId || !scope || !workerAnalysisLevel) return null;
+  if (!workspaceId || !runId || !scope || !workerAnalysisLevel) return null;
   const leafId = nullableNonnegativeNumber(query.get('leaf'));
   const parId = nullableNonnegativeNumber(query.get('parallel'));
   const cursorMs = nullableNonnegativeNumber(query.get('cursor'));
@@ -107,8 +114,9 @@ function runEvidenceRefFromQuery(query: URLSearchParams): RunEvidenceRefV1 | nul
   const operationParts = [query.get('iter'), query.get('batch'), query.get('operation')];
   if (operationParts.some(Boolean) && !operationParts.every(Boolean)) return null;
   const candidate = {
-    protocol: 'vibesim.analyzer/v1',
+    protocol: 'vibesim.analyzer/v2',
     kind: 'run',
+    workspaceId,
     runId,
     panelId: query.get('panel'),
     scope,
@@ -127,22 +135,22 @@ function runEvidenceRefFromQuery(query: URLSearchParams): RunEvidenceRefV1 | nul
       : null,
     workerAnalysisLevel,
   };
-  const parsed = evidenceRefV1Schema.safeParse(candidate);
+  const parsed = evidenceRefV2Schema.safeParse(candidate);
   return parsed.success && parsed.data.kind === 'run' ? parsed.data : null;
 }
 
 /** URL replacement keeps manual evidence selection shareable without producing
  * a hashchange render loop. Agent commands use normal hash navigation instead. */
-export function replaceAnalyzerEvidenceHref(target: EvidenceRefV1): void {
+export function replaceAnalyzerEvidenceHref(target: EvidenceRefV2): void {
   window.history.replaceState(null, '', analyzerEvidenceHref(target));
 }
 
 export function navigationResult(
   requestId: string,
-  status: AnalyzerNavigationResultV1['status'],
-): AnalyzerNavigationResultV1 {
+  status: AnalyzerNavigationResultV2['status'],
+): AnalyzerNavigationResultV2 {
   return {
-    protocol: 'vibesim.analyzer/v1',
+    protocol: 'vibesim.analyzer/v2',
     requestId,
     type: 'navigation-result',
     status,

@@ -53,6 +53,7 @@ describe('ArtifactAnalyzerRepository', () => {
 
     await expect(repository.listRuns()).resolves.toEqual([
       {
+        workspaceId: 'w_main',
         runId: RUN_ID,
         kind: 'simulation',
         displayName: '20260715_1_afd_ui_reanalysis',

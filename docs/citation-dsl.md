@@ -1,4 +1,4 @@
-# VibeSim Citation DSL v1
+# VibeSim Citation DSL v2
 
 本文定义 Agent 如何在自然语言中引用 Analyzer evidence，以及用户点击引用后如何定位到
 对应的 experiment coordinate、metric 或 run-level panel。
@@ -22,18 +22,22 @@ Agent 不写 URI、percent encoding、JSON、experiment ID、run ID 或 coordina
 
 ## 2. Ownership
 
-| 阶段 | Owner | 职责 |
-|---|---|---|
-| 命名 | Analyzer UI | 从 launcher axes、member coordinates 和 registered panels 生成 citation dictionary |
-| turn 输入 | Conversation host | 把 bounded dictionary snapshot 随用户问题提供给 Agent |
-| 选择 | Agent | 选择支持当前 claim 的 symbolic token |
-| 冻结 | Conversation host | 将 token 解析为具体 `EvidenceRefV1`，与 message 一起持久化 |
-| 渲染 | Conversation UI | 将已冻结 citation 渲染为可访问 control；不导航 |
-| 激活 | 用户 | 点击 citation，明确请求查看 evidence |
-| 导航 | Analyzer bridge | 发送 `AnalyzerNavigateCommandV1`，等待 acknowledgement |
+| 阶段      | Owner             | 职责                                                                               |
+| --------- | ----------------- | ---------------------------------------------------------------------------------- |
+| 命名      | Analyzer UI       | 从 launcher axes、member coordinates 和 registered panels 生成 citation dictionary |
+| turn 输入 | Conversation host | 把 bounded dictionary snapshot 随用户问题提供给 Agent                              |
+| 选择      | Agent             | 选择支持当前 claim 的 symbolic token                                               |
+| 冻结      | Conversation host | 将 token 解析为具体 `EvidenceRefV2`，与 message 一起持久化                         |
+| 渲染      | Conversation UI   | 将已冻结 citation 渲染为可访问 control；不导航                                     |
+| 激活      | 用户              | 点击 citation，明确请求查看 evidence                                               |
+| 导航      | Analyzer bridge   | 发送 `AnalyzerNavigateCommandV2`，等待 acknowledgement                             |
 
 “引用到哪里”由 Agent 选择哪个 token 决定。Runtime 不根据 prose、数值或当前 selection
 替 Agent 猜 target。
+
+v2 的身份边界是 `(workspaceId, experimentId | runId)`。`workspaceId` 来自当前
+conversation/analyzer shell，而不是 Agent 文本；同一个 opaque experiment 或 run token
+即使在另一个 workspace 中碰巧存在，也不得被当作同一 evidence。
 
 ## 3. Lexical grammar
 
@@ -91,12 +95,12 @@ segment。Agent 只复制 segment，不负责把 value 编码成 segment。
 
 示例：
 
-| Launcher binding | Alias | Value | Segment |
-|---|---|---:|---|
-| `tensor_parallel` | `tp` | 2 | `tp2` |
-| `tensor_parallel` | `tp` | 4 | `tp4` |
-| `request_rate` | `rate` | 20 | `rate20` |
-| `request_rate` | `rate` | 44.6 | `rate44p6` |
+| Launcher binding  | Alias  | Value | Segment    |
+| ----------------- | ------ | ----: | ---------- |
+| `tensor_parallel` | `tp`   |     2 | `tp2`      |
+| `tensor_parallel` | `tp`   |     4 | `tp4`      |
+| `request_rate`    | `rate` |    20 | `rate20`   |
+| `request_rate`    | `rate` |  44.6 | `rate44p6` |
 
 `p`、`m` 等字符没有全局数值语义；`rate44p6 → 44.6` 的映射来自 dictionary。Parser
 不反向猜测 segment。
@@ -108,14 +112,14 @@ segment，并把它映射到完整 binding object；不能把 compound members �
 
 Metric path 来自已注册 evidence panels，不从显示 title 推导。典型路径：
 
-| Metric path | Meaning | Unit |
-|---|---|---|
-| `throughput` | Total output throughput | `tok/s` |
-| `utilization` | GPU utilization | `%` |
-| `ttft.mean` | Mean time to first token | `ms` |
-| `ttft.p99` | P99 time to first token | `ms` |
-| `tpot.mean` | Mean time per output token | `ms` |
-| `tpot.p99` | P99 time per output token | `ms` |
+| Metric path   | Meaning                    | Unit    |
+| ------------- | -------------------------- | ------- |
+| `throughput`  | Total output throughput    | `tok/s` |
+| `utilization` | GPU utilization            | `%`     |
+| `ttft.mean`   | Mean time to first token   | `ms`    |
+| `ttft.p99`    | P99 time to first token    | `ms`    |
+| `tpot.mean`   | Mean time per output token | `ms`    |
+| `tpot.p99`    | P99 time per output token  | `ms`    |
 
 真正可用的 metric paths 由当前 dictionary 列出；本表不是硬编码 registry。
 
@@ -135,9 +139,9 @@ run.kernel.leaf52.performance
 这些 token 同样必须由 dictionary 明确公布。`ffn_0`、`leaf52` 等 segment 是 dictionary
 alias；Agent 不解析或构造 worker identity、CostTree identity。
 
-Host 冻结 run token 时生成包含 `runId`、`panelId`、scope 和必要 drill identity 的
-run `EvidenceRefV1`。未在 token 中声明的 drill dimension 不从点击时的 Analyzer state
-继承。
+Host 冻结 run token 时生成包含 `workspaceId`、`runId`、`panelId`、scope 和必要 drill
+identity 的 run `EvidenceRefV2`。未在 token 中声明的 drill dimension 不从点击时的
+Analyzer state 继承。
 
 ## 6. Agent-facing citation dictionary
 
@@ -152,6 +156,7 @@ Writing a reference does not navigate the Analyzer; navigation happens only
 when the user clicks it.
 
 Experiment `exp`
+
 - axes, in order:
   - `tp<i>`: tensor parallel; valid segments: `tp2`, `tp4`
   - `rate<j>`: request rate; valid segments: `rate20`, `rate40`
@@ -169,6 +174,7 @@ Experiment `exp`
 - panel form: `exp.<metric>`
 
 Current run `run`
+
 - `run.cluster.throughput`: cluster throughput
 - `run.cluster.utilization`: cluster GPU utilization
 ```
@@ -192,20 +198,20 @@ Conversation host 收到完整 Agent message 后，通过 Markdown AST 查找 `i
 
 1. node content 是否符合 lexical grammar；
 2. token 是否精确存在于该 turn 的 dictionary snapshot；
-3. dictionary entry 是否能解析为 strict `EvidenceRefV1`；
+3. dictionary entry 是否能解析为 strict `EvidenceRefV2`；
 4. aggregate member alias 是否只对应一个 run；
 5. target 是否满足 metric/scope invariants。
 
 通过后，host 生成 frozen citation：
 
 ```ts
-interface FrozenCitationV1 {
-  protocol: 'vibesim.citation/v1';
+interface FrozenCitationV2 {
+  protocol: "vibesim.citation/v2";
   token: string;
   sourceStart: number;
   sourceEnd: number;
   displayLabel: string;
-  target: EvidenceRefV1;
+  target: EvidenceRefV2;
 }
 ```
 
@@ -255,9 +261,9 @@ Renderer：
 只有可信 user click / keyboard activation 才执行：
 
 1. 创建唯一 `requestId`；
-2. 把 frozen target 放入 `AnalyzerNavigateCommandV1`；
+2. 把 frozen target 放入 `AnalyzerNavigateCommandV2`；
 3. 发送给同源 Analyzer；
-4. 等待相同 `requestId` 的 `AnalyzerNavigationResultV1`；
+4. 等待相同 `requestId` 的 `AnalyzerNavigationResultV2`；
 5. `ok` 后 citation 进入 active state，Analyzer 滚动并高亮；
 6. `not-found` / `unavailable` 时不改变当前 Analyzer view。
 
@@ -266,15 +272,16 @@ step。
 
 ## 10. Required implementation boundaries
 
-- `domain/evidenceRef.ts`：`aggregate | run` `EvidenceRefV1` strict union。
+- `domain/evidenceRef.ts`：`aggregate | run` `EvidenceRefV2` strict union；两种 target 都必须
+  携带 `workspaceId`，不得跨 workspace 隐式解析。
 - `domain/citationDsl.ts`：token grammar、dictionary schema、resolver、frozen citation。
 - `components/evidenceRegistry.tsx`：React panel registration 和 dictionary snapshot。
 - Conversation request contract：携带 Agent-facing dictionary document 和 machine snapshot。
 - Conversation ingestion：Markdown AST resolution 和 frozen citation persistence。
 - Conversation renderer：citation component。
-- Citation click bridge：唯一允许从 citation 发送 `AnalyzerNavigateCommandV1` 的位置。
+- Citation click bridge：唯一允许从 citation 发送 `AnalyzerNavigateCommandV2` 的位置。
 
-现有 `domain/analyzerNavigation.ts` 的 aggregate-only `EvidenceRefV1` 应迁移到共享
+现有 `domain/analyzerNavigation.ts` 的 aggregate-only `EvidenceRefV2` 应迁移到共享
 `domain/evidenceRef.ts`，并增加 run variant。
 
 ## 11. Acceptance

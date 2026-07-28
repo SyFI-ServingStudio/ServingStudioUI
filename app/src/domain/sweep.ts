@@ -3,6 +3,7 @@ export type SweepPrimitive = string | number | boolean | null;
 export type SweepCoordinateValue = SweepPrimitive | readonly SweepPrimitive[];
 
 export interface SweepListItem {
+  workspaceId: string;
   sweepId: string;
   kind: 'sweep' | 'singleton';
   displayName: string;
@@ -37,6 +38,7 @@ export interface SweepRun {
 export interface SweepAnalysis {
   protocolVersion: 1;
   schemaVersion: 1;
+  workspaceId: string;
   sweepId: string;
   displayName: string;
   axes: readonly string[];

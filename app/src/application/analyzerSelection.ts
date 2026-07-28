@@ -1,8 +1,8 @@
 import {
-  analyzerSelectionChangeV1Schema,
-  type AnalyzerSelectionChangeV1,
-  type AnalyzerSelectionV1,
-  type InquiryContextV1,
+  analyzerSelectionChangeV2Schema,
+  type AnalyzerSelectionChangeV2,
+  type AnalyzerSelectionV2,
+  type InquiryContextV2,
 } from '../domain/analyzerSelection';
 import { useViz, type VizState } from '../store';
 
@@ -10,11 +10,12 @@ export const ANALYZER_SELECTION_CHANGE_EVENT = 'vibesim:analyzer-selection-chang
 
 /** Projects the store into the literal context understood by Prototype B.
  * Actions and panel geometry never cross this boundary. */
-export function analyzerSelectionFromVizState(state: VizState): AnalyzerSelectionV1 | null {
+export function analyzerSelectionFromVizState(state: VizState): AnalyzerSelectionV2 | null {
   if (state.selectionSurface === 'aggregate') return state.aggregateSelection;
-  if (state.runId === null) return null;
+  if (state.runWorkspaceId === null || state.runId === null) return null;
   return {
     kind: 'run',
+    workspaceId: state.runWorkspaceId,
     runId: state.runId,
     panelId: state.runPanelId,
     scope: state.scope,
@@ -29,11 +30,11 @@ export function analyzerSelectionFromVizState(state: VizState): AnalyzerSelectio
   };
 }
 
-export function inquiryContextFromVizState(state: VizState): InquiryContextV1 | null {
+export function inquiryContextFromVizState(state: VizState): InquiryContextV2 | null {
   const selection = analyzerSelectionFromVizState(state);
   if (selection === null || state.inquiryId === null || state.phaseId === null) return null;
   return {
-    protocol: 'vibesim.inquiry-context/v1',
+    protocol: 'vibesim.inquiry-context/v2',
     inquiryId: state.inquiryId,
     phaseId: state.phaseId,
     selection,
@@ -43,12 +44,12 @@ export function inquiryContextFromVizState(state: VizState): InquiryContextV1 | 
 function selectionChangeMessage(
   state: VizState,
   revision: number,
-): AnalyzerSelectionChangeV1 | null {
+): AnalyzerSelectionChangeV2 | null {
   const selection = analyzerSelectionFromVizState(state);
   if (selection === null) return null;
   const context = inquiryContextFromVizState(state);
-  return analyzerSelectionChangeV1Schema.parse({
-    protocol: 'vibesim.analyzer/v1',
+  return analyzerSelectionChangeV2Schema.parse({
+    protocol: 'vibesim.analyzer/v2',
     type: 'selection-change',
     revision,
     selection,

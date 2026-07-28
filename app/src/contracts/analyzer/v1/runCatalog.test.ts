@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseAnalyzerV1RunCatalog } from './runCatalog';
 
 interface WireRunOverrides {
+  workspace_id?: string;
   run_id?: string;
   display_name?: string;
   descriptor_href?: string;
@@ -15,6 +16,7 @@ interface WireRunOverrides {
 
 function wireRun(overrides: WireRunOverrides = {}): Record<string, unknown> {
   return {
+    workspace_id: overrides.workspace_id ?? 'w_main',
     run_id: overrides.run_id ?? 'plain-opaque-id',
     kind: 'simulation',
     display_name: overrides.display_name ?? '20260715_1_afd_ui_reanalysis',
@@ -41,6 +43,7 @@ describe('parseAnalyzerV1RunCatalog', () => {
       generatedAt: '2026-07-15T05:12:00Z',
       runs: [
         {
+          workspaceId: 'w_main',
           runId: 'plain-opaque-id',
           kind: 'simulation',
           displayName: '20260715_1_afd_ui_reanalysis',

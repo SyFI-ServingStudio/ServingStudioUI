@@ -68,6 +68,7 @@ function protocolData() {
     generated_at: UPDATED_AT,
     runs: [
       {
+        workspace_id: 'w_main',
         run_id: RUN_ID,
         kind: 'simulation',
         display_name: 'nested/simulation',

@@ -7,10 +7,11 @@ import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
-type FilterKind = 'deployment' | 'trace' | 'axis';
+type FilterKind = 'workspace' | 'deployment' | 'trace' | 'axis';
 type SelectedFilters = Record<FilterKind, readonly string[]>;
 
 const EMPTY_FILTERS: SelectedFilters = {
+  workspace: [],
   deployment: [],
   trace: [],
   axis: [],
@@ -37,6 +38,7 @@ function experimentName(displayName: string): string {
 
 function filterOptions(entries: readonly SweepListItem[], kind: FilterKind): readonly string[] {
   const values = entries.flatMap((entry) => {
+    if (kind === 'workspace') return [entry.workspaceId];
     if (kind === 'deployment') return entry.deployments;
     if (kind === 'trace') return entry.traces;
     return entry.kind === 'singleton' ? ['single run'] : entry.axes;
@@ -45,6 +47,7 @@ function filterOptions(entries: readonly SweepListItem[], kind: FilterKind): rea
 }
 
 function entryValues(entry: SweepListItem, kind: FilterKind): readonly string[] {
+  if (kind === 'workspace') return [entry.workspaceId];
   if (kind === 'deployment') return entry.deployments;
   if (kind === 'trace') return entry.traces;
   return entry.kind === 'singleton' ? ['single run'] : entry.axes;
@@ -58,6 +61,7 @@ function matchesFilters(entry: SweepListItem, selected: SelectedFilters): boolea
 }
 
 function toneFor(kind: FilterKind, value: string): CatalogTagTone {
+  if (kind === 'workspace') return 'workspace';
   if (kind === 'deployment') return 'deployment';
   if (kind === 'trace') return 'trace';
   return value === 'single run' ? 'singleton' : 'axis';
@@ -70,6 +74,7 @@ function ColumnFilter({
   selected,
   onToggle,
   onClear,
+  optionLabel = (value) => value,
 }: {
   kind: FilterKind;
   label: string;
@@ -77,6 +82,7 @@ function ColumnFilter({
   selected: readonly string[];
   onToggle: (kind: FilterKind, value: string) => void;
   onClear: (kind: FilterKind) => void;
+  optionLabel?: (value: string) => string;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const open = Boolean(anchor);
@@ -193,7 +199,7 @@ function ColumnFilter({
                 }}
               >
                 <CatalogTag tone={toneFor(kind, option)} selected={active}>
-                  {option}
+                  {optionLabel(option)}
                 </CatalogTag>
               </ButtonBase>
             );
@@ -207,13 +213,16 @@ function ColumnFilter({
 export default function ExperimentCatalog({
   entries,
   onActivate,
+  workspaceNames = {},
 }: {
   entries: readonly SweepListItem[];
   onActivate: (entry: SweepListItem) => void;
+  workspaceNames?: Readonly<Record<string, string>>;
 }) {
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);
   const options = useMemo(
     () => ({
+      workspace: filterOptions(entries, 'workspace'),
       deployment: filterOptions(entries, 'deployment'),
       trace: filterOptions(entries, 'trace'),
       axis: filterOptions(entries, 'axis'),
@@ -234,7 +243,7 @@ export default function ExperimentCatalog({
       new Set(
         sortedEntries
           .filter((entry) => matchesFilters(entry, selected))
-          .map((entry) => entry.sweepId),
+          .map((entry) => `${entry.workspaceId}:${entry.sweepId}`),
       ),
     [selected, sortedEntries],
   );
@@ -253,7 +262,7 @@ export default function ExperimentCatalog({
 
   const columns = {
     xs: 'minmax(0,1fr) 34px',
-    md: '112px minmax(250px,1.45fr) 112px 150px minmax(210px,1fr) 34px',
+    md: '102px minmax(220px,1.35fr) 112px 108px 142px minmax(190px,1fr) 34px',
   };
   return (
     <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
@@ -296,6 +305,17 @@ export default function ExperimentCatalog({
             {visibleCount} matches, newest first
           </Typography>
         </Stack>
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          <ColumnFilter
+            kind="workspace"
+            label="Workspace"
+            options={options.workspace}
+            selected={selected.workspace}
+            onToggle={toggle}
+            onClear={clearKind}
+            optionLabel={(workspaceId) => workspaceNames[workspaceId] ?? workspaceId}
+          />
+        </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
           <ColumnFilter
             kind="deployment"
@@ -385,11 +405,11 @@ export default function ExperimentCatalog({
           No experiments match this filter combination.
         </Typography>
         {sortedEntries.map((entry) => {
-          const visible = visibleIds.has(entry.sweepId);
+          const visible = visibleIds.has(`${entry.workspaceId}:${entry.sweepId}`);
           const axisValues = entry.kind === 'singleton' ? ['single run'] : entry.axes;
           return (
             <ButtonBase
-              key={entry.sweepId}
+              key={`${entry.workspaceId}:${entry.sweepId}`}
               role="option"
               aria-label={entry.displayName}
               aria-selected={false}
@@ -472,6 +492,16 @@ export default function ExperimentCatalog({
                   {entry.numRuns} {entry.numRuns === 1 ? 'run' : 'runs'}
                 </Typography>
               </Box>
+              <Stack
+                direction="row"
+                useFlexGap
+                flexWrap="wrap"
+                sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.45 }}
+              >
+                <CatalogTag tone="workspace">
+                  {workspaceNames[entry.workspaceId] ?? entry.workspaceId}
+                </CatalogTag>
+              </Stack>
               <Stack
                 direction="row"
                 useFlexGap

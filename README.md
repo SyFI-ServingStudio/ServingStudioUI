@@ -14,11 +14,19 @@ npx playwright install chromium
 npm run dev
 ```
 
-读取 `main/logs` 的实时 analyzer 服务时，从 `MLSim_workspace/` 在两个终端分别运行：
+读取 workspace registry、Agent history 与实时 analyzer 服务时，从 `MLSim_workspace/`
+在三个终端分别运行：
 
 ```bash
 cd main
-cargo run -p analyzer -- serve --logs-root logs
+cargo run -p analyzer -- serve \
+  --workspace-registry ../agent-workspaces/registry.json
+```
+
+```bash
+cd user-facing-ui
+UV_CACHE_DIR="$TMPDIR/uv-cache-user-facing-ui" \
+uv run uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
 ```bash
@@ -26,12 +34,13 @@ cd viz-ui/app
 npm run dev:live
 ```
 
-`dev:live` 让浏览器使用同源 `/api/v1/`，Vite 默认代理到
-`http://127.0.0.1:8787`。需要不同后端时设置服务端环境变量
-`ANALYZER_PROXY_TARGET`；production build 可通过 `VITE_ANALYZER_API_BASE`
-显式选择同源 HTTP 根。proxy 会把 `Host` 重写为目标 host，使 Rust 服务仍能执行
-自己的 allowlist。普通 `npm run dev` 和 E2E 继续读取可复现的 checked-in analyzer
-artifact。
+`dev:live` 让浏览器使用一个同源入口：`/api/v1/` 默认代理到 Rust Analyzer
+`http://127.0.0.1:8787`；`/api/workspaces`、`/api/agent`、`/api/internal` 与
+`/api/eval` 默认代理到 conversation backend `http://127.0.0.1:8765`。需要不同后端时
+设置 `ANALYZER_PROXY_TARGET` / `CONVERSATION_PROXY_TARGET`。production build 可通过
+`VITE_ANALYZER_API_BASE` 显式选择 Analyzer HTTP 根。proxy 会把 `Host` 重写为目标 host，
+使 Rust 服务仍能执行自己的 allowlist。普通 `npm run dev` 和 E2E 继续读取可复现的
+checked-in analyzer artifact。
 
 开发服务器默认只绑定 `127.0.0.1`，这也是 Codex Playwright MCP 和 SSH 端口转发的
 推荐方式。确需直接从可信远端访问时，显式给出监听地址和允许的 browser-facing

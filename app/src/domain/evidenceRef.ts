@@ -1,23 +1,23 @@
 import { z } from 'zod';
 
 import {
-  aggregateAnalyzerSelectionV1Schema,
-  runAnalyzerSelectionV1Schema,
+  aggregateAnalyzerSelectionV2Schema,
+  runAnalyzerSelectionV2Schema,
 } from './analyzerSelection';
 
-export const aggregateEvidenceRefV1Schema = aggregateAnalyzerSelectionV1Schema
-  .extend({ protocol: z.literal('vibesim.analyzer/v1') })
+export const aggregateEvidenceRefV2Schema = aggregateAnalyzerSelectionV2Schema
+  .extend({ protocol: z.literal('vibesim.analyzer/v2') })
   .strict();
 
-export const runEvidenceRefV1Schema = runAnalyzerSelectionV1Schema
-  .extend({ protocol: z.literal('vibesim.analyzer/v1') })
+export const runEvidenceRefV2Schema = runAnalyzerSelectionV2Schema
+  .extend({ protocol: z.literal('vibesim.analyzer/v2') })
   .strict();
 
-export const evidenceRefV1Schema = z.discriminatedUnion('kind', [
-  aggregateEvidenceRefV1Schema,
-  runEvidenceRefV1Schema,
+export const evidenceRefV2Schema = z.discriminatedUnion('kind', [
+  aggregateEvidenceRefV2Schema,
+  runEvidenceRefV2Schema,
 ]);
 
-export type AggregateEvidenceRefV1 = z.infer<typeof aggregateEvidenceRefV1Schema>;
-export type RunEvidenceRefV1 = z.infer<typeof runEvidenceRefV1Schema>;
-export type EvidenceRefV1 = z.infer<typeof evidenceRefV1Schema>;
+export type AggregateEvidenceRefV2 = z.infer<typeof aggregateEvidenceRefV2Schema>;
+export type RunEvidenceRefV2 = z.infer<typeof runEvidenceRefV2Schema>;
+export type EvidenceRefV2 = z.infer<typeof evidenceRefV2Schema>;

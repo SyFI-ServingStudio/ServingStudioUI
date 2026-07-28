@@ -5,8 +5,8 @@
  */
 import { create } from 'zustand';
 import type {
-  AggregateAnalyzerSelectionV1,
-  RunAnalyzerSelectionV1,
+  AggregateAnalyzerSelectionV2,
+  RunAnalyzerSelectionV2,
 } from './domain/analyzerSelection';
 import { makeWorkerKey, type WorkerKey, type WorkerRef } from './domain/worker';
 import type { OperationRef, OperationSummary } from './domain/workerOperation';
@@ -17,13 +17,15 @@ export type AnalyzerSurface = 'aggregate' | 'run';
 
 export interface SetRunOptions {
   readonly keepSelection?: boolean;
+  readonly workspaceId?: string;
 }
 
 export interface VizState {
   selectionSurface: AnalyzerSurface;
-  aggregateSelection: AggregateAnalyzerSelectionV1 | null;
+  aggregateSelection: AggregateAnalyzerSelectionV2 | null;
   inquiryId: string | null;
   phaseId: string | null;
+  runWorkspaceId: string | null;
   runId: string | null;
   runPanelId: string | null;
   scope: Scope;
@@ -36,10 +38,10 @@ export interface VizState {
   operation: OperationRef | null;
   workerAnalysisLevel: WorkerAnalysisLevel;
   setSelectionSurface: (surface: AnalyzerSurface) => void;
-  setAggregateSelection: (selection: AggregateAnalyzerSelectionV1) => void;
+  setAggregateSelection: (selection: AggregateAnalyzerSelectionV2) => void;
   setInquiryContextIdentity: (inquiryId: string | null, phaseId: string | null) => void;
   setRun: (runId: string, options?: SetRunOptions) => void;
-  restoreRunSelection: (selection: RunAnalyzerSelectionV1) => void;
+  restoreRunSelection: (selection: RunAnalyzerSelectionV2) => void;
   selectRunPanel: (panelId: string) => void;
   setCluster: () => void;
   selectPool: (role: string) => void;
@@ -59,6 +61,7 @@ export const useViz = create<VizState>((set) => ({
   aggregateSelection: null,
   inquiryId: null,
   phaseId: null,
+  runWorkspaceId: null,
   runId: null,
   runPanelId: null,
   scope: 'cluster',
@@ -79,9 +82,13 @@ export const useViz = create<VizState>((set) => ({
   setRun: (runId, options) =>
     set(
       options?.keepSelection
-        ? { runId }
+        ? {
+            runId,
+            ...(options.workspaceId === undefined ? {} : { runWorkspaceId: options.workspaceId }),
+          }
         : {
             runId,
+            runWorkspaceId: options?.workspaceId ?? null,
             runPanelId: null,
             scope: 'cluster',
             poolRole: null,
@@ -97,6 +104,7 @@ export const useViz = create<VizState>((set) => ({
   restoreRunSelection: (selection) =>
     set({
       selectionSurface: 'run',
+      runWorkspaceId: selection.workspaceId,
       runId: selection.runId,
       runPanelId: selection.panelId,
       scope: selection.scope,

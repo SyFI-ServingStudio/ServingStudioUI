@@ -20,6 +20,51 @@
 **缺的东西全在 run 之上。** 五块:聚合分析(产出)、聚合协议(传输)、聚合 UI、
 agent 通道、以及**卡片与 run 之间的链接**。最后一块最不明显,单独用第 5 节展开。
 
+### 0.1 2026-07-28 实现状态：统一为 Workspace
+
+早期清单把 `conversation`、`inquiry` 和隔离目录近似看成同一个对象；当前实现明确拆开：
+
+- `workspace` 是持久工作边界：一个 repo、一个 logs root、一个 SQLite、多个
+  conversations、多个 experiments/jobs；
+- `conversation` 是 workspace 内的一条叙事，不再自动复制 repo；
+- `w_main` 是外部 development checkout，也是一等 workspace；
+- `inquiry` 暂不另建持久实体；一次分析问题由 conversation turn +
+  `conversation_experiments` 关系表达，只有未来出现跨 conversation 的研究对象时再提升。
+
+共享 registry 位于 `agent-workspaces/registry.json`。每个
+`agent-workspaces/<workspace-id>/workspace.json` 保存稳定 id、display name、状态、repo/logs
+位置、base revision 与 last access；派生状态只进入该 workspace 的 `workspace.sqlite`。
+Analyzer 只读 registry 中的 active logs roots，因此归档 workspace 会从 catalog 消失，
+但删除 Docker container 不会删除 repo、对话或实验。
+
+系统支持三种调用形态，但 Launcher/Analyzer 合同保持一致：
+
+1. **直接开发**：开发 Agent 或人直接运行 Launcher；没有 managed context 时仍是普通 run。
+2. **UI managed Agent**：conversation backend 为 turn 签发短期 capability，并通过隔离
+   Codex home 注入 `managed-run.json`。Launcher 注册 experiment、上报 lifecycle，backend
+   强制其 workspace/conversation/turn 身份及 logs-root 边界。
+3. **只读已有结果**：用户从 Page 0 选择任何 active workspace 的 experiment；Agent
+   只通过同一 Analyzer MCP 读取，不需要重跑。
+
+Managed Launcher 在 experiment 根写 `experiment.meta.json`。其中稳定 `experiment_id`
+同时进入 SQLite relationship 和 Analyzer catalog；因此 `experiment.ready` SSE 卡片中的
+link 能精确打开 `(workspaceId, experimentId)`，不靠目录名或 catalog 顺序猜测。
+
+UI 的两个入口现在复用同一个 workspace shell：
+
+- 已有 experiment → 直接进入 aggregate Analyzer，可展开/拖拽/全屏 Agent；
+- Agent-first → 先创建一个 workspace，再在其中创建 conversation；Agent 产出的 experiment
+  通过 job card 回到同一个 aggregate Analyzer；
+- 打开或刷新 Analyzer 只加载 history，不会创建 conversation；只有发送首问时才
+  materialize conversation。
+
+Evidence/citation 已提升为 v2。Aggregate 与 run target 都强制带 `workspaceId`，URL、
+selection-change、conversation context、frozen citation 与 click navigation 使用同一身份。
+Agent 仍只复制 turn dictionary 中的自然 symbolic token，不写 opaque id 或 URL。
+
+下文保留早期 gap 推导作为设计背景；凡与本节冲突，以本节和当前代码为准。尚未完成的主要
+工作是 inquiry-level constraints/verdict，而不是 workspace/Agent/Analyzer wiring。
+
 ---
 
 ## 1. 已有资产(用于界定"不用做"的边界)

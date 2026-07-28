@@ -9,6 +9,7 @@ describe('analyzer-v1 aggregate contracts', () => {
       generated_at: '2026-07-27T00:00:00Z',
       sweeps: [
         {
+          workspace_id: 'w_main',
           sweep_id: 's_singleton',
           kind: 'singleton',
           display_name: 'standalone-run',
@@ -26,6 +27,7 @@ describe('analyzer-v1 aggregate contracts', () => {
     const payload = parseAnalyzerV1SweepPayload({
       protocol_version: 1,
       schema_version: 1,
+      workspace_id: 'w_main',
       sweep_id: 's_singleton',
       display_name: 'standalone-run',
       meta: { num_axes: 0, num_runs: 1 },

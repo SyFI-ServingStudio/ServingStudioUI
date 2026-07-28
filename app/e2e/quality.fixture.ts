@@ -17,6 +17,23 @@ export const test = base.extend<QualityFixtures>({
   qualityGuard: [
     async ({ page }, use) => {
       const failures: string[] = [];
+      await page.route('**/api/workspaces', async (route) => {
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({
+            workspaces: [
+              {
+                workspace_id: 'w_main',
+                display_name: 'Main',
+                state: 'active',
+                storage_kind: 'external',
+                created_at: 0,
+                last_accessed_at: 0,
+              },
+            ],
+          }),
+        });
+      });
       const onConsole = (message: ConsoleMessage) => {
         if (message.type() === 'warning' || message.type() === 'error') {
           failures.push(formatConsole(message));

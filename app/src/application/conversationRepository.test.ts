@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AnalyzerTurnContextV1 } from '../domain/citation';
+import type { AnalyzerTurnContextV2 } from '../domain/citation';
 import {
   deleteConversation,
   getConversation,
@@ -9,11 +9,11 @@ import {
   sendConversationTurn,
 } from './conversationRepository';
 
-const context: AnalyzerTurnContextV1 = {
-  protocol: 'vibesim.conversation-context/v1',
-  selection: { kind: 'aggregate', experimentId: 's_test' },
+const context: AnalyzerTurnContextV2 = {
+  protocol: 'vibesim.conversation-context/v2',
+  selection: { kind: 'aggregate', workspaceId: 'w_main', experimentId: 's_test' },
   citationDictionary: {
-    protocol: 'vibesim.citation-dictionary/v1',
+    protocol: 'vibesim.citation-dictionary/v2',
     identity: 'dictionary-1',
     document: 'Use `exp.throughput`.',
     entries: [
@@ -21,8 +21,9 @@ const context: AnalyzerTurnContextV1 = {
         token: 'exp.throughput',
         displayLabel: 'Total throughput',
         target: {
-          protocol: 'vibesim.analyzer/v1',
+          protocol: 'vibesim.analyzer/v2',
           kind: 'aggregate',
+          workspaceId: 'w_main',
           experimentId: 's_test',
           panelId: 'total_tps',
           metricKey: 'total_tps',
@@ -52,17 +53,17 @@ describe('conversation repository', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(listConversations()).resolves.toHaveLength(2);
-    await deleteConversation('c_older');
+    await expect(listConversations('w_main')).resolves.toHaveLength(2);
+    await deleteConversation('w_main', 'c_older');
 
-    expect(fetchMock).toHaveBeenLastCalledWith('/api/conversations/c_older', {
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/workspaces/w_main/conversations/c_older', {
       method: 'DELETE',
     });
   });
 
   it('sends the bounded Analyzer context and decodes live events plus frozen citations', async () => {
     const citation = {
-      protocol: 'vibesim.citation/v1',
+      protocol: 'vibesim.citation/v2',
       token: 'exp.throughput',
       sourceStart: 4,
       sourceEnd: 20,
@@ -78,7 +79,7 @@ describe('conversation repository', () => {
         text: 'See `exp.throughput`.',
         citations: [citation],
         citation_dictionary_id: 'dictionary-1',
-        citation_dsl_version: 'v1',
+        citation_dsl_version: 'v2',
       })}`,
       '',
       '',
@@ -92,6 +93,7 @@ describe('conversation repository', () => {
     const completions: unknown[] = [];
 
     await sendConversationTurn(
+      'w_main',
       'c_test',
       'Compare throughput.',
       context,
@@ -116,7 +118,7 @@ describe('conversation repository', () => {
       text: 'See `exp.throughput`.',
       citations: [citation],
       citationDictionaryId: 'dictionary-1',
-      citationDslVersion: 'v1',
+      citationDslVersion: 'v2',
       failure: null,
     });
   });
@@ -127,9 +129,9 @@ describe('conversation repository', () => {
       vi.fn(async () => new Response(null, { status: 204 })),
     );
 
-    await expect(resumeConversationTurn('c_idle', {}, new AbortController().signal)).resolves.toBe(
-      false,
-    );
+    await expect(
+      resumeConversationTurn('w_main', 'c_idle', {}, new AbortController().signal),
+    ).resolves.toBe(false);
   });
 
   it('decodes a structured runtime failure as an error event, not an answer', async () => {
@@ -152,6 +154,7 @@ describe('conversation repository', () => {
     const completions: unknown[] = [];
 
     await sendConversationTurn(
+      'w_main',
       'c_test',
       'Explain this graph.',
       null,
@@ -190,7 +193,7 @@ describe('conversation repository', () => {
       ),
     );
 
-    const conversation = await getConversation('c_legacy');
+    const conversation = await getConversation('w_main', 'c_legacy');
 
     expect(conversation?.messages[0]?.failure).toEqual({
       code: 'runtime_storage_full',

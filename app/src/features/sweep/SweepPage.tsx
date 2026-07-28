@@ -16,11 +16,11 @@ import {
   analyzerEvidenceHref,
   evidenceRefFromHash,
   replaceAnalyzerEvidenceHref,
-  type AnalyzerNavigationResultV1,
-  type EvidenceRefV1,
+  type AnalyzerNavigationResultV2,
+  type EvidenceRefV2,
 } from '../../domain/analyzerNavigation';
-import type { AggregateEvidenceRefV1 } from '../../domain/evidenceRef';
-import type { AggregateAnalyzerSelectionV1 } from '../../domain/analyzerSelection';
+import type { AggregateEvidenceRefV2 } from '../../domain/evidenceRef';
+import type { AggregateAnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import type {
   SweepAnalysis,
   SweepCoordinateValue,
@@ -357,8 +357,8 @@ function MetricPanelCard({
 }
 
 function announceNavigationResult(
-  target: EvidenceRefV1,
-  status: AnalyzerNavigationResultV1['status'],
+  target: EvidenceRefV2,
+  status: AnalyzerNavigationResultV2['status'],
 ) {
   window.dispatchEvent(
     new CustomEvent(ANALYZER_NAVIGATION_RESULT_EVENT, {
@@ -378,8 +378,8 @@ function coordinatesMatch(
 
 function copySweepCoordinates(
   coordinates: Readonly<Record<string, SweepCoordinateValue>>,
-): NonNullable<AggregateAnalyzerSelectionV1['coordinates']> {
-  const copied: NonNullable<AggregateAnalyzerSelectionV1['coordinates']> = {};
+): NonNullable<AggregateAnalyzerSelectionV2['coordinates']> {
+  const copied: NonNullable<AggregateAnalyzerSelectionV2['coordinates']> = {};
   Object.entries(coordinates).forEach(([axis, value]) => {
     copied[axis] = Array.isArray(value) ? [...value] : (value as SweepPrimitive);
   });
@@ -387,10 +387,11 @@ function copySweepCoordinates(
 }
 
 function aggregateSelectionFromEvidence(
-  target: AggregateEvidenceRefV1,
-): AggregateAnalyzerSelectionV1 {
+  target: AggregateEvidenceRefV2,
+): AggregateAnalyzerSelectionV2 {
   return {
     kind: 'aggregate',
+    workspaceId: target.workspaceId,
     experimentId: target.experimentId,
     ...(target.panelId ? { panelId: target.panelId } : {}),
     ...(target.metricKey ? { metricKey: target.metricKey } : {}),
@@ -401,11 +402,12 @@ function aggregateSelectionFromEvidence(
 }
 
 function evidenceFromAggregateSelection(
-  selection: AggregateAnalyzerSelectionV1,
-): AggregateEvidenceRefV1 {
+  selection: AggregateAnalyzerSelectionV2,
+): AggregateEvidenceRefV2 {
   return {
-    protocol: 'vibesim.analyzer/v1',
+    protocol: 'vibesim.analyzer/v2',
     kind: 'aggregate',
+    workspaceId: selection.workspaceId,
     experimentId: selection.experimentId,
     ...(selection.panelId ? { panelId: selection.panelId } : {}),
     ...(selection.metricKey ? { metricKey: selection.metricKey } : {}),
@@ -415,14 +417,14 @@ function evidenceFromAggregateSelection(
   };
 }
 
-function aggregateEvidenceFromHash(hash: string): AggregateEvidenceRefV1 | null {
+function aggregateEvidenceFromHash(hash: string): AggregateEvidenceRefV2 | null {
   const evidence = evidenceRefFromHash(hash);
   return evidence?.kind === 'aggregate' ? evidence : null;
 }
 
 export default function SweepPage({ integrated = false }: { integrated?: boolean }) {
   const sweepList = useSweepListQuery();
-  const [navigationTarget, setNavigationTarget] = useState<AggregateEvidenceRefV1 | null>(() =>
+  const [navigationTarget, setNavigationTarget] = useState<AggregateEvidenceRefV2 | null>(() =>
     aggregateEvidenceFromHash(window.location.hash),
   );
   const metricPanelsRef = useRef<HTMLDivElement>(null);
@@ -431,7 +433,11 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
   const aggregateSelection = useViz((state) => state.aggregateSelection);
   const setAggregateSelection = useViz((state) => state.setAggregateSelection);
   const selectedSweepId = aggregateSelection?.experimentId ?? null;
-  const selectedSweep = sweepList.data?.find((sweep) => sweep.sweepId === selectedSweepId) ?? null;
+  const selectedSweep =
+    sweepList.data?.find(
+      (sweep) =>
+        sweep.sweepId === selectedSweepId && sweep.workspaceId === aggregateSelection?.workspaceId,
+    ) ?? null;
 
   useEffect(() => {
     const syncNavigationTarget = () =>
@@ -444,7 +450,9 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
     if (!sweepList.data?.length) return;
     if (navigationTarget) {
       const requestedSweep = sweepList.data.find(
-        (sweepEntry) => sweepEntry.sweepId === navigationTarget.experimentId,
+        (sweepEntry) =>
+          sweepEntry.sweepId === navigationTarget.experimentId &&
+          sweepEntry.workspaceId === navigationTarget.workspaceId,
       );
       if (!requestedSweep) {
         announceNavigationResult(navigationTarget, 'not-found');
@@ -459,14 +467,16 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
     if (selectedSweepId !== null) return;
     const defaultSweep =
       sweepList.data.find((sweepEntry) => sweepEntry.status === 'ready') ?? sweepList.data[0];
-    const defaultSelection: AggregateAnalyzerSelectionV1 = {
+    const defaultSelection: AggregateAnalyzerSelectionV2 = {
       kind: 'aggregate',
+      workspaceId: defaultSweep.workspaceId,
       experimentId: defaultSweep.sweepId,
     };
     setAggregateSelection(defaultSelection);
     replaceAnalyzerEvidenceHref({
-      protocol: 'vibesim.analyzer/v1',
+      protocol: 'vibesim.analyzer/v2',
       kind: 'aggregate',
+      workspaceId: defaultSweep.workspaceId,
       experimentId: defaultSweep.sweepId,
     });
   }, [navigationTarget, selectedSweepId, setAggregateSelection, sweepList.data]);
@@ -486,7 +496,13 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
     [analysis],
   );
   const selectedRunKey = useMemo(() => {
-    if (!analysis || aggregateSelection?.experimentId !== analysis.sweepId) return null;
+    if (
+      !analysis ||
+      aggregateSelection?.workspaceId !== analysis.workspaceId ||
+      aggregateSelection.experimentId !== analysis.sweepId
+    ) {
+      return null;
+    }
     const selectedRun =
       analysis.runs.find((run) => run.runId === aggregateSelection.runId) ??
       (aggregateSelection.coordinates
@@ -497,12 +513,19 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
     return selectedRun ? runCoordinateKey(analysis, selectedRun) : null;
   }, [aggregateSelection, analysis]);
   const selectedPanelId =
-    aggregateSelection && aggregateSelection.experimentId === analysis?.sweepId
+    aggregateSelection &&
+    aggregateSelection.workspaceId === analysis?.workspaceId &&
+    aggregateSelection.experimentId === analysis.sweepId
       ? (aggregateSelection.panelId ?? null)
       : null;
 
   useEffect(() => {
-    if (!navigationTarget || !analysis || analysis.sweepId !== navigationTarget.experimentId) {
+    if (
+      !navigationTarget ||
+      !analysis ||
+      analysis.workspaceId !== navigationTarget.workspaceId ||
+      analysis.sweepId !== navigationTarget.experimentId
+    ) {
       return;
     }
     const panels = metricSections.flatMap((section) => section.panels);
@@ -577,9 +600,10 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
         };
       }
     ).data;
-    if (typeof data?.runKey !== 'string' || selectedSweepId === null) return;
-    const selection: AggregateAnalyzerSelectionV1 = {
+    if (typeof data?.runKey !== 'string' || selectedSweepId === null || !analysis) return;
+    const selection: AggregateAnalyzerSelectionV2 = {
       kind: 'aggregate',
+      workspaceId: analysis.workspaceId,
       experimentId: selectedSweepId,
       panelId: panel.id,
       metricKey: metric.key,
@@ -593,7 +617,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
       typeof data.coordinates === 'object' &&
       !Array.isArray(data.coordinates)
         ? {
-            coordinates: data.coordinates as AggregateEvidenceRefV1['coordinates'],
+            coordinates: data.coordinates as AggregateEvidenceRefV2['coordinates'],
           }
         : {}),
     };
@@ -602,9 +626,10 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
   };
 
   const selectMetricPanel = (panel: SweepMetricPanel, metric: SweepMetric) => {
-    if (selectedSweepId === null) return;
-    const selection: AggregateAnalyzerSelectionV1 = {
+    if (selectedSweepId === null || !analysis) return;
+    const selection: AggregateAnalyzerSelectionV2 = {
       kind: 'aggregate',
+      workspaceId: analysis.workspaceId,
       experimentId: selectedSweepId,
       panelId: panel.id,
       metricKey: metric.key,
@@ -626,9 +651,25 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
 
   const openChartRun = (event: unknown) => {
     const data = (event as { data?: { runId?: unknown } }).data;
-    if (typeof data?.runId !== 'string') return;
-    setRun(data.runId);
-    window.location.hash = '/run';
+    if (typeof data?.runId !== 'string' || !analysis) return;
+    const target = {
+      protocol: 'vibesim.analyzer/v2' as const,
+      kind: 'run' as const,
+      workspaceId: analysis.workspaceId,
+      runId: data.runId,
+      panelId: null,
+      scope: 'cluster' as const,
+      poolRole: null,
+      workerKey: null,
+      leafId: null,
+      parId: null,
+      cursorMs: null,
+      cursorNeedsSeek: false,
+      operation: null,
+      workerAnalysisLevel: 'worker' as const,
+    };
+    setRun(data.runId, { workspaceId: analysis.workspaceId });
+    window.location.hash = analyzerEvidenceHref(target);
   };
 
   const completeRuns =
@@ -638,13 +679,32 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
   const singletonRun = selectedSweep?.kind === 'singleton' ? analysis?.runs[0] : undefined;
   const inspectSingleton = () => {
     if (!singletonRun?.runId) return;
-    setRun(singletonRun.runId);
-    window.location.hash = '/run';
+    if (!analysis) return;
+    setRun(singletonRun.runId, { workspaceId: analysis.workspaceId });
+    window.location.hash = analyzerEvidenceHref({
+      protocol: 'vibesim.analyzer/v2',
+      kind: 'run',
+      workspaceId: analysis.workspaceId,
+      runId: singletonRun.runId,
+      panelId: null,
+      scope: 'cluster',
+      poolRole: null,
+      workerKey: null,
+      leafId: null,
+      parId: null,
+      cursorMs: null,
+      cursorNeedsSeek: false,
+      operation: null,
+      workerAnalysisLevel: 'worker',
+    });
   };
   const activateSweep = (sweepId: string) => {
     setNavigationTarget(null);
-    const selection: AggregateAnalyzerSelectionV1 = {
+    const sweepEntry = sweepList.data?.find((entry) => entry.sweepId === sweepId);
+    if (!sweepEntry) return;
+    const selection: AggregateAnalyzerSelectionV2 = {
       kind: 'aggregate',
+      workspaceId: sweepEntry.workspaceId,
       experimentId: sweepId,
     };
     setAggregateSelection(selection);
@@ -730,8 +790,11 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
                 autoSelectFallback={navigationTarget === null}
                 onSelect={(sweepId) => {
                   setNavigationTarget(null);
-                  const selection: AggregateAnalyzerSelectionV1 = {
+                  const sweepEntry = sweepList.data.find((entry) => entry.sweepId === sweepId);
+                  if (!sweepEntry) return;
+                  const selection: AggregateAnalyzerSelectionV2 = {
                     kind: 'aggregate',
+                    workspaceId: sweepEntry.workspaceId,
                     experimentId: sweepId,
                   };
                   setAggregateSelection(selection);
