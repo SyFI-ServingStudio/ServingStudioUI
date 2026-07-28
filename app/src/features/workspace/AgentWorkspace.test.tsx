@@ -1,5 +1,6 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useViz } from '../../store';
@@ -137,5 +138,66 @@ describe('AgentPane', () => {
     expect(await screen.findByText('Agent unavailable')).toBeInTheDocument();
     expect(screen.getByText(/host disk is full/)).toBeInTheDocument();
     expect(screen.queryByText(/docker.*run/)).not.toBeInTheDocument();
+  });
+
+  it('creates one conversation and sends the first prompt under StrictMode', async () => {
+    window.sessionStorage.removeItem('vibesim.conversation.id');
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/conversations' && init?.method === 'POST') {
+        return new Response(JSON.stringify({ id: 'c_new', title: 'New chat', messages: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/messages') && init?.method === 'POST') {
+        return new Response(
+          [
+            'event: done',
+            'data: {"text":"Agent answer.","citations":[],"failure":null}',
+            '',
+            '',
+          ].join('\n'),
+          { status: 200 },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          id: 'c_new',
+          title: 'New chat',
+          messages: [
+            { role: 'user', content: 'Run a simulation.' },
+            {
+              role: 'assistant',
+              content: 'Agent answer.',
+              activity: [{ kind: 'final', text: 'Agent answer.' }],
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <StrictMode>
+        <AgentPane prompt="Run a simulation." />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText('Agent answer.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.filter(
+          ([input, init]) => String(input) === '/api/conversations' && init?.method === 'POST',
+        ),
+      ).toHaveLength(1);
+      expect(
+        fetchMock.mock.calls.filter(
+          ([input, init]) => String(input).endsWith('/messages') && init?.method === 'POST',
+        ),
+      ).toHaveLength(1);
+    });
   });
 });

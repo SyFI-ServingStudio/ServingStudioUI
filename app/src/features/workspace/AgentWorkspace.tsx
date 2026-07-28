@@ -18,6 +18,7 @@ import {
   getConversation,
   resumeConversationTurn,
   sendConversationTurn,
+  type Conversation,
   type ConversationMessage,
   type ConversationTurnEvent,
 } from '../../application/conversationRepository';
@@ -738,21 +739,28 @@ function useAgentConversation(
   const [progress, setProgress] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const initialized = useRef(false);
+  const streamingRef = useRef(false);
+  // StrictMode replays effect setup/cleanup. Both setups must join the same
+  // initialization rather than orphaning the just-created conversation.
+  const initializationPromise = useRef<Promise<Conversation> | null>(null);
   const initialPromptStarted = useRef(false);
   const abortController = useRef<AbortController | null>(null);
+  const setStreamingState = useCallback((nextStreaming: boolean) => {
+    streamingRef.current = nextStreaming;
+    setStreaming(nextStreaming);
+  }, []);
 
   const runTurn = useCallback(
     async (activeConversationId: string, text: string, context: AnalyzerTurnContextV1 | null) => {
       const trimmed = text.trim();
-      if (!trimmed || streaming) return;
+      if (!trimmed || streamingRef.current) return;
       const controller = new AbortController();
       abortController.current = controller;
       setMessages((current) => [...current, { role: 'user', content: trimmed }]);
       setLiveEvents([]);
       setProgress('');
       setError(null);
-      setStreaming(true);
+      setStreamingState(true);
       let completionMessage: ConversationMessage | null = null;
       try {
         await sendConversationTurn(
@@ -785,32 +793,39 @@ function useAgentConversation(
         }
       } finally {
         abortController.current = null;
-        setStreaming(false);
+        setStreamingState(false);
         setLiveEvents([]);
         setProgress('');
       }
     },
-    [streaming],
+    [setStreamingState],
   );
 
   useEffect(() => {
-    if (!enabled || initialized.current) return;
-    initialized.current = true;
+    if (!enabled) return;
     let disposed = false;
-    void (async () => {
-      try {
+    let resumeController: AbortController | null = null;
+    if (initializationPromise.current === null) {
+      initializationPromise.current = (async () => {
         const rememberedId = window.sessionStorage.getItem(CONVERSATION_ID_KEY);
         let conversation = rememberedId ? await getConversation(rememberedId) : null;
         if (!conversation) {
           conversation = await createConversation();
           window.sessionStorage.setItem(CONVERSATION_ID_KEY, conversation.id);
         }
+        return conversation;
+      })();
+    }
+    const currentInitialization = initializationPromise.current;
+    void (async () => {
+      try {
+        const conversation = await currentInitialization;
         if (disposed) return;
         setConversationId(conversation.id);
         setMessages(conversation.messages);
-        const resumeController = new AbortController();
+        resumeController = new AbortController();
         abortController.current = resumeController;
-        setStreaming(true);
+        setStreamingState(true);
         const resumed = await resumeConversationTurn(
           conversation.id,
           {
@@ -821,22 +836,27 @@ function useAgentConversation(
         );
         if (disposed) return;
         abortController.current = null;
-        setStreaming(false);
+        setStreamingState(false);
         if (resumed) {
           const refreshed = await getConversation(conversation.id);
           if (refreshed && !disposed) setMessages(refreshed.messages);
           setLiveEvents([]);
         }
       } catch (caught) {
+        if (initializationPromise.current === currentInitialization) {
+          initializationPromise.current = null;
+        }
         if (!disposed) {
+          setStreamingState(false);
           setError(caught instanceof Error ? caught.message : 'Conversation initialization failed');
         }
       }
     })();
     return () => {
       disposed = true;
+      resumeController?.abort();
     };
-  }, [analyzerContext, enabled, prompt, runTurn]);
+  }, [enabled, setStreamingState]);
 
   useEffect(() => {
     if (
