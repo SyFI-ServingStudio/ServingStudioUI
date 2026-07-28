@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,9 +15,13 @@ const conversation = {
       role: 'assistant',
       content: 'Inspect `exp.tp2.rate20.throughput`.',
       activity: [
-        { kind: 'intermediate_output', role: 'orchestrator', text: 'Plan the comparison.' },
+        {
+          kind: 'intermediate_output',
+          role: 'orchestrator',
+          text: 'Plan the **comparison**.',
+        },
         { kind: 'usage', role: 'orchestrator', duration_ms: 10, tokens: {} },
-        { kind: 'decision', action: 'delegate', task: 'Compare the coordinates.' },
+        { kind: 'decision', action: 'delegate', task: 'Compare the **coordinates**.' },
         { kind: 'intermediate_output', role: 'implementer', text: 'Read the sweep.' },
         { kind: 'usage', role: 'implementer', duration_ms: 10, tokens: {} },
         { kind: 'implementer', text: 'The evidence is ready.' },
@@ -47,6 +51,7 @@ const conversation = {
 
 beforeEach(() => {
   window.sessionStorage.setItem('vibesim.conversation.id', 'c_test');
+  window.localStorage.clear();
   window.history.replaceState(null, '', '/');
   vi.stubGlobal(
     'fetch',
@@ -72,6 +77,10 @@ describe('AgentPane', () => {
     expect(screen.getByText('Answer')).toBeInTheDocument();
     expect(screen.getByText('Orchestrator to Implementer')).toBeInTheDocument();
     expect(screen.getByText('Implementer to Orchestrator')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Delegated task' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Implementation report' })).toBeInTheDocument();
+    expect(screen.getByText('comparison').tagName).toBe('STRONG');
+    expect(screen.getByText('coordinates').tagName).toBe('STRONG');
 
     expect(postMessage).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /TP=2 · rate=20 · Throughput/ }));
@@ -93,6 +102,106 @@ describe('AgentPane', () => {
 
     expect(onToggleFull).toHaveBeenCalledOnce();
     expect(onFold).toHaveBeenCalledOnce();
+  });
+
+  it('restores searchable history and switches conversations without a dropdown', async () => {
+    const olderConversation = {
+      id: 'c_older',
+      title: 'H200 goodput boundary',
+      messages: [
+        { role: 'user', content: 'Find the goodput boundary.' },
+        {
+          role: 'assistant',
+          content: 'The saved answer.',
+          activity: [{ kind: 'final', text: 'The saved answer.' }],
+        },
+      ],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/conversations') {
+          return new Response(
+            JSON.stringify({
+              conversations: [
+                { id: 'c_test', title: 'TP comparison', updated_at: 1785254400 },
+                {
+                  id: 'c_older',
+                  title: 'H200 goodput boundary',
+                  updated_at: 1785168000,
+                },
+              ],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          );
+        }
+        if (url.includes('/c_older?')) {
+          return new Response(JSON.stringify(olderConversation), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+        return new Response(JSON.stringify(conversation), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Open conversation history' }));
+    const history = screen.getByRole('region', { name: 'Conversation history' });
+    expect(history).toBeInTheDocument();
+    expect(screen.getByText('2 saved')).toBeInTheDocument();
+
+    const search = screen.getByRole('textbox', { name: 'Search conversations' });
+    await user.type(search, 'goodput');
+    expect(within(history).queryByText('TP comparison')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open H200 goodput boundary' }));
+
+    expect(await screen.findByText('The saved answer.')).toBeInTheDocument();
+    expect(window.sessionStorage.getItem('vibesim.conversation.id')).toBe('c_older');
+    expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
+  });
+
+  it('pins conversation history as a persistent left rail and restores the preference', async () => {
+    const user = userEvent.setup();
+    const firstRender = render(<AgentPane full prompt="" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Open conversation history' }));
+    await user.click(screen.getByRole('button', { name: 'Pin conversation history to the left' }));
+
+    expect(screen.getByRole('region', { name: 'Conversation history' })).toHaveAttribute(
+      'data-history-mode',
+      'persistent',
+    );
+    expect(window.localStorage.getItem('vibesim.conversation.history.pinned')).toBe('true');
+
+    firstRender.unmount();
+    render(<AgentPane full prompt="" />);
+
+    expect(screen.getByRole('region', { name: 'Conversation history' })).toHaveAttribute(
+      'data-history-mode',
+      'persistent',
+    );
+    await user.click(screen.getByRole('button', { name: 'Hide conversation history' }));
+    expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('vibesim.conversation.history.pinned')).toBeNull();
+  });
+
+  it('keeps the follow-up composer on the same reading column as answers', async () => {
+    render(<AgentPane full prompt="" />);
+
+    await screen.findByText('Answer');
+    expect(screen.getByTestId('agent-message-column')).toHaveStyle({
+      width: 'min(720px,calc(100% - 40px))',
+    });
+    expect(screen.getByTestId('agent-composer-column')).toHaveStyle({
+      width: 'min(720px,calc(100% - 40px))',
+    });
   });
 
   it('shows the literal active Analyzer selection above the composer', async () => {
@@ -199,5 +308,53 @@ describe('AgentPane', () => {
         ),
       ).toHaveLength(1);
     });
+  });
+
+  it('surfaces a live MCP call as tool activity', async () => {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(
+          new TextEncoder().encode(
+            [
+              'event: intermediate_output',
+              'data: {"role":"orchestrator","text":"I will inspect the analyzer."}',
+              '',
+              'event: progress',
+              'data: {"text":"tool: read_analyzer_resource"}',
+              '',
+              '',
+            ].join('\n'),
+          ),
+        );
+      },
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+        if (url.endsWith('/messages') && init?.method === 'POST') {
+          return new Response(stream, { status: 200 });
+        }
+        return new Response(JSON.stringify({ id: 'c_test', title: 'Test', messages: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    const user = userEvent.setup();
+    render(<AgentPane prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'Inspect the sweep.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+
+    expect(
+      await screen.findByRole('status', {
+        name: 'tool call: read_analyzer_resource',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('tool call')).toBeInTheDocument();
+    expect(screen.getByText('read_analyzer_resource')).toBeInTheDocument();
   });
 });

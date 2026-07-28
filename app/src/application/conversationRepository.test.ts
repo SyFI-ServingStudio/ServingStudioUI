@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnalyzerTurnContextV1 } from '../domain/citation';
 import {
+  deleteConversation,
   getConversation,
+  listConversations,
   resumeConversationTurn,
   sendConversationTurn,
 } from './conversationRepository';
@@ -35,6 +37,29 @@ afterEach(() => {
 });
 
 describe('conversation repository', () => {
+  it('lists and deletes saved conversations through the shared browser API', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'DELETE') return new Response('{}', { status: 200 });
+      return new Response(
+        JSON.stringify({
+          conversations: [
+            { id: 'c_recent', title: 'Recent sweep', updated_at: 1785254400 },
+            { id: 'c_older', title: 'Older sweep', updated_at: 1785168000 },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listConversations()).resolves.toHaveLength(2);
+    await deleteConversation('c_older');
+
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/conversations/c_older', {
+      method: 'DELETE',
+    });
+  });
+
   it('sends the bounded Analyzer context and decodes live events plus frozen citations', async () => {
     const citation = {
       protocol: 'vibesim.citation/v1',

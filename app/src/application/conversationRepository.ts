@@ -39,6 +39,16 @@ export interface Conversation {
   messages: readonly ConversationMessage[];
 }
 
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updated_at?: number | string;
+}
+
+interface ConversationListResponse {
+  conversations?: readonly ConversationSummary[];
+}
+
 export interface TurnCompletion {
   text: string;
   citations: readonly FrozenCitationV1[];
@@ -92,6 +102,19 @@ export async function createConversation(): Promise<Conversation> {
     'Create conversation',
   );
   return response.json() as Promise<Conversation>;
+}
+
+export async function listConversations(): Promise<readonly ConversationSummary[]> {
+  const response = await requireResponse(await fetch(CONVERSATION_API), 'List conversations');
+  const payload = (await response.json()) as ConversationListResponse;
+  return Array.isArray(payload.conversations) ? payload.conversations : [];
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await requireResponse(
+    await fetch(`${CONVERSATION_API}/${conversationId}`, { method: 'DELETE' }),
+    'Delete conversation',
+  );
 }
 
 export async function getConversation(conversationId: string): Promise<Conversation | null> {
