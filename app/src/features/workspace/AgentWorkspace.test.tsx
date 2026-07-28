@@ -51,7 +51,7 @@ beforeEach(() => {
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url.endsWith('/stream')) return new Response('', { status: 409 });
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
       return new Response(JSON.stringify(conversation), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -112,5 +112,30 @@ describe('AgentPane', () => {
     expect(context).toHaveTextContent('request_rate=20');
     await user.click(screen.getByRole('button', { name: 'view JSON' }));
     expect(context).toHaveTextContent('"experimentId": "s_test"');
+  });
+
+  it('renders a legacy runtime exception as a compact retry card', async () => {
+    const rawError =
+      "(backend error: Command '['docker', 'run', '-d'] failed: no space left on device)";
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/stream')) return new Response(null, { status: 204 });
+        return new Response(
+          JSON.stringify({
+            id: 'c_test',
+            title: 'Test',
+            messages: [{ role: 'assistant', content: rawError }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }),
+    );
+
+    render(<AgentPane prompt="Explain this graph." />);
+
+    expect(await screen.findByText('Agent unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/host disk is full/)).toBeInTheDocument();
+    expect(screen.queryByText(/docker.*run/)).not.toBeInTheDocument();
   });
 });

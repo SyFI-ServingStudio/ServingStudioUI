@@ -183,6 +183,9 @@ viz-ui 今天**完全没有**写入侧:`AnalyzerRepository` 是严格只读的 a
       `POST /api/conversations/{cid}/messages`、`GET /api/conversations/{cid}/stream`(SSE)、
       `POST /api/conversations/{cid}/cancel`,以及 token 门控的 agent 侧
       `/api/agent/conversations*`。不要重写。
+- [x] **恢复与失败语义。** 空闲 conversation 的 `GET .../stream` 返回 `204`，不是
+      conflict；turn failure 以 `{code,message}` 持久化并随 `done` 发送。完整 subprocess /
+      Docker 诊断只进 backend log，不能伪装成 Answer 或泄漏到对话正文。
 - [x] **决定部署形态。** 开发环境保持浏览器同源：Vite 将 `/api/conversations` 转发到
       `user-facing-ui`（默认 8765），其余 `/api` 仍转发到只读 Analyzer（默认 8787）。
       Codex container 的 Analyzer MCP 明确区分 `source="host"`（UI 已选实验）与

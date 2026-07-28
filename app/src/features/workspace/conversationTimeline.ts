@@ -16,6 +16,7 @@ export type ConversationCard =
       done: boolean;
     }
   | { type: 'handoff'; variant: 'delegated-task' | 'conclusion'; text: string }
+  | { type: 'error'; text: string }
   | { type: 'answer'; text: string };
 
 function roleFrom(value: string): ConversationRole {
@@ -86,6 +87,9 @@ export function conversationCards(
       current = null;
     } else if (event.kind === 'implementer') {
       cards.push({ type: 'handoff', variant: 'conclusion', text: event.text });
+      current = null;
+    } else if (event.kind === 'error') {
+      cards.push({ type: 'error', text: event.text });
       current = null;
     } else if (event.kind === 'final') {
       cards.push({ type: 'answer', text: event.text });

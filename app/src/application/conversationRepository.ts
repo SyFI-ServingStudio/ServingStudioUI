@@ -10,11 +10,17 @@ export interface ConversationTokens {
   output: number;
 }
 
+export interface ConversationFailure {
+  code: string;
+  message: string;
+}
+
 export type ConversationTurnEvent =
   | { kind: 'intermediate_output'; role: string; text: string }
   | { kind: 'decision'; action: string; task: string }
   | { kind: 'implementer'; text: string }
   | { kind: 'usage'; role: string; duration_ms: number; tokens: ConversationTokens }
+  | { kind: 'error'; text: string }
   | { kind: 'final'; text: string };
 
 export interface ConversationMessage {
@@ -24,6 +30,7 @@ export interface ConversationMessage {
   citations?: readonly FrozenCitationV1[] | null;
   citation_dictionary_id?: string | null;
   citation_dsl_version?: string | null;
+  failure?: ConversationFailure | null;
 }
 
 export interface Conversation {
@@ -37,6 +44,7 @@ export interface TurnCompletion {
   citations: readonly FrozenCitationV1[];
   citationDictionaryId: string | null;
   citationDslVersion: string | null;
+  failure: ConversationFailure | null;
 }
 
 export interface ConversationStreamHandlers {
@@ -50,6 +58,28 @@ const CONVERSATION_API = '/api/conversations';
 async function requireResponse(response: Response, action: string): Promise<Response> {
   if (!response.ok) throw new Error(`${action} failed (${response.status})`);
   return response;
+}
+
+function conversationFailureFrom(value: unknown, legacyContent = ''): ConversationFailure | null {
+  if (value !== null && typeof value === 'object') {
+    const source = value as Record<string, unknown>;
+    if (typeof source.code === 'string' && typeof source.message === 'string') {
+      return { code: source.code, message: source.message };
+    }
+  }
+  if (!legacyContent.trimStart().startsWith('(backend error:')) return null;
+  if (legacyContent.toLowerCase().includes('no space left on device')) {
+    return {
+      code: 'runtime_storage_full',
+      message:
+        'The Agent runtime could not start because the host disk is full. Free space, then retry this question.',
+    };
+  }
+  return {
+    code: 'agent_runtime_failure',
+    message:
+      'The Agent runtime failed before producing an answer. Retry the question; the full diagnostic is available in the backend log.',
+  };
 }
 
 export async function createConversation(): Promise<Conversation> {
@@ -73,6 +103,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
     ...conversation,
     messages: conversation.messages.map((message) => ({
       ...message,
+      failure: conversationFailureFrom(message.failure, message.content),
       citations: (message.citations ?? []).flatMap((citation) => {
         const parsed = frozenCitationV1Schema.safeParse(citation);
         return parsed.success ? [parsed.data] : [];
@@ -108,7 +139,9 @@ export async function resumeConversationTurn(
   signal: AbortSignal,
 ): Promise<boolean> {
   const response = await fetch(`${CONVERSATION_API}/${conversationId}/stream`, { signal });
-  if (response.status === 409) return false;
+  // 204 is the current idle contract; 409 remains accepted while a rolling
+  // deployment may still have the previous backend version.
+  if (response.status === 204 || response.status === 409) return false;
   await consumeTurnStream(await requireResponse(response, 'Resume turn'), handlers);
   return true;
 }
@@ -176,7 +209,8 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
     });
   } else if (event === 'done') {
     const text = String(data.text ?? '');
-    handlers.event?.({ kind: 'final', text });
+    const failure = conversationFailureFrom(data.failure, text);
+    handlers.event?.(failure ? { kind: 'error', text: failure.message } : { kind: 'final', text });
     const citations = Array.isArray(data.citations)
       ? data.citations.flatMap((citation) => {
           const parsed = frozenCitationV1Schema.safeParse(citation);
@@ -190,6 +224,7 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
         typeof data.citation_dictionary_id === 'string' ? data.citation_dictionary_id : null,
       citationDslVersion:
         typeof data.citation_dsl_version === 'string' ? data.citation_dsl_version : null,
+      failure,
     });
   }
 }

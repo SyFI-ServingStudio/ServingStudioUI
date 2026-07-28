@@ -4,6 +4,7 @@ import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded';
 import CloseFullscreenRounded from '@mui/icons-material/CloseFullscreenRounded';
 import CloseRounded from '@mui/icons-material/CloseRounded';
+import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import HubOutlined from '@mui/icons-material/HubOutlined';
 import KeyboardDoubleArrowLeftRounded from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
 import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
@@ -27,7 +28,7 @@ import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { conversationCards } from './conversationTimeline';
 
-type RoleTone = 'orchestrator' | 'implementer' | 'answer';
+type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
 
 const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }> = {
   orchestrator: {
@@ -44,6 +45,11 @@ const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }>
     color: tokens.terra,
     line: 'rgba(168,75,46,.3)',
     wash: 'rgba(168,75,46,.055)',
+  },
+  error: {
+    color: '#9a4538',
+    line: 'rgba(154,69,56,.32)',
+    wash: 'rgba(154,69,56,.065)',
   },
 };
 
@@ -114,6 +120,19 @@ function RoleCard({
 function Note({ children }: { children: ReactNode }) {
   return (
     <Typography sx={{ color: tokens.sub, fontSize: 11.5, lineHeight: 1.5 }}>{children}</Typography>
+  );
+}
+
+function FailureCard({ text }: { text: string }) {
+  return (
+    <RoleCard
+      tone="error"
+      icon={<ErrorOutlineRounded sx={{ fontSize: 15 }} />}
+      title="Agent unavailable"
+      status="retry"
+    >
+      <Note>{text}</Note>
+    </RoleCard>
   );
 }
 
@@ -485,6 +504,9 @@ function AssistantTimeline({
   progress: string;
 }) {
   const cards = conversationCards(events);
+  if (message?.failure) {
+    return <FailureCard text={message.failure.message} />;
+  }
   if (streaming && cards.length === 0) {
     return (
       <RoleCard
@@ -535,6 +557,9 @@ function AssistantTimeline({
           </Stack>
         </RoleCard>
       );
+    }
+    if (card.type === 'error') {
+      return <FailureCard key={index} text={card.text} />;
     }
     return (
       <RoleCard
@@ -745,6 +770,7 @@ function useAgentConversation(
                 citations: completion.citations,
                 citation_dictionary_id: completion.citationDictionaryId,
                 citation_dsl_version: completion.citationDslVersion,
+                failure: completion.failure,
               };
             },
           },

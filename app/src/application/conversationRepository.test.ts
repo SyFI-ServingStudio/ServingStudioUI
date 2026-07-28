@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnalyzerTurnContextV1 } from '../domain/citation';
-import { sendConversationTurn } from './conversationRepository';
+import {
+  getConversation,
+  resumeConversationTurn,
+  sendConversationTurn,
+} from './conversationRepository';
 
 const context: AnalyzerTurnContextV1 = {
   protocol: 'vibesim.conversation-context/v1',
@@ -25,6 +29,10 @@ const context: AnalyzerTurnContextV1 = {
     ],
   },
 };
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('conversation repository', () => {
   it('sends the bounded Analyzer context and decodes live events plus frozen citations', async () => {
@@ -84,6 +92,86 @@ describe('conversation repository', () => {
       citations: [citation],
       citationDictionaryId: 'dictionary-1',
       citationDslVersion: 'v1',
+      failure: null,
     });
+  });
+
+  it('treats an idle resume as a normal 204 response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 204 })),
+    );
+
+    await expect(resumeConversationTurn('c_idle', {}, new AbortController().signal)).resolves.toBe(
+      false,
+    );
+  });
+
+  it('decodes a structured runtime failure as an error event, not an answer', async () => {
+    const failure = {
+      code: 'runtime_storage_full',
+      message:
+        'The Agent runtime could not start because the host disk is full. Free space, then retry this question.',
+    };
+    const stream = [
+      'event: done',
+      `data: ${JSON.stringify({ text: failure.message, failure })}`,
+      '',
+      '',
+    ].join('\n');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(stream, { status: 200 })),
+    );
+    const events: unknown[] = [];
+    const completions: unknown[] = [];
+
+    await sendConversationTurn(
+      'c_test',
+      'Explain this graph.',
+      null,
+      {
+        event: (event) => events.push(event),
+        done: (completion) => completions.push(completion),
+      },
+      new AbortController().signal,
+    );
+
+    expect(events).toEqual([{ kind: 'error', text: failure.message }]);
+    expect(completions).toContainEqual({
+      text: failure.message,
+      citations: [],
+      citationDictionaryId: null,
+      citationDslVersion: null,
+      failure,
+    });
+  });
+
+  it('normalizes a legacy raw backend error without exposing its command', async () => {
+    const rawError =
+      "(backend error: Command '['docker', 'run', '-d'] failed: no space left on device)";
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: 'c_legacy',
+              title: 'Legacy',
+              messages: [{ role: 'assistant', content: rawError }],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+
+    const conversation = await getConversation('c_legacy');
+
+    expect(conversation?.messages[0]?.failure).toEqual({
+      code: 'runtime_storage_full',
+      message:
+        'The Agent runtime could not start because the host disk is full. Free space, then retry this question.',
+    });
+    expect(conversation?.messages[0]?.failure?.message).not.toContain('docker');
   });
 });
