@@ -168,6 +168,73 @@ describe('AgentPane', () => {
     expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
   });
 
+  it('loads every earlier message page instead of truncating a long migrated history', async () => {
+    const latestPage = {
+      id: 'c_test',
+      title: 'Long migrated history',
+      messages: [
+        { role: 'user', content: 'Latest question.' },
+        {
+          role: 'assistant',
+          content: 'Latest answer.',
+          activity: [{ kind: 'final', text: 'Latest answer.' }],
+        },
+      ],
+      message_page: {
+        start_index: 2,
+        end_index: 4,
+        total_messages: 4,
+        has_more: true,
+      },
+    };
+    const earlierPage = {
+      id: 'c_test',
+      title: 'Long migrated history',
+      messages: [
+        { role: 'user', content: 'First question.' },
+        {
+          role: 'assistant',
+          content: 'First answer.',
+          activity: [{ kind: 'final', text: 'First answer.' }],
+        },
+      ],
+      message_page: {
+        start_index: 0,
+        end_index: 2,
+        total_messages: 4,
+        has_more: false,
+      },
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/conversations')) {
+        return new Response(JSON.stringify({ conversations: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const payload = url.includes('before=2') ? earlierPage : latestPage;
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<AgentPane prompt="" />);
+
+    const latestAnswer = await screen.findByText('Latest answer.');
+    await user.click(screen.getByRole('button', { name: 'Load earlier messages' }));
+
+    expect(await screen.findByText('First answer.')).toBeInTheDocument();
+    expect(screen.getByText('Latest answer.').isSameNode(latestAnswer)).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Load earlier messages' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/workspaces/w_main/conversations/c_test?limit=100&before=2',
+    );
+  });
+
   it('pins conversation history as a persistent left rail and restores the preference', async () => {
     const user = userEvent.setup();
     const firstRender = render(<AgentPane full prompt="" />);
@@ -251,6 +318,37 @@ describe('AgentPane', () => {
     expect(screen.queryByText(/docker.*run/)).not.toBeInTheDocument();
   });
 
+  it('renders local Markdown images through the active workspace file route', async () => {
+    window.sessionStorage.setItem('vibesim.conversation.id.w_legacy_plot', 'c_test');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/stream')) return new Response(null, { status: 204 });
+        return new Response(
+          JSON.stringify({
+            id: 'c_test',
+            title: 'Plot',
+            messages: [
+              {
+                role: 'assistant',
+                content: '![Selected throughput](/workspace/logs/sweep/plots/throughput.png)',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }),
+    );
+
+    render(<AgentPane workspaceId="w_legacy_plot" prompt="" />);
+
+    const image = await screen.findByRole('img', { name: 'Selected throughput' });
+    expect(image).toHaveAttribute(
+      'src',
+      '/api/file?path=%2Fworkspace%2Flogs%2Fsweep%2Fplots%2Fthroughput.png&workspace_id=w_legacy_plot',
+    );
+  });
+
   it('creates one conversation and sends the first prompt under StrictMode', async () => {
     window.sessionStorage.removeItem('vibesim.conversation.id.w_main');
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -297,7 +395,9 @@ describe('AgentPane', () => {
       </StrictMode>,
     );
 
-    expect(await screen.findByText('Agent answer.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Agent answer.')).toBeInTheDocument();
+    });
     await waitFor(() => {
       expect(
         fetchMock.mock.calls.filter(

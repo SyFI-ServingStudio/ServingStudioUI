@@ -1,5 +1,6 @@
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import AddRounded from '@mui/icons-material/AddRounded';
+import SearchRounded from '@mui/icons-material/SearchRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -98,9 +99,19 @@ function workspaceNameFromPrompt(prompt: string): string {
 
 function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
   const [prompt, setPrompt] = useState('');
+  const [workspaceSearch, setWorkspaceSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const visibleWorkspaces = useMemo(() => {
+    const query = workspaceSearch.trim().toLocaleLowerCase();
+    if (!query) return workspaces;
+    return workspaces.filter(
+      (workspace) =>
+        workspace.displayName.toLocaleLowerCase().includes(query) ||
+        workspace.workspaceId.toLocaleLowerCase().includes(query),
+    );
+  }, [workspaceSearch, workspaces]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = prompt.trim();
@@ -249,39 +260,105 @@ function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] })
       )}
       {workspaces.length > 0 && (
         <Box sx={{ maxWidth: 760, mx: 'auto', mt: 3.2 }}>
-          <Typography
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ mb: 0.8 }}
+          >
+            <Typography
+              sx={{
+                color: tokens.sub2,
+                fontFamily: tokens.mono,
+                fontSize: 8.5,
+                letterSpacing: '.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Continue a workspace
+            </Typography>
+            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+              {visibleWorkspaces.length}/{workspaces.length}
+            </Typography>
+          </Stack>
+          {workspaces.length > 8 && (
+            <Stack
+              direction="row"
+              alignItems="center"
+              sx={{
+                mb: 0.8,
+                px: 1,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 0.7,
+                background: 'rgba(250,247,240,.55)',
+              }}
+            >
+              <SearchRounded aria-hidden sx={{ mr: 0.7, color: tokens.sub2, fontSize: 14 }} />
+              <Box
+                component="input"
+                value={workspaceSearch}
+                onChange={(event) => setWorkspaceSearch(event.target.value)}
+                aria-label="Search workspaces"
+                placeholder="Name or workspace id"
+                sx={{
+                  width: '100%',
+                  height: 32,
+                  border: 0,
+                  outline: 0,
+                  background: 'transparent',
+                  color: tokens.ink,
+                  fontFamily: tokens.mono,
+                  fontSize: 9.5,
+                  '&::placeholder': { color: tokens.sub2 },
+                }}
+              />
+            </Stack>
+          )}
+          <Box
             sx={{
-              mb: 0.8,
-              color: tokens.sub2,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
-              letterSpacing: '.1em',
-              textTransform: 'uppercase',
+              maxHeight: 112,
+              overflowY: 'auto',
+              pr: 0.5,
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${tokens.hair} transparent`,
             }}
           >
-            Continue a workspace
-          </Typography>
-          <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.6 }}>
-            {workspaces.slice(0, 8).map((workspace) => (
-              <ButtonBase
-                key={workspace.workspaceId}
-                onClick={() => navigateToAgent('', workspace.workspaceId)}
-                sx={{
-                  px: 1,
-                  py: 0.6,
-                  border: `1px solid ${tokens.hair}`,
-                  borderRadius: 0.65,
-                  background:
-                    workspace.workspaceId === 'w_main' ? 'rgba(31,111,107,.055)' : tokens.tile,
-                  color: workspace.workspaceId === 'w_main' ? tokens.teal : tokens.sub,
-                  fontSize: 10,
-                  '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
-                }}
-              >
-                {workspace.displayName}
-              </ButtonBase>
-            ))}
-          </Stack>
+            <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.6 }}>
+              {visibleWorkspaces.map((workspace) => (
+                <ButtonBase
+                  key={workspace.workspaceId}
+                  onClick={() => navigateToAgent('', workspace.workspaceId)}
+                  aria-label={`Continue ${workspace.displayName}`}
+                  title={workspace.displayName}
+                  sx={{
+                    maxWidth: '100%',
+                    px: 1,
+                    py: 0.6,
+                    border: `1px solid ${tokens.hair}`,
+                    borderRadius: 0.65,
+                    background:
+                      workspace.workspaceId === 'w_main' ? 'rgba(31,111,107,.055)' : tokens.tile,
+                    color: workspace.workspaceId === 'w_main' ? tokens.teal : tokens.sub,
+                    fontSize: 10,
+                    '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                    '&:focus-visible': {
+                      outline: `2px solid ${tokens.teal}`,
+                      outlineOffset: 1,
+                    },
+                  }}
+                >
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {workspace.displayName}
+                  </Box>
+                </ButtonBase>
+              ))}
+            </Stack>
+            {visibleWorkspaces.length === 0 && (
+              <Typography sx={{ py: 1.2, color: tokens.sub2, fontSize: 10.5 }}>
+                No workspace matches this search.
+              </Typography>
+            )}
+          </Box>
         </Box>
       )}
     </Box>

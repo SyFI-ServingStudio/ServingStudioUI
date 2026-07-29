@@ -20,6 +20,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -35,6 +36,7 @@ import {
   sendConversationTurn,
   type Conversation,
   type ConversationMessage,
+  type ConversationMessagePage,
   type ConversationSummary,
   type ConversationTurnEvent,
 } from '../../application/conversationRepository';
@@ -138,9 +140,9 @@ function RoleCard({
   );
 }
 
-function Note({ children }: { children: ReactNode }) {
+function Note({ children, workspaceId }: { children: ReactNode; workspaceId?: string }) {
   if (typeof children === 'string') {
-    return <MarkdownBody text={children} citations={[]} compact />;
+    return <MarkdownBody text={children} citations={[]} workspaceId={workspaceId} compact />;
   }
   return (
     <Typography sx={{ color: tokens.sub, fontSize: 11.5, lineHeight: 1.5 }}>{children}</Typography>
@@ -206,7 +208,7 @@ function ActivityLine({ text }: { text: string }) {
   );
 }
 
-function FailureCard({ text }: { text: string }) {
+function FailureCard({ text, workspaceId }: { text: string; workspaceId?: string }) {
   return (
     <RoleCard
       tone="error"
@@ -214,7 +216,7 @@ function FailureCard({ text }: { text: string }) {
       title="Agent unavailable"
       status="retry"
     >
-      <Note>{text}</Note>
+      <Note workspaceId={workspaceId}>{text}</Note>
     </RoleCard>
   );
 }
@@ -223,10 +225,12 @@ function Handoff({
   from,
   to,
   text,
+  workspaceId,
 }: {
   from: 'Orchestrator' | 'Implementer';
   to: 'Orchestrator' | 'Implementer';
   text: string;
+  workspaceId: string;
 }) {
   const isImplementationReport = from === 'Implementer';
   const style = roleStyle[isImplementationReport ? 'implementer' : 'orchestrator'];
@@ -279,7 +283,7 @@ function Handoff({
           '& .agent-markdown > :first-of-type': { mt: 0 },
         }}
       >
-        <MarkdownBody text={text} citations={[]} compact />
+        <MarkdownBody text={text} citations={[]} workspaceId={workspaceId} compact />
       </Box>
     </Box>
   );
@@ -324,10 +328,12 @@ function navigateToFrozenEvidence(
 function MarkdownBody({
   text,
   citations,
+  workspaceId,
   compact = false,
 }: {
   text: string;
   citations: readonly FrozenCitationV2[];
+  workspaceId?: string;
   compact?: boolean;
 }) {
   const [statuses, setStatuses] = useState<Record<number, NavigationStatus>>({});
@@ -342,13 +348,39 @@ function MarkdownBody({
   const renderPlainInline = (source: string, keyPrefix: string): ReactNode[] => {
     const nodes: ReactNode[] = [];
     const pattern =
-      /(\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/|\/)[^)\n]+\)|\*[^*\n]+\*)/g;
+      /(!\[[^\]\n]*\]\([^)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/|\/)[^)\n]+\)|\*[^*\n]+\*)/g;
     let sourceCursor = 0;
     let match = pattern.exec(source);
     while (match) {
       if (match.index > sourceCursor) nodes.push(source.slice(sourceCursor, match.index));
       const value = match[0];
-      if (value.startsWith('**')) {
+      if (value.startsWith('![')) {
+        const image = value.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        const source = image?.[2] ?? '';
+        const imageSource = /^(https?:|data:|\/api\/file)/i.test(source)
+          ? source
+          : `/api/file?path=${encodeURIComponent(source)}&workspace_id=${encodeURIComponent(
+              workspaceId ?? 'w_main',
+            )}`;
+        nodes.push(
+          <Box
+            component="img"
+            key={`${keyPrefix}-${match.index}`}
+            src={imageSource}
+            alt={image?.[1] ?? ''}
+            loading="lazy"
+            sx={{
+              display: 'block',
+              maxWidth: '100%',
+              height: 'auto',
+              my: compact ? 0.65 : 0.9,
+              border: `1px solid ${tokens.hair}`,
+              borderRadius: 0.75,
+              background: tokens.tile,
+            }}
+          />,
+        );
+      } else if (value.startsWith('**')) {
         nodes.push(
           <Box component="strong" key={`${keyPrefix}-${match.index}`} sx={{ color: tokens.ink }}>
             {value.slice(2, -2)}
@@ -695,15 +727,17 @@ function AssistantTimeline({
   events,
   streaming,
   progress,
+  workspaceId,
 }: {
   message?: ConversationMessage;
   events: readonly ConversationTurnEvent[];
   streaming: boolean;
   progress: string;
+  workspaceId: string;
 }) {
   const cards = conversationCards(events);
   if (message?.failure) {
-    return <FailureCard text={message.failure.message} />;
+    return <FailureCard text={message.failure.message} workspaceId={workspaceId} />;
   }
   if (streaming && cards.length === 0) {
     return (
@@ -726,6 +760,7 @@ function AssistantTimeline({
           from={card.variant === 'delegated-task' ? 'Orchestrator' : 'Implementer'}
           to={card.variant === 'delegated-task' ? 'Implementer' : 'Orchestrator'}
           text={card.text}
+          workspaceId={workspaceId}
         />
       );
     }
@@ -748,7 +783,9 @@ function AssistantTimeline({
         >
           <Stack sx={{ gap: 0.65 }}>
             {card.notes.map((note, noteIndex) => (
-              <Note key={noteIndex}>{note}</Note>
+              <Note key={noteIndex} workspaceId={workspaceId}>
+                {note}
+              </Note>
             ))}
             {!card.done && streaming && progress && <ActivityLine text={progress} />}
           </Stack>
@@ -810,7 +847,7 @@ function AssistantTimeline({
       );
     }
     if (card.type === 'error') {
-      return <FailureCard key={index} text={card.text} />;
+      return <FailureCard key={index} text={card.text} workspaceId={workspaceId} />;
     }
     return (
       <RoleCard
@@ -820,7 +857,11 @@ function AssistantTimeline({
         title="Answer"
         status="ready"
       >
-        <MarkdownBody text={card.text} citations={message?.citations ?? []} />
+        <MarkdownBody
+          text={card.text}
+          citations={message?.citations ?? []}
+          workspaceId={workspaceId}
+        />
       </RoleCard>
     );
   });
@@ -1381,6 +1422,8 @@ function useAgentConversation(
 ) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
+  const [messagePage, setMessagePage] = useState<ConversationMessagePage | null>(null);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [liveEvents, setLiveEvents] = useState<readonly ConversationTurnEvent[]>([]);
   const [progress, setProgress] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -1418,6 +1461,7 @@ function useAgentConversation(
       window.sessionStorage.setItem(conversationIdKey(workspaceId), conversation.id);
       setConversationId(conversation.id);
       setMessages(conversation.messages);
+      setMessagePage(conversation.message_page ?? null);
       setLiveEvents([]);
       setProgress('');
       setError(null);
@@ -1462,8 +1506,12 @@ function useAgentConversation(
           controller.signal,
         );
         const refreshed = await getConversation(workspaceId, activeConversationId);
-        if (refreshed) setMessages(refreshed.messages);
-        else if (completionMessage) setMessages((current) => [...current, completionMessage!]);
+        if (refreshed) {
+          setMessages(refreshed.messages);
+          setMessagePage(refreshed.message_page ?? null);
+        } else if (completionMessage) {
+          setMessages((current) => [...current, completionMessage!]);
+        }
         void refreshHistory();
       } catch (caught) {
         if (!controller.signal.aborted) {
@@ -1504,6 +1552,7 @@ function useAgentConversation(
     window.sessionStorage.removeItem(conversationIdKey(workspaceId));
     setConversationId(null);
     setMessages([]);
+    setMessagePage(null);
     setLiveEvents([]);
     setProgress('');
     setError(null);
@@ -1537,6 +1586,7 @@ function useAgentConversation(
         window.sessionStorage.removeItem(conversationIdKey(workspaceId));
         setConversationId(null);
         setMessages([]);
+        setMessagePage(null);
       } catch (caught) {
         setHistoryError(caught instanceof Error ? caught.message : 'Delete conversation failed');
       }
@@ -1563,6 +1613,7 @@ function useAgentConversation(
         if (!conversation) {
           setConversationId(null);
           setMessages([]);
+          setMessagePage(null);
           return;
         }
         installConversation(conversation, false);
@@ -1583,7 +1634,10 @@ function useAgentConversation(
         setStreamingState(false);
         if (resumed) {
           const refreshed = await getConversation(workspaceId, conversation.id);
-          if (refreshed && !disposed) setMessages(refreshed.messages);
+          if (refreshed && !disposed) {
+            setMessages(refreshed.messages);
+            setMessagePage(refreshed.message_page ?? null);
+          }
           setLiveEvents([]);
         }
       } catch (caught) {
@@ -1636,6 +1690,36 @@ function useAgentConversation(
     streaming,
   ]);
 
+  const loadEarlier = useCallback(async (): Promise<boolean> => {
+    if (
+      conversationId === null ||
+      messagePage === null ||
+      !messagePage.has_more ||
+      loadingEarlier
+    ) {
+      return false;
+    }
+    setLoadingEarlier(true);
+    setHistoryError(null);
+    try {
+      const earlier = await getConversation(workspaceId, conversationId, messagePage.start_index);
+      if (!earlier?.message_page) return false;
+      setMessages((current) => [...earlier.messages, ...current]);
+      setMessagePage({
+        start_index: earlier.message_page.start_index,
+        end_index: messagePage.end_index,
+        total_messages: messagePage.total_messages,
+        has_more: earlier.message_page.has_more,
+      });
+      return true;
+    } catch (caught) {
+      setHistoryError(caught instanceof Error ? caught.message : 'Earlier messages failed');
+      return false;
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }, [conversationId, loadingEarlier, messagePage, workspaceId]);
+
   return {
     conversationId,
     conversations,
@@ -1646,6 +1730,10 @@ function useAgentConversation(
     error,
     historyLoading,
     historyError,
+    canLoadEarlier: Boolean(messagePage?.has_more),
+    messageStartIndex: messagePage?.start_index ?? 0,
+    loadingEarlier,
+    loadEarlier,
     send: (text: string) =>
       conversationId
         ? runTurn(conversationId, text, analyzerContext)
@@ -1708,6 +1796,7 @@ export default function AgentPane({
     conversation.conversations.find((item) => item.id === conversation.conversationId)?.title ??
     'New conversation';
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRestoreRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = input.trim();
@@ -1721,9 +1810,27 @@ export default function AgentPane({
     saveHistoryPinned(nextPinned);
     setHistoryOpen(!nextPinned);
   };
-  useEffect(() => {
+  const loadEarlierMessages = async () => {
+    const scrollElement = scrollRef.current;
+    if (scrollElement) {
+      pendingScrollRestoreRef.current = {
+        scrollHeight: scrollElement.scrollHeight,
+        scrollTop: scrollElement.scrollTop,
+      };
+    }
+    const loaded = await conversation.loadEarlier();
+    if (!loaded) pendingScrollRestoreRef.current = null;
+  };
+  useLayoutEffect(() => {
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
+    const pendingRestore = pendingScrollRestoreRef.current;
+    if (pendingRestore) {
+      scrollElement.scrollTop =
+        pendingRestore.scrollTop + (scrollElement.scrollHeight - pendingRestore.scrollHeight);
+      pendingScrollRestoreRef.current = null;
+      return;
+    }
     if (typeof scrollElement.scrollTo === 'function') {
       scrollElement.scrollTo({
         top: scrollElement.scrollHeight,
@@ -1732,7 +1839,12 @@ export default function AgentPane({
     } else {
       scrollElement.scrollTop = scrollElement.scrollHeight;
     }
-  }, [conversation.liveEvents, conversation.messages, conversation.streaming]);
+  }, [
+    conversation.liveEvents,
+    conversation.messageStartIndex,
+    conversation.messages,
+    conversation.streaming,
+  ]);
   return (
     <Box
       component="aside"
@@ -1904,12 +2016,33 @@ export default function AgentPane({
         }}
       >
         <Stack sx={{ gap: 1.1 }}>
+          {conversation.canLoadEarlier && (
+            <ButtonBase
+              onClick={() => void loadEarlierMessages()}
+              disabled={conversation.loadingEarlier || conversation.streaming}
+              sx={{
+                alignSelf: 'center',
+                px: 1.1,
+                py: 0.55,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 0.75,
+                color: tokens.sub2,
+                fontFamily: tokens.mono,
+                fontSize: 8.5,
+                '&:hover': { color: tokens.teal, borderColor: 'rgba(31,111,107,.35)' },
+              }}
+            >
+              {conversation.loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
+            </ButtonBase>
+          )}
           {conversation.messages.map((message, index) =>
             message.role === 'user' ? (
-              <UserMessage key={index}>{message.content}</UserMessage>
+              <UserMessage key={conversation.messageStartIndex + index}>
+                {message.content}
+              </UserMessage>
             ) : (
               <AssistantTimeline
-                key={index}
+                key={conversation.messageStartIndex + index}
                 message={message}
                 events={
                   message.activity?.length
@@ -1918,6 +2051,7 @@ export default function AgentPane({
                 }
                 streaming={false}
                 progress=""
+                workspaceId={workspaceId}
               />
             ),
           )}
@@ -1926,6 +2060,7 @@ export default function AgentPane({
               events={conversation.liveEvents}
               streaming
               progress={conversation.progress}
+              workspaceId={workspaceId}
             />
           )}
           {conversation.error && (

@@ -34,6 +34,7 @@ export type ConversationTurnEvent =
 export interface ConversationMessage {
   role: string;
   content: string;
+  intermediate_outputs?: readonly { role?: string; text: string }[] | null;
   activity?: readonly ConversationTurnEvent[] | null;
   citations?: readonly FrozenCitationV2[] | null;
   citation_dictionary_id?: string | null;
@@ -45,6 +46,14 @@ export interface Conversation {
   id: string;
   title: string;
   messages: readonly ConversationMessage[];
+  message_page?: ConversationMessagePage;
+}
+
+export interface ConversationMessagePage {
+  start_index: number;
+  end_index: number;
+  total_messages: number;
+  has_more: boolean;
 }
 
 export interface ConversationSummary {
@@ -102,6 +111,57 @@ function conversationFailureFrom(value: unknown, legacyContent = ''): Conversati
   };
 }
 
+function legacyAssistantContent(source: string): string {
+  let text = source
+    .replace(/<details\s+class=["']role-output orchestrator["'][\s\S]*?<\/details>\s*/gi, '')
+    .trimStart();
+  if (text.startsWith('### Orchestrator')) {
+    const markers = [
+      { marker: '\n\n### Implementer Summary\n\n', keepHeading: true },
+      { marker: '\n\n### Message\n\n', keepHeading: false },
+      { marker: '\n\n### Error\n\n', keepHeading: true },
+    ];
+    const match = markers
+      .map((candidate) => ({ ...candidate, index: text.indexOf(candidate.marker) }))
+      .filter((candidate) => candidate.index >= 0)
+      .sort((left, right) => left.index - right.index)[0];
+    if (match) {
+      text = match.keepHeading
+        ? text.slice(match.index + 2)
+        : text.slice(match.index + match.marker.length);
+    }
+  }
+  if (text.startsWith('### Message\n\n')) {
+    text = text.slice('### Message\n\n'.length);
+  }
+  return text.trimStart();
+}
+
+function normalizeConversationMessage(message: ConversationMessage): ConversationMessage {
+  const content =
+    message.role === 'assistant' ? legacyAssistantContent(message.content) : message.content;
+  if (message.role !== 'assistant' || message.activity?.length) {
+    return { ...message, content };
+  }
+  const processEvents: ConversationTurnEvent[] = (message.intermediate_outputs ?? []).flatMap(
+    (output) =>
+      output && typeof output.text === 'string' && output.text
+        ? [
+            {
+              kind: 'intermediate_output' as const,
+              role: output.role ?? 'orchestrator',
+              text: output.text,
+            },
+          ]
+        : [],
+  );
+  return {
+    ...message,
+    content,
+    activity: [...processEvents, { kind: 'final', text: content }],
+  };
+}
+
 export async function createConversation(workspaceId: string): Promise<Conversation> {
   const response = await requireResponse(
     await fetch(conversationApi(workspaceId), {
@@ -138,21 +198,29 @@ export async function deleteConversation(
 export async function getConversation(
   workspaceId: string,
   conversationId: string,
+  before?: number,
 ): Promise<Conversation | null> {
-  const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}?limit=100`);
+  const query = new URLSearchParams({ limit: '100' });
+  if (before !== undefined) query.set('before', String(before));
+  const response = await fetch(
+    `${conversationApi(workspaceId)}/${conversationId}?${query.toString()}`,
+  );
   if (response.status === 404) return null;
   await requireResponse(response, 'Load conversation');
   const conversation = (await response.json()) as Conversation;
   return {
     ...conversation,
-    messages: conversation.messages.map((message) => ({
-      ...message,
-      failure: conversationFailureFrom(message.failure, message.content),
-      citations: (message.citations ?? []).flatMap((citation) => {
-        const parsed = frozenCitationV2Schema.safeParse(citation);
-        return parsed.success ? [parsed.data] : [];
-      }),
-    })),
+    messages: conversation.messages.map((message) => {
+      const normalized = normalizeConversationMessage(message);
+      return {
+        ...normalized,
+        failure: conversationFailureFrom(message.failure, message.content),
+        citations: (message.citations ?? []).flatMap((citation) => {
+          const parsed = frozenCitationV2Schema.safeParse(citation);
+          return parsed.success ? [parsed.data] : [];
+        }),
+      };
+    }),
   };
 }
 

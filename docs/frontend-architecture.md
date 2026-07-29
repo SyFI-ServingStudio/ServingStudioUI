@@ -224,6 +224,18 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   header；integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
   更换 experiment。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer
   的 discovery 入口。
+- `Work with Agent` 的 continue surface 必须能发现全部 active workspaces，而不是
+  截断前几个。workspace 多于八个时使用 name/id 搜索和固定高度可滚动 label 区域；
+  label 仍是直接导航的紧凑按钮，不能退化为 dropdown，也不能让几十个 legacy
+  workspaces 撑高并移动 Page 0 的主输入区。
+- Agent conversation adapter 必须兼容迁移前已持久化的 assistant shape：没有
+  `activity` 时把 `intermediate_outputs` 投影为 role timeline，并剥离旧版
+  `<details class="role-output orchestrator">` / `### Message` 包装后再渲染 answer。
+  Markdown 中的本地图片必须通过当前 `workspaceId` 重写到 `/api/file`，不能依赖旧的
+  conversation-owned `cid` 路由，也不能把 `/workspace/...` 当成浏览器 URL。Conversation
+  首屏只取最新一页，但必须保留 backend 的 `message_page` cursor，并在消息列顶部提供
+  earlier-page 加载；prepend 后必须保持当前阅读位置和已有 message node identity，
+  不能触发整列跳到底部。迁移后的长历史不能因为固定 `limit` 在 UI 中静默截断。
 - 独立 Aggregate 的 Experiment selector 采用 TraceLab session picker
   的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
   option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment
