@@ -29,7 +29,11 @@ const WorkspaceShell = lazy(() =>
 export default function AppRoot() {
   const runId = useViz((state) => state.runId);
   const setSelectionSurface = useViz((state) => state.setSelectionSurface);
-  const [view, setView] = useState(() => appViewFromHash(window.location.hash));
+  // The query portion carries workspace and evidence identity. Tracking only
+  // the coarse view would leave same-view navigation rendered against the
+  // previous workspace even though the address bar had already changed.
+  const [locationHash, setLocationHash] = useState(() => window.location.hash);
+  const view = appViewFromHash(locationHash);
   const pendingNavigationResponses = useRef(
     new Map<string, { source: WindowProxy; origin: string; href: string }>(),
   );
@@ -46,7 +50,7 @@ export default function AppRoot() {
     const updateView = () => {
       const evidence = evidenceRefFromHash(window.location.hash);
       if (evidence?.kind === 'run') useViz.getState().restoreRunSelection(evidence);
-      setView(appViewFromHash(window.location.hash));
+      setLocationHash(window.location.hash);
     };
     const receiveAgentNavigation = (event: MessageEvent<unknown>) => {
       if (event.origin !== window.location.origin || event.source === null) return;

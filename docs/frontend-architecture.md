@@ -228,6 +228,10 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   截断前几个。workspace 多于八个时使用 name/id 搜索和固定高度可滚动 label 区域；
   label 仍是直接导航的紧凑按钮，不能退化为 dropdown，也不能让几十个 legacy
   workspaces 撑高并移动 Page 0 的主输入区。
+- Root router 必须以完整 hash（含 query）作为 render state。`#/agent`、
+  `#/aggregate` 或 `#/run` view 不变但 `workspace` / evidence identity 改变时，也必须
+  立即重算 workspace context；不能出现 address bar 已切换而 Agent/Analyzer 仍读上一个
+  workspace 的 split-brain。
 - Agent conversation adapter 必须兼容迁移前已持久化的 assistant shape：没有
   `activity` 时把 `intermediate_outputs` 投影为 role timeline，并剥离旧版
   `<details class="role-output orchestrator">` / `### Message` 包装后再渲染 answer。
