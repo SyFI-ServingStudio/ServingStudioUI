@@ -148,6 +148,7 @@ describe('conversation repository', () => {
       citationDictionaryId: 'dictionary-1',
       citationDslVersion: 'v2',
       failure: null,
+      namingScheduled: false,
     });
   });
 
@@ -200,6 +201,7 @@ describe('conversation repository', () => {
       citationDictionaryId: null,
       citationDslVersion: null,
       failure,
+      namingScheduled: false,
     });
   });
 

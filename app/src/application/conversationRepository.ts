@@ -3,6 +3,7 @@ import {
   type AnalyzerTurnContextV2,
   type FrozenCitationV2,
 } from '../domain/citation';
+import type { NamingState } from './workspaceRepository';
 
 export interface ConversationTokens {
   read: number;
@@ -45,6 +46,7 @@ export interface ConversationMessage {
 export interface Conversation {
   id: string;
   title: string;
+  naming_state: NamingState;
   messages: readonly ConversationMessage[];
   message_page?: ConversationMessagePage;
 }
@@ -59,11 +61,12 @@ export interface ConversationMessagePage {
 export interface ConversationSummary {
   id: string;
   title: string;
+  naming_state: NamingState;
   updated_at?: number | string;
 }
 
 interface ConversationListResponse {
-  conversations?: readonly ConversationSummary[];
+  conversations?: readonly unknown[];
 }
 
 export interface TurnCompletion {
@@ -72,6 +75,7 @@ export interface TurnCompletion {
   citationDictionaryId: string | null;
   citationDslVersion: string | null;
   failure: ConversationFailure | null;
+  namingScheduled: boolean;
 }
 
 export interface ConversationStreamHandlers {
@@ -82,6 +86,24 @@ export interface ConversationStreamHandlers {
 
 function conversationApi(workspaceId: string): string {
   return `/api/workspaces/${encodeURIComponent(workspaceId)}/conversations`;
+}
+
+function namingStateFrom(value: unknown): NamingState {
+  return value === 'pending' || value === 'generated' ? value : 'manual';
+}
+
+function conversationSummaryFromWire(value: unknown): ConversationSummary | null {
+  if (value === null || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  if (typeof source.id !== 'string' || typeof source.title !== 'string') return null;
+  return {
+    id: source.id,
+    title: source.title,
+    naming_state: namingStateFrom(source.naming_state),
+    ...(typeof source.updated_at === 'number' || typeof source.updated_at === 'string'
+      ? { updated_at: source.updated_at }
+      : {}),
+  };
 }
 
 async function requireResponse(response: Response, action: string): Promise<Response> {
@@ -171,7 +193,8 @@ export async function createConversation(workspaceId: string): Promise<Conversat
     }),
     'Create conversation',
   );
-  return response.json() as Promise<Conversation>;
+  const conversation = (await response.json()) as Conversation;
+  return { ...conversation, naming_state: namingStateFrom(conversation.naming_state) };
 }
 
 export async function listConversations(
@@ -182,7 +205,12 @@ export async function listConversations(
     'List conversations',
   );
   const payload = (await response.json()) as ConversationListResponse;
-  return Array.isArray(payload.conversations) ? payload.conversations : [];
+  return Array.isArray(payload.conversations)
+    ? payload.conversations.flatMap((conversation) => {
+        const normalized = conversationSummaryFromWire(conversation);
+        return normalized ? [normalized] : [];
+      })
+    : [];
 }
 
 export async function deleteConversation(
@@ -210,6 +238,7 @@ export async function getConversation(
   const conversation = (await response.json()) as Conversation;
   return {
     ...conversation,
+    naming_state: namingStateFrom(conversation.naming_state),
     messages: conversation.messages.map((message) => {
       const normalized = normalizeConversationMessage(message);
       return {
@@ -353,6 +382,7 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
       citationDslVersion:
         typeof data.citation_dsl_version === 'string' ? data.citation_dsl_version : null,
       failure,
+      namingScheduled: data.naming_scheduled === true,
     });
   }
 }

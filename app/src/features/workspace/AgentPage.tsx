@@ -38,6 +38,7 @@ export default function AgentPage() {
         key={workspaceId}
         workspaceId={workspaceId}
         workspaceName={workspaceName}
+        onWorkspaceNameChange={setWorkspaceName}
         full
         prompt={prompt}
         onInitialPromptStarted={consumeInitialPrompt}

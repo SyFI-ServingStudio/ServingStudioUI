@@ -40,6 +40,7 @@ import {
   type ConversationSummary,
   type ConversationTurnEvent,
 } from '../../application/conversationRepository';
+import { getWorkspace } from '../../application/workspaceRepository';
 import type { AnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import type { AnalyzerTurnContextV2, FrozenCitationV2 } from '../../domain/citation';
 import {
@@ -1419,6 +1420,7 @@ function useAgentConversation(
   enabled: boolean,
   requireAnalyzerContext: boolean,
   onInitialPromptStarted?: () => void,
+  onWorkspaceNameChange?: (name: string) => void,
 ) {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
@@ -1437,6 +1439,7 @@ function useAgentConversation(
   const initializationPromise = useRef<Promise<Conversation | null> | null>(null);
   const initialPromptStarted = useRef(false);
   const abortController = useRef<AbortController | null>(null);
+  const namingPollGeneration = useRef(0);
   const setStreamingState = useCallback((nextStreaming: boolean) => {
     streamingRef.current = nextStreaming;
     setStreaming(nextStreaming);
@@ -1455,6 +1458,43 @@ function useAgentConversation(
       setHistoryLoading(false);
     }
   }, [workspaceId]);
+  const pollGeneratedNames = useCallback(
+    async (activeConversationId: string) => {
+      const pollGeneration = ++namingPollGeneration.current;
+      for (const delayMilliseconds of [1000, 2000, 4000, 8000]) {
+        await new Promise((resolve) => window.setTimeout(resolve, delayMilliseconds));
+        if (namingPollGeneration.current !== pollGeneration) return;
+        try {
+          const [conversation, workspace] = await Promise.all([
+            getConversation(workspaceId, activeConversationId),
+            getWorkspace(workspaceId),
+          ]);
+          if (namingPollGeneration.current !== pollGeneration) return;
+          if (conversation) {
+            setConversations((current) =>
+              current.map((summary) =>
+                summary.id === conversation.id
+                  ? {
+                      ...summary,
+                      title: conversation.title,
+                      naming_state: conversation.naming_state,
+                    }
+                  : summary,
+              ),
+            );
+          }
+          onWorkspaceNameChange?.(workspace.displayName);
+          if (conversation?.naming_state !== 'pending' && workspace.namingState !== 'pending') {
+            return;
+          }
+        } catch {
+          // Naming is optional; history remains usable and the next turn may retry.
+          return;
+        }
+      }
+    },
+    [onWorkspaceNameChange, workspaceId],
+  );
   const installConversation = useCallback(
     (conversation: Conversation, markInitialPromptHandled: boolean) => {
       initializationPromise.current = Promise.resolve(conversation);
@@ -1482,6 +1522,7 @@ function useAgentConversation(
       setError(null);
       setStreamingState(true);
       let completionMessage: ConversationMessage | null = null;
+      let namingScheduled = false;
       try {
         await sendConversationTurn(
           workspaceId,
@@ -1492,6 +1533,7 @@ function useAgentConversation(
             progress: setProgress,
             event: (event) => setLiveEvents((current) => [...current, event]),
             done: (completion) => {
+              namingScheduled = completion.namingScheduled;
               completionMessage = {
                 role: 'assistant',
                 content: completion.text,
@@ -1513,6 +1555,7 @@ function useAgentConversation(
           setMessages((current) => [...current, completionMessage!]);
         }
         void refreshHistory();
+        if (namingScheduled) void pollGeneratedNames(activeConversationId);
       } catch (caught) {
         if (!controller.signal.aborted) {
           setError(caught instanceof Error ? caught.message : 'Conversation turn failed');
@@ -1524,7 +1567,7 @@ function useAgentConversation(
         setProgress('');
       }
     },
-    [refreshHistory, setStreamingState, workspaceId],
+    [pollGeneratedNames, refreshHistory, setStreamingState, workspaceId],
   );
 
   const selectConversation = useCallback(
@@ -1620,12 +1663,16 @@ function useAgentConversation(
         resumeController = new AbortController();
         abortController.current = resumeController;
         setStreamingState(true);
+        let resumedNamingScheduled = false;
         const resumed = await resumeConversationTurn(
           workspaceId,
           conversation.id,
           {
             progress: setProgress,
             event: (event) => setLiveEvents((current) => [...current, event]),
+            done: (completion) => {
+              resumedNamingScheduled = completion.namingScheduled;
+            },
           },
           resumeController.signal,
         );
@@ -1639,6 +1686,7 @@ function useAgentConversation(
             setMessagePage(refreshed.message_page ?? null);
           }
           setLiveEvents([]);
+          if (resumedNamingScheduled) void pollGeneratedNames(conversation.id);
         }
       } catch (caught) {
         if (initializationPromise.current === currentInitialization) {
@@ -1654,7 +1702,21 @@ function useAgentConversation(
       disposed = true;
       resumeController?.abort();
     };
-  }, [enabled, installConversation, refreshHistory, setStreamingState, workspaceId]);
+  }, [
+    enabled,
+    installConversation,
+    pollGeneratedNames,
+    refreshHistory,
+    setStreamingState,
+    workspaceId,
+  ]);
+
+  useEffect(
+    () => () => {
+      namingPollGeneration.current += 1;
+    },
+    [workspaceId],
+  );
 
   useEffect(() => {
     if (
@@ -1761,6 +1823,7 @@ export default function AgentPane({
   expanded = false,
   showSelectionContext = false,
   onInitialPromptStarted,
+  onWorkspaceNameChange,
 }: {
   workspaceId?: string;
   workspaceName?: string;
@@ -1775,6 +1838,7 @@ export default function AgentPane({
   expanded?: boolean;
   showSelectionContext?: boolean;
   onInitialPromptStarted?: () => void;
+  onWorkspaceNameChange?: (name: string) => void;
 }) {
   const [input, setInput] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -1786,6 +1850,7 @@ export default function AgentPane({
     enabled,
     requireAnalyzerContext,
     onInitialPromptStarted,
+    onWorkspaceNameChange,
   );
   // A persistent rail belongs to the roomy agent surfaces. Docked mode keeps the saved
   // preference but uses the overlay so history never consumes most of the analysis column.

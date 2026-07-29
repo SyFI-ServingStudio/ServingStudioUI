@@ -240,6 +240,12 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   首屏只取最新一页，但必须保留 backend 的 `message_page` cursor，并在消息列顶部提供
   earlier-page 加载；prepend 后必须保持当前阅读位置和已有 message node identity，
   不能触发整列跳到底部。迁移后的长历史不能因为固定 `limit` 在 UI 中静默截断。
+- Page 0 创建的 workspace 与 UI/Agent API 创建的新 conversation 使用
+  `naming_state: pending`。首个成功 answer 的 `done.naming_scheduled` 只触发旁路轮询；
+  conversation timeline 不能因命名刷新而重新安装或重渲染。轮询按 1/2/4/8 秒读取
+  workspace descriptor 与 conversation title，只更新 workspace header、history row 和
+  active title。Workspace 名称只生成一次，后续 conversation 不得再次改变；显式 rename
+  进入 `manual` 并永久优先。旧对象缺少字段时按 `manual` 解释。
 - 独立 Aggregate 的 Experiment selector 采用 TraceLab session picker
   的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
   option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment

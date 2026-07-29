@@ -413,6 +413,103 @@ describe('AgentPane', () => {
     });
   });
 
+  it('refreshes generated names without reinstalling the message timeline', async () => {
+    let turnSent = false;
+    let postTurnConversationReads = 0;
+    const onWorkspaceNameChange = vi.fn();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/messages') && init?.method === 'POST') {
+        turnSent = true;
+        return new Response(
+          [
+            'event: done',
+            'data: {"text":"Named answer.","citations":[],"failure":null,"naming_scheduled":true}',
+            '',
+            '',
+          ].join('\n'),
+          { status: 200 },
+        );
+      }
+      if (url === '/api/workspaces/w_main') {
+        return new Response(
+          JSON.stringify({
+            workspace_id: 'w_main',
+            display_name: 'Llama Capacity Study',
+            naming_state: 'generated',
+            state: 'active',
+            storage_kind: 'external',
+            created_at: 1,
+            last_accessed_at: 2,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/workspaces/w_main/conversations') {
+        return new Response(
+          JSON.stringify({
+            conversations: [
+              {
+                id: 'c_test',
+                title: turnSent ? 'SLO Goodput Boundary' : 'Test',
+                naming_state: turnSent ? 'generated' : 'pending',
+                updated_at: 2,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/conversations/c_test?')) {
+        if (turnSent) postTurnConversationReads += 1;
+        const generated = turnSent && postTurnConversationReads >= 2;
+        return new Response(
+          JSON.stringify({
+            id: 'c_test',
+            title: generated ? 'SLO Goodput Boundary' : 'Test',
+            naming_state: generated ? 'generated' : 'pending',
+            messages: turnSent
+              ? [
+                  { role: 'user', content: 'Name this analysis.' },
+                  {
+                    role: 'assistant',
+                    content: 'Named answer.',
+                    activity: [{ kind: 'final', text: 'Named answer.' }],
+                  },
+                ]
+              : conversation.messages,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(
+      <AgentPane
+        full
+        prompt=""
+        workspaceName="Fallback workspace"
+        onWorkspaceNameChange={onWorkspaceNameChange}
+      />,
+    );
+
+    await user.type(await screen.findByPlaceholderText('Ask a follow-up'), 'Name this analysis.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    const answerNode = await screen.findByText('Named answer.');
+
+    await waitFor(
+      () => {
+        expect(onWorkspaceNameChange).toHaveBeenCalledWith('Llama Capacity Study');
+        expect(screen.getByText(/SLO Goodput Boundary/)).toBeInTheDocument();
+      },
+      { timeout: 2500 },
+    );
+    expect(screen.getByText('Named answer.').isSameNode(answerNode)).toBe(true);
+  });
+
   it('does not create a conversation until the user sends the first prompt', async () => {
     window.sessionStorage.removeItem('vibesim.conversation.id.w_main');
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {

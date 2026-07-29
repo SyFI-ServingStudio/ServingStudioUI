@@ -288,6 +288,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           key={workspaceId}
           workspaceId={workspaceId}
           workspaceName={workspaceName}
+          onWorkspaceNameChange={setWorkspaceName}
           prompt={prompt}
           onInitialPromptStarted={consumeInitialPrompt}
           onFold={narrow ? () => setAgentPanelMode('spine') : undefined}
