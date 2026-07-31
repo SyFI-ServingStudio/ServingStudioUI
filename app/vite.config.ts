@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
         // conversation backend; explicit prefixes prevent accidental overlap.
         '/api/v1': { target: analyzerTarget, changeOrigin: true },
         '/api/conversations': { target: conversationTarget, changeOrigin: true },
+        '/api/jobs': { target: conversationTarget, changeOrigin: true },
         '/api/workspaces': { target: conversationTarget, changeOrigin: true },
         '/api/agent': { target: conversationTarget, changeOrigin: true },
         '/api/file': { target: conversationTarget, changeOrigin: true },

@@ -3,6 +3,7 @@ import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { WorkspaceConversationSummary } from '../../application/conversationRepository';
+import { listManagedJobs, type ManagedJobListItem } from '../../application/managedJobRepository';
 import {
   forgetActiveConversation,
   rememberActiveConversation,
@@ -38,6 +39,17 @@ function navigateToExperiment(entry: SweepListItem): void {
     workspaceId: entry.workspaceId,
     experimentId: entry.sweepId,
   });
+  window.location.assign(destination);
+}
+
+function navigateToJob(job: ManagedJobListItem): void {
+  const destination = new URL(window.location.href);
+  destination.search = '';
+  const query = new URLSearchParams({
+    workspace: job.workspaceId,
+    resource: job.resourceId,
+  });
+  destination.hash = `#/job?${query.toString()}`;
   window.location.assign(destination);
 }
 
@@ -269,6 +281,9 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
 export default function EntryPage() {
   const [mode, setMode] = useState<EntryMode>('experiments');
   const [workspaces, setWorkspaces] = useState<readonly WorkspaceSummary[]>([]);
+  const [managedJobs, setManagedJobs] = useState<readonly ManagedJobListItem[]>([]);
+  const [managedJobsLoading, setManagedJobsLoading] = useState(true);
+  const [managedJobsError, setManagedJobsError] = useState(false);
   const workspaceNames = useMemo(
     () =>
       Object.fromEntries(
@@ -293,6 +308,28 @@ export default function EntryPage() {
       disposed = true;
     };
   }, []);
+  useEffect(() => {
+    let disposed = false;
+    setManagedJobsLoading(true);
+    setManagedJobsError(false);
+    void listManagedJobs()
+      .then((jobs) => {
+        if (!disposed) setManagedJobs(jobs);
+      })
+      .catch(() => {
+        if (!disposed) setManagedJobsError(true);
+      })
+      .finally(() => {
+        if (!disposed) setManagedJobsLoading(false);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+  const simulationResults = sweepList.data ?? [];
+  const resultCatalogPending = sweepList.isPending && managedJobsLoading;
+  const resultCatalogFailed = sweepList.isError && managedJobsError;
+  const resultCatalogEmpty = simulationResults.length === 0 && managedJobs.length === 0;
   return (
     <Box
       component="main"
@@ -362,11 +399,11 @@ export default function EntryPage() {
                 <Typography
                   sx={{ maxWidth: 560, mx: 'auto', mt: 1.8, color: tokens.sub, fontSize: 14.5 }}
                 >
-                  Open an experiment, compare its operating points, and ask the Agent when
+                  Open a simulation, timing prediction, or kernel result, then ask the Agent when
                   interpretation is useful.
                 </Typography>
               </Box>
-              {sweepList.isPending ? (
+              {resultCatalogPending ? (
                 <Box
                   sx={{
                     height: 280,
@@ -374,19 +411,21 @@ export default function EntryPage() {
                     background: 'rgba(250,247,240,.35)',
                   }}
                 />
-              ) : sweepList.isError ? (
+              ) : resultCatalogFailed ? (
                 <Typography role="alert" sx={{ py: 4, color: tokens.terra, textAlign: 'center' }}>
-                  The experiment catalog could not be loaded.
+                  The result catalog could not be loaded.
                 </Typography>
-              ) : sweepList.data.length === 0 ? (
+              ) : resultCatalogEmpty ? (
                 <Typography role="status" sx={{ py: 4, color: tokens.sub, textAlign: 'center' }}>
-                  No experiments are available.
+                  No results are available.
                 </Typography>
               ) : (
                 <ExperimentCatalog
-                  entries={sweepList.data}
+                  entries={simulationResults}
+                  jobs={managedJobs}
                   workspaceNames={workspaceNames}
                   onActivate={navigateToExperiment}
+                  onActivateJob={navigateToJob}
                 />
               )}
             </Box>

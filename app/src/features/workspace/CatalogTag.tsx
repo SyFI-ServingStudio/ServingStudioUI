@@ -3,7 +3,16 @@ import type { ReactNode } from 'react';
 
 import { tokens } from '../../theme';
 
-export type CatalogTagTone = 'workspace' | 'deployment' | 'trace' | 'axis' | 'singleton';
+export type CatalogTagTone =
+  | 'workspace'
+  | 'deployment'
+  | 'trace'
+  | 'axis'
+  | 'singleton'
+  | 'simulation'
+  | 'timing'
+  | 'profile'
+  | 'measure';
 
 const toneStyles: Record<CatalogTagTone, { color: string; border: string; background: string }> = {
   workspace: {
@@ -30,6 +39,26 @@ const toneStyles: Record<CatalogTagTone, { color: string; border: string; backgr
     color: tokens.sub,
     border: 'rgba(104,95,84,.25)',
     background: 'rgba(104,95,84,.055)',
+  },
+  simulation: {
+    color: tokens.teal,
+    border: 'rgba(31,111,107,.28)',
+    background: 'rgba(31,111,107,.065)',
+  },
+  timing: {
+    color: tokens.gold,
+    border: 'rgba(128,102,0,.27)',
+    background: 'rgba(128,102,0,.065)',
+  },
+  profile: {
+    color: tokens.sectionAnalysis,
+    border: 'rgba(87,126,137,.3)',
+    background: 'rgba(87,126,137,.07)',
+  },
+  measure: {
+    color: tokens.terra,
+    border: 'rgba(168,75,46,.28)',
+    background: 'rgba(168,75,46,.065)',
   },
 };
 

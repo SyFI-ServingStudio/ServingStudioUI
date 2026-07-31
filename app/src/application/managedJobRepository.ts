@@ -46,6 +46,76 @@ export interface ManagedJobResource {
   iterBreakdown: string | null;
 }
 
+export type ManagedJobKind = ManagedJobResource['jobKind'];
+
+export interface ManagedJobListItem {
+  workspaceId: string;
+  jobId: string;
+  conversationId: string;
+  conversationTitle: string;
+  resourceId: string;
+  jobKind: ManagedJobKind;
+  status: string;
+  artifactPath: string;
+  descriptor: Record<string, unknown>;
+  summary: Record<string, unknown> | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+function recordFrom(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function jobFromWire(value: unknown): ManagedJobListItem | null {
+  const source = recordFrom(value);
+  const jobKind = source.job_kind;
+  if (
+    typeof source.workspace_id !== 'string' ||
+    typeof source.job_id !== 'string' ||
+    typeof source.conversation_id !== 'string' ||
+    typeof source.conversation_title !== 'string' ||
+    typeof source.resource_id !== 'string' ||
+    (jobKind !== 'timing_predict' &&
+      jobKind !== 'kernel_profile' &&
+      jobKind !== 'kernel_measure') ||
+    typeof source.status !== 'string' ||
+    typeof source.artifact_path !== 'string' ||
+    typeof source.created_at !== 'number' ||
+    typeof source.updated_at !== 'number'
+  ) {
+    return null;
+  }
+  return {
+    workspaceId: source.workspace_id,
+    jobId: source.job_id,
+    conversationId: source.conversation_id,
+    conversationTitle: source.conversation_title,
+    resourceId: source.resource_id,
+    jobKind,
+    status: source.status,
+    artifactPath: source.artifact_path,
+    descriptor: recordFrom(source.descriptor),
+    summary: source.summary === null ? null : recordFrom(source.summary),
+    createdAt: source.created_at,
+    updatedAt: source.updated_at,
+  };
+}
+
+export async function listManagedJobs(): Promise<readonly ManagedJobListItem[]> {
+  const response = await fetch('/api/jobs');
+  if (!response.ok) throw new Error(`List managed jobs failed (${response.status})`);
+  const payload = recordFrom(await response.json());
+  return Array.isArray(payload.jobs)
+    ? payload.jobs.flatMap((value) => {
+        const job = jobFromWire(value);
+        return job ? [job] : [];
+      })
+    : [];
+}
+
 export async function getManagedJobResource(
   workspaceId: string,
   resourceId: string,

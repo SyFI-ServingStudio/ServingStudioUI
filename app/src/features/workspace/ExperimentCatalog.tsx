@@ -2,29 +2,63 @@ import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
+import type { ManagedJobKind, ManagedJobListItem } from '../../application/managedJobRepository';
 import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
-type FilterKind = 'workspace' | 'deployment' | 'trace' | 'axis';
+type ResultKind = 'simulation' | ManagedJobKind;
+type FilterKind = 'type' | 'workspace' | 'deployment' | 'trace' | 'axis';
 type SelectedFilters = Record<FilterKind, readonly string[]>;
 
+interface CatalogResult {
+  identity: string;
+  kind: ResultKind;
+  workspaceId: string;
+  timestamp: number;
+  name: string;
+  subtitle: string;
+  deployments: readonly string[];
+  traces: readonly string[];
+  axes: readonly string[];
+  detailTags: readonly { label: string; tone: CatalogTagTone }[];
+  simulation?: SweepListItem;
+  job?: ManagedJobListItem;
+}
+
 const EMPTY_FILTERS: SelectedFilters = {
+  type: [],
   workspace: [],
   deployment: [],
   trace: [],
   axis: [],
 };
 
-function entryDate(entry: SweepListItem): string {
-  return entry.experimentDate ?? entry.updatedAt.slice(0, 10);
+const RESULT_LABELS: Record<ResultKind, string> = {
+  simulation: 'Simulation',
+  timing_predict: 'Timing prediction',
+  kernel_profile: 'Kernel profile',
+  kernel_measure: 'Kernel measurement',
+};
+
+const RESULT_TONES: Record<ResultKind, CatalogTagTone> = {
+  simulation: 'simulation',
+  timing_predict: 'timing',
+  kernel_profile: 'profile',
+  kernel_measure: 'measure',
+};
+
+function simulationTimestamp(entry: SweepListItem): number {
+  const parsed = Date.parse(entry.updatedAt);
+  if (Number.isFinite(parsed)) return parsed;
+  const date = entry.experimentDate;
+  return date ? Date.parse(`${date}T00:00:00Z`) : 0;
 }
 
-function formatDate(entry: SweepListItem): string {
-  const instant = new Date(`${entryDate(entry)}T00:00:00Z`);
-  if (Number.isNaN(instant.getTime())) return entryDate(entry);
-  return instant.toLocaleDateString(undefined, {
+function formatDate(timestamp: number): string {
+  if (!timestamp) return 'Unknown';
+  return new Date(timestamp).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -32,77 +66,149 @@ function formatDate(entry: SweepListItem): string {
   });
 }
 
-function experimentName(displayName: string): string {
+function conciseName(displayName: string): string {
   return displayName.replace(/^\d{8}_\d+_/, '');
 }
 
-function filterOptions(entries: readonly SweepListItem[], kind: FilterKind): readonly string[] {
-  const values = entries.flatMap((entry) => {
-    if (kind === 'workspace') return [entry.workspaceId];
-    if (kind === 'deployment') return entry.deployments;
-    if (kind === 'trace') return entry.traces;
-    return entry.kind === 'singleton' ? ['single run'] : entry.axes;
-  });
-  return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
+function stringField(values: Record<string, unknown>, key: string): string | null {
+  const value = values[key];
+  return typeof value === 'string' && value ? value : null;
 }
 
-function entryValues(entry: SweepListItem, kind: FilterKind): readonly string[] {
+function numberField(values: Record<string, unknown>, key: string): number | null {
+  const value = values[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function jobName(job: ManagedJobListItem): string {
+  if (job.jobKind === 'timing_predict') {
+    const configName = stringField(job.descriptor, 'configName');
+    if (configName) return configName.replace(/\.(json|ya?ml)$/i, '');
+  }
+  const table = stringField(job.descriptor, 'table');
+  if (table) return table;
+  return conciseName(job.artifactPath.split('/').filter(Boolean).at(-1) ?? job.artifactPath);
+}
+
+function jobDetails(job: ManagedJobListItem): CatalogResult['detailTags'] {
+  const details: { label: string; tone: CatalogTagTone }[] = [];
+  const selector = stringField(job.descriptor, 'selector');
+  const backend = stringField(job.descriptor, 'backend');
+  const caseCount = numberField(job.descriptor, 'caseCount');
+  const pointCount = numberField(job.descriptor, 'pointCount');
+  if (selector) details.push({ label: selector, tone: 'axis' });
+  if (backend) details.push({ label: backend, tone: 'deployment' });
+  if (caseCount !== null) details.push({ label: `${caseCount} cases`, tone: 'singleton' });
+  if (pointCount !== null) details.push({ label: `${pointCount} points`, tone: 'singleton' });
+  if (job.status !== 'ready') details.push({ label: job.status, tone: 'measure' });
+  return details;
+}
+
+function catalogResults(
+  simulations: readonly SweepListItem[],
+  jobs: readonly ManagedJobListItem[],
+): readonly CatalogResult[] {
+  return [
+    ...simulations.map((entry): CatalogResult => {
+      const axes = entry.kind === 'singleton' ? ['single run'] : entry.axes;
+      return {
+        identity: `simulation:${entry.workspaceId}:${entry.sweepId}`,
+        kind: 'simulation',
+        workspaceId: entry.workspaceId,
+        timestamp: simulationTimestamp(entry),
+        name: conciseName(entry.displayName),
+        subtitle: `${entry.numRuns} ${entry.numRuns === 1 ? 'run' : 'runs'}`,
+        deployments: entry.deployments,
+        traces: entry.traces,
+        axes,
+        detailTags: [
+          ...entry.deployments.map((label) => ({ label, tone: 'deployment' as const })),
+          ...entry.traces.map((label) => ({ label, tone: 'trace' as const })),
+          ...axes.map((label) => ({
+            label,
+            tone: label === 'single run' ? ('singleton' as const) : ('axis' as const),
+          })),
+        ],
+        simulation: entry,
+      };
+    }),
+    ...jobs.map((job): CatalogResult => ({
+      identity: `job:${job.workspaceId}:${job.resourceId}`,
+      kind: job.jobKind,
+      workspaceId: job.workspaceId,
+      timestamp: job.updatedAt < 1_000_000_000_000 ? job.updatedAt * 1000 : job.updatedAt,
+      name: jobName(job),
+      subtitle:
+        job.jobKind === 'timing_predict'
+          ? `${numberField(job.descriptor, 'caseCount') ?? 0} cases`
+          : `${numberField(job.descriptor, 'pointCount') ?? 1} points`,
+      deployments: [],
+      traces: [],
+      axes: [],
+      detailTags: jobDetails(job),
+      job,
+    })),
+  ];
+}
+
+function entryValues(entry: CatalogResult, kind: FilterKind): readonly string[] {
+  if (kind === 'type') return [entry.kind];
   if (kind === 'workspace') return [entry.workspaceId];
   if (kind === 'deployment') return entry.deployments;
   if (kind === 'trace') return entry.traces;
-  return entry.kind === 'singleton' ? ['single run'] : entry.axes;
+  return entry.axes;
 }
 
-function matchesFilters(entry: SweepListItem, selected: SelectedFilters): boolean {
+function filterOptions(entries: readonly CatalogResult[], kind: FilterKind): readonly string[] {
+  return Array.from(new Set(entries.flatMap((entry) => entryValues(entry, kind)))).sort(
+    (left, right) => left.localeCompare(right),
+  );
+}
+
+function matchesFilters(entry: CatalogResult, selected: SelectedFilters): boolean {
   return (Object.keys(selected) as FilterKind[]).every((kind) => {
     const values = selected[kind];
     return values.length === 0 || values.some((value) => entryValues(entry, kind).includes(value));
   });
 }
 
-function toneFor(kind: FilterKind, value: string): CatalogTagTone {
-  if (kind === 'workspace') return 'workspace';
-  if (kind === 'deployment') return 'deployment';
-  if (kind === 'trace') return 'trace';
-  return value === 'single run' ? 'singleton' : 'axis';
-}
-
 export default function ExperimentCatalog({
   entries,
+  jobs,
   onActivate,
+  onActivateJob,
   workspaceNames = {},
 }: {
   entries: readonly SweepListItem[];
+  jobs: readonly ManagedJobListItem[];
   onActivate: (entry: SweepListItem) => void;
+  onActivateJob: (job: ManagedJobListItem) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);
+  const results = useMemo(() => catalogResults(entries, jobs), [entries, jobs]);
   const options = useMemo(
     () => ({
-      workspace: filterOptions(entries, 'workspace'),
-      deployment: filterOptions(entries, 'deployment'),
-      trace: filterOptions(entries, 'trace'),
-      axis: filterOptions(entries, 'axis'),
+      type: filterOptions(results, 'type'),
+      workspace: filterOptions(results, 'workspace'),
+      deployment: filterOptions(results, 'deployment'),
+      trace: filterOptions(results, 'trace'),
+      axis: filterOptions(results, 'axis'),
     }),
-    [entries],
+    [results],
   );
-  const sortedEntries = useMemo(
-    () =>
-      [...entries].sort(
-        (left, right) =>
-          entryDate(right).localeCompare(entryDate(left)) ||
-          Date.parse(right.updatedAt) - Date.parse(left.updatedAt),
-      ),
-    [entries],
+  const sortedResults = useMemo(
+    () => [...results].sort((left, right) => right.timestamp - left.timestamp),
+    [results],
   );
   const visibleIds = useMemo(
     () =>
       new Set(
-        sortedEntries
+        sortedResults
           .filter((entry) => matchesFilters(entry, selected))
-          .map((entry) => `${entry.workspaceId}:${entry.sweepId}`),
+          .map((entry) => entry.identity),
       ),
-    [selected, sortedEntries],
+    [selected, sortedResults],
   );
   const visibleCount = visibleIds.size;
   const hasFilters = (Object.keys(selected) as FilterKind[]).some(
@@ -116,23 +222,22 @@ export default function ExperimentCatalog({
         : [...current[kind], value],
     }));
   const clearKind = (kind: FilterKind) => setSelected((current) => ({ ...current, [kind]: [] }));
-
   const columns = {
     xs: 'minmax(0,1fr) 34px',
-    md: '82px minmax(168px,1.35fr) minmax(138px,.9fr) 78px 94px minmax(128px,1fr) 28px',
-    lg: '96px minmax(210px,1.35fr) minmax(176px,.82fr) 96px 128px minmax(168px,1fr) 34px',
+    md: '92px minmax(190px,1.35fr) 128px 148px minmax(230px,1.25fr) 30px',
   };
+
   return (
     <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
       <Box
-        aria-label="Experiment table columns"
+        aria-label="Result table columns"
         sx={{
           minHeight: 47,
           px: { xs: 1.4, md: 1.75 },
           display: 'grid',
           gridTemplateColumns: columns,
           alignItems: 'center',
-          gap: { xs: 1, md: 1, lg: 1.5 },
+          gap: { xs: 1, md: 1.4 },
           borderBottom: `1px solid ${tokens.hair}`,
         }}
       >
@@ -148,7 +253,7 @@ export default function ExperimentCatalog({
         </Typography>
         <Stack direction="row" alignItems="center" useFlexGap sx={{ minWidth: 0, gap: 1 }}>
           <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 8.5 }}>
-            Experiment
+            Result
           </Typography>
           <Typography
             sx={{
@@ -160,9 +265,20 @@ export default function ExperimentCatalog({
               whiteSpace: 'nowrap',
             }}
           >
-            {visibleCount} matches, newest first
+            {visibleCount} matches
           </Typography>
         </Stack>
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          <CatalogColumnFilter
+            label="Type"
+            options={options.type}
+            selected={selected.type}
+            onToggle={(value) => toggle('type', value)}
+            onClear={() => clearKind('type')}
+            optionLabel={(value) => RESULT_LABELS[value as ResultKind]}
+            tone={(value) => RESULT_TONES[value as ResultKind]}
+          />
+        </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
           <CatalogColumnFilter
             label="Workspace"
@@ -174,7 +290,12 @@ export default function ExperimentCatalog({
             tone="workspace"
           />
         </Box>
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          useFlexGap
+          sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.7 }}
+        >
           <CatalogColumnFilter
             label="Deployment"
             options={options.deployment}
@@ -183,8 +304,6 @@ export default function ExperimentCatalog({
             onClear={() => clearKind('deployment')}
             tone="deployment"
           />
-        </Box>
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
           <CatalogColumnFilter
             label="Trace"
             options={options.trace}
@@ -193,20 +312,18 @@ export default function ExperimentCatalog({
             onClear={() => clearKind('trace')}
             tone="trace"
           />
-        </Box>
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
           <CatalogColumnFilter
-            label="Sweep axes"
+            label="Axes"
             options={options.axis}
             selected={selected.axis}
             onToggle={(value) => toggle('axis', value)}
             onClear={() => clearKind('axis')}
-            tone={(value) => toneFor('axis', value)}
+            tone={(value) => (value === 'single run' ? 'singleton' : 'axis')}
           />
-        </Box>
+        </Stack>
         <ButtonBase
           disabled={!hasFilters}
-          aria-label="Reset experiment filters"
+          aria-label="Reset result filters"
           onClick={() => setSelected(EMPTY_FILTERS)}
           sx={{
             justifySelf: 'end',
@@ -214,7 +331,6 @@ export default function ExperimentCatalog({
             fontFamily: tokens.mono,
             fontSize: 8,
             '&.Mui-disabled': { color: tokens.sub2, opacity: 0.45 },
-            '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
           }}
         >
           Reset
@@ -223,12 +339,11 @@ export default function ExperimentCatalog({
 
       <Box
         role="listbox"
-        aria-label="Experiments, newest first"
+        aria-label="Results, newest first"
         sx={{
           maxHeight: 426,
           overflowY: 'auto',
           overscrollBehavior: 'contain',
-          scrollBehavior: 'smooth',
           scrollbarWidth: 'thin',
           scrollbarColor: `${tokens.hair} transparent`,
         }}
@@ -249,31 +364,23 @@ export default function ExperimentCatalog({
             fontFamily: tokens.serif,
             fontStyle: 'italic',
             textAlign: 'center',
-            transition: [
-              `max-height 350ms ${tokens.ease}`,
-              `opacity 250ms ${tokens.ease}`,
-              `transform 300ms ${tokens.ease}`,
-              `padding 350ms ${tokens.ease}`,
-              `border-color 200ms ${tokens.ease}`,
-              `visibility 0s linear ${visibleCount === 0 ? '0ms' : '350ms'}`,
-            ].join(','),
+            transition: `max-height 350ms ${tokens.ease}, opacity 250ms ${tokens.ease}, transform 300ms ${tokens.ease}, padding 350ms ${tokens.ease}`,
             '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
           }}
         >
-          No experiments match this filter combination.
+          No results match this filter combination.
         </Typography>
-        {sortedEntries.map((entry) => {
-          const visible = visibleIds.has(`${entry.workspaceId}:${entry.sweepId}`);
-          const axisValues = entry.kind === 'singleton' ? ['single run'] : entry.axes;
+        {sortedResults.map((entry) => {
+          const visible = visibleIds.has(entry.identity);
           return (
             <ButtonBase
-              key={`${entry.workspaceId}:${entry.sweepId}`}
+              key={entry.identity}
               role="option"
-              aria-label={entry.displayName}
+              aria-label={`Open ${RESULT_LABELS[entry.kind]} ${entry.name}`}
               aria-selected={false}
               aria-hidden={!visible}
               tabIndex={visible ? 0 : -1}
-              onClick={() => onActivate(entry)}
+              onClick={() => (entry.job ? onActivateJob(entry.job) : onActivate(entry.simulation!))}
               sx={{
                 width: '100%',
                 minHeight: visible ? 71 : 0,
@@ -283,7 +390,7 @@ export default function ExperimentCatalog({
                 display: 'grid',
                 gridTemplateColumns: columns,
                 alignItems: 'center',
-                gap: { xs: 1, md: 1, lg: 1.5 },
+                gap: { xs: 1, md: 1.4 },
                 overflow: 'hidden',
                 borderBottom: `1px solid ${visible ? tokens.hair : 'transparent'}`,
                 opacity: visible ? 1 : 0,
@@ -292,19 +399,10 @@ export default function ExperimentCatalog({
                 transform: visible ? 'none' : 'translateY(-7px)',
                 color: tokens.ink,
                 textAlign: 'left',
-                transition: [
-                  `max-height 380ms ${tokens.ease}`,
-                  `min-height 380ms ${tokens.ease}`,
-                  `opacity 240ms ${tokens.ease}`,
-                  `transform 300ms ${tokens.ease}`,
-                  `padding 380ms ${tokens.ease}`,
-                  `border-color 200ms ${tokens.ease}`,
-                  `background 250ms ${tokens.ease}`,
-                  `visibility 0s linear ${visible ? '0ms' : '380ms'}`,
-                ].join(','),
+                transition: `max-height 380ms ${tokens.ease}, min-height 380ms ${tokens.ease}, opacity 240ms ${tokens.ease}, transform 300ms ${tokens.ease}, padding 380ms ${tokens.ease}, background 250ms ${tokens.ease}`,
                 '&:hover': {
                   background: 'rgba(31,111,107,.045)',
-                  '& .experiment-go': {
+                  '& .result-go': {
                     background: tokens.teal,
                     borderColor: tokens.teal,
                     color: tokens.tile,
@@ -312,9 +410,7 @@ export default function ExperimentCatalog({
                   },
                 },
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
-                '@media (prefers-reduced-motion: reduce)': {
-                  transition: 'none',
-                },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
               }}
             >
               <Typography
@@ -326,11 +422,11 @@ export default function ExperimentCatalog({
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
-                {formatDate(entry)}
+                {formatDate(entry.timestamp)}
               </Typography>
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  title={entry.displayName}
+                  title={entry.name}
                   sx={{
                     overflow: 'hidden',
                     color: tokens.ink,
@@ -342,13 +438,21 @@ export default function ExperimentCatalog({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {experimentName(entry.displayName)}
+                  {entry.name}
                 </Typography>
                 <Typography
                   sx={{ mt: 0.35, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}
                 >
-                  {entry.numRuns} {entry.numRuns === 1 ? 'run' : 'runs'}
+                  {entry.subtitle}
                 </Typography>
+              </Box>
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <CatalogTag tone={RESULT_TONES[entry.kind]}>{RESULT_LABELS[entry.kind]}</CatalogTag>
+              </Box>
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <CatalogTag tone="workspace">
+                  {workspaceNames[entry.workspaceId] ?? entry.workspaceId}
+                </CatalogTag>
               </Box>
               <Stack
                 direction="row"
@@ -356,49 +460,15 @@ export default function ExperimentCatalog({
                 flexWrap="wrap"
                 sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.45 }}
               >
-                <CatalogTag tone="workspace">
-                  {workspaceNames[entry.workspaceId] ?? entry.workspaceId}
-                </CatalogTag>
-              </Stack>
-              <Stack
-                direction="row"
-                useFlexGap
-                flexWrap="wrap"
-                sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.45 }}
-              >
-                {entry.deployments.map((deployment) => (
-                  <CatalogTag key={deployment} tone="deployment">
-                    {deployment}
-                  </CatalogTag>
-                ))}
-              </Stack>
-              <Stack
-                direction="row"
-                useFlexGap
-                flexWrap="wrap"
-                sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.45 }}
-              >
-                {entry.traces.map((trace) => (
-                  <CatalogTag key={trace} tone="trace">
-                    {trace}
-                  </CatalogTag>
-                ))}
-              </Stack>
-              <Stack
-                direction="row"
-                useFlexGap
-                flexWrap="wrap"
-                sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.45 }}
-              >
-                {axisValues.map((axis) => (
-                  <CatalogTag key={axis} tone={axis === 'single run' ? 'singleton' : 'axis'}>
-                    {axis}
+                {entry.detailTags.map((detail, index) => (
+                  <CatalogTag key={`${detail.label}:${index}`} tone={detail.tone}>
+                    {detail.label}
                   </CatalogTag>
                 ))}
               </Stack>
               <Box
                 component="span"
-                className="experiment-go"
+                className="result-go"
                 sx={{
                   width: 30,
                   height: 30,
@@ -408,12 +478,7 @@ export default function ExperimentCatalog({
                   border: `1px solid ${tokens.hair}`,
                   borderRadius: 999,
                   color: tokens.teal,
-                  transition: [
-                    `background 250ms ${tokens.ease}`,
-                    `border-color 250ms ${tokens.ease}`,
-                    `color 250ms ${tokens.ease}`,
-                    `transform 250ms ${tokens.ease}`,
-                  ].join(','),
+                  transition: `background 250ms ${tokens.ease}, border-color 250ms ${tokens.ease}, color 250ms ${tokens.ease}, transform 250ms ${tokens.ease}`,
                 }}
               >
                 <ArrowForwardRounded sx={{ fontSize: 16 }} />

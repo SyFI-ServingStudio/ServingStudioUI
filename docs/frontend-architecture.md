@@ -235,16 +235,19 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 数字或 artifact URL，也不会在用户点击前自动导航。
 
 - Workspace 默认入口是 Page 0。它提供 `Explore results`、`New conversation` 与
-  `Resume conversation` 三个互斥起点，默认展示 existing experiments。三个入口共用稳定的
-  page header 与 tab 位置，切换内容不能按表体高度重新居中。Experiment catalog 采用固定列
-  table：日期、
-  experiment name、deployment、trace 与 sweep axes；deployment / trace / axes 列头各自
-  打开同列的多选 label filter，同组 OR、跨组 AND。Catalog 按日期倒序，表体最多显示
+  `Resume conversation` 三个互斥起点，默认展示 existing results。三个入口共用稳定的
+  page header 与 tab 位置，切换内容不能按表体高度重新居中。Result catalog 合并 Analyzer
+  的 simulation sweep 与 conversation backend 的 `timing_predict`、`kernel_profile`、
+  `kernel_measure` typed jobs；job 是有稳定 `resourceId` 与 artifact snapshot 的可导航结果，
+  不是 simulation experiment。固定列 table 展示日期、result name、type、workspace 与
+  type-specific details；Type 列提供四类结果的多选 label filter，同组 OR，并与 workspace、
+  deployment、trace、axes 等适用过滤跨组 AND。不存在于某类结果的字段保持为空，不能伪造
+  deployment、trace 或 sweep axis。Catalog 按日期倒序，表体最多显示
   六行，超出后只滚动表体，Page 0 顶部与列头不能随筛选结果重新居中或跳动。显式选择
-  experiment 后进入 integrated Aggregate，并把 experiment identity 固定在 workspace
-  header；integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
-  更换 experiment。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer
-  的 discovery 入口。
+  simulation 后进入 integrated Aggregate；显式选择 typed job 后进入 `#/job` 的 Result
+  surface。integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
+  更换 result。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer 的
+  discovery 入口。
 - `New conversation` 把 compact workspace picker 放在 composer 上方。picker 必须发现全部
   active workspaces，按 last-accessed 倒序，支持 name/id 搜索并限制表体高度；它是 table-like
   单选 surface，不能退化为 dropdown。第一行固定为 create-new-workspace，选择已有 workspace
