@@ -3,11 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ConversationTurnEvent } from '../../application/conversationRepository';
 import { conversationCards } from './conversationTimeline';
 
-function job(
-  status: string,
-  jobId: string,
-  experimentId = 'e_sweep',
-): ConversationTurnEvent {
+function job(status: string, jobId: string, experimentId = 'e_sweep'): ConversationTurnEvent {
   return {
     kind: 'job',
     workspaceId: 'w_test',
@@ -66,5 +62,39 @@ describe('conversationCards managed-run lifecycle', () => {
     ]);
 
     expect(cards.filter((card) => card.type === 'job')).toHaveLength(2);
+  });
+
+  it('collapses typed job transitions by resource without pretending it is an experiment', () => {
+    const typedJob = (status: string): ConversationTurnEvent => ({
+      kind: 'job',
+      workspaceId: 'w_test',
+      status,
+      experimentId: '',
+      experimentPath: '',
+      jobId: 'j_profile',
+      jobKind: 'kernel_profile',
+      resourceId: 'jr_profile',
+      artifactPath: '20260731_0_single_gemm_profile',
+      descriptor: { table: 'single_gemm', pointCount: 4 },
+      summary: status === 'ready' ? { axes: ['m'] } : null,
+    });
+
+    expect(
+      conversationCards([typedJob('requested'), typedJob('running'), typedJob('ready')]),
+    ).toEqual([
+      {
+        type: 'job',
+        workspaceId: 'w_test',
+        experimentId: '',
+        experimentPath: '',
+        status: 'ready',
+        jobId: 'j_profile',
+        jobKind: 'kernel_profile',
+        resourceId: 'jr_profile',
+        artifactPath: '20260731_0_single_gemm_profile',
+        descriptor: { table: 'single_gemm', pointCount: 4 },
+        summary: { axes: ['m'] },
+      },
+    ]);
   });
 });

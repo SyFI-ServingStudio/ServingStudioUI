@@ -86,6 +86,17 @@ const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }>
   },
 };
 
+const managedJobLabels: Record<string, string> = {
+  timing_predict: 'Timing prediction',
+  kernel_profile: 'Kernel profile',
+  kernel_measure: 'Kernel measurement',
+};
+
+function managedJobHref(workspaceId: string, resourceId: string): string {
+  const query = new URLSearchParams({ workspace: workspaceId, resource: resourceId });
+  return `#/job?${query.toString()}`;
+}
+
 function RoleCard({
   tone,
   icon,
@@ -805,17 +816,29 @@ function AssistantTimeline({
     if (card.type === 'job') {
       const ready = card.status === 'ready' || card.status === 'experiment.ready';
       const failed = card.status === 'failed' || card.status === 'interrupted';
+      const typedJob = Boolean(card.jobKind && card.resourceId);
+      const jobLabel = typedJob
+        ? (managedJobLabels[card.jobKind ?? ''] ?? 'Managed job')
+        : 'Experiment';
+      const title = ready
+        ? `${jobLabel} ready`
+        : failed
+          ? `${jobLabel} stopped`
+          : `${jobLabel} running`;
+      const destination = typedJob
+        ? managedJobHref(card.workspaceId, card.resourceId ?? '')
+        : analyzerEvidenceHref({
+            protocol: 'vibesim.analyzer/v2',
+            kind: 'aggregate',
+            workspaceId: card.workspaceId,
+            experimentId: card.experimentId,
+          });
       return (
         <ButtonBase
           key={index}
-          disabled={!ready}
+          disabled={!ready || (typedJob ? !card.resourceId : !card.experimentId)}
           onClick={() => {
-            window.location.hash = analyzerEvidenceHref({
-              protocol: 'vibesim.analyzer/v2',
-              kind: 'aggregate',
-              workspaceId: card.workspaceId,
-              experimentId: card.experimentId,
-            });
+            window.location.hash = destination;
           }}
           sx={{
             width: '100%',
@@ -835,6 +858,8 @@ function AssistantTimeline({
           <Stack direction="row" alignItems="center" sx={{ width: '100%', minWidth: 0, gap: 1 }}>
             {failed ? (
               <ErrorOutlineRounded sx={{ color: '#9a4538', fontSize: 16 }} />
+            ) : card.jobKind === 'kernel_profile' || card.jobKind === 'kernel_measure' ? (
+              <BuildOutlined sx={{ color: ready ? tokens.teal : tokens.gold, fontSize: 16 }} />
             ) : ready ? (
               <CheckCircleOutlineRounded sx={{ color: tokens.teal, fontSize: 16 }} />
             ) : (
@@ -842,13 +867,13 @@ function AssistantTimeline({
             )}
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 700 }}>
-                {ready ? 'Experiment ready' : failed ? 'Experiment stopped' : 'Simulation running'}
+                {title}
               </Typography>
               <Typography
                 noWrap
                 sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
               >
-                {card.experimentPath}
+                {card.artifactPath || card.experimentPath}
               </Typography>
             </Box>
             {ready && <NorthEastRounded sx={{ ml: 'auto', color: tokens.teal, fontSize: 15 }} />}

@@ -315,9 +315,9 @@ export default function WorkspaceShell({
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
           analyzerContext={turnContext}
           enabled={agentPaneVisible}
-          requireAnalyzerContext={view !== 'agent'}
+          requireAnalyzerContext={view !== 'agent' && view !== 'job'}
           expanded={agentPanelMode === 'full'}
-          showSelectionContext={view !== 'agent'}
+          showSelectionContext={view !== 'agent' && view !== 'job'}
         />
       </Box>
 
@@ -422,7 +422,11 @@ export default function WorkspaceShell({
                 noWrap
                 sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 16, fontWeight: 600 }}
               >
-                {experiment ? displayExperimentName(experiment.displayName) : 'Analyzer'}
+                {experiment
+                  ? displayExperimentName(experiment.displayName)
+                  : view === 'job'
+                    ? 'Result'
+                    : 'Analyzer'}
               </Typography>
               {experiment && (
                 <Typography

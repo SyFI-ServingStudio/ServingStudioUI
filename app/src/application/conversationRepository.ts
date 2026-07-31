@@ -29,6 +29,11 @@ export type ConversationTurnEvent =
       experimentId: string;
       experimentPath: string;
       jobId: string;
+      jobKind?: string;
+      resourceId?: string;
+      artifactPath?: string;
+      descriptor?: Record<string, unknown>;
+      summary?: Record<string, unknown> | null;
     }
   | { kind: 'final'; text: string };
 
@@ -385,6 +390,15 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
       experimentId: String(data.experimentId ?? ''),
       experimentPath: String(data.experimentPath ?? ''),
       jobId: String(data.jobId ?? ''),
+      ...(typeof data.jobKind === 'string' ? { jobKind: data.jobKind } : {}),
+      ...(typeof data.resourceId === 'string' ? { resourceId: data.resourceId } : {}),
+      ...(typeof data.artifactPath === 'string' ? { artifactPath: data.artifactPath } : {}),
+      ...(data.descriptor !== null && typeof data.descriptor === 'object'
+        ? { descriptor: data.descriptor as Record<string, unknown> }
+        : {}),
+      ...(data.summary !== null && typeof data.summary === 'object'
+        ? { summary: data.summary as Record<string, unknown> }
+        : {}),
     });
   } else if (event === 'done') {
     const text = String(data.text ?? '');

@@ -21,6 +21,9 @@ const EntryPage = lazy(() =>
 const WorkspaceShell = lazy(() =>
   import('./features/workspace').then((feature) => ({ default: feature.WorkspaceShell })),
 );
+const JobResultPage = lazy(() =>
+  import('./features/job').then((feature) => ({ default: feature.JobResultPage })),
+);
 
 /** Connects app navigation identity to otherwise-local chart focus state. */
 export default function AppRoot() {
@@ -95,6 +98,7 @@ export default function AppRoot() {
   if (view === 'entry') content = <EntryPage />;
   else if (view === 'agent') content = null;
   else if (view === 'aggregate') content = <SweepPage integrated />;
+  else if (view === 'job') content = <JobResultPage />;
   else {
     content = (
       <ChartFocusProvider resetKey={runId}>
