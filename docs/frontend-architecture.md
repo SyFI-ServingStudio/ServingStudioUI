@@ -210,13 +210,34 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   `ttft`、`tpot` 等 key/name 猜测方向。右侧 visual scale 显示 `better` / `worse`，不再只写
   与优化目标无关的 `high` / `low`。Aggregate 图表必须优先保留可读的 axis name / tick
   字号，同时对 axis `nameGap`、ECharts `grid` gutter、visual scale 和 chart height
-  设置紧凑的有界留白；不能用缩小文字换取 plot area。共享 `EChart` wrapper 必须监听
-  容器尺寸，并在 workspace 折叠、展开和拖拽过程中按 animation frame resize，使 panel
+  设置紧凑的有界留白；单轴 line plot 也必须为 x-axis name 和旋转后的 y-axis unit
+  预留完整 gutter，所有 axis text 都必须落在 chart viewport 内。大数值 tick 使用紧凑工程
+  记法，不能靠溢出 card 或缩小文字换取 plot area。共享 `EChart` wrapper 必须监听
+  容器尺寸，且只能在容器首次获得非零 width/height 后初始化 renderer；不能先以 `0×0`
+  建图再期待后续 resize 修复。在 workspace 折叠、展开和拖拽过程中按 animation frame resize，使 panel
   图面随 shell 连续变化，不能只在 CSS transition 终点突然伸缩。二维 categorical
   sweep 使用原生 CSS Grid heatmap，使 cells、axis ticks、selection boundary 与 legend
   随 panel 布局直接伸缩；不能为这类小矩阵启动多个需要逐帧 resize 的 ECharts renderer。
-- Workspace 默认入口是 Page 0。它提供 `Existing experiments` 与 `Work with Agent` 两种
-  起点，默认展示 existing experiments。Experiment catalog 采用固定列 table：日期、
+
+## 6. Agent-first Analyzer evidence
+
+已有 Analyzer selection 的 turn 由浏览器构造初始 citation dictionary。没有 selection 的
+Agent-first turn 仍允许在执行过程中生成实验：managed Analyzer MCP 读取 exact workspace
+sweep payload 后，将 payload 连同 capability 交给 conversation backend。backend 必须验证
+该 experiment 属于 capability 的 workspace、conversation 和 turn，并以 registry 身份覆盖
+workspace-local Analyzer payload 中不可导航的 workspace id。生成的 dictionary 作为有序
+`citation.dictionary` turn event 持久化；finalization 使用最后一条动态 dictionary，若不存在
+才回退到浏览器初始 dictionary。
+
+MCP 返回值保留全部 Analyzer 原字段，并只增加 reserved `_vibesim_citations` metadata，向
+Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中决定哪个 token 支持
+哪个 claim；backend 只冻结 allowlist 中实际出现的 single-backtick token。renderer 不解析
+数字或 artifact URL，也不会在用户点击前自动导航。
+
+- Workspace 默认入口是 Page 0。它提供 `Explore results`、`New conversation` 与
+  `Resume conversation` 三个互斥起点，默认展示 existing experiments。三个入口共用稳定的
+  page header 与 tab 位置，切换内容不能按表体高度重新居中。Experiment catalog 采用固定列
+  table：日期、
   experiment name、deployment、trace 与 sweep axes；deployment / trace / axes 列头各自
   打开同列的多选 label filter，同组 OR、跨组 AND。Catalog 按日期倒序，表体最多显示
   六行，超出后只滚动表体，Page 0 顶部与列头不能随筛选结果重新居中或跳动。显式选择
@@ -224,10 +245,18 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   header；integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
   更换 experiment。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer
   的 discovery 入口。
-- `Work with Agent` 的 continue surface 必须能发现全部 active workspaces，而不是
-  截断前几个。workspace 多于八个时使用 name/id 搜索和固定高度可滚动 label 区域；
-  label 仍是直接导航的紧凑按钮，不能退化为 dropdown，也不能让几十个 legacy
-  workspaces 撑高并移动 Page 0 的主输入区。
+- `New conversation` 把 compact workspace picker 放在 composer 上方。picker 必须发现全部
+  active workspaces，按 last-accessed 倒序，支持 name/id 搜索并限制表体高度；它是 table-like
+  单选 surface，不能退化为 dropdown。第一行固定为 create-new-workspace，选择已有 workspace
+  后提交会在其中创建 conversation，选择第一行才创建新 workspace。Page 0 尚无 Analyzer
+  selection，因此 composer 不显示无语义的 `Context` action。
+- `Resume conversation` 使用独立的全局 conversation catalog，而不先要求用户选择 workspace。
+  catalog 合并全部 active workspace 的 conversations，按 updated-at 倒序，以日期作为首列分组，
+  同时显示 conversation title、所属 workspace label 和具体时间；支持按 conversation/workspace
+  搜索和 workspace label 多选过滤，并使用固定高度滚动表体。workspace filter 与 Experiment
+  catalog 共用 column-filter 组件和同组 OR 语义，过滤后仍保持全局 updated-at 排序。只有点击
+  具体 conversation 才进入 Agent，workspace identity 从该 conversation 的记录中解析，不能依赖
+  当前选中的 workspace。
 - Root router 必须以完整 hash（含 query）作为 render state。`#/agent`、
   `#/aggregate` 或 `#/run` view 不变但 `workspace` / evidence identity 改变时，也必须
   立即重算 workspace context；不能出现 address bar 已切换而 Agent/Analyzer 仍读上一个
@@ -236,16 +265,44 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   `activity` 时把 `intermediate_outputs` 投影为 role timeline，并剥离旧版
   `<details class="role-output orchestrator">` / `### Message` 包装后再渲染 answer。
   Markdown 中的本地图片必须通过当前 `workspaceId` 重写到 `/api/file`，不能依赖旧的
-  conversation-owned `cid` 路由，也不能把 `/workspace/...` 当成浏览器 URL。Conversation
+  conversation-owned `cid` 路由，也不能把 `/workspace/...` 当成浏览器 URL。开发服务器的
+  same-origin proxy 必须把 `/api/file` 与其他 conversation API 一起转发到 shared backend；
+  SPA fallback 返回的 `text/html` 不能被误当成成功图片响应。Conversation
   首屏只取最新一页，但必须保留 backend 的 `message_page` cursor，并在消息列顶部提供
   earlier-page 加载；prepend 后必须保持当前阅读位置和已有 message node identity，
   不能触发整列跳到底部。迁移后的长历史不能因为固定 `limit` 在 UI 中静默截断。
+- Agent composer 必须拥有独立的 local draft state；键盘输入不能重新执行 conversation
+  message map、Markdown parser 或 role-card render。Transcript 是 memoized subtree，只在
+  messages、live turn events、pagination 或 error 真正变化时更新；`send`、`cancel` 与
+  `loadEarlier` callback 必须保持稳定，避免 SSE progress 把 composer 带入刷新路径。
 - Page 0 创建的 workspace 与 UI/Agent API 创建的新 conversation 使用
   `naming_state: pending`。首个成功 answer 的 `done.naming_scheduled` 只触发旁路轮询；
   conversation timeline 不能因命名刷新而重新安装或重渲染。轮询按 1/2/4/8 秒读取
   workspace descriptor 与 conversation title，只更新 workspace header、history row 和
   active title。Workspace 名称只生成一次，后续 conversation 不得再次改变；显式 rename
   进入 `manual` 并永久优先。旧对象缺少字段时按 `manual` 解释。
+- Browser 断开只中止本地 SSE reader，不能隐式取消 backend turn。运行中的 composer
+  必须把 Send 替换为明确的 Interrupt control；用户 activation 调用 workspace-scoped
+  `/cancel` endpoint，等待 backend 完成取消与持久化后再刷新 conversation。禁止把
+  `AbortController.abort()` 当作 backend cancellation。
+- Backend restart 不能让已经持久化的 role output 从 conversation 消失。Turn event log
+  是增量事实来源；backend 启动时将遗留的 `running` turn 原子标记为 `interrupted`，把已完成的
+  `intermediate_output`、handoff、implementer、usage 与 managed-job events 投影为一条
+  reloadable assistant timeline，并追加明确的 restart interruption card。不得伪造 Agent final
+  answer，也不得在重复启动时重复追加恢复消息。
+- Managed run 的 `requested → running → analysis_running → ready/failed` 是同一
+  experiment lifecycle 的状态迁移，不是四个独立 timeline item。Conversation 中按
+  `experimentId` 只渲染一张 job card，以最后一个状态更新该卡；同一 experiment
+  因追加 sweep 再次启动 Launcher 时也不得生成第二张 ready card。
+- Full Agent surface 返回 Page 0 的 header control 使用 back-arrow 与
+  `Return to workspace home` accessible name，不能使用 close/X icon；后者会错误暗示
+  turn 被取消。返回导航不改变 backend turn 状态。
+- Agent、Aggregate 与 Run 是同一个 workspace-owned surface 的布局状态，不是三套独立
+  page shell。`#/agent`、`#/aggregate`、`#/run` 暂时保留为兼容入口，但都必须挂在同一个
+  `WorkspaceShell` 下；跨这些 route 切换时 `AgentPane` 不能卸载，active conversation、
+  SSE、scroll、draft 与 history 必须保持。`#/agent` 初始进入 Agent full 且允许没有
+  Analyzer context 的首条 prompt；从 Agent evidence 导航到 Aggregate/Run 时，full 自动
+  转为 docked split。Analyze 内的 full/fold 只改变 grid layout，不能卸载 Analyzer child。
 - 独立 Aggregate 的 Experiment selector 采用 TraceLab session picker
   的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
   option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment

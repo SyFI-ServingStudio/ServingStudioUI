@@ -4,6 +4,7 @@ import type { AnalyzerTurnContextV2 } from '../domain/citation';
 import {
   deleteConversation,
   getConversation,
+  listAllConversations,
   listConversations,
   resumeConversationTurn,
   sendConversationTurn,
@@ -59,6 +60,38 @@ describe('conversation repository', () => {
     expect(fetchMock).toHaveBeenLastCalledWith('/api/workspaces/w_main/conversations/c_older', {
       method: 'DELETE',
     });
+  });
+
+  it('lists conversations across workspaces for the Page 0 resume picker', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            conversations: [
+              {
+                id: 'c_recent',
+                workspace_id: 'w_kernel',
+                title: 'Kernel study',
+                naming_state: 'generated',
+                updated_at: 1785254400,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listAllConversations()).resolves.toEqual([
+      {
+        id: 'c_recent',
+        workspaceId: 'w_kernel',
+        title: 'Kernel study',
+        naming_state: 'generated',
+        updated_at: 1785254400,
+      },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith('/api/conversations');
   });
 
   it('requests an earlier message page with the backend cursor', async () => {

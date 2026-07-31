@@ -1,10 +1,10 @@
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
-import { Box, ButtonBase, Popover, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
+import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
 type FilterKind = 'workspace' | 'deployment' | 'trace' | 'axis';
@@ -67,149 +67,6 @@ function toneFor(kind: FilterKind, value: string): CatalogTagTone {
   return value === 'single run' ? 'singleton' : 'axis';
 }
 
-function ColumnFilter({
-  kind,
-  label,
-  options,
-  selected,
-  onToggle,
-  onClear,
-  optionLabel = (value) => value,
-}: {
-  kind: FilterKind;
-  label: string;
-  options: readonly string[];
-  selected: readonly string[];
-  onToggle: (kind: FilterKind, value: string) => void;
-  onClear: (kind: FilterKind) => void;
-  optionLabel?: (value: string) => string;
-}) {
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const open = Boolean(anchor);
-  return (
-    <Box>
-      <ButtonBase
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={(event) => setAnchor(event.currentTarget)}
-        sx={{
-          mx: -0.6,
-          px: 0.6,
-          py: 0.65,
-          borderRadius: 0.75,
-          color: selected.length > 0 ? tokens.teal : tokens.sub,
-          fontFamily: tokens.mono,
-          fontSize: 8.5,
-          fontWeight: 600,
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-          '&:hover': { background: 'rgba(31,111,107,.055)' },
-          '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-        }}
-      >
-        {label}
-        {selected.length > 0 && (
-          <Box
-            component="span"
-            sx={{
-              ml: 0.65,
-              minWidth: 15,
-              height: 15,
-              px: 0.35,
-              display: 'grid',
-              placeItems: 'center',
-              borderRadius: 999,
-              background: tokens.teal,
-              color: tokens.tile,
-              fontSize: 8,
-              letterSpacing: 0,
-            }}
-          >
-            {selected.length}
-          </Box>
-        )}
-        <KeyboardArrowDownRounded
-          sx={{
-            ml: 0.25,
-            fontSize: 14,
-            transform: open ? 'rotate(180deg)' : 'none',
-            transition: `transform 160ms ${tokens.ease}`,
-          }}
-        />
-      </ButtonBase>
-      <Popover
-        open={open}
-        anchorEl={anchor}
-        onClose={() => setAnchor(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        slotProps={{
-          paper: {
-            sx: {
-              mt: 0.5,
-              width: 250,
-              maxHeight: 250,
-              p: 1.2,
-              borderRadius: 1.25,
-              overflowY: 'auto',
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${tokens.hair} transparent`,
-            },
-          },
-        }}
-      >
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography
-            sx={{
-              color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 8,
-              letterSpacing: '.11em',
-              textTransform: 'uppercase',
-            }}
-          >
-            {label} options
-          </Typography>
-          <ButtonBase
-            disabled={selected.length === 0}
-            onClick={() => onClear(kind)}
-            sx={{
-              color: tokens.teal,
-              fontFamily: tokens.mono,
-              fontSize: 8,
-              '&.Mui-disabled': { color: tokens.sub2, opacity: 0.5 },
-            }}
-          >
-            Clear
-          </ButtonBase>
-        </Stack>
-        <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.65 }}>
-          {options.map((option) => {
-            const active = selected.includes(option);
-            return (
-              <ButtonBase
-                key={option}
-                aria-pressed={active}
-                onClick={() => onToggle(kind, option)}
-                sx={{
-                  borderRadius: 0.75,
-                  transition: `transform 200ms ${tokens.ease}, filter 200ms ${tokens.ease}`,
-                  '&:hover': { transform: 'translateY(-1px)', filter: 'saturate(1.2)' },
-                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-                }}
-              >
-                <CatalogTag tone={toneFor(kind, option)} selected={active}>
-                  {optionLabel(option)}
-                </CatalogTag>
-              </ButtonBase>
-            );
-          })}
-        </Stack>
-      </Popover>
-    </Box>
-  );
-}
-
 export default function ExperimentCatalog({
   entries,
   onActivate,
@@ -262,7 +119,8 @@ export default function ExperimentCatalog({
 
   const columns = {
     xs: 'minmax(0,1fr) 34px',
-    md: '102px minmax(220px,1.35fr) 112px 108px 142px minmax(190px,1fr) 34px',
+    md: '82px minmax(168px,1.35fr) minmax(138px,.9fr) 78px 94px minmax(128px,1fr) 28px',
+    lg: '96px minmax(210px,1.35fr) minmax(176px,.82fr) 96px 128px minmax(168px,1fr) 34px',
   };
   return (
     <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
@@ -274,7 +132,7 @@ export default function ExperimentCatalog({
           display: 'grid',
           gridTemplateColumns: columns,
           alignItems: 'center',
-          gap: 1.5,
+          gap: { xs: 1, md: 1, lg: 1.5 },
           borderBottom: `1px solid ${tokens.hair}`,
         }}
       >
@@ -306,44 +164,44 @@ export default function ExperimentCatalog({
           </Typography>
         </Stack>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <ColumnFilter
-            kind="workspace"
+          <CatalogColumnFilter
             label="Workspace"
             options={options.workspace}
             selected={selected.workspace}
-            onToggle={toggle}
-            onClear={clearKind}
+            onToggle={(value) => toggle('workspace', value)}
+            onClear={() => clearKind('workspace')}
             optionLabel={(workspaceId) => workspaceNames[workspaceId] ?? workspaceId}
+            tone="workspace"
           />
         </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <ColumnFilter
-            kind="deployment"
+          <CatalogColumnFilter
             label="Deployment"
             options={options.deployment}
             selected={selected.deployment}
-            onToggle={toggle}
-            onClear={clearKind}
+            onToggle={(value) => toggle('deployment', value)}
+            onClear={() => clearKind('deployment')}
+            tone="deployment"
           />
         </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <ColumnFilter
-            kind="trace"
+          <CatalogColumnFilter
             label="Trace"
             options={options.trace}
             selected={selected.trace}
-            onToggle={toggle}
-            onClear={clearKind}
+            onToggle={(value) => toggle('trace', value)}
+            onClear={() => clearKind('trace')}
+            tone="trace"
           />
         </Box>
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <ColumnFilter
-            kind="axis"
+          <CatalogColumnFilter
             label="Sweep axes"
             options={options.axis}
             selected={selected.axis}
-            onToggle={toggle}
-            onClear={clearKind}
+            onToggle={(value) => toggle('axis', value)}
+            onClear={() => clearKind('axis')}
+            tone={(value) => toneFor('axis', value)}
           />
         </Box>
         <ButtonBase
@@ -425,7 +283,7 @@ export default function ExperimentCatalog({
                 display: 'grid',
                 gridTemplateColumns: columns,
                 alignItems: 'center',
-                gap: 1.5,
+                gap: { xs: 1, md: 1, lg: 1.5 },
                 overflow: 'hidden',
                 borderBottom: `1px solid ${visible ? tokens.hair : 'transparent'}`,
                 opacity: visible ? 1 : 0,

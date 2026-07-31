@@ -18,9 +18,6 @@ const SweepPage = lazy(() =>
 const EntryPage = lazy(() =>
   import('./features/workspace').then((feature) => ({ default: feature.EntryPage })),
 );
-const AgentPage = lazy(() =>
-  import('./features/workspace').then((feature) => ({ default: feature.AgentPage })),
-);
 const WorkspaceShell = lazy(() =>
   import('./features/workspace').then((feature) => ({ default: feature.WorkspaceShell })),
 );
@@ -96,7 +93,7 @@ export default function AppRoot() {
   }, []);
   let content;
   if (view === 'entry') content = <EntryPage />;
-  else if (view === 'agent') content = <AgentPage />;
+  else if (view === 'agent') content = null;
   else if (view === 'aggregate') content = <SweepPage integrated />;
   else {
     content = (
@@ -107,11 +104,7 @@ export default function AppRoot() {
   }
   return (
     <Suspense fallback={null}>
-      {view === 'aggregate' || view === 'run' ? (
-        <WorkspaceShell>{content}</WorkspaceShell>
-      ) : (
-        content
-      )}
+      {view === 'entry' ? content : <WorkspaceShell view={view}>{content}</WorkspaceShell>}
     </Suspense>
   );
 }

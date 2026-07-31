@@ -1,10 +1,10 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useViz } from '../../store';
-import AgentPane from './AgentWorkspace';
+import AgentPane, { ConversationTranscript } from './AgentWorkspace';
 
 const conversation = {
   id: 'c_test',
@@ -68,6 +68,57 @@ beforeEach(() => {
 });
 
 describe('AgentPane', () => {
+  it('keeps a long transcript outside the per-keystroke draft render path', async () => {
+    let contentReads = 0;
+    const transcriptMessages = Array.from({ length: 80 }, (_, index) => {
+      const message = { role: index % 2 === 0 ? 'user' : 'assistant' } as {
+        role: string;
+        content: string;
+      };
+      Object.defineProperty(message, 'content', {
+        enumerable: true,
+        get: () => {
+          contentReads += 1;
+          return `Message ${index}`;
+        },
+      });
+      return message;
+    });
+    const liveEvents = [] as const;
+    const loadEarlier = vi.fn();
+    function Harness() {
+      const [draft, setDraft] = useState('');
+      return (
+        <>
+          <ConversationTranscript
+            workspaceId="w_main"
+            messages={transcriptMessages}
+            messageStartIndex={0}
+            liveEvents={liveEvents}
+            progress=""
+            streaming={false}
+            error={null}
+            canLoadEarlier={false}
+            loadingEarlier={false}
+            onLoadEarlier={loadEarlier}
+          />
+          <input
+            aria-label="Draft performance probe"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+        </>
+      );
+    }
+
+    const user = userEvent.setup();
+    render(<Harness />);
+    const initialContentReads = contentReads;
+    await user.type(screen.getByRole('textbox', { name: 'Draft performance probe' }), 'abcdefghij');
+
+    expect(contentReads).toBe(initialContentReads);
+  });
+
   it('renders persisted roles, handoffs, and a frozen clickable citation', async () => {
     const user = userEvent.setup();
     const postMessage = vi.spyOn(window, 'postMessage');
@@ -96,13 +147,23 @@ describe('AgentPane', () => {
     const user = userEvent.setup();
     const onFold = vi.fn();
     const onToggleFull = vi.fn();
-    render(<AgentPane prompt="Inspect the sweep." onFold={onFold} onToggleFull={onToggleFull} />);
+    const onClose = vi.fn();
+    render(
+      <AgentPane
+        prompt="Inspect the sweep."
+        onFold={onFold}
+        onToggleFull={onToggleFull}
+        onClose={onClose}
+      />,
+    );
 
     await user.click(screen.getByRole('button', { name: 'Expand Agent to full page' }));
     await user.click(screen.getByRole('button', { name: 'Fold Agent' }));
+    await user.click(screen.getByRole('button', { name: 'Return to workspace home' }));
 
     expect(onToggleFull).toHaveBeenCalledOnce();
     expect(onFold).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('restores searchable history and switches conversations without a dropdown', async () => {
@@ -550,20 +611,24 @@ describe('AgentPane', () => {
         );
       },
     });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        if (url.endsWith('/stream')) return new Response(null, { status: 204 });
-        if (url.endsWith('/messages') && init?.method === 'POST') {
-          return new Response(stream, { status: 200 });
-        }
-        return new Response(JSON.stringify({ id: 'c_test', title: 'Test', messages: [] }), {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/messages') && init?.method === 'POST') {
+        return new Response(stream, { status: 200 });
+      }
+      if (url.endsWith('/cancel') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ cancelled: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
-      }),
-    );
+      }
+      return new Response(JSON.stringify({ id: 'c_test', title: 'Test', messages: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
     render(<AgentPane prompt="" />);
 
@@ -578,5 +643,13 @@ describe('AgentPane', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('tool call')).toBeInTheDocument();
     expect(screen.getByText('read_analyzer_resource')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Interrupt turn' }));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/workspaces/w_main/conversations/c_test/cancel', {
+        method: 'POST',
+      });
+      expect(screen.getByRole('button', { name: 'Send follow-up' })).toBeInTheDocument();
+    });
   });
 });

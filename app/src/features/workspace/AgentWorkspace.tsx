@@ -1,10 +1,10 @@
 import AddRounded from '@mui/icons-material/AddRounded';
+import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import AdjustRounded from '@mui/icons-material/AdjustRounded';
 import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded';
 import CloseFullscreenRounded from '@mui/icons-material/CloseFullscreenRounded';
-import CloseRounded from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
@@ -14,10 +14,12 @@ import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
 import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import PushPinRounded from '@mui/icons-material/PushPinRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
+import StopRounded from '@mui/icons-material/StopRounded';
 import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material';
 import {
   type FormEvent,
   type ReactNode,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -28,6 +30,12 @@ import {
 
 import { analyzerSelectionFromVizState } from '../../application/analyzerSelection';
 import {
+  activeConversationId,
+  forgetActiveConversation,
+  rememberActiveConversation,
+} from '../../application/conversationSession';
+import {
+  cancelConversationTurn,
   createConversation,
   deleteConversation,
   getConversation,
@@ -50,6 +58,7 @@ import {
 } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import { conversationTimeLabel } from './conversationPresentation';
 import { conversationCards } from './conversationTimeline';
 
 type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
@@ -868,6 +877,88 @@ function AssistantTimeline({
   });
 }
 
+export const ConversationTranscript = memo(function ConversationTranscript({
+  workspaceId,
+  messages,
+  messageStartIndex,
+  liveEvents,
+  progress,
+  streaming,
+  error,
+  canLoadEarlier,
+  loadingEarlier,
+  onLoadEarlier,
+}: {
+  workspaceId: string;
+  messages: readonly ConversationMessage[];
+  messageStartIndex: number;
+  liveEvents: readonly ConversationTurnEvent[];
+  progress: string;
+  streaming: boolean;
+  error: string | null;
+  canLoadEarlier: boolean;
+  loadingEarlier: boolean;
+  onLoadEarlier: () => void;
+}) {
+  return (
+    <Stack sx={{ gap: 1.1 }}>
+      {canLoadEarlier && (
+        <ButtonBase
+          onClick={onLoadEarlier}
+          disabled={loadingEarlier || streaming}
+          sx={{
+            alignSelf: 'center',
+            px: 1.1,
+            py: 0.55,
+            border: `1px solid ${tokens.hair}`,
+            borderRadius: 0.75,
+            color: tokens.sub2,
+            fontFamily: tokens.mono,
+            fontSize: 8.5,
+            '&:hover': { color: tokens.teal, borderColor: 'rgba(31,111,107,.35)' },
+          }}
+        >
+          {loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
+        </ButtonBase>
+      )}
+      {messages.map((message, index) =>
+        message.role === 'user' ? (
+          <UserMessage key={messageStartIndex + index}>{message.content}</UserMessage>
+        ) : (
+          <AssistantTimeline
+            key={messageStartIndex + index}
+            message={message}
+            events={
+              message.activity?.length
+                ? message.activity
+                : [{ kind: 'final', text: message.content }]
+            }
+            streaming={false}
+            progress=""
+            workspaceId={workspaceId}
+          />
+        ),
+      )}
+      {streaming && (
+        <AssistantTimeline
+          events={liveEvents}
+          streaming
+          progress={progress}
+          workspaceId={workspaceId}
+        />
+      )}
+      {error && (
+        <Typography
+          role="alert"
+          sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 9.5 }}
+        >
+          {error}
+        </Typography>
+      )}
+    </Stack>
+  );
+});
+
 function contextValues(selection: AnalyzerSelectionV2 | null): readonly string[] {
   if (selection === null) return [];
   if (selection.kind === 'aggregate') {
@@ -1017,19 +1108,136 @@ function AnalyzerSelectionStrip() {
   );
 }
 
-function conversationTimeLabel(updatedAt: ConversationSummary['updated_at']): string {
-  if (updatedAt === undefined || updatedAt === '') return '';
-  const numeric = typeof updatedAt === 'number' ? updatedAt : Number(updatedAt);
-  const parsed = Number.isFinite(numeric)
-    ? new Date(numeric < 1_000_000_000_000 ? numeric * 1000 : numeric)
-    : new Date(String(updatedAt));
-  if (Number.isNaN(parsed.getTime())) return '';
-  const today = new Date();
-  if (parsed.toDateString() === today.toDateString()) {
-    return parsed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  return parsed.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
+const AgentComposer = memo(function AgentComposer({
+  gridColumn,
+  readingColumnWidth,
+  showSelectionContext,
+  streaming,
+  interrupting,
+  onSend,
+  onCancel,
+}: {
+  gridColumn: number;
+  readingColumnWidth: string;
+  showSelectionContext: boolean;
+  streaming: boolean;
+  interrupting: boolean;
+  onSend: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const message = draft.trim();
+    if (!message || streaming) return;
+    setDraft('');
+    onSend(message);
+  };
+  return (
+    <Box
+      component="form"
+      onSubmit={submit}
+      sx={{
+        gridColumn,
+        gridRow: 3,
+        borderTop: `1px solid ${tokens.hair}`,
+      }}
+    >
+      <Box
+        data-testid="agent-composer-column"
+        sx={{ width: readingColumnWidth, mx: 'auto', px: 2, py: 1.5 }}
+      >
+        {showSelectionContext && <AnalyzerSelectionStrip />}
+        <Stack
+          direction="row"
+          alignItems="center"
+          sx={{
+            minHeight: 44,
+            gap: 0.8,
+            p: 0.55,
+            pl: 1.1,
+            border: `1px solid ${tokens.hair}`,
+            borderRadius: 1.15,
+            background: tokens.leafbg,
+            boxShadow: '0 9px 28px -24px rgba(42,38,34,.55)',
+            '&:focus-within': {
+              borderColor: 'rgba(31,111,107,.58)',
+              boxShadow: '0 0 0 2px rgba(31,111,107,.075)',
+            },
+          }}
+        >
+          <Box
+            component="input"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            aria-label="Continue the conversation"
+            placeholder="Ask a follow-up"
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              border: 0,
+              outline: 0,
+              background: 'transparent',
+              color: tokens.ink,
+              fontFamily: tokens.body,
+              fontSize: 11.5,
+              '&::placeholder': { color: tokens.sub2, opacity: 1 },
+            }}
+          />
+          {streaming ? (
+            <ButtonBase
+              type="button"
+              onClick={onCancel}
+              disabled={interrupting}
+              aria-label={interrupting ? 'Interrupting turn' : 'Interrupt turn'}
+              title={interrupting ? 'Interrupting' : 'Interrupt'}
+              sx={{
+                width: 34,
+                height: 34,
+                flex: '0 0 auto',
+                border: `1px solid ${tokens.terra}`,
+                borderRadius: 0.85,
+                background: tokens.leafbg,
+                color: tokens.terra,
+                transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
+                '&:hover': { background: 'rgba(153,68,45,.08)' },
+                '&:active': { transform: 'translateY(1px)' },
+                '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
+                '&:focus-visible': {
+                  outline: `2px solid ${tokens.terra}`,
+                  outlineOffset: 1,
+                },
+              }}
+            >
+              <StopRounded sx={{ fontSize: 16 }} />
+            </ButtonBase>
+          ) : (
+            <ButtonBase
+              type="submit"
+              disabled={!draft.trim()}
+              aria-label="Send follow-up"
+              sx={{
+                width: 34,
+                height: 34,
+                flex: '0 0 auto',
+                borderRadius: 0.85,
+                background: tokens.ink,
+                color: tokens.paper,
+                transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
+                '&:hover': { background: tokens.teal },
+                '&:active': { transform: 'translateY(1px)' },
+                '&.Mui-disabled': { background: tokens.hair, color: tokens.sub2 },
+                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+              }}
+            >
+              <ArrowUpwardRounded sx={{ fontSize: 17 }} />
+            </ButtonBase>
+          )}
+        </Stack>
+      </Box>
+    </Box>
+  );
+});
 
 function ConversationHistory({
   open,
@@ -1386,12 +1594,7 @@ function ConversationHistory({
   );
 }
 
-const CONVERSATION_ID_KEY_PREFIX = 'vibesim.conversation.id';
 const HISTORY_PINNED_KEY = 'vibesim.conversation.history.pinned';
-
-function conversationIdKey(workspaceId: string): string {
-  return `${CONVERSATION_ID_KEY_PREFIX}.${workspaceId}`;
-}
 
 function savedHistoryPinned(): boolean {
   try {
@@ -1429,6 +1632,7 @@ function useAgentConversation(
   const [liveEvents, setLiveEvents] = useState<readonly ConversationTurnEvent[]>([]);
   const [progress, setProgress] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [interrupting, setInterrupting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<readonly ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -1498,7 +1702,7 @@ function useAgentConversation(
   const installConversation = useCallback(
     (conversation: Conversation, markInitialPromptHandled: boolean) => {
       initializationPromise.current = Promise.resolve(conversation);
-      window.sessionStorage.setItem(conversationIdKey(workspaceId), conversation.id);
+      rememberActiveConversation(workspaceId, conversation.id);
       setConversationId(conversation.id);
       setMessages(conversation.messages);
       setMessagePage(conversation.message_page ?? null);
@@ -1592,7 +1796,7 @@ function useAgentConversation(
     if (streamingRef.current) return;
     initializationPromise.current = null;
     initialPromptStarted.current = true;
-    window.sessionStorage.removeItem(conversationIdKey(workspaceId));
+    forgetActiveConversation(workspaceId);
     setConversationId(null);
     setMessages([]);
     setMessagePage(null);
@@ -1626,7 +1830,7 @@ function useAgentConversation(
           }
         }
         initializationPromise.current = null;
-        window.sessionStorage.removeItem(conversationIdKey(workspaceId));
+        forgetActiveConversation(workspaceId);
         setConversationId(null);
         setMessages([]);
         setMessagePage(null);
@@ -1643,7 +1847,7 @@ function useAgentConversation(
     let resumeController: AbortController | null = null;
     if (initializationPromise.current === null) {
       initializationPromise.current = (async () => {
-        const rememberedId = window.sessionStorage.getItem(conversationIdKey(workspaceId));
+        const rememberedId = activeConversationId(workspaceId);
         return rememberedId ? getConversation(workspaceId, rememberedId) : null;
       })();
     }
@@ -1782,6 +1986,38 @@ function useAgentConversation(
     }
   }, [conversationId, loadingEarlier, messagePage, workspaceId]);
 
+  const cancel = useCallback(async () => {
+    if (conversationId === null || !streamingRef.current || interrupting) return;
+    setInterrupting(true);
+    setError(null);
+    try {
+      await cancelConversationTurn(workspaceId, conversationId);
+      abortController.current?.abort();
+      const refreshed = await getConversation(workspaceId, conversationId);
+      if (refreshed) {
+        setMessages(refreshed.messages);
+        setMessagePage(refreshed.message_page ?? null);
+      }
+      void refreshHistory();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Interrupt turn failed');
+    } finally {
+      setInterrupting(false);
+      setStreamingState(false);
+      setLiveEvents([]);
+      setProgress('');
+    }
+  }, [conversationId, interrupting, refreshHistory, setStreamingState, workspaceId]);
+  const send = useCallback(
+    (text: string) =>
+      conversationId
+        ? runTurn(conversationId, text, analyzerContext)
+        : materializeConversation().then((conversation) =>
+            runTurn(conversation.id, text, analyzerContext),
+          ),
+    [analyzerContext, conversationId, materializeConversation, runTurn],
+  );
+
   return {
     conversationId,
     conversations,
@@ -1789,6 +2025,7 @@ function useAgentConversation(
     liveEvents,
     progress,
     streaming,
+    interrupting,
     error,
     historyLoading,
     historyError,
@@ -1796,13 +2033,8 @@ function useAgentConversation(
     messageStartIndex: messagePage?.start_index ?? 0,
     loadingEarlier,
     loadEarlier,
-    send: (text: string) =>
-      conversationId
-        ? runTurn(conversationId, text, analyzerContext)
-        : materializeConversation().then((conversation) =>
-            runTurn(conversation.id, text, analyzerContext),
-          ),
-    cancel: () => abortController.current?.abort(),
+    send,
+    cancel,
     selectConversation,
     startConversation,
     removeConversation,
@@ -1840,7 +2072,6 @@ export default function AgentPane({
   onInitialPromptStarted?: () => void;
   onWorkspaceNameChange?: (name: string) => void;
 }) {
-  const [input, setInput] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPinned, setHistoryPinned] = useState(savedHistoryPinned);
   const conversation = useAgentConversation(
@@ -1860,22 +2091,20 @@ export default function AgentPane({
   const activeConversationTitle =
     conversation.conversations.find((item) => item.id === conversation.conversationId)?.title ??
     'New conversation';
+  const {
+    cancel: cancelConversation,
+    loadEarlier: loadEarlierConversationMessages,
+    send: sendConversationMessage,
+  } = conversation;
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingScrollRestoreRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const message = input.trim();
-    if (!message) return;
-    setInput('');
-    void conversation.send(message);
-  };
   const toggleHistoryPinned = () => {
     const nextPinned = !historyPinned;
     setHistoryPinned(nextPinned);
     saveHistoryPinned(nextPinned);
     setHistoryOpen(!nextPinned);
   };
-  const loadEarlierMessages = async () => {
+  const loadEarlierMessages = useCallback(async () => {
     const scrollElement = scrollRef.current;
     if (scrollElement) {
       pendingScrollRestoreRef.current = {
@@ -1883,9 +2112,14 @@ export default function AgentPane({
         scrollTop: scrollElement.scrollTop,
       };
     }
-    const loaded = await conversation.loadEarlier();
+    const loaded = await loadEarlierConversationMessages();
     if (!loaded) pendingScrollRestoreRef.current = null;
-  };
+  }, [loadEarlierConversationMessages]);
+  const sendMessage = useCallback(
+    (message: string) => void sendConversationMessage(message),
+    [sendConversationMessage],
+  );
+  const cancelTurn = useCallback(() => void cancelConversation(), [cancelConversation]);
   useLayoutEffect(() => {
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
@@ -2029,7 +2263,8 @@ export default function AgentPane({
           {onClose && (
             <ButtonBase
               onClick={onClose}
-              aria-label="Close Agent"
+              aria-label="Return to workspace home"
+              title="Return to workspace home"
               sx={{
                 width: 32,
                 height: 32,
@@ -2040,7 +2275,7 @@ export default function AgentPane({
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}
             >
-              <CloseRounded sx={{ fontSize: 17 }} />
+              <ArrowBackRounded sx={{ fontSize: 17 }} />
             </ButtonBase>
           )}
         </Stack>
@@ -2080,137 +2315,28 @@ export default function AgentPane({
           scrollbarColor: `${tokens.hair} transparent`,
         }}
       >
-        <Stack sx={{ gap: 1.1 }}>
-          {conversation.canLoadEarlier && (
-            <ButtonBase
-              onClick={() => void loadEarlierMessages()}
-              disabled={conversation.loadingEarlier || conversation.streaming}
-              sx={{
-                alignSelf: 'center',
-                px: 1.1,
-                py: 0.55,
-                border: `1px solid ${tokens.hair}`,
-                borderRadius: 0.75,
-                color: tokens.sub2,
-                fontFamily: tokens.mono,
-                fontSize: 8.5,
-                '&:hover': { color: tokens.teal, borderColor: 'rgba(31,111,107,.35)' },
-              }}
-            >
-              {conversation.loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
-            </ButtonBase>
-          )}
-          {conversation.messages.map((message, index) =>
-            message.role === 'user' ? (
-              <UserMessage key={conversation.messageStartIndex + index}>
-                {message.content}
-              </UserMessage>
-            ) : (
-              <AssistantTimeline
-                key={conversation.messageStartIndex + index}
-                message={message}
-                events={
-                  message.activity?.length
-                    ? message.activity
-                    : [{ kind: 'final', text: message.content }]
-                }
-                streaming={false}
-                progress=""
-                workspaceId={workspaceId}
-              />
-            ),
-          )}
-          {conversation.streaming && (
-            <AssistantTimeline
-              events={conversation.liveEvents}
-              streaming
-              progress={conversation.progress}
-              workspaceId={workspaceId}
-            />
-          )}
-          {conversation.error && (
-            <Typography
-              role="alert"
-              sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 9.5 }}
-            >
-              {conversation.error}
-            </Typography>
-          )}
-        </Stack>
+        <ConversationTranscript
+          workspaceId={workspaceId}
+          messages={conversation.messages}
+          messageStartIndex={conversation.messageStartIndex}
+          liveEvents={conversation.liveEvents}
+          progress={conversation.progress}
+          streaming={conversation.streaming}
+          error={conversation.error}
+          canLoadEarlier={conversation.canLoadEarlier}
+          loadingEarlier={conversation.loadingEarlier}
+          onLoadEarlier={loadEarlierMessages}
+        />
       </Box>
-      <Box
-        component="form"
-        onSubmit={submit}
-        sx={{
-          gridColumn: persistentHistory ? 2 : 1,
-          gridRow: 3,
-          borderTop: `1px solid ${tokens.hair}`,
-        }}
-      >
-        <Box
-          data-testid="agent-composer-column"
-          sx={{ width: readingColumnWidth, mx: 'auto', px: 2, py: 1.5 }}
-        >
-          {showSelectionContext && <AnalyzerSelectionStrip />}
-          <Stack
-            direction="row"
-            alignItems="center"
-            sx={{
-              minHeight: 44,
-              gap: 0.8,
-              p: 0.55,
-              pl: 1.1,
-              border: `1px solid ${tokens.hair}`,
-              borderRadius: 1.15,
-              background: tokens.leafbg,
-              boxShadow: '0 9px 28px -24px rgba(42,38,34,.55)',
-              '&:focus-within': {
-                borderColor: 'rgba(31,111,107,.58)',
-                boxShadow: '0 0 0 2px rgba(31,111,107,.075)',
-              },
-            }}
-          >
-            <Box
-              component="input"
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              aria-label="Continue the conversation"
-              placeholder="Ask a follow-up"
-              sx={{
-                flex: 1,
-                minWidth: 0,
-                border: 0,
-                outline: 0,
-                background: 'transparent',
-                color: tokens.ink,
-                fontFamily: tokens.body,
-                fontSize: 11.5,
-                '&::placeholder': { color: tokens.sub2, opacity: 1 },
-              }}
-            />
-            <ButtonBase
-              type="submit"
-              disabled={!input.trim() || conversation.streaming}
-              aria-label="Send follow-up"
-              sx={{
-                width: 34,
-                height: 34,
-                flex: '0 0 auto',
-                borderRadius: 0.85,
-                background: tokens.ink,
-                color: tokens.paper,
-                transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
-                '&:hover': { background: tokens.teal },
-                '&:active': { transform: 'translateY(1px)' },
-                '&.Mui-disabled': { background: tokens.hair, color: tokens.sub2 },
-                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-              }}
-            >
-              <ArrowUpwardRounded sx={{ fontSize: 17 }} />
-            </ButtonBase>
-          </Stack>
-        </Box>
-      </Box>
+      <AgentComposer
+        gridColumn={persistentHistory ? 2 : 1}
+        readingColumnWidth={readingColumnWidth}
+        showSelectionContext={showSelectionContext}
+        streaming={conversation.streaming}
+        interrupting={conversation.interrupting}
+        onSend={sendMessage}
+        onCancel={cancelTurn}
+      />
     </Box>
   );
 }

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SweepAnalysis } from '../../domain/sweep';
-import { formatMetricValue, sweepChartOption, sweepFacets } from './sweepOption';
+import {
+  formatMetricValue,
+  sweepAxisTickLabel,
+  sweepChartOption,
+  sweepFacets,
+} from './sweepOption';
 
 const analysis: SweepAnalysis = {
   protocolVersion: 1,
@@ -98,5 +103,27 @@ describe('sweep aggregate options', () => {
       text: ['worse', 'better'],
       inRange: { color: ['#5f91aa', '#8eb8ca', '#b7d2de', '#d7e7ed', '#edf3f5'] },
     });
+  });
+
+  it('keeps one-axis labels inside the panel and compacts engineering-scale ticks', () => {
+    const oneAxisAnalysis = {
+      ...analysis,
+      axes: ['request_rate'],
+      domains: { request_rate: [10, 20] },
+    };
+    const option = sweepChartOption(
+      oneAxisAnalysis,
+      analysis.metrics[0],
+      { key: 'all', label: 'All runs', runs: oneAxisAnalysis.runs },
+      null,
+    );
+
+    expect(option.grid).toMatchObject({ left: 72, right: 20, top: 24, bottom: 64 });
+    expect(option.xAxis).toMatchObject({ nameLocation: 'middle', nameGap: 38 });
+    expect(option.yAxis).toMatchObject({ nameLocation: 'middle', nameGap: 54, scale: true });
+    expect(option.yAxis).not.toHaveProperty('min');
+    expect(option.yAxis).not.toHaveProperty('max');
+    expect(sweepAxisTickLabel(999)).toBe('999');
+    expect(sweepAxisTickLabel(12_400)).toBe('12.4K');
   });
 });

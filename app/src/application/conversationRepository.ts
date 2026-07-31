@@ -65,8 +65,19 @@ export interface ConversationSummary {
   updated_at?: number | string;
 }
 
+export interface WorkspaceConversationSummary extends ConversationSummary {
+  workspaceId: string;
+}
+
 interface ConversationListResponse {
   conversations?: readonly unknown[];
+}
+
+function workspaceConversationSummaryFromWire(value: unknown): WorkspaceConversationSummary | null {
+  const summary = conversationSummaryFromWire(value);
+  if (summary === null || value === null || typeof value !== 'object') return null;
+  const workspaceId = (value as Record<string, unknown>).workspace_id;
+  return typeof workspaceId === 'string' && workspaceId ? { ...summary, workspaceId } : null;
 }
 
 export interface TurnCompletion {
@@ -208,6 +219,17 @@ export async function listConversations(
   return Array.isArray(payload.conversations)
     ? payload.conversations.flatMap((conversation) => {
         const normalized = conversationSummaryFromWire(conversation);
+        return normalized ? [normalized] : [];
+      })
+    : [];
+}
+
+export async function listAllConversations(): Promise<readonly WorkspaceConversationSummary[]> {
+  const response = await requireResponse(await fetch('/api/conversations'), 'List conversations');
+  const payload = (await response.json()) as ConversationListResponse;
+  return Array.isArray(payload.conversations)
+    ? payload.conversations.flatMap((conversation) => {
+        const normalized = workspaceConversationSummaryFromWire(conversation);
         return normalized ? [normalized] : [];
       })
     : [];

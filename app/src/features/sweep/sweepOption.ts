@@ -33,6 +33,17 @@ export function coordinateLabel(value: SweepCoordinateValue): string {
   return String(value);
 }
 
+/** Keep engineering-scale ticks legible without letting long values escape a compact panel. */
+export function sweepAxisTickLabel(value: string | number): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) < 1_000) {
+    return String(value);
+  }
+  return new Intl.NumberFormat('en', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
 export function sweepFacets(analysis: SweepAnalysis): readonly SweepFacet[] {
   const facetAxes = analysis.axes.slice(2);
   if (facetAxes.length === 0) return [{ key: 'all', label: 'All runs', runs: analysis.runs }];
@@ -94,13 +105,13 @@ export function sweepChartOption(
     );
     return {
       animationDuration: 260,
-      grid: chartGrid({ left: 64, right: 14, top: 14, bottom: 50 }),
+      grid: chartGrid({ left: 72, right: 20, top: 24, bottom: 64 }),
       tooltip: { show: false },
       xAxis: {
         type: 'category',
         name: xAxisName,
         nameLocation: 'middle',
-        nameGap: 34,
+        nameGap: 38,
         nameTextStyle: {
           color: tokens.ink,
           fontFamily: tokens.mono,
@@ -114,14 +125,18 @@ export function sweepChartOption(
           fontFamily: tokens.mono,
           fontSize: 13,
           fontWeight: 500,
+          formatter: sweepAxisTickLabel,
         },
         axisLine: { lineStyle: { color: CHART_THEME.axis } },
       },
       yAxis: {
         type: 'value',
         name: metric.unit,
-        min: minimum,
-        max: maximum,
+        nameLocation: 'middle',
+        nameGap: 54,
+        // Let ECharts choose human-scale ticks. Pinning the raw extrema emits
+        // labels such as `319.10833333333335`, which escape compact cards.
+        scale: true,
         nameTextStyle: {
           color: tokens.ink,
           fontFamily: tokens.mono,
@@ -133,6 +148,7 @@ export function sweepChartOption(
           fontFamily: tokens.mono,
           fontSize: 13,
           fontWeight: 500,
+          formatter: sweepAxisTickLabel,
         },
         splitLine: { lineStyle: { color: CHART_THEME.split, type: 'dashed' } },
       },

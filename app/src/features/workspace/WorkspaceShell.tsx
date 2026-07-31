@@ -10,9 +10,11 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
+import type { AppView } from '../../application/appRoute';
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
 import { analyzerSelectionFromVizState } from '../../application/analyzerSelection';
 import { listWorkspaces } from '../../application/workspaceRepository';
@@ -23,7 +25,12 @@ import { tokens } from '../../theme';
 import AgentPane from './AgentWorkspace';
 import { analyzerTurnContext } from './citationDictionary';
 import CatalogTag from './CatalogTag';
-import { MAX_AGENT_PANEL_WIDTH, MIN_AGENT_PANEL_WIDTH, useWorkspaceUi } from './workspaceUiStore';
+import {
+  agentPanelModeForWorkspaceView,
+  MAX_AGENT_PANEL_WIDTH,
+  MIN_AGENT_PANEL_WIDTH,
+  useWorkspaceUi,
+} from './workspaceUiStore';
 
 function leaveWorkspace(): void {
   const destination = new URL(window.location.href);
@@ -96,7 +103,13 @@ function AgentEdgeToggle({
   );
 }
 
-export default function WorkspaceShell({ children }: { children: ReactNode }) {
+export default function WorkspaceShell({
+  children,
+  view,
+}: {
+  children: ReactNode;
+  view: Exclude<AppView, 'entry'>;
+}) {
   const narrow = useMediaQuery('(max-width:900px)');
   const workspaceId = workspaceIdFromLocation();
   const [workspaceName, setWorkspaceName] = useState<string>();
@@ -129,6 +142,7 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const consumeInitialPrompt = useCallback(() => {
     window.sessionStorage.removeItem('vibesim.entry.prompt');
   }, []);
+  const previousView = useRef(view);
 
   useEffect(() => {
     let disposed = false;
@@ -150,16 +164,15 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const currentMode = useWorkspaceUi.getState().agentPanelMode;
-    if (
-      new URLSearchParams(window.location.search).get('agent') === '1' &&
-      currentMode !== 'docked' &&
-      currentMode !== 'full'
-    ) {
-      setAgentPanelMode('docked');
-    } else if (currentMode === 'hidden') {
-      setAgentPanelMode('spine');
-    }
-  }, [setAgentPanelMode]);
+    const nextMode = agentPanelModeForWorkspaceView(
+      previousView.current,
+      view,
+      currentMode,
+      new URLSearchParams(window.location.search).get('agent') === '1',
+    );
+    if (nextMode !== currentMode) setAgentPanelMode(nextMode);
+    previousView.current = view;
+  }, [setAgentPanelMode, view]);
 
   useEffect(() => {
     if (!narrow || (agentPanelMode !== 'docked' && agentPanelMode !== 'full')) return;
@@ -291,13 +304,20 @@ export default function WorkspaceShell({ children }: { children: ReactNode }) {
           onWorkspaceNameChange={setWorkspaceName}
           prompt={prompt}
           onInitialPromptStarted={consumeInitialPrompt}
+          onClose={
+            agentPanelMode === 'full'
+              ? view === 'agent'
+                ? leaveWorkspace
+                : () => setAgentPanelMode('docked')
+              : undefined
+          }
           onFold={narrow ? () => setAgentPanelMode('spine') : undefined}
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
           analyzerContext={turnContext}
           enabled={agentPaneVisible}
-          requireAnalyzerContext
+          requireAnalyzerContext={view !== 'agent'}
           expanded={agentPanelMode === 'full'}
-          showSelectionContext
+          showSelectionContext={view !== 'agent'}
         />
       </Box>
 

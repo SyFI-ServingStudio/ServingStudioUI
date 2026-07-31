@@ -1,9 +1,12 @@
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
-import AddRounded from '@mui/icons-material/AddRounded';
-import SearchRounded from '@mui/icons-material/SearchRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
+import type { WorkspaceConversationSummary } from '../../application/conversationRepository';
+import {
+  forgetActiveConversation,
+  rememberActiveConversation,
+} from '../../application/conversationSession';
 import { useSweepListQuery } from '../../application/queries';
 import {
   createWorkspace,
@@ -14,9 +17,11 @@ import { agentWorkspaceHref } from '../../application/workspaceRoute';
 import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
+import ConversationCatalog from './ConversationCatalog';
 import ExperimentCatalog from './ExperimentCatalog';
+import WorkspacePicker from './WorkspacePicker';
 
-type EntryMode = 'experiments' | 'agent';
+type EntryMode = 'experiments' | 'new-conversation' | 'resume-conversation';
 
 const PROMPT_STARTERS = [
   'Find the best tensor parallel configuration',
@@ -36,8 +41,17 @@ function navigateToExperiment(entry: SweepListItem): void {
   window.location.assign(destination);
 }
 
-function navigateToAgent(prompt: string, workspaceId: string): void {
-  window.sessionStorage.setItem('vibesim.entry.prompt', prompt);
+function navigateToAgent(prompt: string, workspaceId: string, conversationId?: string): void {
+  if (prompt) {
+    window.sessionStorage.setItem('vibesim.entry.prompt', prompt);
+  } else {
+    window.sessionStorage.removeItem('vibesim.entry.prompt');
+  }
+  if (conversationId) {
+    rememberActiveConversation(workspaceId, conversationId);
+  } else {
+    forgetActiveConversation(workspaceId);
+  }
   const destination = new URL(window.location.href);
   destination.search = '';
   destination.hash = agentWorkspaceHref(workspaceId);
@@ -62,7 +76,8 @@ function ModeSwitch({ mode, onChange }: { mode: EntryMode; onChange: (mode: Entr
       {(
         [
           ['experiments', 'Explore results'],
-          ['agent', 'Work with Agent'],
+          ['new-conversation', 'New conversation'],
+          ['resume-conversation', 'Resume conversation'],
         ] as const
       ).map(([value, label]) => {
         const selected = mode === value;
@@ -97,27 +112,24 @@ function workspaceNameFromPrompt(prompt: string): string {
   return normalized.length <= 56 ? normalized : `${normalized.slice(0, 53).trimEnd()}…`;
 }
 
-function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
+export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
   const [prompt, setPrompt] = useState('');
-  const [workspaceSearch, setWorkspaceSearch] = useState('');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const visibleWorkspaces = useMemo(() => {
-    const query = workspaceSearch.trim().toLocaleLowerCase();
-    if (!query) return workspaces;
-    return workspaces.filter(
-      (workspace) =>
-        workspace.displayName.toLocaleLowerCase().includes(query) ||
-        workspace.workspaceId.toLocaleLowerCase().includes(query),
-    );
-  }, [workspaceSearch, workspaces]);
+  const selectedWorkspace =
+    workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null;
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = prompt.trim();
     if (!text || creating) return;
     setCreating(true);
     setCreationError(null);
+    if (selectedWorkspaceId !== null) {
+      navigateToAgent(text, selectedWorkspaceId);
+      return;
+    }
     void createWorkspace(workspaceNameFromPrompt(text))
       .then((workspace) => navigateToAgent(text, workspace.workspaceId))
       .catch((caught) => {
@@ -148,13 +160,20 @@ function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] })
           Analyzer.
         </Typography>
       </Box>
+      <Box sx={{ mt: 3.6 }}>
+        <WorkspacePicker
+          workspaces={workspaces}
+          selectedWorkspaceId={selectedWorkspaceId}
+          onSelect={setSelectedWorkspaceId}
+        />
+      </Box>
       <Box
         component="form"
         onSubmit={submit}
         sx={{
           maxWidth: 760,
           mx: 'auto',
-          mt: 4,
+          mt: 2.1,
           p: 1.4,
           border: `1px solid ${tokens.hair}`,
           borderRadius: 1.4,
@@ -186,26 +205,11 @@ function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] })
           }}
         />
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 1 }}>
-          <Stack direction="row" alignItems="center" sx={{ gap: 0.7 }}>
-            <ButtonBase
-              type="button"
-              sx={{
-                minHeight: 34,
-                px: 1.1,
-                border: `1px solid ${tokens.hair}`,
-                borderRadius: 0.85,
-                color: tokens.sub,
-                fontSize: 10.5,
-                fontWeight: 600,
-              }}
-            >
-              <AddRounded sx={{ mr: 0.4, fontSize: 15 }} />
-              Context
-            </ButtonBase>
-            <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
-              No experiment selected
-            </Typography>
-          </Stack>
+          <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
+            {selectedWorkspace
+              ? `New conversation in ${selectedWorkspace.displayName}`
+              : 'A new workspace will be created'}
+          </Typography>
           <ButtonBase
             type="submit"
             disabled={!prompt.trim() || creating}
@@ -257,109 +261,6 @@ function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] })
         <Typography role="alert" sx={{ mt: 1.2, color: tokens.terra, textAlign: 'center' }}>
           {creationError}
         </Typography>
-      )}
-      {workspaces.length > 0 && (
-        <Box sx={{ maxWidth: 760, mx: 'auto', mt: 3.2 }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: 0.8 }}
-          >
-            <Typography
-              sx={{
-                color: tokens.sub2,
-                fontFamily: tokens.mono,
-                fontSize: 8.5,
-                letterSpacing: '.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Continue a workspace
-            </Typography>
-            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
-              {visibleWorkspaces.length}/{workspaces.length}
-            </Typography>
-          </Stack>
-          {workspaces.length > 8 && (
-            <Stack
-              direction="row"
-              alignItems="center"
-              sx={{
-                mb: 0.8,
-                px: 1,
-                border: `1px solid ${tokens.hair}`,
-                borderRadius: 0.7,
-                background: 'rgba(250,247,240,.55)',
-              }}
-            >
-              <SearchRounded aria-hidden sx={{ mr: 0.7, color: tokens.sub2, fontSize: 14 }} />
-              <Box
-                component="input"
-                value={workspaceSearch}
-                onChange={(event) => setWorkspaceSearch(event.target.value)}
-                aria-label="Search workspaces"
-                placeholder="Name or workspace id"
-                sx={{
-                  width: '100%',
-                  height: 32,
-                  border: 0,
-                  outline: 0,
-                  background: 'transparent',
-                  color: tokens.ink,
-                  fontFamily: tokens.mono,
-                  fontSize: 9.5,
-                  '&::placeholder': { color: tokens.sub2 },
-                }}
-              />
-            </Stack>
-          )}
-          <Box
-            sx={{
-              maxHeight: 112,
-              overflowY: 'auto',
-              pr: 0.5,
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${tokens.hair} transparent`,
-            }}
-          >
-            <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.6 }}>
-              {visibleWorkspaces.map((workspace) => (
-                <ButtonBase
-                  key={workspace.workspaceId}
-                  onClick={() => navigateToAgent('', workspace.workspaceId)}
-                  aria-label={`Continue ${workspace.displayName}`}
-                  title={workspace.displayName}
-                  sx={{
-                    maxWidth: '100%',
-                    px: 1,
-                    py: 0.6,
-                    border: `1px solid ${tokens.hair}`,
-                    borderRadius: 0.65,
-                    background:
-                      workspace.workspaceId === 'w_main' ? 'rgba(31,111,107,.055)' : tokens.tile,
-                    color: workspace.workspaceId === 'w_main' ? tokens.teal : tokens.sub,
-                    fontSize: 10,
-                    '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
-                    '&:focus-visible': {
-                      outline: `2px solid ${tokens.teal}`,
-                      outlineOffset: 1,
-                    },
-                  }}
-                >
-                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {workspace.displayName}
-                  </Box>
-                </ButtonBase>
-              ))}
-            </Stack>
-            {visibleWorkspaces.length === 0 && (
-              <Typography sx={{ py: 1.2, color: tokens.sub2, fontSize: 10.5 }}>
-                No workspace matches this search.
-              </Typography>
-            )}
-          </Box>
-        </Box>
       )}
     </Box>
   );
@@ -489,8 +390,15 @@ export default function EntryPage() {
                 />
               )}
             </Box>
-          ) : (
+          ) : mode === 'new-conversation' ? (
             <AgentStart workspaces={workspaces} />
+          ) : (
+            <ConversationCatalog
+              workspaces={workspaces}
+              onActivate={(conversation: WorkspaceConversationSummary) =>
+                navigateToAgent('', conversation.workspaceId, conversation.id)
+              }
+            />
           )}
         </Box>
       </Box>

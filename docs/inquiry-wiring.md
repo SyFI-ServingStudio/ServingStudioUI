@@ -62,6 +62,13 @@ Evidence/citation 已提升为 v2。Aggregate 与 run target 都强制带 `works
 selection-change、conversation context、frozen citation 与 click navigation 使用同一身份。
 Agent 仍只复制 turn dictionary 中的自然 symbolic token，不写 opaque id 或 URL。
 
+Agent-first 的 dictionary 不要求在发送首问时已经存在。Agent 通过 managed Analyzer MCP
+读取它刚生成的 workspace sweep payload 时，bridge 用当前 turn capability 将 payload 注册回
+conversation backend；backend 以 capability 的 `workspaceId` 和已登记的 `experimentId`
+重建 bounded dictionary，并把 citation document 随同本次 MCP 结果返回。最终答案冻结引用时
+使用该 turn 最后注册的 dictionary，而不是只使用浏览器在 turn 开始时附带的 snapshot。
+因此“先生成、后分析、再引用”与“从已打开的 Analyzer 开始解释”共享同一 Citation DSL。
+
 下文保留早期 gap 推导作为设计背景；凡与本节冲突，以本节和当前代码为准。尚未完成的主要
 工作是 inquiry-level constraints/verdict，而不是 workspace/Agent/Analyzer wiring。
 
@@ -214,6 +221,8 @@ percent encoding、JSON 或 opaque IDs；sidecar 只持久化已解析的 frozen
 - [x] 单 backtick inline-code resolver + frozen citation persistence；禁止扫描普通 prose
 - [x] Citation click bridge；未点击不得改变 Analyzer，点击后等待 `navigation-result`
 - [x] 持久化每个 turn 的 Markdown、dictionary identity、frozen targets 与 DSL version
+- [x] Agent-first 动态 dictionary：workspace sweep MCP read 注册 turn-scoped snapshot，
+      finalization 使用最新 snapshot 冻结引用
 
 ---
 

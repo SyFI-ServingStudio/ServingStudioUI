@@ -49,6 +49,14 @@ export function conversationCards(
   events: readonly ConversationTurnEvent[],
 ): readonly ConversationCard[] {
   const cards: ConversationCard[] = [];
+  const lastJobEventByExperiment = new Map<string, number>();
+  events.forEach((event, eventIndex) => {
+    if (event.kind !== 'job') return;
+    // One experiment can have several Launcher jobs when an agent extends a
+    // sweep. The chat surface owns one lifecycle card for that experiment.
+    const lifecycleKey = event.experimentId || event.jobId;
+    lastJobEventByExperiment.set(lifecycleKey, eventIndex);
+  });
   const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
   const openRole = (role: ConversationRole) => {
@@ -66,7 +74,7 @@ export function conversationCards(
     current = card;
     return card;
   };
-  events.forEach((event) => {
+  events.forEach((event, eventIndex) => {
     if (event.kind === 'intermediate_output') {
       const note = cleanNote(event.text);
       if (!note) return;
@@ -96,13 +104,16 @@ export function conversationCards(
       cards.push({ type: 'handoff', variant: 'conclusion', text: event.text });
       current = null;
     } else if (event.kind === 'job') {
-      cards.push({
-        type: 'job',
-        workspaceId: event.workspaceId,
-        experimentId: event.experimentId,
-        experimentPath: event.experimentPath,
-        status: event.status,
-      });
+      const lifecycleKey = event.experimentId || event.jobId;
+      if (lastJobEventByExperiment.get(lifecycleKey) === eventIndex) {
+        cards.push({
+          type: 'job',
+          workspaceId: event.workspaceId,
+          experimentId: event.experimentId,
+          experimentPath: event.experimentPath,
+          status: event.status,
+        });
+      }
       current = null;
     } else if (event.kind === 'error') {
       cards.push({ type: 'error', text: event.text });

@@ -1,6 +1,6 @@
 import type { EChartsOption } from 'echarts';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
-import { memo, type CSSProperties, useEffect, useRef } from 'react';
+import { memo, type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { echarts } from '../charts/echartsRuntime';
 import { ECHARTS_THEME_NAME } from '../charts/platform';
@@ -22,8 +22,31 @@ function EChart({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReactEChartsCore>(null);
+  const [hasRenderableSize, setHasRenderableSize] = useState(false);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (typeof ResizeObserver === 'undefined') {
+      setHasRenderableSize(true);
+      return;
+    }
+    const revealChartWhenSized = () => {
+      const bounds = container.getBoundingClientRect();
+      if (bounds.width <= 0 || bounds.height <= 0) return false;
+      setHasRenderableSize(true);
+      return true;
+    };
+    if (revealChartWhenSized()) return;
+    const observer = new ResizeObserver(() => {
+      if (revealChartWhenSized()) observer.disconnect();
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
+    if (!hasRenderableSize) return;
     const container = containerRef.current;
     if (!container || typeof ResizeObserver === 'undefined') return;
     let visible = true;
@@ -103,7 +126,7 @@ function EChart({
       visibilityObserver?.disconnect();
       if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame);
     };
-  }, []);
+  }, [hasRenderableSize]);
 
   return (
     <div
@@ -112,17 +135,19 @@ function EChart({
       aria-label={ariaLabel}
       style={{ height: '100%', width: '100%', ...style }}
     >
-      <ReactEChartsCore
-        ref={chartRef}
-        echarts={echarts}
-        theme={ECHARTS_THEME_NAME}
-        option={option}
-        notMerge
-        lazyUpdate
-        opts={{ renderer: 'svg' }}
-        onEvents={onEvents}
-        style={{ height: '100%', width: '100%' }}
-      />
+      {hasRenderableSize ? (
+        <ReactEChartsCore
+          ref={chartRef}
+          echarts={echarts}
+          theme={ECHARTS_THEME_NAME}
+          option={option}
+          notMerge
+          lazyUpdate
+          opts={{ renderer: 'svg' }}
+          onEvents={onEvents}
+          style={{ height: '100%', width: '100%' }}
+        />
+      ) : null}
     </div>
   );
 }
