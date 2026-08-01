@@ -13,6 +13,11 @@ vi.mock('./features/prediction', async () => {
     },
   };
 });
+vi.mock('./features/file', () => ({
+  FilePreviewPage: ({ fileRef }: { fileRef: { path: string; line: number | null } }) => (
+    <div>{`file:${fileRef.path}:${fileRef.line ?? '-'}`}</div>
+  ),
+}));
 vi.mock('./features/workspace', () => ({
   EntryPage: () => <div>entry</div>,
   WorkspaceShell: ({
@@ -20,7 +25,7 @@ vi.mock('./features/workspace', () => ({
     view,
   }: {
     children: ReactNode;
-    view: 'agent' | 'aggregate' | 'prediction' | 'run';
+    view: 'agent' | 'aggregate' | 'prediction' | 'run' | 'file';
   }) => {
     const [, query = ''] = window.location.hash.split('?', 2);
     return (
@@ -68,6 +73,33 @@ describe('AppRoot workspace routing', () => {
     expect(await screen.findByText('view:aggregate')).toBeInTheDocument();
     expect(await screen.findByText('aggregate')).toBeInTheDocument();
     expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
+  });
+
+  it('renders a workspace file inside the same shell so the Agent stays mounted', async () => {
+    render(<AppRoot />);
+    const agentHost = await screen.findByTestId('agent-host');
+
+    act(() => {
+      window.history.replaceState(
+        null,
+        '',
+        '#/file?workspace=w_one&path=logs%2Fsummary.json&line=7',
+      );
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+
+    expect(await screen.findByText('file:logs/summary.json:7')).toBeInTheDocument();
+    expect(screen.getByText('view:file')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
+  });
+
+  it('renders nothing for a file route the address bar cannot be trusted with', async () => {
+    window.history.replaceState(null, '', '#/file?workspace=w_one&path=../../etc/passwd');
+
+    render(<AppRoot />);
+
+    expect(await screen.findByText('view:file')).toBeInTheDocument();
+    expect(screen.queryByText(/^file:/)).not.toBeInTheDocument();
   });
 
   it('provides shared chart-focus context to the first-class prediction route', async () => {

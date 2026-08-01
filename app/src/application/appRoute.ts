@@ -1,4 +1,4 @@
-export type AppView = 'entry' | 'agent' | 'run' | 'aggregate' | 'prediction' | 'job';
+export type AppView = 'entry' | 'agent' | 'run' | 'aggregate' | 'prediction' | 'job' | 'file';
 
 export function appViewFromHash(hash: string): AppView {
   const route = hash.split('?', 1)[0];
@@ -6,6 +6,7 @@ export function appViewFromHash(hash: string): AppView {
   if (route === '#/aggregate') return 'aggregate';
   if (route === '#/prediction') return 'prediction';
   if (route === '#/job') return 'job';
+  if (route === '#/file') return 'file';
   if (route === '#/agent') return 'agent';
   return 'entry';
 }

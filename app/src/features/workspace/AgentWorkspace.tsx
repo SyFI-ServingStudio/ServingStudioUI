@@ -59,6 +59,7 @@ import {
   type ConversationTurnEvent,
 } from '../../application/conversationRepository';
 import { getWorkspace } from '../../application/workspaceRepository';
+import { fileContentUrl } from '../../application/workspaceFileRepository';
 import type { AnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import type { AnalyzerTurnContextV2, FrozenCitationV2 } from '../../domain/citation';
 import {
@@ -66,6 +67,12 @@ import {
   analyzerNavigateCommandV2Schema,
   navigationResult,
 } from '../../domain/analyzerNavigation';
+import {
+  classifyLinkTarget,
+  detectPathToken,
+  filePreviewHash,
+  type LinkTarget,
+} from '../../domain/workspaceFile';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
@@ -402,6 +409,56 @@ function navigateToFrozenEvidence(
   window.postMessage(command, window.location.origin);
 }
 
+/**
+ * A workspace file the Agent referenced, opened in the preview pane.
+ *
+ * Deliberately not an `<a target="_blank">`: the file opens beside the
+ * conversation, which folds the Agent panel from full to docked and keeps the
+ * turn mounted. A new tab would lose both.
+ */
+function FileLink({
+  workspaceId,
+  target,
+  label,
+  mono = false,
+}: {
+  workspaceId: string;
+  target: Extract<LinkTarget, { kind: 'workspace-file' }>;
+  label: string;
+  mono?: boolean;
+}) {
+  return (
+    <ButtonBase
+      onClick={() => {
+        window.location.hash = filePreviewHash({
+          workspaceId,
+          path: target.path,
+          line: target.line,
+        });
+      }}
+      title={target.line === null ? target.path : `${target.path}:${target.line}`}
+      sx={{
+        display: 'inline',
+        px: 0.3,
+        borderRadius: 0.35,
+        border: `1px solid ${tokens.teal}2e`,
+        background: 'rgba(31,111,107,.06)',
+        color: tokens.teal,
+        font: 'inherit',
+        fontFamily: mono ? tokens.mono : 'inherit',
+        fontSize: mono ? '.9em' : 'inherit',
+        fontWeight: 600,
+        lineHeight: 'inherit',
+        verticalAlign: 'baseline',
+        '&:hover': { background: 'rgba(31,111,107,.13)' },
+        '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+      }}
+    >
+      {label}
+    </ButtonBase>
+  );
+}
+
 function MarkdownBody({
   text,
   citations,
@@ -414,6 +471,7 @@ function MarkdownBody({
   compact?: boolean;
 }) {
   const [statuses, setStatuses] = useState<Record<number, NavigationStatus>>({});
+  const workspace = workspaceId ?? 'w_main';
   const ordered = [...citations]
     .filter(
       (citation) =>
@@ -424,8 +482,11 @@ function MarkdownBody({
     .sort((left, right) => left.sourceStart - right.sourceStart);
   const renderPlainInline = (source: string, keyPrefix: string): ReactNode[] => {
     const nodes: ReactNode[] = [];
+    // Link destinations are matched loosely and classified afterwards: a
+    // relative or `/workspace/...` path is a file the UI can open, not a site
+    // URL, and only `classifyLinkTarget` can tell those apart.
     const pattern =
-      /(!\[[^\]\n]*\]\([^)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\((?:https?:\/\/|\/)[^)\n]+\)|\*[^*\n]+\*)/g;
+      /(!\[[^\]\n]*\]\([^)]+\)|\*\*[^*\n]+\*\*|`[^`\n]+`|\[[^\]\n]+\]\([^)\n]+\)|\*[^*\n]+\*)/g;
     let sourceCursor = 0;
     let match = pattern.exec(source);
     while (match) {
@@ -436,9 +497,7 @@ function MarkdownBody({
         const source = image?.[2] ?? '';
         const imageSource = /^(https?:|data:|\/api\/file)/i.test(source)
           ? source
-          : `/api/file?path=${encodeURIComponent(source)}&workspace_id=${encodeURIComponent(
-              workspaceId ?? 'w_main',
-            )}`;
+          : fileContentUrl(workspace, source);
         nodes.push(
           <Box
             component="img"
@@ -465,21 +524,31 @@ function MarkdownBody({
         );
       } else if (value.startsWith('[')) {
         const link = value.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        const label = link?.[1] ?? value;
+        const target = classifyLinkTarget(link?.[2] ?? '');
+        const key = `${keyPrefix}-${match.index}`;
         nodes.push(
-          <Box
-            component="a"
-            key={`${keyPrefix}-${match.index}`}
-            href={link?.[2] ?? '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{
-              color: tokens.teal,
-              textDecorationColor: 'rgba(31,111,107,.42)',
-              textUnderlineOffset: '2px',
-            }}
-          >
-            {link?.[1] ?? value}
-          </Box>,
+          target.kind === 'workspace-file' ? (
+            <FileLink key={key} workspaceId={workspace} target={target} label={label} />
+          ) : (
+            <Box
+              component="a"
+              key={key}
+              href={
+                target.kind === 'external' ? target.href : target.kind === 'app' ? target.hash : '#'
+              }
+              {...(target.kind === 'external'
+                ? { target: '_blank', rel: 'noopener noreferrer' }
+                : {})}
+              sx={{
+                color: tokens.teal,
+                textDecorationColor: 'rgba(31,111,107,.42)',
+                textUnderlineOffset: '2px',
+              }}
+            >
+              {label}
+            </Box>
+          ),
         );
       } else if (value.startsWith('*')) {
         nodes.push(
@@ -488,21 +557,36 @@ function MarkdownBody({
           </Box>,
         );
       } else {
+        // Agents cite files as often in backticks as in Markdown links, so a
+        // path-shaped code span becomes a link too. `detectPathToken` is the
+        // conservative half of that judgement.
+        const code = value.slice(1, -1);
+        const target = detectPathToken(code);
         nodes.push(
-          <Box
-            component="code"
-            key={`${keyPrefix}-${match.index}`}
-            sx={{
-              px: 0.35,
-              borderRadius: 0.35,
-              background: 'rgba(91,82,71,.08)',
-              color: tokens.ink,
-              fontFamily: tokens.mono,
-              fontSize: '.9em',
-            }}
-          >
-            {value.slice(1, -1)}
-          </Box>,
+          target.kind === 'workspace-file' ? (
+            <FileLink
+              key={`${keyPrefix}-${match.index}`}
+              workspaceId={workspace}
+              target={target}
+              label={code}
+              mono
+            />
+          ) : (
+            <Box
+              component="code"
+              key={`${keyPrefix}-${match.index}`}
+              sx={{
+                px: 0.35,
+                borderRadius: 0.35,
+                background: 'rgba(91,82,71,.08)',
+                color: tokens.ink,
+                fontFamily: tokens.mono,
+                fontSize: '.9em',
+              }}
+            >
+              {code}
+            </Box>
+          ),
         );
       }
       sourceCursor = match.index + value.length;

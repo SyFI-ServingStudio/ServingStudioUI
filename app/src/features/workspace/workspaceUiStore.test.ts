@@ -39,4 +39,10 @@ describe('workspace UI store', () => {
     expect(agentPanelModeForWorkspaceView('run', 'aggregate', 'hidden', false)).toBe('spine');
     expect(agentPanelModeForWorkspaceView('aggregate', 'aggregate', 'spine', true)).toBe('docked');
   });
+
+  it('folds a full-width Agent to docked when one of its file links opens', () => {
+    expect(agentPanelModeForWorkspaceView('agent', 'file', 'full', false)).toBe('docked');
+    // A file opened from an already-docked Agent leaves the layout alone.
+    expect(agentPanelModeForWorkspaceView('run', 'file', 'docked', false)).toBe('docked');
+  });
 });

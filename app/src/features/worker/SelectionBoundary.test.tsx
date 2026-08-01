@@ -1,5 +1,5 @@
 import { act, render } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import SelectionBoundary from './SelectionBoundary';
 
@@ -34,6 +34,10 @@ beforeEach(() => {
   resizeCallback = null;
   vi.stubGlobal('ResizeObserver', ResizeObserverMock);
 });
+
+// A stubbed ResizeObserver outlives this file otherwise, and any later file in
+// the same worker sees a global that jsdom does not normally provide.
+afterAll(() => vi.unstubAllGlobals());
 
 describe('SelectionBoundary geometry', () => {
   it('uses logical SVG layout dimensions instead of a scaled bounding rect', () => {

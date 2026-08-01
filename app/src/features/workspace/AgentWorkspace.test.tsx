@@ -829,3 +829,85 @@ describe('AgentPane', () => {
     });
   });
 });
+
+describe('file references in Agent output', () => {
+  function renderAnswer(text: string) {
+    return render(
+      <ConversationTranscript
+        workspaceId="w_main"
+        messages={[
+          {
+            role: 'assistant',
+            content: text,
+            activity: [{ kind: 'final', text }],
+          },
+        ]}
+        messageStartIndex={0}
+        liveEvents={[]}
+        toolCall=""
+        streaming={false}
+        error={null}
+        canLoadEarlier={false}
+        loadingEarlier={false}
+        onLoadEarlier={() => undefined}
+      />,
+    );
+  }
+
+  it('opens a relative Markdown link in the preview pane instead of a new tab', async () => {
+    renderAnswer('See [the summary](logs/20260728_test/summary.json).');
+
+    const link = screen.getByRole('button', { name: 'the summary' });
+    await userEvent.setup().click(link);
+
+    expect(window.location.hash).toBe(
+      '#/file?workspace=w_main&path=logs%2F20260728_test%2Fsummary.json',
+    );
+  });
+
+  it('treats a container-absolute path as a workspace file, not a site URL', () => {
+    renderAnswer('See [the log](/workspace/logs/run.log).');
+
+    expect(screen.getByRole('button', { name: 'the log' })).toHaveAttribute(
+      'title',
+      '/workspace/logs/run.log',
+    );
+  });
+
+  it('keeps a real URL an external link', () => {
+    renderAnswer('See [the docs](https://docs.vllm.ai/).');
+
+    const link = screen.getByRole('link', { name: 'the docs' });
+    expect(link).toHaveAttribute('href', 'https://docs.vllm.ai/');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('links a backticked path and carries its line number', async () => {
+    renderAnswer('Fixed in `simulator/src/worker/mod.rs:42`.');
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'simulator/src/worker/mod.rs:42' }));
+
+    expect(window.location.hash).toBe(
+      '#/file?workspace=w_main&path=simulator%2Fsrc%2Fworker%2Fmod.rs&line=42',
+    );
+  });
+
+  it('leaves a path-shaped phrase that is not a path as plain code', () => {
+    renderAnswer('Throughput is reported in `tokens/s` per `p50/p99` bucket.');
+
+    expect(screen.queryByRole('button', { name: 'tokens/s' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'p50/p99' })).not.toBeInTheDocument();
+    expect(screen.getByText('tokens/s')).toBeInTheDocument();
+  });
+
+  it('serves a relative image through the workspace file route', () => {
+    renderAnswer('![throughput](logs/plots/throughput.png)');
+
+    expect(screen.getByAltText('throughput')).toHaveAttribute(
+      'src',
+      '/api/file?path=logs%2Fplots%2Fthroughput.png&workspace_id=w_main',
+    );
+  });
+});

@@ -20,6 +20,7 @@ import { analyzerSelectionFromVizState } from '../../application/analyzerSelecti
 import { listWorkspaces } from '../../application/workspaceRepository';
 import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import { evidenceRefFromHash } from '../../domain/analyzerNavigation';
+import { fileName, fileRefFromHash } from '../../domain/workspaceFile';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import AgentPane from './AgentWorkspace';
@@ -117,6 +118,7 @@ export default function WorkspaceShell({
   const aggregateSelection = useViz((state) => state.aggregateSelection);
   const analyzerSelection = useViz(analyzerSelectionFromVizState);
   const hashEvidence = evidenceRefFromHash(window.location.hash);
+  const fileRef = view === 'file' ? fileRefFromHash(window.location.hash) : null;
   const experimentId =
     (hashEvidence?.kind === 'aggregate' ? hashEvidence.experimentId : null) ??
     aggregateSelection?.experimentId ??
@@ -315,9 +317,9 @@ export default function WorkspaceShell({
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
           analyzerContext={turnContext}
           enabled={agentPaneVisible}
-          requireAnalyzerContext={view !== 'agent' && view !== 'job'}
+          requireAnalyzerContext={view !== 'agent' && view !== 'job' && view !== 'file'}
           expanded={agentPanelMode === 'full'}
-          showSelectionContext={view !== 'agent' && view !== 'job'}
+          showSelectionContext={view !== 'agent' && view !== 'job' && view !== 'file'}
         />
       </Box>
 
@@ -422,15 +424,25 @@ export default function WorkspaceShell({
                 noWrap
                 sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 16, fontWeight: 600 }}
               >
-                {experiment
-                  ? displayExperimentName(experiment.displayName)
-                  : view === 'job'
-                    ? 'Result'
-                    : view === 'prediction'
-                      ? 'Timing prediction'
-                      : 'Analyzer'}
+                {fileRef
+                  ? fileName(fileRef.path)
+                  : experiment
+                    ? displayExperimentName(experiment.displayName)
+                    : view === 'job'
+                      ? 'Result'
+                      : view === 'prediction'
+                        ? 'Timing prediction'
+                        : 'Analyzer'}
               </Typography>
-              {experiment && (
+              {fileRef && (
+                <Typography
+                  noWrap
+                  sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+                >
+                  {fileRef.path}
+                </Typography>
+              )}
+              {!fileRef && experiment && (
                 <Typography
                   noWrap
                   sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
@@ -439,7 +451,7 @@ export default function WorkspaceShell({
                 </Typography>
               )}
             </Stack>
-            {experiment && (
+            {!fileRef && experiment && (
               <Stack
                 direction="row"
                 alignItems="center"

@@ -10,6 +10,7 @@ import {
   evidenceRefFromHash,
   navigationResult,
 } from './domain/analyzerNavigation';
+import { fileRefFromHash } from './domain/workspaceFile';
 import { useViz } from './store';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
@@ -27,6 +28,9 @@ const JobResultPage = lazy(() =>
 );
 const PredictionPage = lazy(() =>
   import('./features/prediction').then((feature) => ({ default: feature.PredictionPage })),
+);
+const FilePreviewPage = lazy(() =>
+  import('./features/file').then((feature) => ({ default: feature.FilePreviewPage })),
 );
 
 /** Connects app navigation identity to otherwise-local chart focus state. */
@@ -106,7 +110,10 @@ export default function AppRoot() {
     const predictionId = predictionIdFromHash(locationHash);
     content = predictionId === null ? null : <PredictionPage predictionId={predictionId} />;
   } else if (view === 'job') content = <JobResultPage />;
-  else content = <App />;
+  else if (view === 'file') {
+    const fileRef = fileRefFromHash(locationHash);
+    content = fileRef === null ? null : <FilePreviewPage fileRef={fileRef} />;
+  } else content = <App />;
   // Chart cards are shared by run, sweep, job, and prediction surfaces. Their
   // provider and single dialog therefore belong to the route root rather than
   // the legacy run page. A route/resource change invalidates an open snapshot.
