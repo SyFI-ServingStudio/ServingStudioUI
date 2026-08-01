@@ -28,8 +28,8 @@ describe('active conversation session', () => {
 
   it('carries a valid role runtime selection between entry and agent surfaces', () => {
     const selection = {
-      orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
-      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+      orchestrator: { model: 'gpt-5.6-terra', effort: 'high', serviceTier: 'fast' },
+      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
     } as const;
 
     rememberPendingCodexRuntime(selection);

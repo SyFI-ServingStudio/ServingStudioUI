@@ -11,10 +11,13 @@ export interface ConversationTokens {
   output: number;
 }
 
-/** One role's Codex choice: which model runs it, and at what reasoning effort. */
+export type CodexServiceTier = 'default' | 'fast';
+
+/** One role's Codex choice: model, reasoning effort, and per-call speed tier. */
 export interface CodexRoleRuntime {
   model: string;
   effort: string;
+  serviceTier: CodexServiceTier;
 }
 
 export interface CodexRuntimeSelection {
@@ -30,6 +33,8 @@ export interface CodexModelOption {
   familyLabel: string;
   efforts: readonly string[];
   defaultEffort: string;
+  serviceTiers: readonly CodexServiceTier[];
+  defaultServiceTier: CodexServiceTier;
   available: boolean;
 }
 
@@ -262,16 +267,33 @@ function normalizeConversationMessage(message: ConversationMessage): Conversatio
 export async function listCodexBackends(): Promise<CodexRuntimeCatalog> {
   const response = await requireResponse(await fetch('/api/codex-backends'), 'List Codex backends');
   const payload = (await response.json()) as Partial<CodexRuntimeCatalog>;
-  return Array.isArray(payload.models) && payload.models.length > 0 && payload.defaults
-    ? { ...(payload as CodexRuntimeCatalog), families: payload.families ?? [] }
-    : {
-        models: [],
-        families: [],
-        defaults: payload.defaults ?? {
-          orchestrator: { model: '', effort: '' },
-          implementer: { model: '', effort: '' },
-        },
-      };
+  const normalizeRuntime = (runtime: CodexRoleRuntime | undefined): CodexRoleRuntime => ({
+    model: runtime?.model ?? '',
+    effort: runtime?.effort ?? '',
+    serviceTier: runtime?.serviceTier === 'fast' ? 'fast' : 'default',
+  });
+  const models = Array.isArray(payload.models)
+    ? payload.models.map((model) => {
+        const serviceTiers: CodexServiceTier[] = Array.isArray(model.serviceTiers)
+          ? model.serviceTiers.filter(
+              (tier: unknown): tier is CodexServiceTier => tier === 'default' || tier === 'fast',
+            )
+          : ['default'];
+        return {
+          ...model,
+          serviceTiers: serviceTiers.length > 0 ? serviceTiers : ['default'],
+          defaultServiceTier: model.defaultServiceTier === 'fast' ? 'fast' : 'default',
+        } satisfies CodexModelOption;
+      })
+    : [];
+  return {
+    models,
+    families: payload.families ?? [],
+    defaults: {
+      orchestrator: normalizeRuntime(payload.defaults?.orchestrator),
+      implementer: normalizeRuntime(payload.defaults?.implementer),
+    },
+  };
 }
 
 export async function createConversation(

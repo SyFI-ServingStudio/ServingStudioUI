@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useViz } from '../../store';
 import AgentPane, { ConversationTranscript } from './AgentWorkspace';
+import { useWorkspaceUi } from './workspaceUiStore';
 
 const conversation = {
   id: 'c_test',
@@ -155,6 +156,7 @@ describe('AgentPane', () => {
   it('renders persisted roles, handoffs, and a frozen clickable citation', async () => {
     const user = userEvent.setup();
     const postMessage = vi.spyOn(window, 'postMessage');
+    useWorkspaceUi.getState().setAgentPanelMode('full');
     render(<AgentPane prompt="Compare TP choices." />);
 
     // Scoped to the transcript: the composer labels its backend tablets with the
@@ -172,6 +174,7 @@ describe('AgentPane', () => {
 
     expect(postMessage).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /TP=2 · rate=20 · Throughput/ }));
+    expect(useWorkspaceUi.getState().agentPanelMode).toBe('docked');
     expect(postMessage).toHaveBeenCalledOnce();
     expect(postMessage.mock.calls[0]?.[0]).toMatchObject({
       type: 'navigate',
@@ -184,15 +187,15 @@ describe('AgentPane', () => {
     const onFold = vi.fn();
     const onToggleFull = vi.fn();
     const onClose = vi.fn();
-    render(
-      <AgentPane
-        prompt="Inspect the sweep."
-        onFold={onFold}
-        onToggleFull={onToggleFull}
-        onClose={onClose}
-      />,
-    );
+    render(<AgentPane prompt="" onFold={onFold} onToggleFull={onToggleFull} onClose={onClose} />);
 
+    const expandRuntime = screen.getByRole('button', { name: 'Expand model controls' });
+    expect(expandRuntime).toHaveAttribute('aria-expanded', 'false');
+    await user.click(expandRuntime);
+    expect(screen.getByRole('button', { name: 'Collapse model controls' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
     await user.click(screen.getByRole('button', { name: 'Expand Agent to full page' }));
     await user.click(screen.getByRole('button', { name: 'Fold Agent' }));
     await user.click(screen.getByRole('button', { name: 'Return to workspace home' }));
@@ -454,33 +457,77 @@ describe('AgentPane', () => {
     render(<AgentPane full prompt="" />);
 
     await screen.findByText('Answer');
+    const runtimePicker = screen.getByTestId('agent-runtime-picker');
+    const composer = screen.getByTestId('agent-composer-column');
     expect(screen.getByTestId('agent-message-column')).toHaveStyle({
       width: 'min(720px,calc(100% - 40px))',
     });
-    expect(screen.getByTestId('agent-composer-column')).toHaveStyle({
+    expect(composer).toHaveStyle({
       width: 'min(720px,calc(100% - 40px))',
     });
+    expect(composer).toContainElement(runtimePicker);
   });
 
-  it('shows the literal active Analyzer selection above the composer', async () => {
+  it('clears the active Analyzer attachment from the next Agent turn', async () => {
+    const selection = {
+      kind: 'aggregate' as const,
+      workspaceId: 'w_main',
+      experimentId: 's_test',
+      panelId: 'total_tps',
+      metricKey: 'total_tps',
+      coordinates: { request_rate: 20, tensor_parallel: 2 },
+    };
     act(() => {
-      useViz.getState().setAggregateSelection({
-        kind: 'aggregate',
-        workspaceId: 'w_main',
-        experimentId: 's_test',
-        panelId: 'total_tps',
-        metricKey: 'total_tps',
-        coordinates: { request_rate: 20, tensor_parallel: 2 },
-      });
+      useViz.getState().setAggregateSelection(selection);
     });
+    const fetchMock = vi.mocked(fetch);
     const user = userEvent.setup();
-    render(<AgentPane prompt="Inspect the sweep." showSelectionContext />);
+    render(
+      <AgentPane
+        prompt=""
+        showSelectionContext
+        analyzerContext={{
+          protocol: 'vibesim.conversation-context/v2',
+          selection,
+          citationDictionary: {
+            protocol: 'vibesim.citation-dictionary/v2',
+            identity: 'aggregate-s_test',
+            document: 'Analyzer context for the selected sweep.',
+            entries: [],
+          },
+        }}
+      />,
+    );
 
     const context = screen.getByRole('status', { name: 'Active Analyzer selection' });
+    const runtimePicker = screen.getByTestId('agent-runtime-picker');
+    expect(runtimePicker.compareDocumentPosition(context) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     expect(context).toHaveTextContent('aggregate');
     expect(context).toHaveTextContent('request_rate=20');
     await user.click(screen.getByRole('button', { name: 'view JSON' }));
     expect(context).toHaveTextContent('"experimentId": "s_test"');
+    await user.click(screen.getByRole('button', { name: 'Clear Analyzer context' }));
+    expect(
+      screen.queryByRole('status', { name: 'Active Analyzer selection' }),
+    ).not.toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('Ask a follow-up'), 'Compare without context.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([input, init]) => String(input).endsWith('/messages') && init?.method === 'POST',
+        ),
+      ).toBe(true),
+    );
+    const messageRequest = fetchMock.mock.calls.find(([input, init]) => {
+      if (!String(input).endsWith('/messages') || init?.method !== 'POST') return false;
+      return JSON.parse(String(init.body)).text === 'Compare without context.';
+    });
+    expect(messageRequest).toBeDefined();
+    expect(JSON.parse(String(messageRequest?.[1]?.body))).not.toHaveProperty('analyzerContext');
   });
 
   it('renders a legacy runtime exception as a compact retry card', async () => {

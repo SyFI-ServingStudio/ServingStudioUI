@@ -32,11 +32,15 @@ export function forgetActiveConversation(workspaceId: string): void {
   }
 }
 
-function roleRuntimeFrom(value: unknown): { model: string; effort: string } | null {
+function roleRuntimeFrom(value: unknown): { model: string; effort: string; serviceTier: 'default' | 'fast' } | null {
   if (typeof value !== 'object' || value === null) return null;
-  const { model, effort } = value as { model?: unknown; effort?: unknown };
+  const { model, effort, serviceTier } = value as {
+    model?: unknown;
+    effort?: unknown;
+    serviceTier?: unknown;
+  };
   return typeof model === 'string' && model && typeof effort === 'string' && effort
-    ? { model, effort }
+    ? { model, effort, serviceTier: serviceTier === 'fast' ? 'fast' : 'default' }
     : null;
 }
 

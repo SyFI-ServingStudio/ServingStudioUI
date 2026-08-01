@@ -17,6 +17,8 @@ const MODELS: readonly CodexModelOption[] = [
     familyLabel: 'GPT-5.6',
     efforts: ['low', 'medium', 'high', 'xhigh'],
     defaultEffort: 'xhigh',
+    serviceTiers: ['default', 'fast'],
+    defaultServiceTier: 'default',
     available: true,
   },
   {
@@ -26,6 +28,8 @@ const MODELS: readonly CodexModelOption[] = [
     familyLabel: 'GPT-5.6',
     efforts: ['low', 'high'],
     defaultEffort: 'high',
+    serviceTiers: ['default', 'fast'],
+    defaultServiceTier: 'default',
     available: true,
   },
   {
@@ -35,14 +39,16 @@ const MODELS: readonly CodexModelOption[] = [
     familyLabel: 'DeepSeek',
     efforts: ['high', 'xhigh', 'max'],
     defaultEffort: 'max',
+    serviceTiers: ['default'],
+    defaultServiceTier: 'default',
     available: true,
   },
 ];
 
 function Harness({ locked = false }: { locked?: boolean }) {
   const [selection, setSelection] = useState<CodexRuntimeSelection>({
-    orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh' },
-    implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+    orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+    implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
   });
   return (
     <CodexRuntimePicker
@@ -75,6 +81,29 @@ describe('Codex runtime picker', () => {
     // Luna has neither `medium` nor `xhigh`; Sol offers both.
     expect(screen.queryByRole('radio', { name: 'GPT-5.6-Luna at xhigh' })).toBeNull();
     expect(screen.getByRole('radio', { name: 'GPT-5.6-Sol at xhigh' })).toBeChecked();
+  });
+
+  it('changes the per-role service tier and exposes it on the closed chip', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const indicator = screen.getByTestId('orchestrator-fast-indicator');
+
+    expect(indicator).toHaveTextContent('N');
+
+    await user.click(screen.getByLabelText('Orchestrator Codex runtime'));
+    await user.click(screen.getByRole('button', { name: 'Orchestrator Fast tier' }));
+
+    expect(indicator).toHaveTextContent('F');
+  });
+
+  it('does not offer Fast for a model whose provider lacks the tier', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.click(screen.getByLabelText('Orchestrator Codex runtime'));
+    await user.click(screen.getByRole('radio', { name: 'DeepSeek V4 Flash at max' }));
+
+    expect(screen.getByRole('button', { name: 'Orchestrator Fast tier' })).toBeDisabled();
   });
 
   it('locks the other family once the conversation has history, but not effort', async () => {

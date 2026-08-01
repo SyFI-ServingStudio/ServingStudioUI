@@ -4,9 +4,11 @@ import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import AdjustRounded from '@mui/icons-material/AdjustRounded';
 import BuildOutlined from '@mui/icons-material/BuildOutlined';
 import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import CloseFullscreenRounded from '@mui/icons-material/CloseFullscreenRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
+import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import HubOutlined from '@mui/icons-material/HubOutlined';
@@ -70,6 +72,7 @@ import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import { conversationTimeLabel } from './conversationPresentation';
 import { conversationCards } from './conversationTimeline';
+import { useWorkspaceUi } from './workspaceUiStore';
 
 type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
 
@@ -364,6 +367,11 @@ function navigateToFrozenEvidence(
   target: FrozenCitationV2['target'],
   onStatus: (status: NavigationStatus) => void,
 ): void {
+  // Evidence navigation leaves the full Agent surface for the shared
+  // Analyzer+Agent workspace. Set the durable pane mode before changing the
+  // route: a lazy Analyzer page may suspend and remount WorkspaceShell, so its
+  // previous-view ref is not a reliable transition boundary.
+  useWorkspaceUi.getState().setAgentPanelMode('docked');
   const requestId = globalThis.crypto?.randomUUID?.() ?? `evidence-${Date.now()}`;
   const command = analyzerNavigateCommandV2Schema.parse({
     protocol: 'vibesim.analyzer/v2',
@@ -1065,7 +1073,7 @@ function contextValues(selection: AnalyzerSelectionV2 | null): readonly string[]
   ];
 }
 
-function AnalyzerSelectionStrip() {
+function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
   const selection = useViz(analyzerSelectionFromVizState);
   const [expanded, setExpanded] = useState(false);
   const values = contextValues(selection);
@@ -1163,6 +1171,22 @@ function AnalyzerSelectionStrip() {
             {expanded ? 'hide JSON' : 'view JSON'}
           </ButtonBase>
         )}
+        <ButtonBase
+          onClick={onClear}
+          aria-label="Clear Analyzer context"
+          title="Do not include this selection in the next Agent turn"
+          sx={{
+            width: 20,
+            height: 20,
+            flex: '0 0 auto',
+            borderRadius: 0.55,
+            color: tokens.sub2,
+            '&:hover': { background: 'rgba(31,111,107,.08)', color: tokens.teal },
+            '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+          }}
+        >
+          <CloseRounded sx={{ fontSize: 13 }} />
+        </ButtonBase>
       </Stack>
       {expanded && selection && (
         <Box
@@ -1199,7 +1223,9 @@ const AgentComposer = memo(function AgentComposer({
   catalogUnavailable,
   codexRuntime,
   lockedFamilies,
+  compactRuntime,
   onRuntimeChange,
+  onClearSelectionContext,
   onSend,
   onCancel,
 }: {
@@ -1213,15 +1239,21 @@ const AgentComposer = memo(function AgentComposer({
   catalogUnavailable: boolean;
   codexRuntime: CodexRuntimeSelection;
   lockedFamilies: Record<keyof CodexRuntimeSelection, string> | null;
+  compactRuntime: boolean;
   onRuntimeChange: (role: keyof CodexRuntimeSelection, runtime: CodexRoleRuntime) => void;
+  onClearSelectionContext: () => void;
   onSend: (message: string) => void;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState('');
+  const [runtimeExpanded, setRuntimeExpanded] = useState(!compactRuntime);
   const inputElement = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (focusRequest > 0) inputElement.current?.focus();
   }, [focusRequest]);
+  useEffect(() => {
+    setRuntimeExpanded(!compactRuntime);
+  }, [compactRuntime]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = draft.trim();
@@ -1241,19 +1273,75 @@ const AgentComposer = memo(function AgentComposer({
     >
       <Box
         data-testid="agent-composer-column"
-        sx={{ width: readingColumnWidth, mx: 'auto', px: 2, py: 1.5 }}
+        sx={{
+          width: readingColumnWidth,
+          mx: 'auto',
+          px: 2,
+          pt: compactRuntime ? 0.55 : 1.5,
+          pb: compactRuntime ? 1 : 1.5,
+        }}
       >
-        {showSelectionContext && <AnalyzerSelectionStrip />}
-        {/* Runtime choice reads before the prompt, centred on the composer's axis. */}
-        <Stack direction="row" justifyContent="center" sx={{ mb: 0.8 }}>
-          <CodexRuntimePicker
-            models={modelOptions}
-            selection={codexRuntime}
-            lockedFamilies={lockedFamilies}
-            unavailable={catalogUnavailable}
-            onChange={onRuntimeChange}
-          />
-        </Stack>
+        <Box
+          data-testid="agent-runtime-picker"
+          sx={{ mb: compactRuntime ? 0.35 : showSelectionContext ? 0.8 : 1 }}
+        >
+          {compactRuntime && (
+            <Stack direction="row" justifyContent="center">
+              <ButtonBase
+                type="button"
+                aria-label={runtimeExpanded ? 'Collapse model controls' : 'Expand model controls'}
+                aria-expanded={runtimeExpanded}
+                onClick={() => setRuntimeExpanded((current) => !current)}
+                sx={{
+                  height: 16,
+                  px: 0.55,
+                  gap: 0.2,
+                  borderRadius: 999,
+                  color: tokens.sub2,
+                  fontFamily: tokens.mono,
+                  fontSize: 7.5,
+                  letterSpacing: '.08em',
+                  textTransform: 'uppercase',
+                  '&:hover': { color: tokens.teal, background: 'rgba(31,111,107,.055)' },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                Model
+                <ExpandMoreRounded
+                  sx={{
+                    fontSize: 11,
+                    transform: runtimeExpanded ? 'none' : 'rotate(180deg)',
+                    transition: `transform 180ms ${tokens.ease}`,
+                  }}
+                />
+              </ButtonBase>
+            </Stack>
+          )}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateRows: runtimeExpanded ? '1fr' : '0fr',
+              opacity: runtimeExpanded ? 1 : 0,
+              transition: `grid-template-rows 180ms ${tokens.ease}, opacity 140ms ${tokens.ease}`,
+              '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+            }}
+          >
+            <Box sx={{ minHeight: 0, overflow: 'hidden' }}>
+              <Stack direction="row" justifyContent="center" sx={{ pt: compactRuntime ? 0.45 : 0 }}>
+                <CodexRuntimePicker
+                  models={modelOptions}
+                  selection={codexRuntime}
+                  lockedFamilies={lockedFamilies}
+                  compact={compactRuntime}
+                  disabled={streaming}
+                  unavailable={catalogUnavailable}
+                  onChange={onRuntimeChange}
+                />
+              </Stack>
+            </Box>
+          </Box>
+        </Box>
+        {showSelectionContext && <AnalyzerSelectionStrip onClear={onClearSelectionContext} />}
         <Stack
           direction="row"
           alignItems="center"
@@ -2093,15 +2181,21 @@ function useAgentConversation(
         setCodexRuntime((current) => {
           // Keep whatever the conversation or Page 0 already chose; only fall
           // back for a role whose model this host cannot actually serve.
-          const runnable = (runtime: CodexRoleRuntime) =>
-            catalog.models.some((model) => model.id === runtime.model && model.available);
+          const resolve = (runtime: CodexRoleRuntime, fallback: CodexRoleRuntime) => {
+            const model = catalog.models.find(
+              (option) => option.id === runtime.model && option.available,
+            );
+            if (!model) return fallback;
+            return {
+              ...runtime,
+              serviceTier: model.serviceTiers.includes(runtime.serviceTier)
+                ? runtime.serviceTier
+                : model.defaultServiceTier,
+            };
+          };
           return {
-            orchestrator: runnable(current.orchestrator)
-              ? current.orchestrator
-              : catalog.defaults.orchestrator,
-            implementer: runnable(current.implementer)
-              ? current.implementer
-              : catalog.defaults.implementer,
+            orchestrator: resolve(current.orchestrator, catalog.defaults.orchestrator),
+            implementer: resolve(current.implementer, catalog.defaults.implementer),
           };
         });
       })
@@ -2362,10 +2456,23 @@ export default function AgentPane({
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPinned, setHistoryPinned] = useState(savedHistoryPinned);
+  const analyzerContextIdentity = useMemo(
+    () => (analyzerContext === null ? null : JSON.stringify(analyzerContext)),
+    [analyzerContext],
+  );
+  const [clearedAnalyzerContextIdentity, setClearedAnalyzerContextIdentity] = useState<
+    string | null
+  >(null);
+  // Clearing the Agent attachment must not disturb the Analyzer's own chart selection.
+  // A genuinely new chart selection gets a new identity and is attached automatically.
+  const activeAnalyzerContext =
+    analyzerContextIdentity !== null && analyzerContextIdentity === clearedAnalyzerContextIdentity
+      ? null
+      : analyzerContext;
   const conversation = useAgentConversation(
     workspaceId,
     prompt,
-    analyzerContext,
+    activeAnalyzerContext,
     enabled,
     requireAnalyzerContext,
     onInitialPromptStarted,
@@ -2452,122 +2559,124 @@ export default function AgentPane({
         '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
       }}
     >
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
+      <Box
         sx={{
           gridColumn: '1 / -1',
           gridRow: 1,
-          minHeight: 54,
-          px: 2,
           borderBottom: `1px solid ${tokens.hair}`,
         }}
       >
-        <Box sx={{ minWidth: 0, flex: 1, mr: 1 }}>
-          <Typography
-            sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 16, fontWeight: 600 }}
-          >
-            VibeSim Agent
-          </Typography>
-          <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
-            {workspaceName
-              ? `${workspaceName} · ${activeConversationTitle}`
-              : activeConversationTitle}
-          </Typography>
-        </Box>
-        <Stack direction="row" sx={{ gap: 0.55 }}>
-          <ButtonBase
-            onClick={() => {
-              if (persistentHistory) {
-                setHistoryPinned(false);
-                saveHistoryPinned(false);
-                return;
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ minHeight: 54, px: 2 }}
+        >
+          <Box sx={{ minWidth: 0, flex: 1, mr: 1 }}>
+            <Typography
+              sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 16, fontWeight: 600 }}
+            >
+              VibeSim Agent
+            </Typography>
+            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+              {workspaceName
+                ? `${workspaceName} · ${activeConversationTitle}`
+                : activeConversationTitle}
+            </Typography>
+          </Box>
+          <Stack direction="row" sx={{ gap: 0.55 }}>
+            <ButtonBase
+              onClick={() => {
+                if (persistentHistory) {
+                  setHistoryPinned(false);
+                  saveHistoryPinned(false);
+                  return;
+                }
+                setHistoryOpen((current) => !current);
+              }}
+              aria-label={
+                persistentHistory ? 'Hide conversation history' : 'Open conversation history'
               }
-              setHistoryOpen((current) => !current);
-            }}
-            aria-label={
-              persistentHistory ? 'Hide conversation history' : 'Open conversation history'
-            }
-            aria-expanded={historyVisible}
-            sx={{
-              width: 32,
-              height: 32,
-              border: `1px solid ${historyVisible ? 'rgba(31,111,107,.42)' : tokens.hair}`,
-              borderRadius: 0.85,
-              color: historyVisible ? tokens.teal : tokens.sub,
-              background: historyVisible ? 'rgba(31,111,107,.055)' : 'transparent',
-              '&:hover': { borderColor: tokens.teal, color: tokens.teal },
-              '&:active': { transform: 'translateY(1px)' },
-              '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-            }}
-          >
-            <HistoryRounded sx={{ fontSize: 17 }} />
-          </ButtonBase>
-          {onToggleFull && (
-            <ButtonBase
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleFull();
-              }}
-              aria-label={expanded ? 'Return Agent to split view' : 'Expand Agent to full page'}
+              aria-expanded={historyVisible}
               sx={{
                 width: 32,
                 height: 32,
-                border: `1px solid ${tokens.hair}`,
+                border: `1px solid ${historyVisible ? 'rgba(31,111,107,.42)' : tokens.hair}`,
                 borderRadius: 0.85,
-                color: tokens.sub,
-                '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                color: historyVisible ? tokens.teal : tokens.sub,
+                background: historyVisible ? 'rgba(31,111,107,.055)' : 'transparent',
+                '&:hover': { borderColor: tokens.teal, color: tokens.teal },
+                '&:active': { transform: 'translateY(1px)' },
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}
             >
-              {expanded ? (
-                <CloseFullscreenRounded sx={{ fontSize: 16 }} />
-              ) : (
-                <OpenInFullRounded sx={{ fontSize: 15 }} />
-              )}
+              <HistoryRounded sx={{ fontSize: 17 }} />
             </ButtonBase>
-          )}
-          {onFold && (
-            <ButtonBase
-              onClick={(event) => {
-                event.stopPropagation();
-                onFold();
-              }}
-              aria-label="Fold Agent"
-              sx={{
-                width: 32,
-                height: 32,
-                border: `1px solid ${tokens.hair}`,
-                borderRadius: 0.85,
-                color: tokens.sub,
-                '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
-                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-              }}
-            >
-              <KeyboardDoubleArrowLeftRounded sx={{ fontSize: 18 }} />
-            </ButtonBase>
-          )}
-          {onClose && (
-            <ButtonBase
-              onClick={onClose}
-              aria-label="Return to workspace home"
-              title="Return to workspace home"
-              sx={{
-                width: 32,
-                height: 32,
-                border: `1px solid ${tokens.hair}`,
-                borderRadius: 0.85,
-                color: tokens.sub,
-                '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
-                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-              }}
-            >
-              <ArrowBackRounded sx={{ fontSize: 17 }} />
-            </ButtonBase>
-          )}
+            {onToggleFull && (
+              <ButtonBase
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleFull();
+                }}
+                aria-label={expanded ? 'Return Agent to split view' : 'Expand Agent to full page'}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${tokens.hair}`,
+                  borderRadius: 0.85,
+                  color: tokens.sub,
+                  '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                {expanded ? (
+                  <CloseFullscreenRounded sx={{ fontSize: 16 }} />
+                ) : (
+                  <OpenInFullRounded sx={{ fontSize: 15 }} />
+                )}
+              </ButtonBase>
+            )}
+            {onFold && (
+              <ButtonBase
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onFold();
+                }}
+                aria-label="Fold Agent"
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${tokens.hair}`,
+                  borderRadius: 0.85,
+                  color: tokens.sub,
+                  '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                <KeyboardDoubleArrowLeftRounded sx={{ fontSize: 18 }} />
+              </ButtonBase>
+            )}
+            {onClose && (
+              <ButtonBase
+                onClick={onClose}
+                aria-label="Return to workspace home"
+                title="Return to workspace home"
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${tokens.hair}`,
+                  borderRadius: 0.85,
+                  color: tokens.sub,
+                  '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                <ArrowBackRounded sx={{ fontSize: 17 }} />
+              </ButtonBase>
+            )}
+          </Stack>
         </Stack>
-      </Stack>
+      </Box>
       <ConversationHistory
         open={historyVisible}
         expanded={full || expanded}
@@ -2619,7 +2728,7 @@ export default function AgentPane({
       <AgentComposer
         gridColumn={persistentHistory ? 2 : 1}
         readingColumnWidth={readingColumnWidth}
-        showSelectionContext={showSelectionContext}
+        showSelectionContext={showSelectionContext && activeAnalyzerContext !== null}
         focusRequest={conversation.composerFocusRequest}
         streaming={conversation.streaming}
         interrupting={conversation.interrupting}
@@ -2627,9 +2736,11 @@ export default function AgentPane({
         catalogUnavailable={conversation.catalogUnavailable}
         codexRuntime={conversation.codexRuntime}
         lockedFamilies={conversation.lockedFamilies}
+        compactRuntime={!full && !expanded}
         onRuntimeChange={(role, runtime) =>
           conversation.setCodexRuntime((current) => ({ ...current, [role]: runtime }))
         }
+        onClearSelectionContext={() => setClearedAnalyzerContextIdentity(analyzerContextIdentity)}
         onSend={sendMessage}
         onCancel={cancelTurn}
       />

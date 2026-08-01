@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   listCodexBackends,
   type CodexModelOption,
+  type CodexRoleRuntime,
   type CodexRuntimeSelection,
   type WorkspaceConversationSummary,
 } from '../../application/conversationRepository';
@@ -197,10 +198,14 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
         const firstAvailable = catalog.models.find((model) => model.available);
         const usable = (runtime: { model: string }) =>
           catalog.models.some((model) => model.id === runtime.model && model.available);
-        const resolve = (runtime: { model: string; effort: string }) =>
+        const resolve = (runtime: CodexRoleRuntime) =>
           usable(runtime) || !firstAvailable
             ? runtime
-            : { model: firstAvailable.id, effort: firstAvailable.defaultEffort };
+            : {
+                model: firstAvailable.id,
+                effort: firstAvailable.defaultEffort,
+                serviceTier: firstAvailable.defaultServiceTier,
+              };
         setCodexRuntime({
           orchestrator: resolve(catalog.defaults.orchestrator),
           implementer: resolve(catalog.defaults.implementer),

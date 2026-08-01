@@ -50,8 +50,16 @@ describe('conversation repository', () => {
             title: 'New conversation',
             naming_state: 'manual',
             codex_runtime: {
-              orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
-              implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+              orchestrator: {
+                model: 'gpt-5.6-terra',
+                effort: 'high',
+                serviceTier: 'fast',
+              },
+              implementer: {
+                model: 'gpt-5.6-sol',
+                effort: 'xhigh',
+                serviceTier: 'default',
+              },
             },
             messages: [],
           }),
@@ -60,8 +68,8 @@ describe('conversation repository', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
     const selection = {
-      orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
-      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+      orchestrator: { model: 'gpt-5.6-terra', effort: 'high', serviceTier: 'fast' },
+      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
     } as const;
 
     await createConversation('w_main', selection);

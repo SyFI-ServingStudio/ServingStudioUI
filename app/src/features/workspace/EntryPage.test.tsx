@@ -61,13 +61,23 @@ describe('Page 0 conversation entry', () => {
           familyLabel: 'GPT-5.6',
           efforts: ['low', 'medium', 'high', 'xhigh'],
           defaultEffort: 'xhigh',
+          serviceTiers: ['default', 'fast'],
+          defaultServiceTier: 'default',
           available: true,
         },
       ],
       families: [{ id: 'gpt', label: 'GPT-5.6', available: true, requiredEnvironment: [] }],
       defaults: {
-        orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh' },
-        implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+        orchestrator: {
+          model: 'gpt-5.6-sol',
+          effort: 'xhigh',
+          serviceTier: 'default',
+        },
+        implementer: {
+          model: 'gpt-5.6-sol',
+          effort: 'xhigh',
+          serviceTier: 'default',
+        },
       },
     });
   });

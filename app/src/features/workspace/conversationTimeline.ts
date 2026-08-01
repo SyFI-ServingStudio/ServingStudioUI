@@ -79,7 +79,9 @@ export function conversationCards(
   const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
   const runtimeFrom = (event: { model?: string; effort?: string }): CodexRoleRuntime | null =>
-    event.model ? { model: event.model, effort: event.effort ?? '' } : null;
+    event.model
+      ? { model: event.model, effort: event.effort ?? '', serviceTier: 'default' }
+      : null;
   const openRole = (role: ConversationRole, runtime?: CodexRoleRuntime | null) => {
     rounds[role] += 1;
     const card: Extract<ConversationCard, { type: 'role' }> = {

@@ -146,12 +146,14 @@ function RuntimePanel({
   models,
   runtime,
   lockedFamily,
+  disabled,
   onChange,
 }: {
   role: CodexRole;
   models: readonly CodexModelOption[];
   runtime: CodexRoleRuntime;
   lockedFamily: string | null;
+  disabled: boolean;
   onChange: (runtime: CodexRoleRuntime) => void;
 }) {
   const families = useMemo(() => {
@@ -164,19 +166,80 @@ function RuntimePanel({
     return [...grouped.entries()];
   }, [models]);
   const efforts = useMemo(() => effortColumns(models), [models]);
+  const selectedModel = models.find((model) => model.id === runtime.model);
+  const fastAvailable = selectedModel?.serviceTiers?.includes('fast') ?? false;
   return (
     <Box sx={{ p: 1.4, pt: 1.2 }}>
-      <Typography
-        sx={{
-          color: tokens.sub2,
-          fontFamily: tokens.mono,
-          fontSize: 8.5,
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-        }}
-      >
-        {roleLabels[role]} runtime
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 2 }}>
+        <Typography
+          sx={{
+            color: tokens.sub2,
+            fontFamily: tokens.mono,
+            fontSize: 8.5,
+            letterSpacing: '.1em',
+            textTransform: 'uppercase',
+          }}
+        >
+          {roleLabels[role]} runtime
+        </Typography>
+        <Tooltip
+          title={
+            disabled
+              ? 'Speed can be changed after the active turn finishes.'
+              : fastAvailable
+                ? 'Fast uses the provider priority service tier.'
+                : 'This model does not offer the Fast service tier.'
+          }
+          placement="top"
+        >
+          <Box
+            role="group"
+            aria-label={`${roleLabels[role]} speed tier`}
+            sx={{
+              display: 'inline-grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              p: '2px',
+              border: `1px solid ${tokens.hair}`,
+              borderRadius: 999,
+              background: tokens.leafbg,
+            }}
+          >
+            {(['default', 'fast'] as const).map((serviceTier) => {
+              const selected = runtime.serviceTier === serviceTier;
+              const unavailable = disabled || (serviceTier === 'fast' && !fastAvailable);
+              return (
+                <ButtonBase
+                  key={serviceTier}
+                  type="button"
+                  aria-pressed={selected}
+                  aria-label={`${roleLabels[role]} ${serviceTier === 'fast' ? 'Fast' : 'Normal'} tier`}
+                  disabled={unavailable}
+                  onClick={() => onChange({ ...runtime, serviceTier })}
+                  sx={{
+                    minWidth: 48,
+                    height: 19,
+                    px: 0.8,
+                    borderRadius: 999,
+                    background: selected ? tokens.tile : 'transparent',
+                    color: selected ? tokens.teal : tokens.sub2,
+                    boxShadow: selected ? '0 1px 4px rgba(42,38,34,.12)' : 'none',
+                    fontFamily: tokens.mono,
+                    fontSize: 7.5,
+                    fontWeight: selected ? 700 : 550,
+                    letterSpacing: '.055em',
+                    textTransform: 'uppercase',
+                    transition: `background 160ms ${tokens.ease}, color 160ms ${tokens.ease}, box-shadow 160ms ${tokens.ease}`,
+                    '&.Mui-disabled': { color: tokens.sub2, opacity: 0.42 },
+                    '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                  }}
+                >
+                  {serviceTier === 'fast' ? 'Fast' : 'Normal'}
+                </ButtonBase>
+              );
+            })}
+          </Box>
+        </Tooltip>
+      </Stack>
       <Box
         role="radiogroup"
         aria-label={`${roleLabels[role]} model and reasoning effort`}
@@ -209,7 +272,8 @@ function RuntimePanel({
           </Typography>
         ))}
         {families.map(([familyId, group], groupIndex) => {
-          const locked = lockedFamily !== null && lockedFamily !== familyId;
+          const familyLocked = lockedFamily !== null && lockedFamily !== familyId;
+          const cellDisabled = disabled || familyLocked;
           return (
             <Fragment key={familyId}>
               <Stack
@@ -230,7 +294,7 @@ function RuntimePanel({
                 >
                   {group.label}
                 </Typography>
-                {locked && <LockOutlined sx={{ color: tokens.sub2, fontSize: 10 }} />}
+                {familyLocked && <LockOutlined sx={{ color: tokens.sub2, fontSize: 10 }} />}
                 <Box sx={{ flex: 1, borderTop: `1px solid ${tokens.hair}` }} />
               </Stack>
               {group.models.map((model) => {
@@ -249,10 +313,10 @@ function RuntimePanel({
                           alignItems: 'center',
                           borderRadius: onRow ? '7px 0 0 7px' : 0.8,
                           background: onRow ? TRAIL_TINT : 'transparent',
-                          color: onRow ? tokens.teal : locked ? tokens.sub2 : tokens.ink,
+                          color: onRow ? tokens.teal : familyLocked ? tokens.sub2 : tokens.ink,
                           fontSize: 10,
                           fontWeight: onRow ? 650 : 520,
-                          opacity: locked || !model.available ? 0.45 : 1,
+                          opacity: cellDisabled || !model.available ? 0.45 : 1,
                           transition: `color 200ms ${tokens.ease}, background 180ms ${tokens.ease}`,
                         }}
                       >
@@ -266,8 +330,16 @@ function RuntimePanel({
                         effort={effort}
                         selected={onRow && effort === runtime.effort}
                         trail={onRow && effortIndex <= pickedIndex}
-                        locked={locked}
-                        onSelect={() => onChange({ model: model.id, effort })}
+                        locked={cellDisabled}
+                        onSelect={() =>
+                          onChange({
+                            model: model.id,
+                            effort,
+                            serviceTier: model.serviceTiers?.includes(runtime.serviceTier)
+                              ? runtime.serviceTier
+                              : model.defaultServiceTier,
+                          })
+                        }
                       />
                     ))}
                   </Fragment>
@@ -305,6 +377,7 @@ function RuntimeChip({
   models,
   runtime,
   lockedFamily,
+  disabled,
   size,
   onChange,
 }: {
@@ -312,6 +385,7 @@ function RuntimeChip({
   models: readonly CodexModelOption[];
   runtime: CodexRoleRuntime;
   lockedFamily: string | null;
+  disabled: boolean;
   size: PickerSize;
   onChange: (runtime: CodexRoleRuntime) => void;
 }) {
@@ -394,6 +468,28 @@ function RuntimeChip({
         >
           {runtime.effort}
         </Box>
+        {/* This slot always occupies the same width. Normal/Fast switches must
+            never recenter the pair of role selectors around the composer. */}
+        <Box
+          component="span"
+          data-testid={`${role}-fast-indicator`}
+          sx={{
+            display: 'inline-grid',
+            placeItems: 'center',
+            width: 12,
+            height: 12,
+            borderRadius: 999,
+            background:
+              runtime.serviceTier === 'fast' ? 'rgba(31,111,107,.1)' : 'rgba(104,95,84,.07)',
+            color: runtime.serviceTier === 'fast' ? tokens.teal : tokens.sub2,
+            fontSize: 7,
+            fontWeight: 780,
+            letterSpacing: 0,
+            lineHeight: 1,
+          }}
+        >
+          {runtime.serviceTier === 'fast' ? 'F' : 'N'}
+        </Box>
         <ExpandMoreRounded aria-hidden sx={{ fontSize: 13, color: tokens.sub2 }} />
       </ButtonBase>
       <Popover
@@ -421,6 +517,7 @@ function RuntimeChip({
           models={models}
           runtime={runtime}
           lockedFamily={lockedFamily}
+          disabled={disabled}
           onChange={onChange}
         />
       </Popover>
@@ -438,22 +535,36 @@ export default function CodexRuntimePicker({
   selection,
   lockedFamilies = null,
   size = 'sm',
+  compact = false,
   unavailable = false,
+  disabled = false,
   onChange,
 }: {
   models: readonly CodexModelOption[];
   selection: CodexRuntimeSelection;
   lockedFamilies?: Record<CodexRole, string> | null;
   size?: PickerSize;
+  /** Keep the role pair visually grouped inside the narrow docked Agent pane. */
+  compact?: boolean;
   /** The catalog answered with nothing, or not at all. */
   unavailable?: boolean;
+  /** Active turns snapshot their runtime, so edits resume after the turn. */
+  disabled?: boolean;
   onChange: (role: CodexRole, runtime: CodexRoleRuntime) => void;
 }) {
   // An empty catalog must say so rather than silently removing the control —
   // most often it means the conversation backend predates the model registry.
-  if (models.length === 0) return unavailable ? <UnavailableChips size={size} /> : null;
+  if (models.length === 0)
+    return unavailable ? <UnavailableChips size={size} compact={compact} /> : null;
   return (
-    <Stack direction="row" alignItems="center" useFlexGap flexWrap="wrap" sx={{ gap: 2.8 }}>
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="center"
+      useFlexGap
+      flexWrap="wrap"
+      sx={{ gap: compact ? 0.9 : 2.8 }}
+    >
       {ROLES.map((role) => (
         <RuntimeChip
           key={role}
@@ -461,6 +572,7 @@ export default function CodexRuntimePicker({
           models={models}
           runtime={selection[role]}
           lockedFamily={lockedFamilies?.[role] ?? null}
+          disabled={disabled}
           size={size}
           onChange={(runtime) => onChange(role, runtime)}
         />
@@ -469,10 +581,17 @@ export default function CodexRuntimePicker({
   );
 }
 
-function UnavailableChips({ size }: { size: PickerSize }) {
+function UnavailableChips({ size, compact }: { size: PickerSize; compact: boolean }) {
   const style = sizeStyles[size];
   return (
-    <Stack direction="row" alignItems="center" useFlexGap flexWrap="wrap" sx={{ gap: 2.8 }}>
+    <Stack
+      direction="row"
+      alignItems="center"
+      justifyContent="center"
+      useFlexGap
+      flexWrap="wrap"
+      sx={{ gap: compact ? 0.9 : 2.8 }}
+    >
       {ROLES.map((role) => (
         <Stack key={role} direction="row" alignItems="center" sx={{ gap: style.gap }}>
           <Typography
