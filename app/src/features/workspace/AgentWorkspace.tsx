@@ -65,6 +65,7 @@ import {
 } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import CodexBackendPicker, { CodexBackendTag } from './CodexBackendPicker';
 import { conversationTimeLabel } from './conversationPresentation';
 import { conversationCards } from './conversationTimeline';
 
@@ -153,11 +154,7 @@ function RoleCard({
             round {round}
           </Typography>
         )}
-        {backend && (
-          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
-            {backend === 'codexds' ? 'CodexDS' : 'Traditional'}
-          </Typography>
-        )}
+        {backend && <CodexBackendTag backend={backend} />}
         <Typography
           sx={{
             ml: 'auto',
@@ -1196,6 +1193,15 @@ const AgentComposer = memo(function AgentComposer({
         sx={{ width: readingColumnWidth, mx: 'auto', px: 2, py: 1.5 }}
       >
         {showSelectionContext && <AnalyzerSelectionStrip />}
+        {/* Runtime choice reads before the prompt, centred on the composer's axis. */}
+        <Stack direction="row" justifyContent="center" sx={{ mb: 0.8 }}>
+          <CodexBackendPicker
+            options={backendOptions}
+            selection={codexBackends}
+            locked={backendSelectionLocked}
+            onChange={onBackendChange}
+          />
+        </Stack>
         <Stack
           direction="row"
           alignItems="center"
@@ -1282,44 +1288,6 @@ const AgentComposer = memo(function AgentComposer({
             </ButtonBase>
           )}
         </Stack>
-        <Stack direction="row" alignItems="center" sx={{ mt: 0.8, gap: 1.2 }}>
-          {(['orchestrator', 'implementer'] as const).map((role) => (
-            <Stack key={role} direction="row" alignItems="center" sx={{ gap: 0.55 }}>
-              <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
-                {role === 'orchestrator' ? 'Orch backend' : 'Impl backend'}
-              </Typography>
-              <Box
-                component="select"
-                aria-label={`${role} Codex backend`}
-                value={codexBackends[role]}
-                disabled={backendSelectionLocked}
-                onChange={(event) => onBackendChange(role, event.target.value as CodexBackendId)}
-                sx={{
-                  height: 25,
-                  px: 0.65,
-                  border: `1px solid ${tokens.hair}`,
-                  borderRadius: 0.65,
-                  background: tokens.tile,
-                  color: tokens.sub,
-                  fontFamily: tokens.mono,
-                  fontSize: 8.5,
-                }}
-              >
-                {backendOptions.map((backend) => (
-                  <option key={backend.id} value={backend.id} disabled={!backend.available}>
-                    {backend.label}
-                    {backend.available ? '' : ' (unavailable)'}
-                  </option>
-                ))}
-              </Box>
-            </Stack>
-          ))}
-          {backendSelectionLocked && (
-            <Typography sx={{ ml: 'auto', color: tokens.sub2, fontSize: 8.5 }}>
-              Fixed for this conversation
-            </Typography>
-          )}
-        </Stack>
       </Box>
     </Box>
   );
@@ -1334,7 +1302,7 @@ function ConversationHistory({
   currentId,
   loading,
   error,
-  disabled,
+  deletionDisabled,
   onClose,
   onTogglePersistent,
   onNew,
@@ -1349,7 +1317,7 @@ function ConversationHistory({
   currentId: string | null;
   loading: boolean;
   error: string | null;
-  disabled: boolean;
+  deletionDisabled: boolean;
   onClose: () => void;
   onTogglePersistent: () => void;
   onNew: () => Promise<void>;
@@ -1429,7 +1397,6 @@ function ConversationHistory({
           </Box>
           <ButtonBase
             onClick={() => void onNew()}
-            disabled={disabled}
             aria-label="New conversation"
             sx={{
               ml: 'auto',
@@ -1576,14 +1543,12 @@ function ConversationHistory({
                   >
                     <ButtonBase
                       onClick={() => {
-                        if (disabled) return;
                         if (active) {
                           onClose();
                           return;
                         }
                         void onSelect(conversation.id).then(onClose);
                       }}
-                      disabled={disabled}
                       aria-current={active ? 'page' : undefined}
                       aria-label={`${active ? 'Current' : 'Open'} ${
                         conversation.title || 'conversation'
@@ -1648,7 +1613,7 @@ function ConversationHistory({
                       <ButtonBase
                         className="conversation-delete"
                         onClick={() => setPendingDelete(conversation.id)}
-                        disabled={disabled}
+                        disabled={deletionDisabled}
                         aria-label={`Delete ${conversation.title || 'conversation'}`}
                         sx={{
                           mr: 0.45,
@@ -1728,6 +1693,12 @@ function useAgentConversation(
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const streamingRef = useRef(false);
+  const conversationIdRef = useRef<string | null>(null);
+  // A turn belongs to the backend, not to the currently visible React tree. Moving
+  // between conversations invalidates only this browser attachment; the backend
+  // turn keeps running and can be rejoined through its conversation SSE endpoint.
+  const conversationViewVersion = useRef(0);
+  const selectionRequestVersion = useRef(0);
   // StrictMode replays effect setup/cleanup. Both setups must join the same
   // initialization rather than orphaning the just-created conversation.
   const initializationPromise = useRef<Promise<Conversation | null> | null>(null);
@@ -1738,6 +1709,17 @@ function useAgentConversation(
     streamingRef.current = nextStreaming;
     setStreaming(nextStreaming);
   }, []);
+  const beginConversationView = useCallback(() => {
+    const nextVersion = conversationViewVersion.current + 1;
+    conversationViewVersion.current = nextVersion;
+    abortController.current?.abort();
+    abortController.current = null;
+    setStreamingState(false);
+    setInterrupting(false);
+    setLiveEvents([]);
+    setProgress('');
+    return nextVersion;
+  }, [setStreamingState]);
   const refreshHistory = useCallback(async (): Promise<readonly ConversationSummary[] | null> => {
     setHistoryLoading(true);
     setHistoryError(null);
@@ -1793,6 +1775,7 @@ function useAgentConversation(
     (conversation: Conversation, markInitialPromptHandled: boolean) => {
       initializationPromise.current = Promise.resolve(conversation);
       rememberActiveConversation(workspaceId, conversation.id);
+      conversationIdRef.current = conversation.id;
       setConversationId(conversation.id);
       setMessages(conversation.messages);
       setMessagePage(conversation.message_page ?? null);
@@ -1805,13 +1788,72 @@ function useAgentConversation(
     [workspaceId],
   );
 
+  const resumeConversationView = useCallback(
+    async (activeConversationId: string, viewVersion: number) => {
+      const viewIsCurrent = () =>
+        conversationViewVersion.current === viewVersion &&
+        conversationIdRef.current === activeConversationId;
+      if (!viewIsCurrent()) return;
+
+      const controller = new AbortController();
+      abortController.current = controller;
+      setStreamingState(true);
+      let namingScheduled = false;
+      try {
+        const resumed = await resumeConversationTurn(
+          workspaceId,
+          activeConversationId,
+          {
+            progress: (text) => {
+              if (viewIsCurrent()) setProgress(text);
+            },
+            event: (event) => {
+              if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
+            },
+            done: (completion) => {
+              namingScheduled = completion.namingScheduled;
+            },
+          },
+          controller.signal,
+        );
+        if (!viewIsCurrent()) return;
+        if (resumed) {
+          const refreshed = await getConversation(workspaceId, activeConversationId);
+          if (!viewIsCurrent()) return;
+          if (refreshed) {
+            setMessages(refreshed.messages);
+            setMessagePage(refreshed.message_page ?? null);
+          }
+          if (namingScheduled) void pollGeneratedNames(activeConversationId);
+        }
+      } catch (caught) {
+        if (viewIsCurrent() && !controller.signal.aborted) {
+          setError(caught instanceof Error ? caught.message : 'Resume conversation failed');
+        }
+      } finally {
+        if (viewIsCurrent()) {
+          if (abortController.current === controller) abortController.current = null;
+          setStreamingState(false);
+          setLiveEvents([]);
+          setProgress('');
+        }
+      }
+    },
+    [pollGeneratedNames, setStreamingState, workspaceId],
+  );
+
   const runTurn = useCallback(
     async (activeConversationId: string, text: string, context: AnalyzerTurnContextV2 | null) => {
       const trimmed = text.trim();
       if (!trimmed || streamingRef.current) return;
+      const viewVersion = beginConversationView();
+      const viewIsCurrent = () =>
+        conversationViewVersion.current === viewVersion &&
+        conversationIdRef.current === activeConversationId;
       if (messages.length === 0) {
         await updateConversationRuntime(workspaceId, activeConversationId, codexBackends);
       }
+      if (!viewIsCurrent()) return;
       const controller = new AbortController();
       abortController.current = controller;
       setMessages((current) => [...current, { role: 'user', content: trimmed }]);
@@ -1828,9 +1870,14 @@ function useAgentConversation(
           trimmed,
           context,
           {
-            progress: setProgress,
-            event: (event) => setLiveEvents((current) => [...current, event]),
+            progress: (text) => {
+              if (viewIsCurrent()) setProgress(text);
+            },
+            event: (event) => {
+              if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
+            },
             done: (completion) => {
+              if (!viewIsCurrent()) return;
               namingScheduled = completion.namingScheduled;
               completionMessage = {
                 role: 'assistant',
@@ -1846,6 +1893,7 @@ function useAgentConversation(
           controller.signal,
         );
         const refreshed = await getConversation(workspaceId, activeConversationId);
+        if (!viewIsCurrent()) return;
         if (refreshed) {
           setMessages(refreshed.messages);
           setMessagePage(refreshed.message_page ?? null);
@@ -1855,17 +1903,20 @@ function useAgentConversation(
         void refreshHistory();
         if (namingScheduled) void pollGeneratedNames(activeConversationId);
       } catch (caught) {
-        if (!controller.signal.aborted) {
+        if (viewIsCurrent() && !controller.signal.aborted) {
           setError(caught instanceof Error ? caught.message : 'Conversation turn failed');
         }
       } finally {
-        abortController.current = null;
-        setStreamingState(false);
-        setLiveEvents([]);
-        setProgress('');
+        if (viewIsCurrent()) {
+          if (abortController.current === controller) abortController.current = null;
+          setStreamingState(false);
+          setLiveEvents([]);
+          setProgress('');
+        }
       }
     },
     [
+      beginConversationView,
       codexBackends,
       messages.length,
       pollGeneratedNames,
@@ -1877,34 +1928,48 @@ function useAgentConversation(
 
   const selectConversation = useCallback(
     async (nextConversationId: string) => {
-      if (streamingRef.current || nextConversationId === conversationId) return;
+      if (nextConversationId === conversationIdRef.current) return;
+      const requestVersion = selectionRequestVersion.current + 1;
+      selectionRequestVersion.current = requestVersion;
       try {
         const nextConversation = await getConversation(workspaceId, nextConversationId);
+        if (selectionRequestVersion.current !== requestVersion) return;
         if (!nextConversation) {
           setHistoryError('That conversation is no longer available.');
           void refreshHistory();
           return;
         }
+        const viewVersion = beginConversationView();
         installConversation(nextConversation, true);
+        void resumeConversationView(nextConversation.id, viewVersion);
       } catch (caught) {
+        if (selectionRequestVersion.current !== requestVersion) return;
         setHistoryError(caught instanceof Error ? caught.message : 'Load conversation failed');
       }
     },
-    [conversationId, installConversation, refreshHistory, workspaceId],
+    [
+      beginConversationView,
+      installConversation,
+      refreshHistory,
+      resumeConversationView,
+      workspaceId,
+    ],
   );
 
   const startConversation = useCallback(async () => {
-    if (streamingRef.current) return;
+    selectionRequestVersion.current += 1;
+    beginConversationView();
     initializationPromise.current = null;
     initialPromptStarted.current = true;
     forgetActiveConversation(workspaceId);
+    conversationIdRef.current = null;
     setConversationId(null);
     setMessages([]);
     setMessagePage(null);
     setLiveEvents([]);
     setProgress('');
     setError(null);
-  }, [workspaceId]);
+  }, [beginConversationView, workspaceId]);
 
   const materializeConversation = useCallback(async (): Promise<Conversation> => {
     const creation = createConversation(workspaceId, codexBackends);
@@ -1979,7 +2044,7 @@ function useAgentConversation(
   useEffect(() => {
     if (!enabled) return;
     let disposed = false;
-    let resumeController: AbortController | null = null;
+    let installedViewVersion: number | null = null;
     if (initializationPromise.current === null) {
       initializationPromise.current = (async () => {
         const rememberedId = activeConversationId(workspaceId);
@@ -1993,40 +2058,15 @@ function useAgentConversation(
         if (disposed) return;
         void refreshHistory();
         if (!conversation) {
+          conversationIdRef.current = null;
           setConversationId(null);
           setMessages([]);
           setMessagePage(null);
           return;
         }
+        installedViewVersion = beginConversationView();
         installConversation(conversation, false);
-        resumeController = new AbortController();
-        abortController.current = resumeController;
-        setStreamingState(true);
-        let resumedNamingScheduled = false;
-        const resumed = await resumeConversationTurn(
-          workspaceId,
-          conversation.id,
-          {
-            progress: setProgress,
-            event: (event) => setLiveEvents((current) => [...current, event]),
-            done: (completion) => {
-              resumedNamingScheduled = completion.namingScheduled;
-            },
-          },
-          resumeController.signal,
-        );
-        if (disposed) return;
-        abortController.current = null;
-        setStreamingState(false);
-        if (resumed) {
-          const refreshed = await getConversation(workspaceId, conversation.id);
-          if (refreshed && !disposed) {
-            setMessages(refreshed.messages);
-            setMessagePage(refreshed.message_page ?? null);
-          }
-          setLiveEvents([]);
-          if (resumedNamingScheduled) void pollGeneratedNames(conversation.id);
-        }
+        await resumeConversationView(conversation.id, installedViewVersion);
       } catch (caught) {
         if (initializationPromise.current === currentInitialization) {
           initializationPromise.current = null;
@@ -2039,13 +2079,21 @@ function useAgentConversation(
     })();
     return () => {
       disposed = true;
-      resumeController?.abort();
+      if (
+        installedViewVersion !== null &&
+        conversationViewVersion.current === installedViewVersion
+      ) {
+        conversationViewVersion.current += 1;
+        abortController.current?.abort();
+        abortController.current = null;
+      }
     };
   }, [
+    beginConversationView,
     enabled,
     installConversation,
-    pollGeneratedNames,
     refreshHistory,
+    resumeConversationView,
     setStreamingState,
     workspaceId,
   ]);
@@ -2427,7 +2475,7 @@ export default function AgentPane({
         currentId={conversation.conversationId}
         loading={conversation.historyLoading}
         error={conversation.historyError}
-        disabled={conversation.streaming}
+        deletionDisabled={conversation.streaming}
         onClose={() => setHistoryOpen(false)}
         onTogglePersistent={toggleHistoryPinned}
         onNew={async () => {

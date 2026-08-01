@@ -27,6 +27,7 @@ import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import { tokens } from '../../theme';
+import CodexBackendPicker from './CodexBackendPicker';
 import ConversationCatalog from './ConversationCatalog';
 import ExperimentCatalog from './ExperimentCatalog';
 import WorkspacePicker from './WorkspacePicker';
@@ -194,7 +195,18 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
       .then((catalog) => {
         if (disposed) return;
         setBackendOptions(catalog.backends);
-        setCodexBackends(catalog.defaults);
+        // A default may name a backend the host cannot serve; never preselect one.
+        const firstAvailable = catalog.backends.find((backend) => backend.available);
+        const usable = (backend: CodexBackendId) =>
+          catalog.backends.some((option) => option.id === backend && option.available);
+        setCodexBackends({
+          orchestrator: usable(catalog.defaults.orchestrator)
+            ? catalog.defaults.orchestrator
+            : (firstAvailable?.id ?? catalog.defaults.orchestrator),
+          implementer: usable(catalog.defaults.implementer)
+            ? catalog.defaults.implementer
+            : (firstAvailable?.id ?? catalog.defaults.implementer),
+        });
       })
       .catch(() => undefined);
     return () => {
@@ -231,13 +243,27 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
           onSelect={setSelectedWorkspaceId}
         />
       </Box>
+      {/* Centred on the page axis and spaced to read as the composer's own header. */}
+      <Stack
+        direction="row"
+        justifyContent="center"
+        sx={{ maxWidth: 760, mx: 'auto', mt: 2.6, mb: 1.4 }}
+      >
+        <CodexBackendPicker
+          options={backendOptions}
+          selection={codexBackends}
+          size="md"
+          onChange={(role, backend) =>
+            setCodexBackends((current) => ({ ...current, [role]: backend }))
+          }
+        />
+      </Stack>
       <Box
         component="form"
         onSubmit={submit}
         sx={{
           maxWidth: 760,
           mx: 'auto',
-          mt: 2.1,
           p: 1.4,
           border: `1px solid ${tokens.hair}`,
           borderRadius: 1.4,
@@ -269,50 +295,11 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
           }}
         />
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 1 }}>
-          <Stack sx={{ gap: 0.65 }}>
-            <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
-              {selectedWorkspace
-                ? `New conversation in ${selectedWorkspace.displayName}`
-                : 'A new workspace will be created'}
-            </Typography>
-            <Stack direction="row" sx={{ gap: 1 }}>
-              {(['orchestrator', 'implementer'] as const).map((role) => (
-                <Stack key={role} direction="row" alignItems="center" sx={{ gap: 0.5 }}>
-                  <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
-                    {role === 'orchestrator' ? 'Orchestrator' : 'Implementer'}
-                  </Typography>
-                  <Box
-                    component="select"
-                    aria-label={`${role} Codex backend`}
-                    value={codexBackends[role]}
-                    onChange={(event) =>
-                      setCodexBackends((current) => ({
-                        ...current,
-                        [role]: event.target.value as CodexBackendId,
-                      }))
-                    }
-                    sx={{
-                      height: 25,
-                      px: 0.65,
-                      border: `1px solid ${tokens.hair}`,
-                      borderRadius: 0.65,
-                      background: tokens.paper,
-                      color: tokens.sub,
-                      fontFamily: tokens.mono,
-                      fontSize: 8.5,
-                    }}
-                  >
-                    {backendOptions.map((backend) => (
-                      <option key={backend.id} value={backend.id} disabled={!backend.available}>
-                        {backend.label}
-                        {backend.available ? '' : ' (unavailable)'}
-                      </option>
-                    ))}
-                  </Box>
-                </Stack>
-              ))}
-            </Stack>
-          </Stack>
+          <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
+            {selectedWorkspace
+              ? `New conversation in ${selectedWorkspace.displayName}`
+              : 'A new workspace will be created'}
+          </Typography>
           <ButtonBase
             type="submit"
             disabled={!prompt.trim() || creating}

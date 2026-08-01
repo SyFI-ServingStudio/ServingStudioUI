@@ -124,8 +124,11 @@ describe('AgentPane', () => {
     const postMessage = vi.spyOn(window, 'postMessage');
     render(<AgentPane prompt="Compare TP choices." />);
 
-    expect(await screen.findByText('Orchestrator')).toBeInTheDocument();
-    expect(screen.getByText('Implementer')).toBeInTheDocument();
+    // Scoped to the transcript: the composer labels its backend tablets with the
+    // same role words.
+    const transcript = within(await screen.findByTestId('agent-message-column'));
+    expect(transcript.getByText('Orchestrator')).toBeInTheDocument();
+    expect(transcript.getByText('Implementer')).toBeInTheDocument();
     expect(screen.getByText('Answer')).toBeInTheDocument();
     expect(screen.getByText('Orchestrator to Implementer')).toBeInTheDocument();
     expect(screen.getByText('Implementer to Orchestrator')).toBeInTheDocument();
@@ -227,6 +230,99 @@ describe('AgentPane', () => {
     expect(await screen.findByText('The saved answer.')).toBeInTheDocument();
     expect(window.sessionStorage.getItem('vibesim.conversation.id.w_main')).toBe('c_older');
     expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
+  });
+
+  it('switches conversations without cancelling an active backend turn', async () => {
+    const runningConversation = {
+      id: 'c_test',
+      title: 'Running sweep',
+      messages: [{ role: 'user', content: 'Run the sweep.' }],
+    };
+    const savedConversation = {
+      id: 'c_saved',
+      title: 'Saved analysis',
+      messages: [
+        { role: 'user', content: 'Explain the result.' },
+        {
+          role: 'assistant',
+          content: 'Saved answer remains readable.',
+          activity: [{ kind: 'final', text: 'Saved answer remains readable.' }],
+        },
+      ],
+    };
+    let liveStreamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/codex-backends') {
+        return new Response(
+          JSON.stringify({
+            backends: [{ id: 'traditional', label: 'Traditional', model: '', available: true }],
+            defaults: { orchestrator: 'traditional', implementer: 'traditional' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url === '/api/workspaces/w_main/conversations') {
+        return new Response(
+          JSON.stringify({
+            conversations: [
+              { id: 'c_test', title: 'Running sweep', updated_at: 2 },
+              { id: 'c_saved', title: 'Saved analysis', updated_at: 1 },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes('/c_saved?')) {
+        return new Response(JSON.stringify(savedConversation), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/c_saved/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/c_test/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/c_test/messages') && init?.method === 'POST') {
+        const stream = new ReadableStream<Uint8Array>({
+          start(controller) {
+            liveStreamController = controller;
+            controller.enqueue(
+              new TextEncoder().encode('event: progress\ndata: {"text":"simulation running"}\n\n'),
+            );
+          },
+        });
+        init.signal?.addEventListener('abort', () => {
+          liveStreamController?.error(new DOMException('Detached from stream', 'AbortError'));
+        });
+        return new Response(stream, { status: 200 });
+      }
+      if (url.includes('/c_test?')) {
+        return new Response(JSON.stringify(runningConversation), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Continue profiling.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    expect(await screen.findByText('simulation running')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Open conversation history' }));
+    const savedRow = screen.getByRole('button', { name: 'Open Saved analysis' });
+    expect(savedRow).toBeEnabled();
+    await user.click(savedRow);
+
+    expect(await screen.findByText('Saved answer remains readable.')).toBeInTheDocument();
+    expect(window.sessionStorage.getItem('vibesim.conversation.id.w_main')).toBe('c_saved');
+    expect(
+      fetchMock.mock.calls.some(
+        ([input, init]) => String(input).endsWith('/cancel') && init?.method === 'POST',
+      ),
+    ).toBe(false);
   });
 
   it('loads every earlier message page instead of truncating a long migrated history', async () => {
