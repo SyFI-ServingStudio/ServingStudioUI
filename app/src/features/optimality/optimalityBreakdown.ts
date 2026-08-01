@@ -1,6 +1,6 @@
 import {
   OPTIMALITY_EPSILON_GPU_S,
-  type OptimalityIterationWaterfall,
+  type OptimalityIterationWaterfallData,
   type OptimalityLevel,
 } from '../../domain/optimality';
 import type { SubjectResult } from '../../domain/subject';
@@ -117,7 +117,7 @@ export function projectOptimalityBreakdown(
 /** Project the independent exact-iteration resource into the same one-row
  * waterfall view used by aggregate cluster/pool/worker levels. */
 export function projectIterationOptimalityBreakdown(
-  waterfall: OptimalityIterationWaterfall,
+  waterfall: OptimalityIterationWaterfallData,
 ): ReadyOptimalityBreakdown {
   return {
     status: 'ready',

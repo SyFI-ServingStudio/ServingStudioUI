@@ -160,7 +160,7 @@ function validateOperationRange(
   });
 }
 
-const groupInputSchema = z
+export const costTreeGroupInputSchema = z
   .object({
     batch_tokens: nonNegativeInteger,
     prefill_tokens: nonNegativeInteger,
@@ -169,8 +169,21 @@ const groupInputSchema = z
     prefill_chunk_pairs: z.array(z.tuple([nonNegativeInteger, nonNegativeInteger])),
   })
   .strict();
-const exactCostTreeSchema = z
-  .object({
+export const exactCostTreeBodySchema = z.object({
+  interval: intervalSchema,
+  inputs: z.array(
+    z
+      .object({
+        section: nonEmptyString,
+        layer: integer.nullable(),
+        groups: z.array(costTreeGroupInputSchema),
+      })
+      .strict(),
+  ),
+  tree: z.unknown(),
+});
+const exactCostTreeSchema = exactCostTreeBodySchema
+  .extend({
     schema_version: z.literal(1),
     identity: z
       .object({
@@ -183,23 +196,44 @@ const exactCostTreeSchema = z
         layer: integer,
       })
       .strict(),
-    interval: intervalSchema,
-    inputs: z.array(
-      z
-        .object({
-          section: nonEmptyString,
-          layer: integer.nullable(),
-          groups: z.array(groupInputSchema),
-        })
-        .strict(),
-    ),
-    tree: z.unknown(),
   })
   .strict();
 
 const asId = (value: string | number): string => String(value);
 const sameWorker = (left: WorkerRef, right: WorkerRef): boolean =>
   left.poolTag === right.poolTag && left.workerId === right.workerId;
+
+export function decodeExactCostTreeBody(
+  detail: z.infer<typeof exactCostTreeBodySchema>,
+): Pick<WorkerCostTreeDetail, 'interval' | 'inputs' | 'tree'> {
+  return {
+    interval: Object.freeze({ startMs: detail.interval.start_ms, endMs: detail.interval.end_ms }),
+    inputs: Object.freeze(
+      detail.inputs.map((inputRow) =>
+        Object.freeze({
+          section: inputRow.section,
+          layer: inputRow.layer,
+          groups: Object.freeze(
+            inputRow.groups.map((group) =>
+              Object.freeze({
+                batchTokens: group.batch_tokens,
+                prefillTokens: group.prefill_tokens,
+                decodeRequestCount: group.decode_request_count,
+                decodeKvTotal: group.decode_kv_total,
+                prefillChunkPairs: Object.freeze(
+                  group.prefill_chunk_pairs.map(([prefix, append]) =>
+                    Object.freeze([prefix, append] as const),
+                  ),
+                ),
+              }),
+            ),
+          ),
+        }),
+      ),
+    ),
+    tree: annotate(detail.tree),
+  };
+}
 
 function decodeOperation(operation: z.infer<typeof operationSchema>): OperationSummary {
   return Object.freeze({
@@ -295,30 +329,6 @@ export function parseAnalyzerV1WorkerCostTree(
     ...expected,
     section: detail.identity.section,
     layer: detail.identity.layer,
-    interval: Object.freeze({ startMs: detail.interval.start_ms, endMs: detail.interval.end_ms }),
-    inputs: Object.freeze(
-      detail.inputs.map((inputRow) =>
-        Object.freeze({
-          section: inputRow.section,
-          layer: inputRow.layer,
-          groups: Object.freeze(
-            inputRow.groups.map((group) =>
-              Object.freeze({
-                batchTokens: group.batch_tokens,
-                prefillTokens: group.prefill_tokens,
-                decodeRequestCount: group.decode_request_count,
-                decodeKvTotal: group.decode_kv_total,
-                prefillChunkPairs: Object.freeze(
-                  group.prefill_chunk_pairs.map(([prefix, append]) =>
-                    Object.freeze([prefix, append] as const),
-                  ),
-                ),
-              }),
-            ),
-          ),
-        }),
-      ),
-    ),
-    tree: annotate(detail.tree),
+    ...decodeExactCostTreeBody(detail),
   });
 }

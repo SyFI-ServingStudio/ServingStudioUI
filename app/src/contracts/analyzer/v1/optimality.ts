@@ -7,7 +7,12 @@ import type {
   OptimalityKernelLadder,
   OptimalityKernelLadderData,
   OptimalityLevel,
+  OptimalityIterationWaterfallData,
 } from '../../../domain/optimality';
+import type {
+  PredictionOptimalityKernelLadder,
+  PredictionOptimalityWaterfall,
+} from '../../../domain/prediction';
 import type { WorkerRef } from '../../../domain/worker';
 import type { SubjectResult } from '../../../domain/subject';
 import {
@@ -475,6 +480,41 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
   ) {
     throw new Error('Iteration optimality ladder identity does not match the request.');
   }
+  validateExactKernelLadder(wire);
+  const ladder = toKernelLadder(
+    {
+      key: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
+      label: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
+      pool_tag: wire.worker.pool_tag,
+      worker_id: wire.worker.worker_id,
+      rungs: wire.rungs,
+      special_chunks: wire.special_chunks,
+      kernels: wire.kernels,
+      necessary_work_mode: wire.meta.necessary_work_mode,
+      necessary_work_replication_factor: wire.meta.necessary_work_replication_factor,
+    },
+    expectedIterId,
+  );
+  const counterfactual =
+    wire.meta.necessary_work_mode === 'replicated_large_batch'
+      ? `${wire.meta.necessary_work_replication_factor ?? 1}× large-batch`
+      : wire.meta.necessary_work_mode === 'batch_locked'
+        ? 'fixed batch'
+        : null;
+  return {
+    ...ladder,
+    label: counterfactual === null ? ladder.label : `${ladder.label} · ${counterfactual}`,
+    necessaryWorkMode: wire.meta.necessary_work_mode,
+    necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
+  };
+}
+
+type ExactKernelLadderValidationWire = Pick<
+  z.infer<typeof iterationKernelLadderSchema>,
+  'rungs' | 'special_chunks' | 'kernels'
+>;
+
+function validateExactKernelLadder(wire: ExactKernelLadderValidationWire): void {
   const hasNecessaryRung = wire.rungs.segmented_necessary !== null;
   if (hasNecessaryRung !== (wire.rungs.hardware_necessary !== null)) {
     throw new Error('Iteration R6/R7 necessary-work rungs must be available together.');
@@ -507,31 +547,44 @@ export function decodeAnalyzerV1IterationOptimalityKernelLadder(
       throw new Error('Iteration aggregate fusion chunk does not reconcile R6 with R7.');
     }
   }
-  const ladder = toKernelLadder(
-    {
-      key: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
-      label: `${wire.worker.pool_tag}/${String(wire.worker.worker_id)}`,
-      pool_tag: wire.worker.pool_tag,
-      worker_id: wire.worker.worker_id,
-      rungs: wire.rungs,
-      special_chunks: wire.special_chunks,
-      kernels: wire.kernels,
-      necessary_work_mode: wire.meta.necessary_work_mode,
-      necessary_work_replication_factor: wire.meta.necessary_work_replication_factor,
-    },
-    String(wire.iter_id),
-  );
+}
+
+const predictionKernelLadderSchema = iterationKernelLadderSchema
+  .omit({ worker: true, iter_id: true })
+  .extend({
+    prediction_id: wireIdentityString,
+    case_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+  });
+
+export function decodeAnalyzerV1PredictionOptimalityKernelLadder(
+  input: unknown,
+  expectedPredictionId: string,
+  expectedCaseId: string,
+): PredictionOptimalityKernelLadder {
+  const wire = predictionKernelLadderSchema.parse(input);
+  if (wire.prediction_id !== expectedPredictionId || String(wire.case_id) !== expectedCaseId) {
+    throw new Error('Prediction optimality ladder identity does not match the request.');
+  }
+  validateExactKernelLadder(wire);
   const counterfactual =
     wire.meta.necessary_work_mode === 'replicated_large_batch'
       ? `${wire.meta.necessary_work_replication_factor ?? 1}× large-batch`
       : wire.meta.necessary_work_mode === 'batch_locked'
         ? 'fixed batch'
         : null;
+  const data = toKernelLadderData({
+    label: `case ${expectedCaseId}`,
+    rungs: wire.rungs,
+    special_chunks: wire.special_chunks,
+    kernels: wire.kernels,
+    necessary_work_mode: wire.meta.necessary_work_mode,
+    necessary_work_replication_factor: wire.meta.necessary_work_replication_factor,
+  });
   return {
-    ...ladder,
-    label: counterfactual === null ? ladder.label : `${ladder.label} · ${counterfactual}`,
-    necessaryWorkMode: wire.meta.necessary_work_mode,
-    necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
+    ...data,
+    label: counterfactual === null ? data.label : `${data.label} · ${counterfactual}`,
+    predictionId: expectedPredictionId,
+    caseId: expectedCaseId,
   };
 }
 
@@ -601,6 +654,53 @@ export function decodeAnalyzerV1IterationOptimalityWaterfall(
     peaksSource: wire.meta.peaks_source,
     necessaryWorkMode: wire.meta.necessary_work_mode,
     necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
+  };
+}
+
+const predictionWaterfallSchema = iterationWaterfallSchema
+  .omit({ worker: true, iter_id: true })
+  .extend({
+    prediction_id: wireIdentityString,
+    case_id: z.union([z.number().int().nonnegative().safe(), wireIdentityString]),
+  });
+
+export function decodeAnalyzerV1PredictionOptimalityWaterfall(
+  input: unknown,
+  expectedPredictionId: string,
+  expectedCaseId: string,
+): PredictionOptimalityWaterfall {
+  const wire = predictionWaterfallSchema.parse(input);
+  if (wire.prediction_id !== expectedPredictionId || String(wire.case_id) !== expectedCaseId) {
+    throw new Error('Prediction optimality waterfall identity does not match the request.');
+  }
+  if (wire.level.level !== 'iteration') {
+    throw new Error('Prediction optimality waterfall must contain an iteration level.');
+  }
+  const sum = bucketSum(wire.level);
+  const tolerance = Math.max(1e-6, wire.level.total * 1e-4);
+  if (Math.abs(sum - wire.level.total) > tolerance) {
+    throw new Error('Prediction optimality waterfall buckets do not reconcile with its total.');
+  }
+  const level = toLevel(wire.level);
+  const counterfactual =
+    wire.meta.necessary_work_mode === 'replicated_large_batch'
+      ? `${wire.meta.necessary_work_replication_factor ?? 1}× large-batch`
+      : wire.meta.necessary_work_mode === 'batch_locked'
+        ? 'fixed batch'
+        : null;
+  const data: OptimalityIterationWaterfallData = {
+    level:
+      counterfactual === null ? level : { ...level, label: `${level.label} · ${counterfactual}` },
+    gpuName: wire.meta.gpu_name,
+    gpuSpecMatched: wire.meta.gpu_spec_matched,
+    peaksSource: wire.meta.peaks_source,
+    necessaryWorkMode: wire.meta.necessary_work_mode,
+    necessaryWorkReplicationFactor: wire.meta.necessary_work_replication_factor,
+  };
+  return {
+    ...data,
+    predictionId: expectedPredictionId,
+    caseId: expectedCaseId,
   };
 }
 

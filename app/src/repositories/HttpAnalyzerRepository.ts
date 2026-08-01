@@ -5,11 +5,29 @@ import {
 } from '../contracts/analyzer/v1/runCatalog';
 import { parseAnalyzerV1RunDescriptor } from '../contracts/analyzer/v1/runDescriptor';
 import { parseAnalyzerV1RunSummary } from '../contracts/analyzer/v1/runSummary';
-import { parseAnalyzerV1KernelThroughputAnalysis } from '../contracts/analyzer/v1/kernelThroughputAnalysis';
+import {
+  parseAnalyzerV1KernelThroughputAnalysis,
+  parseAnalyzerV1PredictionKernelThroughputAnalysis,
+} from '../contracts/analyzer/v1/kernelThroughputAnalysis';
 import {
   decodeAnalyzerV1IterationOptimalityKernelLadder,
   decodeAnalyzerV1IterationOptimalityWaterfall,
+  decodeAnalyzerV1PredictionOptimalityKernelLadder,
+  decodeAnalyzerV1PredictionOptimalityWaterfall,
 } from '../contracts/analyzer/v1/optimality';
+import {
+  parseAnalyzerV1PredictionCases,
+  parseAnalyzerV1PredictionCostTree,
+  parseAnalyzerV1PredictionDescriptor,
+} from '../contracts/analyzer/v1/prediction';
+import {
+  parseHardwareGpu,
+  parseKernelMeasurementDescriptor,
+  parseKernelMeasurementSummary,
+  parseKernelProfileCurve,
+  parseKernelProfileDescriptor,
+  parseOfflineCatalogs,
+} from '../contracts/analyzer/v1/offlineResource';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
 import {
@@ -402,6 +420,148 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     resourceUrl.searchParams.set('mode', mode);
     const input = await this.client.readJson(resourceUrl);
     return decodeAnalyzerV1IterationOptimalityWaterfall(input, worker, iterId);
+  }
+
+  async getPredictionDescriptor(predictionId: string) {
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const input = await this.client.readJson(
+      this.client.endpoint(`predictions/${selectedPredictionId}/descriptor`),
+    );
+    return parseAnalyzerV1PredictionDescriptor(input, predictionId);
+  }
+
+  async getPredictionCases(predictionId: string, page: { offset: number; limit: number }) {
+    if (!Number.isSafeInteger(page.offset) || page.offset < 0) {
+      throw new HttpRunBindingError('Prediction case offset must be a non-negative integer.');
+    }
+    if (!Number.isSafeInteger(page.limit) || page.limit < 1 || page.limit > 128) {
+      throw new HttpRunBindingError('Prediction case limit must be an integer from 1 to 128.');
+    }
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const resourceUrl = this.client.endpoint(`predictions/${selectedPredictionId}/cases`);
+    resourceUrl.searchParams.set('offset', String(page.offset));
+    resourceUrl.searchParams.set('limit', String(page.limit));
+    const input = await this.client.readJson(resourceUrl);
+    return parseAnalyzerV1PredictionCases(input, predictionId);
+  }
+
+  async getPredictionCostTree(predictionId: string, caseId: string, operationId: string) {
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const selectedCaseId = routeSegment(caseId, 'Prediction case id');
+    const selectedOperationId = routeSegment(operationId, 'Prediction operation id');
+    const path = `predictions/${selectedPredictionId}/cases/${selectedCaseId}/operations/${selectedOperationId}/cost-tree`;
+    const input = await this.client.readJson(this.client.endpoint(path));
+    return parseAnalyzerV1PredictionCostTree(input, { predictionId, caseId, operationId });
+  }
+
+  async getPredictionKernelThroughputAnalysis(
+    predictionId: string,
+    caseId: string,
+    operationId: string,
+    leafId: number,
+  ) {
+    if (!Number.isSafeInteger(leafId) || leafId < 0) {
+      throw new HttpRunBindingError('Kernel leaf id must be a non-negative safe integer.');
+    }
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const selectedCaseId = routeSegment(caseId, 'Prediction case id');
+    const selectedOperationId = routeSegment(operationId, 'Prediction operation id');
+    const path = `predictions/${selectedPredictionId}/cases/${selectedCaseId}/operations/${selectedOperationId}/cost-tree/${leafId}/kernel-throughput-analysis`;
+    const input = await this.client.readJson(this.client.endpoint(path));
+    return parseAnalyzerV1PredictionKernelThroughputAnalysis(
+      input,
+      { predictionId, caseId, operationId },
+      leafId,
+    );
+  }
+
+  async getPredictionKernelInputDistribution(predictionId: string) {
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    try {
+      const path = `predictions/${selectedPredictionId}/subjects/kernel-input-distribution/payload`;
+      const input = await this.client.readJson(this.client.endpoint(path));
+      return decodeAnalyzerV1SubjectPayload('kernelInputDistribution', input);
+    } catch (error) {
+      return subjectTransportFailure('kernelInputDistribution', error);
+    }
+  }
+
+  async getPredictionOptimalityKernelLadder(
+    predictionId: string,
+    caseId: string,
+    mode: OptimalityMode,
+  ) {
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const selectedCaseId = routeSegment(caseId, 'Prediction case id');
+    const resourceUrl = this.client.endpoint(
+      `predictions/${selectedPredictionId}/cases/${selectedCaseId}/optimality-kernel-ladder`,
+    );
+    resourceUrl.searchParams.set('mode', mode);
+    const input = await this.client.readJson(resourceUrl);
+    return decodeAnalyzerV1PredictionOptimalityKernelLadder(input, predictionId, caseId);
+  }
+
+  async getPredictionOptimalityWaterfall(
+    predictionId: string,
+    caseId: string,
+    mode: OptimalityMode,
+  ) {
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const selectedCaseId = routeSegment(caseId, 'Prediction case id');
+    const resourceUrl = this.client.endpoint(
+      `predictions/${selectedPredictionId}/cases/${selectedCaseId}/optimality-waterfall`,
+    );
+    resourceUrl.searchParams.set('mode', mode);
+    const input = await this.client.readJson(resourceUrl);
+    return decodeAnalyzerV1PredictionOptimalityWaterfall(input, predictionId, caseId);
+  }
+
+  async listOfflineResources() {
+    const [predictions, profiles, measurements] = await Promise.all([
+      this.client.readJson(this.client.endpoint('predictions')),
+      this.client.readJson(this.client.endpoint('kernel-profiles')),
+      this.client.readJson(this.client.endpoint('kernel-measurements')),
+    ]);
+    return parseOfflineCatalogs(predictions, profiles, measurements);
+  }
+
+  async getKernelProfileDescriptor(profileId: string) {
+    const selectedProfileId = routeSegment(profileId, 'Kernel profile id');
+    const input = await this.client.readJson(
+      this.client.endpoint(`kernel-profiles/${selectedProfileId}/descriptor`),
+    );
+    return parseKernelProfileDescriptor(input);
+  }
+
+  async getKernelProfileCurve(profileId: string) {
+    const selectedProfileId = routeSegment(profileId, 'Kernel profile id');
+    const input = await this.client.readJson(
+      this.client.endpoint(`kernel-profiles/${selectedProfileId}/curve`),
+    );
+    return parseKernelProfileCurve(input);
+  }
+
+  async getKernelMeasurementDescriptor(measurementId: string) {
+    const selectedMeasurementId = routeSegment(measurementId, 'Kernel measurement id');
+    const descriptorUrl = this.client.endpoint(
+      `kernel-measurements/${selectedMeasurementId}/descriptor`,
+    );
+    const input = await this.client.readJson(descriptorUrl);
+    return parseKernelMeasurementDescriptor(input, this.client.apiBaseUrl);
+  }
+
+  async getKernelMeasurementSummary(measurementId: string) {
+    const selectedMeasurementId = routeSegment(measurementId, 'Kernel measurement id');
+    const input = await this.client.readJson(
+      this.client.endpoint(`kernel-measurements/${selectedMeasurementId}/summary`),
+    );
+    return parseKernelMeasurementSummary(input);
+  }
+
+  async getHardwareGpu(gpuName: string) {
+    const resourceUrl = this.client.endpoint('hardware/gpus');
+    resourceUrl.searchParams.set('name', gpuName);
+    return parseHardwareGpu(await this.client.readJson(resourceUrl));
   }
 
   async getTrace(runId: string, traceName: string): Promise<TraceResource> {

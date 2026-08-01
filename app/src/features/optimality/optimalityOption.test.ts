@@ -35,13 +35,21 @@ describe('optimalityStackOption', () => {
     expect(option).toMatchObject({
       tooltip: { trigger: 'item' },
       title: [{ text: 'Aggregate' }, { text: 'Per worker' }],
-      grid: [{ top: 62 }, { top: 156 }],
+      grid: [
+        { left: 12, top: 62, containLabel: true },
+        { left: 12, top: 156, containLabel: true },
+      ],
       xAxis: [
         { gridIndex: 0, name: 'Pool GPU·seconds', position: 'top' },
         { gridIndex: 1, name: 'Worker GPU·seconds', position: 'bottom' },
       ],
       yAxis: [{ gridIndex: 0, data: ['attn · 100.0 GPU·s'] }, { gridIndex: 1 }],
     });
+
+    expect(option.yAxis).toMatchObject([
+      { axisLabel: { width: 188, overflow: 'truncate', ellipsis: '…' } },
+      { axisLabel: { width: 188, overflow: 'truncate', ellipsis: '…' } },
+    ]);
 
     const series = option.series;
     expect(Array.isArray(series)).toBe(true);
@@ -77,5 +85,20 @@ describe('optimalityStackOption', () => {
     expect(Array.isArray(series)).toBe(true);
     if (!Array.isArray(series)) return;
     expect(series.map((entry) => entry.data)).toEqual([[10], [30], [35], [25]]);
+  });
+
+  it('contains long scope labels inside the chart without changing their data value', () => {
+    const label = 'main/0 / iter 40 · 10000× large-batch / unified.post_attn.post_norm';
+    const option = optimalityStackOption(
+      [row(label, 0.00008, 0.00001)],
+      OPTIMALITY_FAMILIES,
+      CHART_THEME,
+    );
+
+    expect(option.grid).toMatchObject({ left: 12, containLabel: true });
+    expect(option.yAxis).toMatchObject({
+      data: [`${label} · 9.00e-5 GPU·s`],
+      axisLabel: { width: 188, overflow: 'truncate', ellipsis: '…' },
+    });
   });
 });

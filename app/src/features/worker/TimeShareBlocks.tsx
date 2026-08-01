@@ -10,6 +10,7 @@ import {
   leafByName,
   fmtMs,
   fmtPct,
+  type CostTree,
 } from '../../domain/cost-tree';
 
 interface Seg {
@@ -110,15 +111,16 @@ function Bar({
   note,
   segs,
   clickable,
+  selectedLeafId,
+  onSelectKernel,
 }: {
   title: string;
   note?: string;
   segs: Seg[];
   clickable: boolean;
+  selectedLeafId: number | null;
+  onSelectKernel: (leafId: number) => void;
 }) {
-  const scope = useViz((state) => state.scope);
-  const leafId = useViz((state) => state.leafId);
-  const selectKernel = useViz((state) => state.selectKernel);
   return (
     <Stack spacing={0.9}>
       <Stack
@@ -157,8 +159,7 @@ function Bar({
         }}
       >
         {segs.map((s, i) => {
-          const selected =
-            clickable && scope === 'kernel' && s.nodeId != null && s.nodeId === leafId;
+          const selected = clickable && s.nodeId != null && s.nodeId === selectedLeafId;
           const tinyShare = clickable && s.pct < MIN_INTERACTIVE_SHARE_PCT;
           const interactive = clickable && s.nodeId != null && !tinyShare;
           const accessibleLabel = `${s.full} — ${fmtMs(s.ms)} · ${fmtPct(s.pct)}`;
@@ -173,7 +174,7 @@ function Bar({
                 onClick={
                   interactive
                     ? () => {
-                        if (s.nodeId !== null) selectKernel(s.nodeId);
+                        if (s.nodeId !== null) onSelectKernel(s.nodeId);
                       }
                     : undefined
                 }
@@ -251,12 +252,32 @@ function Bar({
 
 export default function TimeShareBlocks() {
   const treeState = useActiveWorkerTreeState();
+  const scope = useViz((state) => state.scope);
+  const leafId = useViz((state) => state.leafId);
+  const selectKernel = useViz((state) => state.selectKernel);
   if (treeState.status !== 'ready') {
     throw new Error(
       `TimeShareBlocks requires ready worker evidence, received ${treeState.status}.`,
     );
   }
-  const tree = treeState.tree;
+  return (
+    <TimeShareBlocksView
+      tree={treeState.tree}
+      selectedLeafId={scope === 'kernel' ? leafId : null}
+      onSelectKernel={selectKernel}
+    />
+  );
+}
+
+export function TimeShareBlocksView({
+  tree,
+  selectedLeafId,
+  onSelectKernel,
+}: {
+  tree: CostTree;
+  selectedLeafId: number | null;
+  onSelectKernel: (leafId: number) => void;
+}) {
   const lt = criticalLeafTotals(tree);
   const palette = MINERAL_PALETTE;
 
@@ -326,12 +347,20 @@ export default function TimeShareBlocks() {
         </Box>
       </Box>
       <Stack spacing={1.65}>
-        <Bar title="by kernel family" segs={groupSegs} clickable={false} />
+        <Bar
+          title="by kernel family"
+          segs={groupSegs}
+          clickable={false}
+          selectedLeafId={selectedLeafId}
+          onSelectKernel={onSelectKernel}
+        />
         <Bar
           title="by kernel position"
           note="critical path · large shares select"
           segs={posSegs}
           clickable
+          selectedLeafId={selectedLeafId}
+          onSelectKernel={onSelectKernel}
         />
         <PalettePreviewBar palette={palette} />
         <Stack

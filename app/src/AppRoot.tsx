@@ -1,7 +1,8 @@
 import App from './App';
 import { installAnalyzerSelectionPublisher } from './application/analyzerSelection';
-import { appViewFromHash } from './application/appRoute';
+import { appViewFromHash, predictionIdFromHash } from './application/appRoute';
 import { ChartFocusProvider } from './components/ChartFocusProvider';
+import FocusDialog from './components/FocusDialog';
 import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
   analyzerEvidenceHref,
@@ -23,6 +24,9 @@ const WorkspaceShell = lazy(() =>
 );
 const JobResultPage = lazy(() =>
   import('./features/job').then((feature) => ({ default: feature.JobResultPage })),
+);
+const PredictionPage = lazy(() =>
+  import('./features/prediction').then((feature) => ({ default: feature.PredictionPage })),
 );
 
 /** Connects app navigation identity to otherwise-local chart focus state. */
@@ -98,17 +102,21 @@ export default function AppRoot() {
   if (view === 'entry') content = <EntryPage />;
   else if (view === 'agent') content = null;
   else if (view === 'aggregate') content = <SweepPage integrated />;
-  else if (view === 'job') content = <JobResultPage />;
-  else {
-    content = (
-      <ChartFocusProvider resetKey={runId}>
-        <App />
-      </ChartFocusProvider>
-    );
-  }
+  else if (view === 'prediction') {
+    const predictionId = predictionIdFromHash(locationHash);
+    content = predictionId === null ? null : <PredictionPage predictionId={predictionId} />;
+  } else if (view === 'job') content = <JobResultPage />;
+  else content = <App />;
+  // Chart cards are shared by run, sweep, job, and prediction surfaces. Their
+  // provider and single dialog therefore belong to the route root rather than
+  // the legacy run page. A route/resource change invalidates an open snapshot.
+  const chartFocusResetKey = view === 'run' ? `run:${runId ?? ''}` : locationHash;
   return (
     <Suspense fallback={null}>
-      {view === 'entry' ? content : <WorkspaceShell view={view}>{content}</WorkspaceShell>}
+      <ChartFocusProvider resetKey={chartFocusResetKey}>
+        {view === 'entry' ? content : <WorkspaceShell view={view}>{content}</WorkspaceShell>}
+        <FocusDialog />
+      </ChartFocusProvider>
     </Suspense>
   );
 }

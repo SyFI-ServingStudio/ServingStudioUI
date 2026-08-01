@@ -6,7 +6,7 @@ import EChart from '../../components/EChart';
 import type { LeafNode } from '../../domain/cost-tree';
 import type { JsonValue } from '../../domain/cost-tree';
 import type {
-  KernelThroughputAnalysis as Analysis,
+  KernelThroughputAnalysisData as Analysis,
   KernelThroughputPoint,
 } from '../../domain/kernelThroughputAnalysis';
 import { tokens } from '../../theme';
@@ -69,11 +69,11 @@ function metric(kind: ThroughputMetric | null, node: LeafNode) {
   };
 }
 
-export default function KernelThroughputAnalysis({
+export default function KernelThroughputAnalysis<AnalysisData extends Analysis>({
   analysis,
   node,
 }: {
-  analysis: Analysis;
+  analysis: AnalysisData;
   node: LeafNode;
 }) {
   const xField = analysis.inputFields[0];

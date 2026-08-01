@@ -2,15 +2,24 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
-import { useActiveRun, useActiveRunDescriptor } from '../../application/ActiveRunProvider';
+import {
+  useActiveRun,
+  useActiveRunDescriptor,
+  useActiveRunSubject,
+} from '../../application/ActiveRunProvider';
 import { useKernelThroughputAnalysisQuery } from '../../application/queries';
 import { currentWorker } from '../../application/runSelection';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import SurfaceCard from '../../components/SurfaceCard';
 import { colorOf, fmtMs, fmtPct, kindLabel, leafById, type LeafNode } from '../../domain/cost-tree';
+import type {
+  KernelThroughputAnalysis as WorkerKernelThroughputAnalysis,
+  KernelThroughputAnalysisData,
+} from '../../domain/kernelThroughputAnalysis';
+import type { SubjectResult } from '../../domain/subject';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
-import KernelInputDistributionEvidence from './KernelInputDistributionEvidence';
+import { KernelInputDistributionEvidenceView } from './KernelInputDistributionEvidence';
 import KernelThroughputAnalysis from './KernelThroughputAnalysis';
 
 function Item({
@@ -246,6 +255,28 @@ function RealKernelEvidence({ node }: { node: LeafNode }) {
     descriptor.analysis?.revision,
     treeState.status === 'ready',
   );
+  const distributionSubject = useActiveRunSubject('kernelInputDistribution');
+  return (
+    <KernelEvidenceView node={node} analysis={analysis} distributionSubject={distributionSubject} />
+  );
+}
+
+interface KernelAnalysisState {
+  readonly data?: KernelThroughputAnalysisData | WorkerKernelThroughputAnalysis;
+  readonly supported: boolean;
+  readonly isError: boolean;
+  readonly error?: unknown;
+}
+
+export function KernelEvidenceView({
+  node,
+  analysis,
+  distributionSubject,
+}: {
+  node: LeafNode;
+  analysis: KernelAnalysisState;
+  distributionSubject: SubjectResult<'kernelInputDistribution'>;
+}) {
   return (
     <Box
       data-testid="kernel-evidence"
@@ -304,7 +335,8 @@ function RealKernelEvidence({ node }: { node: LeafNode }) {
           </Typography>
         </SurfaceCard>
       )}
-      <KernelInputDistributionEvidence
+      <KernelInputDistributionEvidenceView
+        subject={distributionSubject}
         positionName={node.slot.name}
         currentInput={node.stats.input}
       />
@@ -326,6 +358,27 @@ export default function KernelDetail({ height }: { height: number | string }) {
   const worker = currentWorker(run, { workerKey });
   const node = leafById(treeState.tree, leafId);
   if (node === null) return null;
+  return (
+    <KernelInspectorView
+      node={node}
+      height={height}
+      closeLabel={`Back to worker ${worker.ref.poolTag}/${worker.ref.workerId}`}
+      onClose={() => selectWorker(worker.ref)}
+    />
+  );
+}
+
+export function KernelInspectorView({
+  node,
+  height,
+  closeLabel,
+  onClose,
+}: {
+  node: LeafNode;
+  height: number | string;
+  closeLabel: string;
+  onClose: () => void;
+}) {
   const slot = node.slot;
   const color = colorOf(slot.kind);
   const decodedConfig = configFields(slot.kernelConfig);
@@ -381,9 +434,9 @@ export default function KernelDetail({ height }: { height: number | string }) {
           {kindLabel(slot.kind)}
         </Box>
         <IconButton
-          aria-label={`Back to worker ${worker.ref.poolTag}/${worker.ref.workerId}`}
+          aria-label={closeLabel}
           size="small"
-          onClick={() => selectWorker(worker.ref)}
+          onClick={onClose}
           sx={{ ml: 'auto', color: tokens.sub }}
         >
           <CloseIcon sx={{ fontSize: 16 }} />

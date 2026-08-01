@@ -13,6 +13,7 @@ import {
 } from './HttpAnalyzerRepository';
 
 const RUN_ID = 'opaque-live-run';
+const PREDICTION_ID = 'p_prediction_test';
 const UPDATED_AT = '2026-07-15T05:11:27Z';
 const REVISION = 'pipeline-generation-http-test';
 
@@ -119,6 +120,44 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
         peak_to_mean: 1,
       },
     },
+    [absolute(`/api/v1/predictions/${PREDICTION_ID}/descriptor`)]: {
+      body: {
+        schema_version: 1,
+        prediction_id: PREDICTION_ID,
+        kind: 'timing_predict',
+        display_name: '20260731_3_ui_timing_prediction',
+        selector: 'iter',
+        arch: { type: 'llama3_dense' },
+        gpu: { name: 'NVIDIA H200', count: 1 },
+        case_count: 2,
+        lifecycle: { prediction: 'complete', analysis: 'complete' },
+        resources: {
+          cases_href: `predictions/${PREDICTION_ID}/cases`,
+          kernel_input_distribution_href: `predictions/${PREDICTION_ID}/subjects/kernel-input-distribution/payload`,
+        },
+      },
+    },
+    [absolute(`/api/v1/predictions/${PREDICTION_ID}/cases?offset=0&limit=12`)]: {
+      body: {
+        schema_version: 1,
+        prediction_id: PREDICTION_ID,
+        range: { offset: 0, limit: 12, returned: 2, total: 2 },
+        cases: [
+          {
+            case_id: '0',
+            input: { groups: [{ prefill_chunk_pairs: [[0, 2048]] }] },
+            total_time_ms: 45.927,
+            operations: [{ operation_id: '0', section: 'unified', layer: -1, time_ms: 45.927 }],
+          },
+          {
+            case_id: '1',
+            input: { groups: [{ decode_count: 64, average_decode_length: 600 }] },
+            total_time_ms: 6.181,
+            operations: [{ operation_id: '0', section: 'unified', layer: -1, time_ms: 6.181 }],
+          },
+        ],
+      },
+    },
     [absolute(`/api/v1/runs/${RUN_ID}/revisions/${REVISION}/payloads/slo-general`)]: {
       body: sloPayload,
     },
@@ -181,6 +220,34 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
 }
 
 describe('HttpAnalyzerRepository', () => {
+  it('loads first-class prediction descriptor and bounded cases without a run binding', async () => {
+    const fetch = fakeAnalyzerFetch();
+    const repository = new HttpAnalyzerRepository({ fetch });
+
+    await expect(repository.getPredictionDescriptor(PREDICTION_ID)).resolves.toMatchObject({
+      predictionId: PREDICTION_ID,
+      archType: 'llama3_dense',
+      gpu: { name: 'NVIDIA H200', count: 1 },
+    });
+    await expect(
+      repository.getPredictionCases(PREDICTION_ID, { offset: 0, limit: 12 }),
+    ).resolves.toMatchObject({
+      predictionId: PREDICTION_ID,
+      total: 2,
+      cases: [
+        { caseId: '0', totalTimeMs: 45.927 },
+        { caseId: '1', totalTimeMs: 6.181 },
+      ],
+    });
+    expect(
+      fetch.mock.calls.some(
+        ([input]) =>
+          String(input) ===
+          absolute(`/api/v1/predictions/${PREDICTION_ID}/cases?offset=0&limit=12`),
+      ),
+    ).toBe(true);
+  });
+
   it('loads catalog, core artifacts and a subject through protocol links', async () => {
     const repository = new HttpAnalyzerRepository({ fetch: fakeAnalyzerFetch() });
 

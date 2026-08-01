@@ -143,6 +143,61 @@ export const analyzerQueryKeys = {
       `mode-${mode}`,
       `analysis-${analysisRevision}`,
     ] as const,
+  predictions: () => [...analyzerQueryKeys.all, 'predictions'] as const,
+  offlineResources: () => [...analyzerQueryKeys.all, 'offline-resources'] as const,
+  kernelProfile: (profileId: string, resource: 'descriptor' | 'curve') =>
+    [...analyzerQueryKeys.offlineResources(), 'kernel-profile', profileId, resource] as const,
+  kernelMeasurement: (measurementId: string, resource: 'descriptor' | 'summary') =>
+    [
+      ...analyzerQueryKeys.offlineResources(),
+      'kernel-measurement',
+      measurementId,
+      resource,
+    ] as const,
+  hardwareGpu: (gpuName: string) => [...analyzerQueryKeys.all, 'hardware', 'gpu', gpuName] as const,
+  predictionDescriptor: (predictionId: string) =>
+    [...analyzerQueryKeys.predictions(), predictionId, 'descriptor'] as const,
+  predictionCases: (predictionId: string, offset: number, limit: number) =>
+    [...analyzerQueryKeys.predictions(), predictionId, 'cases', offset, limit] as const,
+  predictionCostTree: (predictionId: string, caseId: string, operationId: string) =>
+    [
+      ...analyzerQueryKeys.predictions(),
+      predictionId,
+      'case',
+      caseId,
+      'operation',
+      operationId,
+      'cost-tree',
+    ] as const,
+  predictionKernelAnalysis: (
+    predictionId: string,
+    caseId: string,
+    operationId: string,
+    leafId: number,
+  ) =>
+    [
+      ...analyzerQueryKeys.predictionCostTree(predictionId, caseId, operationId),
+      'leaf',
+      leafId,
+      'kernel-throughput-analysis',
+    ] as const,
+  predictionKernelInputDistribution: (predictionId: string) =>
+    [...analyzerQueryKeys.predictions(), predictionId, 'kernel-input-distribution'] as const,
+  predictionOptimality: (
+    predictionId: string,
+    caseId: string,
+    resource: 'kernel-ladder' | 'waterfall',
+    mode: OptimalityMode,
+  ) =>
+    [
+      ...analyzerQueryKeys.predictions(),
+      predictionId,
+      'case',
+      caseId,
+      'optimality',
+      resource,
+      mode,
+    ] as const,
   workerOperations: (
     runId: string,
     worker: WorkerRef,
@@ -186,6 +241,65 @@ export const analyzerQueryKeys = {
   core: (runId: string, descriptorFingerprint: string) =>
     [...analyzerQueryKeys.runs(), runId, 'active-core', descriptorFingerprint] as const,
 };
+
+export function useOfflineResourcesQuery() {
+  const repository = useAnalyzerRepository();
+  const supported = repository.listOfflineResources !== undefined;
+  return useQuery({
+    queryKey: analyzerQueryKeys.offlineResources(),
+    queryFn: () => repository.listOfflineResources!(),
+    enabled: supported,
+    refetchInterval: CATALOG_POLL_INTERVAL_MS,
+  });
+}
+
+export function useKernelProfileQueries(profileId: string | null) {
+  const repository = useAnalyzerRepository();
+  const enabled =
+    profileId !== null &&
+    repository.getKernelProfileDescriptor !== undefined &&
+    repository.getKernelProfileCurve !== undefined;
+  const descriptor = useQuery({
+    queryKey: analyzerQueryKeys.kernelProfile(profileId ?? 'missing', 'descriptor'),
+    queryFn: () => repository.getKernelProfileDescriptor!(profileId!),
+    enabled,
+  });
+  const curve = useQuery({
+    queryKey: analyzerQueryKeys.kernelProfile(profileId ?? 'missing', 'curve'),
+    queryFn: () => repository.getKernelProfileCurve!(profileId!),
+    enabled,
+  });
+  return { descriptor, curve, supported: enabled || profileId === null };
+}
+
+export function useKernelMeasurementQueries(measurementId: string | null) {
+  const repository = useAnalyzerRepository();
+  const enabled =
+    measurementId !== null &&
+    repository.getKernelMeasurementDescriptor !== undefined &&
+    repository.getKernelMeasurementSummary !== undefined;
+  const descriptor = useQuery({
+    queryKey: analyzerQueryKeys.kernelMeasurement(measurementId ?? 'missing', 'descriptor'),
+    queryFn: () => repository.getKernelMeasurementDescriptor!(measurementId!),
+    enabled,
+  });
+  const summary = useQuery({
+    queryKey: analyzerQueryKeys.kernelMeasurement(measurementId ?? 'missing', 'summary'),
+    queryFn: () => repository.getKernelMeasurementSummary!(measurementId!),
+    enabled,
+  });
+  return { descriptor, summary, supported: enabled || measurementId === null };
+}
+
+export function useHardwareGpuQuery(gpuName: string | null) {
+  const repository = useAnalyzerRepository();
+  const enabled = gpuName !== null && repository.getHardwareGpu !== undefined;
+  return useQuery({
+    queryKey: analyzerQueryKeys.hardwareGpu(gpuName ?? 'missing'),
+    queryFn: () => repository.getHardwareGpu!(gpuName!),
+    enabled,
+  });
+}
 
 function coreDescriptorFingerprint(descriptor: RunDescriptor): string {
   return JSON.stringify({
@@ -616,6 +730,154 @@ export function useIterationOptimalityWaterfallQuery(
     staleTime: Infinity,
   });
   return Object.assign(query, { supported });
+}
+
+export function usePredictionDescriptorQuery(predictionId: string) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getPredictionDescriptor !== undefined;
+  const query = useQuery({
+    queryKey: analyzerQueryKeys.predictionDescriptor(predictionId),
+    queryFn: () => {
+      if (repository.getPredictionDescriptor === undefined) {
+        throw new Error('Timing prediction requires the live Analyzer service.');
+      }
+      return repository.getPredictionDescriptor(predictionId);
+    },
+    enabled: supported && predictionId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function usePredictionCasesQuery(predictionId: string, offset: number, limit: number) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getPredictionCases !== undefined;
+  const query = useQuery({
+    queryKey: analyzerQueryKeys.predictionCases(predictionId, offset, limit),
+    queryFn: () => {
+      if (repository.getPredictionCases === undefined) {
+        throw new Error('Timing prediction cases require the live Analyzer service.');
+      }
+      return repository.getPredictionCases(predictionId, { offset, limit });
+    },
+    enabled: supported && predictionId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function usePredictionCostTreeQuery(
+  predictionId: string,
+  caseId: string | undefined,
+  operationId: string | undefined,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getPredictionCostTree !== undefined;
+  const ready = supported && caseId !== undefined && operationId !== undefined;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.predictionCostTree(predictionId, caseId, operationId)
+      : [...analyzerQueryKeys.predictions(), predictionId, 'cost-tree', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getPredictionCostTree === undefined) {
+        throw new Error('Prediction CostTree requires a selected case and operation.');
+      }
+      return repository.getPredictionCostTree(predictionId, caseId, operationId);
+    },
+    enabled: ready,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function usePredictionKernelAnalysisQuery(
+  predictionId: string,
+  caseId: string | undefined,
+  operationId: string | undefined,
+  leafId: number | null,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getPredictionKernelThroughputAnalysis !== undefined;
+  const ready = supported && caseId !== undefined && operationId !== undefined && leafId !== null;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.predictionKernelAnalysis(predictionId, caseId, operationId, leafId)
+      : [...analyzerQueryKeys.predictions(), predictionId, 'kernel-analysis', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getPredictionKernelThroughputAnalysis === undefined) {
+        throw new Error('Prediction kernel analysis requires a selected leaf.');
+      }
+      return repository.getPredictionKernelThroughputAnalysis(
+        predictionId,
+        caseId,
+        operationId,
+        leafId,
+      );
+    },
+    enabled: ready,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function usePredictionKernelInputDistributionQuery(predictionId: string, enabled: boolean) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getPredictionKernelInputDistribution !== undefined;
+  const query = useQuery({
+    queryKey: analyzerQueryKeys.predictionKernelInputDistribution(predictionId),
+    queryFn: () => {
+      if (repository.getPredictionKernelInputDistribution === undefined) {
+        throw new Error('Prediction input distribution requires the live Analyzer service.');
+      }
+      return repository.getPredictionKernelInputDistribution(predictionId);
+    },
+    enabled: supported && enabled,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function usePredictionOptimalityQueries(
+  predictionId: string,
+  caseId: string | undefined,
+  mode: OptimalityMode,
+) {
+  const repository = useAnalyzerRepository();
+  const ladderSupported = repository.getPredictionOptimalityKernelLadder !== undefined;
+  const waterfallSupported = repository.getPredictionOptimalityWaterfall !== undefined;
+  const ready = caseId !== undefined;
+  const ladder = useQuery({
+    queryKey:
+      ready && ladderSupported
+        ? analyzerQueryKeys.predictionOptimality(predictionId, caseId, 'kernel-ladder', mode)
+        : [...analyzerQueryKeys.predictions(), predictionId, 'optimality-ladder', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getPredictionOptimalityKernelLadder === undefined) {
+        throw new Error('Prediction optimality ladder requires a selected case.');
+      }
+      return repository.getPredictionOptimalityKernelLadder(predictionId, caseId, mode);
+    },
+    enabled: ready && ladderSupported,
+    staleTime: Infinity,
+  });
+  const waterfall = useQuery({
+    queryKey:
+      ready && waterfallSupported
+        ? analyzerQueryKeys.predictionOptimality(predictionId, caseId, 'waterfall', mode)
+        : [...analyzerQueryKeys.predictions(), predictionId, 'optimality-waterfall', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getPredictionOptimalityWaterfall === undefined) {
+        throw new Error('Prediction optimality waterfall requires a selected case.');
+      }
+      return repository.getPredictionOptimalityWaterfall(predictionId, caseId, mode);
+    },
+    enabled: ready && waterfallSupported,
+    staleTime: Infinity,
+  });
+  return {
+    ladder: Object.assign(ladder, { supported: ladderSupported }),
+    waterfall: Object.assign(waterfall, { supported: waterfallSupported }),
+  };
 }
 
 export function useWorkerOperationsQuery(

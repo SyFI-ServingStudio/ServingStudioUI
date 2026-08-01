@@ -61,12 +61,20 @@ features/
   pool/               pool resource、wall-clock aggregate/average batch 与 kernel composition
   worker/             worker resource、CostTree、batch/time-share；batch 按 total/prefill/decode requests 分三图
   kernel/             kernel/parallel drill、roofline、input distribution
+  prediction/         timing-predict catalog、case/iteration picker 与 prediction page composition
   trace/              Perfetto resource 与嵌入控制器
 ```
 
 每个 feature 通过 `index.ts` 暴露最小公共 API。外部代码不得 import 其内部
 `components/`、`model.ts` 或 `options.ts`。测试与被测实现共置；跨 transport 的
 contract tests 仍留在 `contracts/` 或 `repositories/`。
+
+Run iteration 与 timing prediction 只在 exact CostTree evidence 层共享。
+`worker/` 继续拥有真实 worker operation timeline 与 worker selection；`prediction/`
+拥有 case/iteration selection。CostTree canvas、kernel inspector、kernel throughput、
+input distribution、critical-path breakdown 与 exact optimality 必须提取为接受 typed
+evidence props 的公共 feature view，再由两种页面各自的 application provider 装配。
+共享 view 不得读取 `ActiveRunProvider`、推断 synthetic worker，或接收本地 artifact path。
 
 Section 02 的 Cluster、Pool 与 Worker aggregate 视图都必须将 Request state/backpressure 放在
 Kernel breakdown 之前，并由 Kernel breakdown 作为该 section 的最后一张图。
@@ -237,15 +245,21 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 - Workspace 默认入口是 Page 0。它提供 `Explore results`、`New conversation` 与
   `Resume conversation` 三个互斥起点，默认展示 existing results。三个入口共用稳定的
   page header 与 tab 位置，切换内容不能按表体高度重新居中。Result catalog 合并 Analyzer
-  的 simulation sweep 与 conversation backend 的 `timing_predict`、`kernel_profile`、
-  `kernel_measure` typed jobs；job 是有稳定 `resourceId` 与 artifact snapshot 的可导航结果，
-  不是 simulation experiment。固定列 table 展示日期、result name、type、workspace 与
+  的 simulation sweep、timing prediction、kernel profile 与 kernel measurement catalog，
+  再以 conversation backend 的 typed job 作为 ownership/lifecycle overlay。typed job 只保存
+  `resourceId`、`analyzerResourceId` 与 conversation identity；它不读取或代理 result artifact，
+  也不是 simulation experiment。固定列 table 展示日期、result name、type、workspace 与
   type-specific details；Type 列提供四类结果的多选 label filter，同组 OR，并与 workspace、
   deployment、trace、axes 等适用过滤跨组 AND。不存在于某类结果的字段保持为空，不能伪造
   deployment、trace 或 sweep axis。Catalog 按日期倒序，表体最多显示
   六行，超出后只滚动表体，Page 0 顶部与列头不能随筛选结果重新居中或跳动。显式选择
-  simulation 后进入 integrated Aggregate；显式选择 typed job 后进入 `#/job` 的 Result
-  surface。integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
+  simulation 后进入 integrated Aggregate；显式选择 offline resource 后按 Analyzer identity
+  进入 Prediction 或 `#/job` Result surface。尚未被 Analyzer discovery 找到的 owned job
+  可以显示 pending lifecycle，但不能伪造 descriptor、curve、summary 或 plot。
+  `timing_predict` Result 只用 `analyzerResourceId` 装配一等 Prediction surface，
+  也允许用 `#/prediction?prediction=p_…` 直接深链；它不能由 conversation backend
+  重解析 predictor artifact；同理 kernel profile/measurement 只从 Analyzer repository 读取。
+  integrated Aggregate 不再重复渲染完整 Experiment selector，返回 Page 0 才能
   更换 result。直接访问 `#/aggregate` 时仍保留完整 selector 作为独立 Analyzer 的
   discovery 入口。
 - `New conversation` 把 compact workspace picker 放在 composer 上方。picker 必须发现全部
@@ -261,7 +275,7 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
   具体 conversation 才进入 Agent，workspace identity 从该 conversation 的记录中解析，不能依赖
   当前选中的 workspace。
 - Root router 必须以完整 hash（含 query）作为 render state。`#/agent`、
-  `#/aggregate` 或 `#/run` view 不变但 `workspace` / evidence identity 改变时，也必须
+  `#/aggregate`、`#/run` 或 `#/prediction` view 不变但 `workspace` / evidence identity 改变时，也必须
   立即重算 workspace context；不能出现 address bar 已切换而 Agent/Analyzer 仍读上一个
   workspace 的 split-brain。
 - Agent conversation adapter 必须兼容迁移前已持久化的 assistant shape：没有
@@ -300,8 +314,8 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 - Full Agent surface 返回 Page 0 的 header control 使用 back-arrow 与
   `Return to workspace home` accessible name，不能使用 close/X icon；后者会错误暗示
   turn 被取消。返回导航不改变 backend turn 状态。
-- Agent、Aggregate 与 Run 是同一个 workspace-owned surface 的布局状态，不是三套独立
-  page shell。`#/agent`、`#/aggregate`、`#/run` 暂时保留为兼容入口，但都必须挂在同一个
+- Agent、Aggregate、Run 与 Prediction 是同一个 workspace-owned surface 的布局状态，不是多套独立
+  page shell。`#/agent`、`#/aggregate`、`#/run`、`#/prediction` 暂时保留为兼容入口，但都必须挂在同一个
   `WorkspaceShell` 下；跨这些 route 切换时 `AgentPane` 不能卸载，active conversation、
   SSE、scroll、draft 与 history 必须保持。`#/agent` 初始进入 Agent full 且允许没有
   Analyzer context 的首条 prompt；从 Agent evidence 导航到 Aggregate/Run 时，full 自动

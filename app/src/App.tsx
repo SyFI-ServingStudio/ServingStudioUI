@@ -13,7 +13,6 @@ import { ClusterStage } from './features/cluster';
 import { PoolStage } from './features/pool';
 import { OptimalityAnalysisStage } from './features/optimality';
 import WorkerAnalysisLevelControl from './features/worker/WorkerAnalysisLevelControl';
-import FocusDialog from './components/FocusDialog';
 import { SurfaceAccentProvider } from './components/SurfaceCard';
 import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
@@ -476,8 +475,6 @@ export default function App() {
           </Box>
           <span>Run ▸ Pool ▸ Worker ▸ Kernel</span>
         </Stack>
-
-        <FocusDialog />
       </Box>
     </ActiveWorkerTreeProvider>
   );

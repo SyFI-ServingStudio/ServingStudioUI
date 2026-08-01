@@ -426,7 +426,9 @@ export default function WorkspaceShell({
                   ? displayExperimentName(experiment.displayName)
                   : view === 'job'
                     ? 'Result'
-                    : 'Analyzer'}
+                    : view === 'prediction'
+                      ? 'Timing prediction'
+                      : 'Analyzer'}
               </Typography>
               {experiment && (
                 <Typography

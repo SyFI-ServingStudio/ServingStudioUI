@@ -1,5 +1,4 @@
 import type {
-  OptimalityKernelLadder,
   OptimalityKernelLadderData,
   OptimalityKernelLadderKernel,
   OptimalityKernelRungs,
@@ -126,7 +125,7 @@ export function projectScopedKernelLadder(
 }
 
 export function projectExactKernelLadder(
-  ladder: OptimalityKernelLadder,
+  ladder: OptimalityKernelLadderData,
   kernelFilter: string | null = null,
 ): KernelLadderProjection {
   return ladderRows(ladder, kernelFilter);

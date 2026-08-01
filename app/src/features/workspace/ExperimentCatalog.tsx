@@ -3,6 +3,7 @@ import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import type { ManagedJobKind, ManagedJobListItem } from '../../application/managedJobRepository';
+import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import type { SweepListItem } from '../../domain/sweep';
 import { tokens } from '../../theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
@@ -25,6 +26,7 @@ interface CatalogResult {
   detailTags: readonly { label: string; tone: CatalogTagTone }[];
   simulation?: SweepListItem;
   job?: ManagedJobListItem;
+  offlineResource?: OfflineResourceCatalogItem;
 }
 
 const EMPTY_FILTERS: SelectedFilters = {
@@ -70,44 +72,25 @@ function conciseName(displayName: string): string {
   return displayName.replace(/^\d{8}_\d+_/, '');
 }
 
-function stringField(values: Record<string, unknown>, key: string): string | null {
-  const value = values[key];
-  return typeof value === 'string' && value ? value : null;
-}
-
-function numberField(values: Record<string, unknown>, key: string): number | null {
-  const value = values[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function jobName(job: ManagedJobListItem): string {
-  if (job.jobKind === 'timing_predict') {
-    const configName = stringField(job.descriptor, 'configName');
-    if (configName) return configName.replace(/\.(json|ya?ml)$/i, '');
-  }
-  const table = stringField(job.descriptor, 'table');
-  if (table) return table;
-  return conciseName(job.artifactPath.split('/').filter(Boolean).at(-1) ?? job.artifactPath);
+  return job.conversationTitle || RESULT_LABELS[job.jobKind];
 }
 
 function jobDetails(job: ManagedJobListItem): CatalogResult['detailTags'] {
   const details: { label: string; tone: CatalogTagTone }[] = [];
-  const selector = stringField(job.descriptor, 'selector');
-  const backend = stringField(job.descriptor, 'backend');
-  const caseCount = numberField(job.descriptor, 'caseCount');
-  const pointCount = numberField(job.descriptor, 'pointCount');
-  if (selector) details.push({ label: selector, tone: 'axis' });
-  if (backend) details.push({ label: backend, tone: 'deployment' });
-  if (caseCount !== null) details.push({ label: `${caseCount} cases`, tone: 'singleton' });
-  if (pointCount !== null) details.push({ label: `${pointCount} points`, tone: 'singleton' });
   if (job.status !== 'ready') details.push({ label: job.status, tone: 'measure' });
   return details;
 }
 
 function catalogResults(
   simulations: readonly SweepListItem[],
+  offlineResources: readonly OfflineResourceCatalogItem[],
   jobs: readonly ManagedJobListItem[],
 ): readonly CatalogResult[] {
+  const ownershipByResource = new Map(
+    jobs.flatMap((job) => (job.analyzerResourceId ? [[job.analyzerResourceId, job] as const] : [])),
+  );
+  const discoveredIds = new Set(offlineResources.map((resource) => resource.resourceId));
   return [
     ...simulations.map((entry): CatalogResult => {
       const axes = entry.kind === 'singleton' ? ['single run'] : entry.axes;
@@ -132,22 +115,48 @@ function catalogResults(
         simulation: entry,
       };
     }),
-    ...jobs.map((job): CatalogResult => ({
-      identity: `job:${job.workspaceId}:${job.resourceId}`,
-      kind: job.jobKind,
-      workspaceId: job.workspaceId,
-      timestamp: job.updatedAt < 1_000_000_000_000 ? job.updatedAt * 1000 : job.updatedAt,
-      name: jobName(job),
-      subtitle:
-        job.jobKind === 'timing_predict'
-          ? `${numberField(job.descriptor, 'caseCount') ?? 0} cases`
-          : `${numberField(job.descriptor, 'pointCount') ?? 1} points`,
-      deployments: [],
-      traces: [],
-      axes: [],
-      detailTags: jobDetails(job),
-      job,
-    })),
+    ...offlineResources.map((resource): CatalogResult => {
+      const job = ownershipByResource.get(resource.resourceId);
+      return {
+        identity: `offline:${resource.resourceId}`,
+        kind: resource.kind,
+        workspaceId: job?.workspaceId ?? resource.workspaceId,
+        timestamp: Date.parse(resource.updatedAt),
+        name: conciseName(resource.displayName),
+        subtitle:
+          resource.kind === 'timing_predict'
+            ? `${resource.caseCount ?? 0} cases`
+            : resource.kernelKind || resource.table || 'kernel result',
+        deployments: resource.backend ? [resource.backend] : [],
+        traces: [],
+        axes: resource.selector ? [resource.selector] : [],
+        detailTags: [
+          ...(resource.gpuName ? [{ label: resource.gpuName, tone: 'deployment' as const }] : []),
+          ...(resource.backend ? [{ label: resource.backend, tone: 'deployment' as const }] : []),
+          ...(resource.selector ? [{ label: resource.selector, tone: 'axis' as const }] : []),
+          ...(resource.status !== 'ready'
+            ? [{ label: resource.status, tone: 'measure' as const }]
+            : []),
+        ],
+        job,
+        offlineResource: resource,
+      };
+    }),
+    ...jobs
+      .filter((job) => !job.analyzerResourceId || !discoveredIds.has(job.analyzerResourceId))
+      .map((job): CatalogResult => ({
+        identity: `job:${job.workspaceId}:${job.resourceId}`,
+        kind: job.jobKind,
+        workspaceId: job.workspaceId,
+        timestamp: job.updatedAt < 1_000_000_000_000 ? job.updatedAt * 1000 : job.updatedAt,
+        name: jobName(job),
+        subtitle: 'Awaiting Analyzer discovery',
+        deployments: [],
+        traces: [],
+        axes: [],
+        detailTags: jobDetails(job),
+        job,
+      })),
   ];
 }
 
@@ -175,18 +184,28 @@ function matchesFilters(entry: CatalogResult, selected: SelectedFilters): boolea
 export default function ExperimentCatalog({
   entries,
   jobs,
+  offlineResources,
   onActivate,
   onActivateJob,
+  onActivateOfflineResource,
   workspaceNames = {},
 }: {
   entries: readonly SweepListItem[];
   jobs: readonly ManagedJobListItem[];
+  offlineResources: readonly OfflineResourceCatalogItem[];
   onActivate: (entry: SweepListItem) => void;
   onActivateJob: (job: ManagedJobListItem) => void;
+  onActivateOfflineResource: (
+    resource: OfflineResourceCatalogItem,
+    job?: ManagedJobListItem,
+  ) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);
-  const results = useMemo(() => catalogResults(entries, jobs), [entries, jobs]);
+  const results = useMemo(
+    () => catalogResults(entries, offlineResources, jobs),
+    [entries, jobs, offlineResources],
+  );
   const options = useMemo(
     () => ({
       type: filterOptions(results, 'type'),
@@ -380,7 +399,13 @@ export default function ExperimentCatalog({
               aria-selected={false}
               aria-hidden={!visible}
               tabIndex={visible ? 0 : -1}
-              onClick={() => (entry.job ? onActivateJob(entry.job) : onActivate(entry.simulation!))}
+              onClick={() =>
+                entry.offlineResource
+                  ? onActivateOfflineResource(entry.offlineResource, entry.job)
+                  : entry.job
+                    ? onActivateJob(entry.job)
+                    : onActivate(entry.simulation!)
+              }
               sx={{
                 width: '100%',
                 minHeight: visible ? 71 : 0,

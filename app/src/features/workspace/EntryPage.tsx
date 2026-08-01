@@ -8,7 +8,7 @@ import {
   forgetActiveConversation,
   rememberActiveConversation,
 } from '../../application/conversationSession';
-import { useSweepListQuery } from '../../application/queries';
+import { useOfflineResourcesQuery, useSweepListQuery } from '../../application/queries';
 import {
   createWorkspace,
   listWorkspaces,
@@ -17,6 +17,7 @@ import {
 import { agentWorkspaceHref } from '../../application/workspaceRoute';
 import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
+import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import { tokens } from '../../theme';
 import ConversationCatalog from './ConversationCatalog';
 import ExperimentCatalog from './ExperimentCatalog';
@@ -51,6 +52,22 @@ function navigateToJob(job: ManagedJobListItem): void {
   });
   destination.hash = `#/job?${query.toString()}`;
   window.location.assign(destination);
+}
+
+function navigateToOfflineResource(
+  resource: OfflineResourceCatalogItem,
+  job?: ManagedJobListItem,
+): void {
+  if (resource.kind === 'timing_predict') {
+    window.location.hash = `#/prediction?prediction=${encodeURIComponent(resource.resourceId)}`;
+    return;
+  }
+  const query = new URLSearchParams({ kind: resource.kind, analyzer: resource.resourceId });
+  if (job) {
+    query.set('workspace', job.workspaceId);
+    query.set('resource', job.resourceId);
+  }
+  window.location.hash = `#/job?${query.toString()}`;
 }
 
 function navigateToAgent(prompt: string, workspaceId: string, conversationId?: string): void {
@@ -292,6 +309,7 @@ export default function EntryPage() {
     [workspaces],
   );
   const sweepList = useSweepListQuery();
+  const offlineResources = useOfflineResourcesQuery();
   useEffect(() => {
     document.title = 'VibeSim';
   }, []);
@@ -327,9 +345,14 @@ export default function EntryPage() {
     };
   }, []);
   const simulationResults = sweepList.data ?? [];
-  const resultCatalogPending = sweepList.isPending && managedJobsLoading;
-  const resultCatalogFailed = sweepList.isError && managedJobsError;
-  const resultCatalogEmpty = simulationResults.length === 0 && managedJobs.length === 0;
+  const analyzerOfflineResults = offlineResources.data ?? [];
+  const resultCatalogPending =
+    sweepList.isPending && offlineResources.isPending && managedJobsLoading;
+  const resultCatalogFailed = sweepList.isError && offlineResources.isError && managedJobsError;
+  const resultCatalogEmpty =
+    simulationResults.length === 0 &&
+    analyzerOfflineResults.length === 0 &&
+    managedJobs.length === 0;
   return (
     <Box
       component="main"
@@ -423,9 +446,11 @@ export default function EntryPage() {
                 <ExperimentCatalog
                   entries={simulationResults}
                   jobs={managedJobs}
+                  offlineResources={analyzerOfflineResults}
                   workspaceNames={workspaceNames}
                   onActivate={navigateToExperiment}
                   onActivateJob={navigateToJob}
+                  onActivateOfflineResource={navigateToOfflineResource}
                 />
               )}
             </Box>

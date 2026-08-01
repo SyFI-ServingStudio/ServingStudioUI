@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ManagedJobListItem } from '../../application/managedJobRepository';
 import type { SweepListItem } from '../../domain/sweep';
+import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import ExperimentCatalog from './ExperimentCatalog';
 
 const entries: readonly SweepListItem[] = [
@@ -42,13 +43,26 @@ const jobs: readonly ManagedJobListItem[] = [
     conversationId: 'c_profile',
     conversationTitle: 'Kernel study',
     resourceId: 'jr_profile',
+    analyzerResourceId: 'kp_profile',
     jobKind: 'kernel_profile',
     status: 'ready',
-    artifactPath: '20260731_0_single_gemm_profile',
-    descriptor: { table: 'single_gemm', backend: 'torch', pointCount: 3 },
-    summary: { axes: ['m'], missingCount: 0 },
     createdAt: 1785513600,
     updatedAt: 1785513600,
+  },
+];
+
+const offlineResources: readonly OfflineResourceCatalogItem[] = [
+  {
+    workspaceId: 'w_main',
+    resourceId: 'kp_profile',
+    kind: 'kernel_profile',
+    displayName: '20260731_0_single_gemm_profile',
+    status: 'ready',
+    updatedAt: '2026-07-31T00:00:00Z',
+    kernelKind: 'single_gemm',
+    table: 'single_gemm',
+    backend: 'torch',
+    metricFamily: 'compute',
   },
 ];
 
@@ -60,8 +74,10 @@ describe('ExperimentCatalog', () => {
       <ExperimentCatalog
         entries={entries}
         jobs={[]}
+        offlineResources={[]}
         onActivate={onActivate}
         onActivateJob={vi.fn()}
+        onActivateOfflineResource={vi.fn()}
       />,
     );
 
@@ -79,8 +95,10 @@ describe('ExperimentCatalog', () => {
       <ExperimentCatalog
         entries={entries}
         jobs={[]}
+        offlineResources={[]}
         onActivate={vi.fn()}
         onActivateJob={vi.fn()}
+        onActivateOfflineResource={vi.fn()}
       />,
     );
 
@@ -105,12 +123,15 @@ describe('ExperimentCatalog', () => {
   it('mixes typed jobs with simulations and filters them by result type', async () => {
     const user = userEvent.setup();
     const onActivateJob = vi.fn();
+    const onActivateOfflineResource = vi.fn();
     render(
       <ExperimentCatalog
         entries={entries}
         jobs={jobs}
+        offlineResources={offlineResources}
         onActivate={vi.fn()}
         onActivateJob={onActivateJob}
+        onActivateOfflineResource={onActivateOfflineResource}
       />,
     );
 
@@ -123,6 +144,6 @@ describe('ExperimentCatalog', () => {
     const visibleRows = screen.getAllByRole('option');
     expect(visibleRows).toHaveLength(1);
     await user.click(visibleRows[0]!);
-    expect(onActivateJob).toHaveBeenCalledWith(jobs[0]);
+    expect(onActivateOfflineResource).toHaveBeenCalledWith(offlineResources[0], jobs[0]);
   });
 });

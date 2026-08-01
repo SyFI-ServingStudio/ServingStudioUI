@@ -16,7 +16,12 @@ export const WORKER_WORKBENCH_HEIGHT_VAR = '--worker-workbench-height';
 export const WORKER_WORKBENCH_HEIGHT = `var(${WORKER_WORKBENCH_HEIGHT_VAR}, ${COST_TREE_FRAME_HEIGHT}px)`;
 
 interface CostTreeFrameProps {
-  worker: WorkerRow | null;
+  worker?: WorkerRow | null;
+  identity?: {
+    readonly archId: string;
+    readonly archType: string;
+    readonly gpuCount: number;
+  };
   timeBasis?: string;
   totalMs?: number;
   children: ReactNode;
@@ -24,7 +29,18 @@ interface CostTreeFrameProps {
 
 /** Shared frame inherits the feature-owned workbench row height so exact-tree
  * transitions cannot collapse or resize the high-cardinality detail region. */
-export function CostTreeFrame({ worker, timeBasis, totalMs, children }: CostTreeFrameProps) {
+export function CostTreeFrame({
+  worker = null,
+  identity,
+  timeBasis,
+  totalMs,
+  children,
+}: CostTreeFrameProps) {
+  const displayedIdentity =
+    identity ??
+    (worker === null
+      ? null
+      : { archId: worker.id, archType: worker.arch.type, gpuCount: worker.gpuCount });
   return (
     <SurfaceCard
       data-testid="cost-tree-frame"
@@ -54,7 +70,7 @@ export function CostTreeFrame({ worker, timeBasis, totalMs, children }: CostTree
           noWrap
           sx={{ flexShrink: 0, fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}
         >
-          {worker === null ? (
+          {displayedIdentity === null ? (
             'CostTree'
           ) : (
             <>
@@ -68,7 +84,8 @@ export function CostTreeFrame({ worker, timeBasis, totalMs, children }: CostTree
                   fontWeight: 500,
                 }}
               >
-                {worker.id} · {worker.arch.type} · {worker.gpuCount} GPU
+                {displayedIdentity.archId} · {displayedIdentity.archType} ·{' '}
+                {displayedIdentity.gpuCount} GPU
               </Box>
             </>
           )}

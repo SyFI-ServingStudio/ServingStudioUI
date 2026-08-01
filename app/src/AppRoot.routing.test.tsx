@@ -4,6 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./App', () => ({ default: () => <div>run</div> }));
 vi.mock('./features/sweep', () => ({ SweepPage: () => <div>aggregate</div> }));
+vi.mock('./features/prediction', async () => {
+  const { useOpenChartFocus } = await import('./components/ChartFocusContext');
+  return {
+    PredictionPage: ({ predictionId }: { predictionId: string }) => {
+      useOpenChartFocus();
+      return <div>{`prediction:${predictionId}`}</div>;
+    },
+  };
+});
 vi.mock('./features/workspace', () => ({
   EntryPage: () => <div>entry</div>,
   WorkspaceShell: ({
@@ -11,7 +20,7 @@ vi.mock('./features/workspace', () => ({
     view,
   }: {
     children: ReactNode;
-    view: 'agent' | 'aggregate' | 'run';
+    view: 'agent' | 'aggregate' | 'prediction' | 'run';
   }) => {
     const [, query = ''] = window.location.hash.split('?', 2);
     return (
@@ -59,5 +68,14 @@ describe('AppRoot workspace routing', () => {
     expect(await screen.findByText('view:aggregate')).toBeInTheDocument();
     expect(await screen.findByText('aggregate')).toBeInTheDocument();
     expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
+  });
+
+  it('provides shared chart-focus context to the first-class prediction route', async () => {
+    window.history.replaceState(null, '', '#/prediction?prediction=p_test');
+
+    render(<AppRoot />);
+
+    expect(await screen.findByText('prediction:p_test')).toBeInTheDocument();
+    expect(screen.getByText('view:prediction')).toBeInTheDocument();
   });
 });

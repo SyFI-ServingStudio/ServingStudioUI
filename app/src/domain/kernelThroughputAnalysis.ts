@@ -13,7 +13,7 @@ export interface KernelThroughputPoint {
 /** One selected CostTree leaf evaluated through the simulator's authoritative
  * Rust cache over its declared grid. These are modeled cache values, not a
  * second Analyzer-side reconstruction of profile.db rows. */
-export interface KernelThroughputAnalysis extends WorkerCostTreeRef {
+export interface KernelThroughputAnalysisData {
   readonly schemaVersion: 1;
   readonly leafId: number;
   readonly slot: {
@@ -28,3 +28,5 @@ export interface KernelThroughputAnalysis extends WorkerCostTreeRef {
   readonly points: readonly KernelThroughputPoint[];
   readonly semantics: 'cache_eval_at_declared_grid';
 }
+
+export interface KernelThroughputAnalysis extends WorkerCostTreeRef, KernelThroughputAnalysisData {}

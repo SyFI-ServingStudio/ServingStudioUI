@@ -53,6 +53,24 @@ export default function KernelInputDistributionEvidence({
   currentInput: JsonValue;
 }) {
   const subject = useActiveRunSubject('kernelInputDistribution');
+  return (
+    <KernelInputDistributionEvidenceView
+      subject={subject}
+      positionName={positionName}
+      currentInput={currentInput}
+    />
+  );
+}
+
+export function KernelInputDistributionEvidenceView({
+  subject,
+  positionName,
+  currentInput,
+}: {
+  subject: SubjectResult<'kernelInputDistribution'>;
+  positionName: string;
+  currentInput: JsonValue;
+}) {
   if (subject.status !== 'ready') return <EvidenceState subject={subject} />;
   const position = subject.payload.positions.find((candidate) => candidate.name === positionName);
   if (position === undefined) {

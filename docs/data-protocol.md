@@ -380,6 +380,50 @@ GET /api/v1/sweeps
 GET /api/v1/sweeps/{sweep_id}/payload
 ```
 
+Timing prediction is a separate first-class resource family. It does not enter
+the run catalog and it never receives synthetic deployment, pool, or worker
+identity. Its public hierarchy is prediction -> case/iteration -> operation ->
+CostTree -> kernel:
+
+```text
+GET /api/v1/predictions
+GET /api/v1/predictions/{prediction_id}/descriptor
+GET /api/v1/predictions/{prediction_id}/cases?offset=<u64>&limit=<u64>
+GET /api/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/cost-tree
+GET /api/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/cost-tree/{leaf_id}/kernel-throughput-analysis
+GET /api/v1/predictions/{prediction_id}/cases/{case_id}/optimality-kernel-ladder?mode=unlocked|batch_locked
+GET /api/v1/predictions/{prediction_id}/cases/{case_id}/optimality-waterfall?mode=unlocked|batch_locked
+GET /api/v1/predictions/{prediction_id}/subjects/kernel-input-distribution/payload
+```
+
+The cases endpoint returns snapshotted case input plus exact operation summaries.
+Case and operation ids are opaque strings in the browser contract. A
+single-operation case is selected automatically, but the CostTree request still
+retains operation identity so a future predictor can emit more than one operation
+per case without changing the detail contract. Repository code owns these hrefs;
+features never parse artifact paths or the predictor's internal cost-log source.
+
+Kernel jobs are two additional first-class Analyzer families:
+
+```text
+GET /api/v1/kernel-profiles
+GET /api/v1/kernel-profiles/{profile_id}/descriptor
+GET /api/v1/kernel-profiles/{profile_id}/curve
+GET /api/v1/kernel-measurements
+GET /api/v1/kernel-measurements/{measurement_id}/descriptor
+GET /api/v1/kernel-measurements/{measurement_id}/summary
+GET /api/v1/kernel-measurements/{measurement_id}/plots/{declared_plot_name}
+GET /api/v1/hardware/gpus?name=<gpu_name>
+```
+
+Profile curves preserve KernelArgs declaration order for axes and carry
+Analyzer-enriched per-row hardware limits. Dense TFLOPS and HBM bandwidth come
+from `gpu/spec.json`; interconnect exposes the catalog's bidirectional value and
+the derived one-way value. An unavailable GPU/dtype remains explicitly
+unavailable. The frontend may draw a catalog peak only when the row declares a
+numeric limit. Measurement plot URLs come only from the descriptor allowlist;
+the conversation backend never serves these bytes.
+
 `GET /api/v1/sweeps` 的每个 entry 除 identity、axes 与 lifecycle 外，还包含
 `experiment_date: "YYYY-MM-DD" | null`、`deployments: string[]` 和
 `traces: string[]`。这些字段只用于 catalog selection/filtering：manifest sweep

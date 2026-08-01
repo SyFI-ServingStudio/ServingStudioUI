@@ -131,15 +131,18 @@ export interface OptimalityAggregateKernelLadder extends OptimalityKernelLadderD
 
 /** Exact all-row waterfall for one selected worker iteration. This is separate
  * from the kernel ladder because necessary-work floors have no leaf attribution. */
-export interface OptimalityIterationWaterfall {
-  worker: { poolTag: string; workerId: string };
-  iterId: string;
+export interface OptimalityIterationWaterfallData {
   level: OptimalityLevel;
   gpuName: string;
   gpuSpecMatched: string | null;
   peaksSource: string;
   necessaryWorkMode: 'batch_locked' | 'replicated_large_batch' | null;
   necessaryWorkReplicationFactor: number | null;
+}
+
+export interface OptimalityIterationWaterfall extends OptimalityIterationWaterfallData {
+  worker: { poolTag: string; workerId: string };
+  iterId: string;
 }
 
 export interface Optimality {

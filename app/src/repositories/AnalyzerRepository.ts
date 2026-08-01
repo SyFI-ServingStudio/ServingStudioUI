@@ -21,6 +21,22 @@ import type {
   WorkerOperationSeekResult,
 } from '../domain/workerOperation';
 import type { SweepAnalysis, SweepListItem } from '../domain/sweep';
+import type {
+  PredictionCasePage,
+  PredictionCostTreeDetail,
+  PredictionDescriptor,
+  PredictionKernelThroughputAnalysis,
+  PredictionOptimalityKernelLadder,
+  PredictionOptimalityWaterfall,
+} from '../domain/prediction';
+import type {
+  HardwareGpu,
+  KernelMeasurementDescriptor,
+  KernelMeasurementSummary,
+  KernelProfileCurve,
+  KernelProfileDescriptor,
+  OfflineResourceCatalogItem,
+} from '../domain/offlineResource';
 
 /**
  * The only analyzer-data boundary visible to application features.
@@ -93,4 +109,51 @@ export interface AnalyzerRepository {
 
   /** Return an addressable trace; repositories do not copy trace bytes into UI state. */
   getTrace(runId: string, traceName: string): Promise<TraceResource>;
+
+  /** Timing predictions are first-class Analyzer resources. They deliberately
+   * expose prediction/case/operation identity instead of fake run workers. */
+  getPredictionDescriptor?(predictionId: string): Promise<PredictionDescriptor>;
+
+  getPredictionCases?(
+    predictionId: string,
+    page: { offset: number; limit: number },
+  ): Promise<PredictionCasePage>;
+
+  getPredictionCostTree?(
+    predictionId: string,
+    caseId: string,
+    operationId: string,
+  ): Promise<PredictionCostTreeDetail>;
+
+  getPredictionKernelThroughputAnalysis?(
+    predictionId: string,
+    caseId: string,
+    operationId: string,
+    leafId: number,
+  ): Promise<PredictionKernelThroughputAnalysis>;
+
+  getPredictionKernelInputDistribution?(
+    predictionId: string,
+  ): Promise<SubjectResult<'kernelInputDistribution'>>;
+
+  getPredictionOptimalityKernelLadder?(
+    predictionId: string,
+    caseId: string,
+    mode: OptimalityMode,
+  ): Promise<PredictionOptimalityKernelLadder>;
+
+  getPredictionOptimalityWaterfall?(
+    predictionId: string,
+    caseId: string,
+    mode: OptimalityMode,
+  ): Promise<PredictionOptimalityWaterfall>;
+
+  /** Offline results are discovered from Analyzer; conversation state is only
+   * an ownership overlay and never supplies these payloads. */
+  listOfflineResources?(): Promise<readonly OfflineResourceCatalogItem[]>;
+  getKernelProfileDescriptor?(profileId: string): Promise<KernelProfileDescriptor>;
+  getKernelProfileCurve?(profileId: string): Promise<KernelProfileCurve>;
+  getKernelMeasurementDescriptor?(measurementId: string): Promise<KernelMeasurementDescriptor>;
+  getKernelMeasurementSummary?(measurementId: string): Promise<KernelMeasurementSummary>;
+  getHardwareGpu?(gpuName: string): Promise<HardwareGpu>;
 }

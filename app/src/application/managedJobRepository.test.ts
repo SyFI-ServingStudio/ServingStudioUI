@@ -19,11 +19,9 @@ describe('managed job repository', () => {
                 conversation_id: 'c_profile',
                 conversation_title: 'Kernel study',
                 resource_id: 'jr_profile',
+                analyzer_resource_id: 'kp_profile',
                 job_kind: 'kernel_profile',
                 status: 'ready',
-                artifact_path: '20260731_0_single_gemm_profile',
-                descriptor: { table: 'single_gemm', backend: 'torch', pointCount: 3 },
-                summary: { axes: ['m'] },
                 created_at: 1785513600,
                 updated_at: 1785513601,
               },
@@ -38,8 +36,8 @@ describe('managed job repository', () => {
       expect.objectContaining({
         workspaceId: 'w_main',
         resourceId: 'jr_profile',
+        analyzerResourceId: 'kp_profile',
         jobKind: 'kernel_profile',
-        descriptor: { table: 'single_gemm', backend: 'torch', pointCount: 3 },
       }),
     ]);
     expect(fetchMock).toHaveBeenCalledWith('/api/jobs');

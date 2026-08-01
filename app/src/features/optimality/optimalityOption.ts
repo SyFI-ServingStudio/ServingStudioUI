@@ -68,6 +68,23 @@ export interface OptimalityStackLayout {
   normalized?: boolean;
 }
 
+const CATEGORY_LABEL_MAX_WIDTH = 188;
+
+/** Keep scope identities inside both compact cards and the shared focus dialog.
+ * The full category value remains in ECharts data/tooltips; only its painted
+ * axis label is bounded so one long kernel path cannot escape the chart. */
+function categoryAxisLabel(t: ChartTheme) {
+  return {
+    color: t.text,
+    fontSize: 12,
+    fontFamily: t.font,
+    fontWeight: 600,
+    width: CATEGORY_LABEL_MAX_WIDTH,
+    overflow: 'truncate' as const,
+    ellipsis: '…',
+  };
+}
+
 /** Preserve useful precision for exact-iteration bars, which are commonly only
  * milliseconds of aggregate GPU time. Large aggregate scopes stay compact. */
 export function formatGpuSeconds(value: number): string {
@@ -99,7 +116,7 @@ export function optimalityStackOption(
   }
   return {
     textStyle: { fontFamily: t.font, color: t.text },
-    grid: chartGrid({ left: 176, right: 22, top: 30, bottom: 30 }),
+    grid: chartGrid({ left: 12, right: 22, top: 30, bottom: 30, containLabel: true }),
     legend: {
       top: 0,
       right: 0,
@@ -135,7 +152,7 @@ export function optimalityStackOption(
       data: cats,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: t.text, fontSize: 12, fontFamily: t.font, fontWeight: 600 },
+      axisLabel: categoryAxisLabel(t),
     },
     series: [
       ...families.map((family) => ({
@@ -201,7 +218,7 @@ function categoryAxis(data: string[], gridIndex: number, t: ChartTheme) {
     data,
     axisLine: { show: false },
     axisTick: { show: false },
-    axisLabel: { color: t.text, fontSize: 12, fontFamily: t.font, fontWeight: 600 },
+    axisLabel: categoryAxisLabel(t),
   };
 }
 
@@ -256,8 +273,8 @@ function separatedPrimaryRowOption(
       },
     ],
     grid: [
-      { left: 176, right: 22, top: 62, height: 42 },
-      { left: 176, right: 22, top: 156, bottom: 42 },
+      { left: 12, right: 22, top: 62, height: 42, containLabel: true },
+      { left: 12, right: 22, top: 156, bottom: 42, containLabel: true },
     ],
     legend: {
       top: 0,
