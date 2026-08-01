@@ -309,7 +309,7 @@ function ParamStatline({ values }: { values: Record<string, unknown> }) {
               mb: 0.35,
             }}
           >
-            {key.replaceAll('_', ' ')}
+            {key.replace(/_/g, ' ')}
           </Typography>
           <Typography
             component="div"
@@ -650,14 +650,23 @@ export default function JobResultPage() {
           <KernelCurve
             curve={profile.curve.data}
             descriptor={{
+              backend: profile.descriptor.data.kernel.backend,
+              family: profile.descriptor.data.kernel.metricFamily,
               gpu:
                 profile.descriptor.data.gpu?.observedName ?? profile.descriptor.data.gpu?.cacheKey,
-              mode: profile.descriptor.data.mode,
+              profile_action:
+                profile.descriptor.data.mode === 'jit-fill'
+                  ? 'filled missing points'
+                  : profile.descriptor.data.mode === 'force-refresh'
+                    ? 'refreshed all points'
+                    : profile.descriptor.data.mode,
               source: profile.descriptor.data.legacy ? 'legacy profile' : undefined,
-              provenance:
-                profile.descriptor.data.provenanceSource === 'unavailable'
-                  ? undefined
-                  : profile.descriptor.data.provenanceSource,
+              data_source:
+                profile.descriptor.data.provenanceSource === 'measurement'
+                  ? 'measured now'
+                  : profile.descriptor.data.provenanceSource === 'cache_key'
+                    ? 'profile cache'
+                    : undefined,
               gpu_status:
                 profile.descriptor.data.legacy && profile.descriptor.data.gpu === null
                   ? 'not recorded'
