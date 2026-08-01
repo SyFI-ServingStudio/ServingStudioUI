@@ -4,17 +4,16 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   listCodexBackends,
-  type CodexBackendId,
-  type CodexBackendOption,
-  type CodexBackendSelection,
+  type CodexModelOption,
+  type CodexRuntimeSelection,
   type WorkspaceConversationSummary,
 } from '../../application/conversationRepository';
 import { listManagedJobs, type ManagedJobListItem } from '../../application/managedJobRepository';
 import {
   forgetActiveConversation,
-  forgetPendingCodexBackends,
-  rememberPendingCodexBackends,
+  forgetPendingCodexRuntime,
   rememberActiveConversation,
+  rememberPendingCodexRuntime,
 } from '../../application/conversationSession';
 import { useOfflineResourcesQuery, useSweepListQuery } from '../../application/queries';
 import {
@@ -27,7 +26,8 @@ import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import { tokens } from '../../theme';
-import CodexBackendPicker from './CodexBackendPicker';
+import CodexRuntimePicker from './CodexRuntimePicker';
+import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import ConversationCatalog from './ConversationCatalog';
 import ExperimentCatalog from './ExperimentCatalog';
 import WorkspacePicker from './WorkspacePicker';
@@ -83,7 +83,7 @@ function navigateToAgent(
   prompt: string,
   workspaceId: string,
   conversationId?: string,
-  codexBackends?: CodexBackendSelection,
+  codexRuntime?: CodexRuntimeSelection,
 ): void {
   if (prompt) {
     window.sessionStorage.setItem('vibesim.entry.prompt', prompt);
@@ -92,10 +92,10 @@ function navigateToAgent(
   }
   if (conversationId) {
     rememberActiveConversation(workspaceId, conversationId);
-    forgetPendingCodexBackends();
+    forgetPendingCodexRuntime();
   } else {
     forgetActiveConversation(workspaceId);
-    if (codexBackends) rememberPendingCodexBackends(codexBackends);
+    if (codexRuntime) rememberPendingCodexRuntime(codexRuntime);
   }
   const destination = new URL(window.location.href);
   destination.search = '';
@@ -162,13 +162,9 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
-  const [backendOptions, setBackendOptions] = useState<readonly CodexBackendOption[]>([
-    { id: 'traditional', label: 'Traditional', model: '', available: true },
-  ]);
-  const [codexBackends, setCodexBackends] = useState<CodexBackendSelection>({
-    orchestrator: 'traditional',
-    implementer: 'traditional',
-  });
+  const [modelOptions, setModelOptions] = useState<readonly CodexModelOption[]>([]);
+  const [catalogUnavailable, setCatalogUnavailable] = useState(false);
+  const [codexRuntime, setCodexRuntime] = useState<CodexRuntimeSelection>(EMPTY_RUNTIME_SELECTION);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedWorkspace =
     workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null;
@@ -179,11 +175,11 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
     setCreating(true);
     setCreationError(null);
     if (selectedWorkspaceId !== null) {
-      navigateToAgent(text, selectedWorkspaceId, undefined, codexBackends);
+      navigateToAgent(text, selectedWorkspaceId, undefined, codexRuntime);
       return;
     }
     void createWorkspace(workspaceNameFromPrompt(text))
-      .then((workspace) => navigateToAgent(text, workspace.workspaceId, undefined, codexBackends))
+      .then((workspace) => navigateToAgent(text, workspace.workspaceId, undefined, codexRuntime))
       .catch((caught) => {
         setCreationError(caught instanceof Error ? caught.message : 'Workspace creation failed');
         setCreating(false);
@@ -194,21 +190,25 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
     void listCodexBackends()
       .then((catalog) => {
         if (disposed) return;
-        setBackendOptions(catalog.backends);
-        // A default may name a backend the host cannot serve; never preselect one.
-        const firstAvailable = catalog.backends.find((backend) => backend.available);
-        const usable = (backend: CodexBackendId) =>
-          catalog.backends.some((option) => option.id === backend && option.available);
-        setCodexBackends({
-          orchestrator: usable(catalog.defaults.orchestrator)
-            ? catalog.defaults.orchestrator
-            : (firstAvailable?.id ?? catalog.defaults.orchestrator),
-          implementer: usable(catalog.defaults.implementer)
-            ? catalog.defaults.implementer
-            : (firstAvailable?.id ?? catalog.defaults.implementer),
+        setModelOptions(catalog.models);
+        setCatalogUnavailable(catalog.models.length === 0);
+        // A default may name a model whose provider this host cannot serve;
+        // never preselect one the user would only find out about on send.
+        const firstAvailable = catalog.models.find((model) => model.available);
+        const usable = (runtime: { model: string }) =>
+          catalog.models.some((model) => model.id === runtime.model && model.available);
+        const resolve = (runtime: { model: string; effort: string }) =>
+          usable(runtime) || !firstAvailable
+            ? runtime
+            : { model: firstAvailable.id, effort: firstAvailable.defaultEffort };
+        setCodexRuntime({
+          orchestrator: resolve(catalog.defaults.orchestrator),
+          implementer: resolve(catalog.defaults.implementer),
         });
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!disposed) setCatalogUnavailable(true);
+      });
     return () => {
       disposed = true;
     };
@@ -249,12 +249,13 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
         justifyContent="center"
         sx={{ maxWidth: 760, mx: 'auto', mt: 2.6, mb: 1.4 }}
       >
-        <CodexBackendPicker
-          options={backendOptions}
-          selection={codexBackends}
+        <CodexRuntimePicker
+          models={modelOptions}
+          selection={codexRuntime}
           size="md"
-          onChange={(role, backend) =>
-            setCodexBackends((current) => ({ ...current, [role]: backend }))
+          unavailable={catalogUnavailable}
+          onChange={(role, runtime) =>
+            setCodexRuntime((current) => ({ ...current, [role]: runtime }))
           }
         />
       </Stack>

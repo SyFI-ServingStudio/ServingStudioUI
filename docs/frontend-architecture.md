@@ -288,10 +288,14 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
   首屏只取最新一页，但必须保留 backend 的 `message_page` cursor，并在消息列顶部提供
   earlier-page 加载；prepend 后必须保持当前阅读位置和已有 message node identity，
   不能触发整列跳到底部。迁移后的长历史不能因为固定 `limit` 在 UI 中静默截断。
+- Conversation stream 必须区分两类非终态事件：`tool_call` 仅表示命令、容器准备和工具活动，
+  作为 transient activity line 渲染；`intermediate_output` 是 Agent 主动面向用户的语义消息，
+  并携带 `level: progress | milestone`。`progress` 是小步更新，`milestone` 是已完成的重要
+  checkpoint；二者都不能伪装成 final answer，也不能与 `tool_call` 共用 event kind。
 - Agent composer 必须拥有独立的 local draft state；键盘输入不能重新执行 conversation
   message map、Markdown parser 或 role-card render。Transcript 是 memoized subtree，只在
   messages、live turn events、pagination 或 error 真正变化时更新；`send`、`cancel` 与
-  `loadEarlier` callback 必须保持稳定，避免 SSE progress 把 composer 带入刷新路径。
+  `loadEarlier` callback 必须保持稳定，避免 SSE activity 把 composer 带入刷新路径。
 - Page 0 创建的 workspace 与 UI/Agent API 创建的新 conversation 使用
   `naming_state: pending`。首个成功 answer 的 `done.naming_scheduled` 只触发旁路轮询；
   conversation timeline 不能因命名刷新而重新安装或重渲染。轮询按 1/2/4/8 秒读取

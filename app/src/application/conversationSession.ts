@@ -1,7 +1,7 @@
-import type { CodexBackendSelection } from './conversationRepository';
+import type { CodexRuntimeSelection } from './conversationRepository';
 
 const CONVERSATION_ID_KEY_PREFIX = 'vibesim.conversation.id';
-const CODEX_BACKENDS_KEY = 'vibesim.entry.codex-backends';
+const CODEX_RUNTIME_KEY = 'vibesim.entry.codex-runtime';
 
 function conversationIdKey(workspaceId: string): string {
   return `${CONVERSATION_ID_KEY_PREFIX}.${workspaceId}`;
@@ -32,32 +32,41 @@ export function forgetActiveConversation(workspaceId: string): void {
   }
 }
 
+function roleRuntimeFrom(value: unknown): { model: string; effort: string } | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { model, effort } = value as { model?: unknown; effort?: unknown };
+  return typeof model === 'string' && model && typeof effort === 'string' && effort
+    ? { model, effort }
+    : null;
+}
+
 /** Carries the Page 0 role selection into the lazily-created Agent conversation. */
-export function pendingCodexBackends(): CodexBackendSelection | null {
+export function pendingCodexRuntime(): CodexRuntimeSelection | null {
   try {
-    const rawSelection = window.sessionStorage.getItem(CODEX_BACKENDS_KEY);
+    const rawSelection = window.sessionStorage.getItem(CODEX_RUNTIME_KEY);
     if (!rawSelection) return null;
-    const selection = JSON.parse(rawSelection) as Partial<CodexBackendSelection>;
-    const validBackend = (value: unknown) => value === 'traditional' || value === 'codexds';
-    return validBackend(selection.orchestrator) && validBackend(selection.implementer)
-      ? (selection as CodexBackendSelection)
-      : null;
+    const selection = JSON.parse(rawSelection) as Record<string, unknown>;
+    const orchestrator = roleRuntimeFrom(selection.orchestrator);
+    const implementer = roleRuntimeFrom(selection.implementer);
+    // The server re-validates against its live catalog, so this only has to
+    // reject shapes the picker cannot render.
+    return orchestrator && implementer ? { orchestrator, implementer } : null;
   } catch {
     return null;
   }
 }
 
-export function rememberPendingCodexBackends(selection: CodexBackendSelection): void {
+export function rememberPendingCodexRuntime(selection: CodexRuntimeSelection): void {
   try {
-    window.sessionStorage.setItem(CODEX_BACKENDS_KEY, JSON.stringify(selection));
+    window.sessionStorage.setItem(CODEX_RUNTIME_KEY, JSON.stringify(selection));
   } catch {
     // The Agent surface still falls back to the backend catalog defaults.
   }
 }
 
-export function forgetPendingCodexBackends(): void {
+export function forgetPendingCodexRuntime(): void {
   try {
-    window.sessionStorage.removeItem(CODEX_BACKENDS_KEY);
+    window.sessionStorage.removeItem(CODEX_RUNTIME_KEY);
   } catch {
     // There is no persisted selection to clear in restricted embeds.
   }

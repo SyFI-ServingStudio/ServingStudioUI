@@ -1,18 +1,24 @@
 import type {
-  CodexBackendId,
+  CodexRoleRuntime,
+  AgentTerminalOutcome,
+  CommentaryLevel,
   ConversationTokens,
   ConversationTurnEvent,
 } from '../../application/conversationRepository';
 
 export type ConversationRole = 'orchestrator' | 'implementer';
+export interface ConversationNote {
+  level: CommentaryLevel;
+  text: string;
+}
 
 export type ConversationCard =
   | {
       type: 'role';
       role: ConversationRole;
-      backend?: CodexBackendId;
+      runtime?: CodexRoleRuntime;
       round: number;
-      notes: string[];
+      notes: ConversationNote[];
       durationMs: number | null;
       tokens: ConversationTokens | null;
       done: boolean;
@@ -32,25 +38,30 @@ export type ConversationCard =
       summary?: Record<string, unknown> | null;
     }
   | { type: 'error'; text: string }
-  | { type: 'answer'; text: string };
+  | { type: 'response'; text: string; outcome: AgentTerminalOutcome };
 
 function roleFrom(value: string): ConversationRole {
   return value === 'implementer' ? 'implementer' : 'orchestrator';
 }
 
-function cleanNote(text: string): string {
+function cleanNote(text: string, level?: CommentaryLevel): ConversationNote | null {
   const stripped = text.trim();
-  if (!stripped.startsWith('{') || !stripped.endsWith('}')) return text;
+  if (!stripped.startsWith('{') || !stripped.endsWith('}')) {
+    return { text, level: level ?? 'progress' };
+  }
   try {
     const payload = JSON.parse(stripped) as Record<string, unknown>;
     if (typeof payload.message === 'string' && payload.message.trim()) {
-      return payload.message.trim();
+      return {
+        text: payload.message.trim(),
+        level: payload.action === 'milestone' ? 'milestone' : (level ?? 'progress'),
+      };
     }
-    if ('action' in payload || 'task' in payload) return '';
+    if ('action' in payload || 'task' in payload) return null;
   } catch {
-    return text;
+    return { text, level: level ?? 'progress' };
   }
-  return text;
+  return { text, level: level ?? 'progress' };
 }
 
 export function conversationCards(
@@ -67,12 +78,14 @@ export function conversationCards(
   });
   const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
-  const openRole = (role: ConversationRole, backend?: CodexBackendId) => {
+  const runtimeFrom = (event: { model?: string; effort?: string }): CodexRoleRuntime | null =>
+    event.model ? { model: event.model, effort: event.effort ?? '' } : null;
+  const openRole = (role: ConversationRole, runtime?: CodexRoleRuntime | null) => {
     rounds[role] += 1;
     const card: Extract<ConversationCard, { type: 'role' }> = {
       type: 'role',
       role,
-      ...(backend ? { backend } : {}),
+      ...(runtime ? { runtime } : {}),
       round: rounds[role],
       notes: [],
       durationMs: null,
@@ -85,12 +98,13 @@ export function conversationCards(
   };
   events.forEach((event, eventIndex) => {
     if (event.kind === 'intermediate_output') {
-      const note = cleanNote(event.text);
+      const note = cleanNote(event.text, event.level);
       if (!note) return;
       const role = roleFrom(event.role);
       const target =
-        current?.role === role && !current.done ? current : openRole(role, event.backend);
-      if (event.backend) target.backend = event.backend;
+        current?.role === role && !current.done ? current : openRole(role, runtimeFrom(event));
+      const eventRuntime = runtimeFrom(event);
+      if (eventRuntime) target.runtime = eventRuntime;
       target.notes.push(note);
       current = target;
     } else if (event.kind === 'usage') {
@@ -103,8 +117,9 @@ export function conversationCards(
               .find(
                 (card): card is Extract<ConversationCard, { type: 'role' }> =>
                   card.type === 'role' && card.role === role && !card.done,
-              ) ?? openRole(role, event.backend));
-      if (event.backend) target.backend = event.backend;
+              ) ?? openRole(role, runtimeFrom(event)));
+      const usageRuntime = runtimeFrom(event);
+      if (usageRuntime) target.runtime = usageRuntime;
       target.durationMs = event.duration_ms;
       target.tokens = event.tokens;
       target.done = true;
@@ -141,7 +156,11 @@ export function conversationCards(
       cards.push({ type: 'error', text: event.text });
       current = null;
     } else if (event.kind === 'final') {
-      cards.push({ type: 'answer', text: event.text });
+      cards.push({
+        type: 'response',
+        text: event.text,
+        outcome: event.outcome ?? 'final_answer',
+      });
       current = null;
     }
   });

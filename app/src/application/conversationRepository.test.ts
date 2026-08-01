@@ -41,7 +41,7 @@ afterEach(() => {
 });
 
 describe('conversation repository', () => {
-  it('persists role-specific Codex backends on create and empty-conversation updates', async () => {
+  it('persists role-specific Codex runtimes on create and on runtime updates', async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
@@ -49,21 +49,27 @@ describe('conversation repository', () => {
             id: 'c_new',
             title: 'New conversation',
             naming_state: 'manual',
-            codex_backends: { orchestrator: 'codexds', implementer: 'traditional' },
+            codex_runtime: {
+              orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
+              implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+            },
             messages: [],
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),
     );
     vi.stubGlobal('fetch', fetchMock);
-    const selection = { orchestrator: 'codexds', implementer: 'traditional' } as const;
+    const selection = {
+      orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
+      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+    } as const;
 
     await createConversation('w_main', selection);
     await updateConversationRuntime('w_main', 'c_new', selection);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/workspaces/w_main/conversations');
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
-      codex_backends: selection,
+      codex_runtime: selection,
     });
     expect(fetchMock.mock.calls[1]).toEqual([
       '/api/workspaces/w_main/conversations/c_new/runtime',
@@ -204,12 +210,17 @@ describe('conversation repository', () => {
     expect(events).toContainEqual({
       kind: 'intermediate_output',
       role: 'orchestrator',
-      backend: 'codexds',
+      level: 'progress',
       text: 'Inspecting.',
     });
-    expect(events).toContainEqual({ kind: 'final', text: 'See `exp.throughput`.' });
+    expect(events).toContainEqual({
+      kind: 'final',
+      text: 'See `exp.throughput`.',
+      outcome: 'final_answer',
+    });
     expect(completions).toContainEqual({
       text: 'See `exp.throughput`.',
+      outcome: 'final_answer',
       citations: [citation],
       citationDictionaryId: 'dictionary-1',
       citationDslVersion: 'v2',
@@ -263,6 +274,7 @@ describe('conversation repository', () => {
     expect(events).toEqual([{ kind: 'error', text: failure.message }]);
     expect(completions).toContainEqual({
       text: failure.message,
+      outcome: 'final_answer',
       citations: [],
       citationDictionaryId: null,
       citationDslVersion: null,
@@ -333,8 +345,49 @@ describe('conversation repository', () => {
           role: 'orchestrator',
           text: 'Inspecting the sweep.',
         },
-        { kind: 'final', text: 'Rendered answer.' },
+        { kind: 'final', text: 'Rendered answer.', outcome: 'final_answer' },
       ],
     });
+  });
+
+  it('preserves a clarification outcome as a distinct terminal event', async () => {
+    const stream = [
+      'event: done',
+      'data: {"text":"Which GPU should I use?","outcome":"request_user_input"}',
+      '',
+      '',
+    ].join('\n');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(stream, { status: 200 })),
+    );
+    const events: unknown[] = [];
+    const completions: unknown[] = [];
+
+    await sendConversationTurn(
+      'w_main',
+      'c_test',
+      'Run a prediction.',
+      null,
+      {
+        event: (event) => events.push(event),
+        done: (completion) => completions.push(completion),
+      },
+      new AbortController().signal,
+    );
+
+    expect(events).toEqual([
+      {
+        kind: 'final',
+        text: 'Which GPU should I use?',
+        outcome: 'request_user_input',
+      },
+    ]);
+    expect(completions).toContainEqual(
+      expect.objectContaining({
+        text: 'Which GPU should I use?',
+        outcome: 'request_user_input',
+      }),
+    );
   });
 });

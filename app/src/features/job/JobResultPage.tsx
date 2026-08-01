@@ -448,9 +448,7 @@ function KernelCurve({
       ...(descriptor ?? {}),
       axes:
         curve.axes.length > 0
-          ? curve.axes
-              .map((axis) => `${axis.key} · ${axis.values.length} values`)
-              .join(' × ')
+          ? curve.axes.map((axis) => `${axis.key} · ${axis.values.length} values`).join(' × ')
           : 'scalar',
       points: `${readyPointCount} / ${curve.rows.length} ready`,
       metrics: curve.series.length,

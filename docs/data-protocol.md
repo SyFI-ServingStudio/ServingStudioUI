@@ -377,8 +377,20 @@ the active run. The HTTP transport is:
 
 ```text
 GET /api/v1/sweeps
+GET /api/v1/sweeps?status=ready&limit=5
+GET /api/v1/sweeps/latest
 GET /api/v1/sweeps/{sweep_id}/payload
 ```
+
+The sweep catalog is ordered newest-first by experiment date and then artifact
+update time. `status` accepts `ready` or `pending`; `limit` accepts `1..=100`.
+`GET /api/v1/sweeps/latest` is an exact convenience alias for the newest ready
+entry and returns the same catalog envelope with zero or one `sweeps` member.
+These discovery endpoints expose the opaque `sweep_id` intentionally: an Agent
+uses the id together with display name, axes, deployment, trace, status, and
+time to decide whether a result matches the user's question before reading its
+payload. “Latest” is a candidate shortcut, not semantic proof that the result
+is the right one.
 
 Timing prediction is a separate first-class resource family. It does not enter
 the run catalog and it never receives synthetic deployment, pool, or worker

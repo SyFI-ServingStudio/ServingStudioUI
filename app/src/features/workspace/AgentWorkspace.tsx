@@ -8,6 +8,7 @@ import CloseFullscreenRounded from '@mui/icons-material/CloseFullscreenRounded';
 import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
+import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
 import HubOutlined from '@mui/icons-material/HubOutlined';
 import KeyboardDoubleArrowLeftRounded from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
 import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
@@ -32,8 +33,8 @@ import { analyzerSelectionFromVizState } from '../../application/analyzerSelecti
 import {
   activeConversationId,
   forgetActiveConversation,
-  forgetPendingCodexBackends,
-  pendingCodexBackends,
+  forgetPendingCodexRuntime,
+  pendingCodexRuntime,
   rememberActiveConversation,
 } from '../../application/conversationSession';
 import {
@@ -46,9 +47,9 @@ import {
   resumeConversationTurn,
   sendConversationTurn,
   updateConversationRuntime,
-  type CodexBackendId,
-  type CodexBackendOption,
-  type CodexBackendSelection,
+  type CodexModelOption,
+  type CodexRoleRuntime,
+  type CodexRuntimeSelection,
   type Conversation,
   type ConversationMessage,
   type ConversationMessagePage,
@@ -65,7 +66,8 @@ import {
 } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
-import CodexBackendPicker, { CodexBackendTag } from './CodexBackendPicker';
+import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
+import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import { conversationTimeLabel } from './conversationPresentation';
 import { conversationCards } from './conversationTimeline';
 
@@ -110,7 +112,7 @@ function RoleCard({
   icon,
   title,
   round,
-  backend,
+  runtime,
   status,
   children,
 }: {
@@ -118,7 +120,7 @@ function RoleCard({
   icon: ReactNode;
   title: string;
   round?: number;
-  backend?: CodexBackendId;
+  runtime?: CodexRoleRuntime;
   status: string;
   children: ReactNode;
 }) {
@@ -154,7 +156,7 @@ function RoleCard({
             round {round}
           </Typography>
         )}
-        {backend && <CodexBackendTag backend={backend} />}
+        {runtime?.model && <CodexRuntimeTag model={runtime.model} effort={runtime.effort} />}
         <Typography
           sx={{
             ml: 'auto',
@@ -172,7 +174,42 @@ function RoleCard({
   );
 }
 
-function Note({ children, workspaceId }: { children: ReactNode; workspaceId?: string }) {
+function Note({
+  children,
+  workspaceId,
+  level = 'progress',
+}: {
+  children: ReactNode;
+  workspaceId?: string;
+  level?: 'progress' | 'milestone';
+}) {
+  if (level === 'milestone') {
+    return (
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: 'flex-start',
+          gap: 0.7,
+          px: 0.85,
+          py: 0.65,
+          border: `1px solid ${tokens.teal}28`,
+          borderRadius: 1,
+          background: `${tokens.teal}0A`,
+        }}
+      >
+        <CheckCircleOutlineRounded
+          sx={{ mt: '2px', color: tokens.teal, fontSize: 13, flex: '0 0 auto' }}
+        />
+        {typeof children === 'string' ? (
+          <MarkdownBody text={children} citations={[]} workspaceId={workspaceId} compact />
+        ) : (
+          <Typography sx={{ color: tokens.ink, fontSize: 11.5, lineHeight: 1.5 }}>
+            {children}
+          </Typography>
+        )}
+      </Stack>
+    );
+  }
   if (typeof children === 'string') {
     return <MarkdownBody text={children} citations={[]} workspaceId={workspaceId} compact />;
   }
@@ -184,7 +221,7 @@ function Note({ children, workspaceId }: { children: ReactNode; workspaceId?: st
 function ActivityLine({ text }: { text: string }) {
   const tool = text.match(/^tool:\s*(.+)$/i);
   const command = text.match(/^\$\s*(.+)$/);
-  const label = tool ? 'tool call' : command ? 'command' : 'activity';
+  const label = command ? 'command' : 'tool call';
   const detail = tool?.[1] ?? command?.[1] ?? text;
   return (
     <Stack
@@ -758,13 +795,13 @@ function AssistantTimeline({
   message,
   events,
   streaming,
-  progress,
+  toolCall,
   workspaceId,
 }: {
   message?: ConversationMessage;
   events: readonly ConversationTurnEvent[];
   streaming: boolean;
-  progress: string;
+  toolCall: string;
   workspaceId: string;
 }) {
   const cards = conversationCards(events);
@@ -780,7 +817,7 @@ function AssistantTimeline({
         round={1}
         status="working"
       >
-        <ActivityLine text={progress || 'Preparing the inquiry workspace…'} />
+        <ActivityLine text={toolCall || 'Preparing the inquiry workspace…'} />
       </RoleCard>
     );
   }
@@ -811,16 +848,16 @@ function AssistantTimeline({
           }
           title={implementer ? 'Implementer' : 'Orchestrator'}
           round={card.round}
-          backend={card.backend}
+          runtime={card.runtime}
           status={!card.done && streaming ? 'working' : 'done'}
         >
           <Stack sx={{ gap: 0.65 }}>
             {card.notes.map((note, noteIndex) => (
-              <Note key={noteIndex} workspaceId={workspaceId}>
-                {note}
+              <Note key={noteIndex} workspaceId={workspaceId} level={note.level}>
+                {note.text}
               </Note>
             ))}
-            {!card.done && streaming && progress && <ActivityLine text={progress} />}
+            {!card.done && streaming && toolCall && <ActivityLine text={toolCall} />}
           </Stack>
         </RoleCard>
       );
@@ -899,10 +936,16 @@ function AssistantTimeline({
     return (
       <RoleCard
         key={index}
-        tone="answer"
-        icon={<CheckCircleOutlineRounded sx={{ fontSize: 15 }} />}
-        title="Answer"
-        status="ready"
+        tone={card.outcome === 'request_user_input' ? 'orchestrator' : 'answer'}
+        icon={
+          card.outcome === 'request_user_input' ? (
+            <HelpOutlineRounded sx={{ fontSize: 15 }} />
+          ) : (
+            <CheckCircleOutlineRounded sx={{ fontSize: 15 }} />
+          )
+        }
+        title={card.outcome === 'request_user_input' ? 'Input needed' : 'Answer'}
+        status={card.outcome === 'request_user_input' ? 'waiting' : 'ready'}
       >
         <MarkdownBody
           text={card.text}
@@ -919,7 +962,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   messages,
   messageStartIndex,
   liveEvents,
-  progress,
+  toolCall,
   streaming,
   error,
   canLoadEarlier,
@@ -930,7 +973,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   messages: readonly ConversationMessage[];
   messageStartIndex: number;
   liveEvents: readonly ConversationTurnEvent[];
-  progress: string;
+  toolCall: string;
   streaming: boolean;
   error: string | null;
   canLoadEarlier: boolean;
@@ -971,7 +1014,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
                 : [{ kind: 'final', text: message.content }]
             }
             streaming={false}
-            progress=""
+            toolCall=""
             workspaceId={workspaceId}
           />
         ),
@@ -980,7 +1023,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
         <AssistantTimeline
           events={liveEvents}
           streaming
-          progress={progress}
+          toolCall={toolCall}
           workspaceId={workspaceId}
         />
       )}
@@ -1149,28 +1192,36 @@ const AgentComposer = memo(function AgentComposer({
   gridColumn,
   readingColumnWidth,
   showSelectionContext,
+  focusRequest,
   streaming,
   interrupting,
-  backendOptions,
-  codexBackends,
-  backendSelectionLocked,
-  onBackendChange,
+  modelOptions,
+  catalogUnavailable,
+  codexRuntime,
+  lockedFamilies,
+  onRuntimeChange,
   onSend,
   onCancel,
 }: {
   gridColumn: number;
   readingColumnWidth: string;
   showSelectionContext: boolean;
+  focusRequest: number;
   streaming: boolean;
   interrupting: boolean;
-  backendOptions: readonly CodexBackendOption[];
-  codexBackends: CodexBackendSelection;
-  backendSelectionLocked: boolean;
-  onBackendChange: (role: keyof CodexBackendSelection, backend: CodexBackendId) => void;
+  modelOptions: readonly CodexModelOption[];
+  catalogUnavailable: boolean;
+  codexRuntime: CodexRuntimeSelection;
+  lockedFamilies: Record<keyof CodexRuntimeSelection, string> | null;
+  onRuntimeChange: (role: keyof CodexRuntimeSelection, runtime: CodexRoleRuntime) => void;
   onSend: (message: string) => void;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState('');
+  const inputElement = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (focusRequest > 0) inputElement.current?.focus();
+  }, [focusRequest]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = draft.trim();
@@ -1195,11 +1246,12 @@ const AgentComposer = memo(function AgentComposer({
         {showSelectionContext && <AnalyzerSelectionStrip />}
         {/* Runtime choice reads before the prompt, centred on the composer's axis. */}
         <Stack direction="row" justifyContent="center" sx={{ mb: 0.8 }}>
-          <CodexBackendPicker
-            options={backendOptions}
-            selection={codexBackends}
-            locked={backendSelectionLocked}
-            onChange={onBackendChange}
+          <CodexRuntimePicker
+            models={modelOptions}
+            selection={codexRuntime}
+            lockedFamilies={lockedFamilies}
+            unavailable={catalogUnavailable}
+            onChange={onRuntimeChange}
           />
         </Stack>
         <Stack
@@ -1222,6 +1274,7 @@ const AgentComposer = memo(function AgentComposer({
         >
           <Box
             component="input"
+            ref={inputElement}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             aria-label="Continue the conversation"
@@ -1676,19 +1729,37 @@ function useAgentConversation(
   onInitialPromptStarted?: () => void,
   onWorkspaceNameChange?: (name: string) => void,
 ) {
-  const [backendOptions, setBackendOptions] = useState<readonly CodexBackendOption[]>([]);
-  const [codexBackends, setCodexBackends] = useState<CodexBackendSelection>(
-    () => pendingCodexBackends() ?? { orchestrator: 'traditional', implementer: 'traditional' },
+  const [modelOptions, setModelOptions] = useState<readonly CodexModelOption[]>([]);
+  const [catalogUnavailable, setCatalogUnavailable] = useState(false);
+  const [codexRuntime, setCodexRuntime] = useState<CodexRuntimeSelection>(
+    () => pendingCodexRuntime() ?? EMPTY_RUNTIME_SELECTION,
   );
+  // What the server last stored for this conversation, so a turn only PATCHes on a
+  // real change instead of on every send.
+  const persistedRuntime = useRef<CodexRuntimeSelection | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
   const [messagePage, setMessagePage] = useState<ConversationMessagePage | null>(null);
+  // Once a conversation has history its Codex session can only be resumed inside
+  // the family that recorded it, so each role pins to the family it started on.
+  const lockedFamilies = useMemo(() => {
+    const started = persistedRuntime.current !== null && messages.length > 0;
+    if (!started) return null;
+    const familyOf = (runtime: CodexRoleRuntime) =>
+      modelOptions.find((model) => model.id === runtime.model)?.family ?? '';
+    const pinned = persistedRuntime.current as CodexRuntimeSelection;
+    return {
+      orchestrator: familyOf(pinned.orchestrator),
+      implementer: familyOf(pinned.implementer),
+    };
+  }, [messages.length, modelOptions]);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [liveEvents, setLiveEvents] = useState<readonly ConversationTurnEvent[]>([]);
-  const [progress, setProgress] = useState('');
+  const [toolCall, setToolCall] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [interrupting, setInterrupting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composerFocusRequest, setComposerFocusRequest] = useState(0);
   const [conversations, setConversations] = useState<readonly ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -1717,7 +1788,7 @@ function useAgentConversation(
     setStreamingState(false);
     setInterrupting(false);
     setLiveEvents([]);
-    setProgress('');
+    setToolCall('');
     return nextVersion;
   }, [setStreamingState]);
   const refreshHistory = useCallback(async (): Promise<readonly ConversationSummary[] | null> => {
@@ -1780,9 +1851,12 @@ function useAgentConversation(
       setMessages(conversation.messages);
       setMessagePage(conversation.message_page ?? null);
       setLiveEvents([]);
-      setProgress('');
+      setToolCall('');
       setError(null);
-      if (conversation.codex_backends) setCodexBackends(conversation.codex_backends);
+      if (conversation.codex_runtime) {
+        persistedRuntime.current = conversation.codex_runtime;
+        setCodexRuntime(conversation.codex_runtime);
+      }
       if (markInitialPromptHandled) initialPromptStarted.current = true;
     },
     [workspaceId],
@@ -1804,14 +1878,17 @@ function useAgentConversation(
           workspaceId,
           activeConversationId,
           {
-            progress: (text) => {
-              if (viewIsCurrent()) setProgress(text);
+            toolCall: (text) => {
+              if (viewIsCurrent()) setToolCall(text);
             },
             event: (event) => {
               if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
             },
             done: (completion) => {
               namingScheduled = completion.namingScheduled;
+              if (completion.outcome === 'request_user_input') {
+                setComposerFocusRequest((current) => current + 1);
+              }
             },
           },
           controller.signal,
@@ -1835,7 +1912,7 @@ function useAgentConversation(
           if (abortController.current === controller) abortController.current = null;
           setStreamingState(false);
           setLiveEvents([]);
-          setProgress('');
+          setToolCall('');
         }
       }
     },
@@ -1850,15 +1927,29 @@ function useAgentConversation(
       const viewIsCurrent = () =>
         conversationViewVersion.current === viewVersion &&
         conversationIdRef.current === activeConversationId;
-      if (messages.length === 0) {
-        await updateConversationRuntime(workspaceId, activeConversationId, codexBackends);
+      // Effort — and a sibling model — stay changeable mid-conversation, so the
+      // runtime is pushed whenever it drifts from what the server last stored.
+      // An unresolved selection (no catalog yet) is never pushed: the server's
+      // own default is better than a placeholder.
+      const runtimeResolved = Boolean(codexRuntime.orchestrator.model);
+      if (
+        runtimeResolved &&
+        persistedRuntime.current !== null &&
+        JSON.stringify(persistedRuntime.current) !== JSON.stringify(codexRuntime)
+      ) {
+        const updated = await updateConversationRuntime(
+          workspaceId,
+          activeConversationId,
+          codexRuntime,
+        );
+        persistedRuntime.current = updated.codex_runtime ?? codexRuntime;
       }
       if (!viewIsCurrent()) return;
       const controller = new AbortController();
       abortController.current = controller;
       setMessages((current) => [...current, { role: 'user', content: trimmed }]);
       setLiveEvents([]);
-      setProgress('');
+      setToolCall('');
       setError(null);
       setStreamingState(true);
       let completionMessage: ConversationMessage | null = null;
@@ -1870,8 +1961,8 @@ function useAgentConversation(
           trimmed,
           context,
           {
-            progress: (text) => {
-              if (viewIsCurrent()) setProgress(text);
+            toolCall: (text) => {
+              if (viewIsCurrent()) setToolCall(text);
             },
             event: (event) => {
               if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
@@ -1882,12 +1973,23 @@ function useAgentConversation(
               completionMessage = {
                 role: 'assistant',
                 content: completion.text,
-                activity: [],
+                activity: completion.failure
+                  ? [{ kind: 'error', text: completion.failure.message }]
+                  : [
+                      {
+                        kind: 'final',
+                        text: completion.text,
+                        outcome: completion.outcome,
+                      },
+                    ],
                 citations: completion.citations,
                 citation_dictionary_id: completion.citationDictionaryId,
                 citation_dsl_version: completion.citationDslVersion,
                 failure: completion.failure,
               };
+              if (completion.outcome === 'request_user_input') {
+                setComposerFocusRequest((current) => current + 1);
+              }
             },
           },
           controller.signal,
@@ -1911,14 +2013,13 @@ function useAgentConversation(
           if (abortController.current === controller) abortController.current = null;
           setStreamingState(false);
           setLiveEvents([]);
-          setProgress('');
+          setToolCall('');
         }
       }
     },
     [
       beginConversationView,
-      codexBackends,
-      messages.length,
+      codexRuntime,
       pollGeneratedNames,
       refreshHistory,
       setStreamingState,
@@ -1967,19 +2068,19 @@ function useAgentConversation(
     setMessages([]);
     setMessagePage(null);
     setLiveEvents([]);
-    setProgress('');
+    setToolCall('');
     setError(null);
   }, [beginConversationView, workspaceId]);
 
   const materializeConversation = useCallback(async (): Promise<Conversation> => {
-    const creation = createConversation(workspaceId, codexBackends);
+    const creation = createConversation(workspaceId, codexRuntime);
     initializationPromise.current = creation;
     const conversation = await creation;
     installConversation(conversation, true);
-    forgetPendingCodexBackends();
+    forgetPendingCodexRuntime();
     await refreshHistory();
     return conversation;
-  }, [codexBackends, installConversation, refreshHistory, workspaceId]);
+  }, [codexRuntime, installConversation, refreshHistory, workspaceId]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -1987,27 +2088,25 @@ function useAgentConversation(
     void listCodexBackends()
       .then((catalog) => {
         if (disposed) return;
-        setBackendOptions(catalog.backends);
-        setCodexBackends((current) => {
-          const available = new Set(
-            catalog.backends.filter((backend) => backend.available).map((backend) => backend.id),
-          );
+        setModelOptions(catalog.models);
+        setCatalogUnavailable(catalog.models.length === 0);
+        setCodexRuntime((current) => {
+          // Keep whatever the conversation or Page 0 already chose; only fall
+          // back for a role whose model this host cannot actually serve.
+          const runnable = (runtime: CodexRoleRuntime) =>
+            catalog.models.some((model) => model.id === runtime.model && model.available);
           return {
-            orchestrator: available.has(current.orchestrator)
+            orchestrator: runnable(current.orchestrator)
               ? current.orchestrator
               : catalog.defaults.orchestrator,
-            implementer: available.has(current.implementer)
+            implementer: runnable(current.implementer)
               ? current.implementer
               : catalog.defaults.implementer,
           };
         });
       })
       .catch(() => {
-        if (!disposed) {
-          setBackendOptions([
-            { id: 'traditional', label: 'Traditional', model: '', available: true },
-          ]);
-        }
+        if (!disposed) setCatalogUnavailable(true);
       });
     return () => {
       disposed = true;
@@ -2188,7 +2287,7 @@ function useAgentConversation(
       setInterrupting(false);
       setStreamingState(false);
       setLiveEvents([]);
-      setProgress('');
+      setToolCall('');
     }
   }, [conversationId, interrupting, refreshHistory, setStreamingState, workspaceId]);
   const send = useCallback(
@@ -2206,7 +2305,7 @@ function useAgentConversation(
     conversations,
     messages,
     liveEvents,
-    progress,
+    toolCall,
     streaming,
     interrupting,
     error,
@@ -2221,9 +2320,12 @@ function useAgentConversation(
     selectConversation,
     startConversation,
     removeConversation,
-    backendOptions,
-    codexBackends,
-    setCodexBackends,
+    modelOptions,
+    catalogUnavailable,
+    codexRuntime,
+    setCodexRuntime,
+    lockedFamilies,
+    composerFocusRequest,
   };
 }
 
@@ -2506,7 +2608,7 @@ export default function AgentPane({
           messages={conversation.messages}
           messageStartIndex={conversation.messageStartIndex}
           liveEvents={conversation.liveEvents}
-          progress={conversation.progress}
+          toolCall={conversation.toolCall}
           streaming={conversation.streaming}
           error={conversation.error}
           canLoadEarlier={conversation.canLoadEarlier}
@@ -2518,13 +2620,15 @@ export default function AgentPane({
         gridColumn={persistentHistory ? 2 : 1}
         readingColumnWidth={readingColumnWidth}
         showSelectionContext={showSelectionContext}
+        focusRequest={conversation.composerFocusRequest}
         streaming={conversation.streaming}
         interrupting={conversation.interrupting}
-        backendOptions={conversation.backendOptions}
-        codexBackends={conversation.codexBackends}
-        backendSelectionLocked={conversation.streaming || conversation.messages.length > 0}
-        onBackendChange={(role, backend) =>
-          conversation.setCodexBackends((current) => ({ ...current, [role]: backend }))
+        modelOptions={conversation.modelOptions}
+        catalogUnavailable={conversation.catalogUnavailable}
+        codexRuntime={conversation.codexRuntime}
+        lockedFamilies={conversation.lockedFamilies}
+        onRuntimeChange={(role, runtime) =>
+          conversation.setCodexRuntime((current) => ({ ...current, [role]: runtime }))
         }
         onSend={sendMessage}
         onCancel={cancelTurn}

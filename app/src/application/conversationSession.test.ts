@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   activeConversationId,
   forgetActiveConversation,
-  forgetPendingCodexBackends,
-  pendingCodexBackends,
+  forgetPendingCodexRuntime,
+  pendingCodexRuntime,
   rememberActiveConversation,
-  rememberPendingCodexBackends,
+  rememberPendingCodexRuntime,
 } from './conversationSession';
 
 describe('active conversation session', () => {
@@ -26,12 +26,24 @@ describe('active conversation session', () => {
     expect(activeConversationId('w_two')).toBe('c_two');
   });
 
-  it('carries a valid role backend selection between entry and agent surfaces', () => {
-    const selection = { orchestrator: 'codexds', implementer: 'traditional' } as const;
+  it('carries a valid role runtime selection between entry and agent surfaces', () => {
+    const selection = {
+      orchestrator: { model: 'gpt-5.6-terra', effort: 'high' },
+      implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+    } as const;
 
-    rememberPendingCodexBackends(selection);
-    expect(pendingCodexBackends()).toEqual(selection);
-    forgetPendingCodexBackends();
-    expect(pendingCodexBackends()).toBeNull();
+    rememberPendingCodexRuntime(selection);
+    expect(pendingCodexRuntime()).toEqual(selection);
+    forgetPendingCodexRuntime();
+    expect(pendingCodexRuntime()).toBeNull();
+  });
+
+  it('rejects a stored selection that is not a model plus an effort', () => {
+    window.sessionStorage.setItem(
+      'vibesim.entry.codex-runtime',
+      JSON.stringify({ orchestrator: 'codexds', implementer: 'traditional' }),
+    );
+
+    expect(pendingCodexRuntime()).toBeNull();
   });
 });

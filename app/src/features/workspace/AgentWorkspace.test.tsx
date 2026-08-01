@@ -68,6 +68,39 @@ beforeEach(() => {
 });
 
 describe('AgentPane', () => {
+  it('renders a clarification request as an input-needed terminal state', () => {
+    render(
+      <ConversationTranscript
+        workspaceId="w_main"
+        messages={[
+          {
+            role: 'assistant',
+            content: 'Which GPU should I use?',
+            activity: [
+              {
+                kind: 'final',
+                text: 'Which GPU should I use?',
+                outcome: 'request_user_input',
+              },
+            ],
+          },
+        ]}
+        messageStartIndex={0}
+        liveEvents={[]}
+        toolCall=""
+        streaming={false}
+        error={null}
+        canLoadEarlier={false}
+        loadingEarlier={false}
+        onLoadEarlier={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText('Input needed')).toBeInTheDocument();
+    expect(screen.getByText('waiting')).toBeInTheDocument();
+    expect(screen.queryByText('Answer')).not.toBeInTheDocument();
+  });
+
   it('keeps a long transcript outside the per-keystroke draft render path', async () => {
     let contentReads = 0;
     const transcriptMessages = Array.from({ length: 80 }, (_, index) => {
@@ -95,7 +128,7 @@ describe('AgentPane', () => {
             messages={transcriptMessages}
             messageStartIndex={0}
             liveEvents={liveEvents}
-            progress=""
+            toolCall=""
             streaming={false}
             error={null}
             canLoadEarlier={false}
@@ -286,7 +319,7 @@ describe('AgentPane', () => {
           start(controller) {
             liveStreamController = controller;
             controller.enqueue(
-              new TextEncoder().encode('event: progress\ndata: {"text":"simulation running"}\n\n'),
+              new TextEncoder().encode('event: tool_call\ndata: {"text":"simulation running"}\n\n'),
             );
           },
         });
@@ -698,7 +731,7 @@ describe('AgentPane', () => {
               'event: intermediate_output',
               'data: {"role":"orchestrator","text":"I will inspect the analyzer."}',
               '',
-              'event: progress',
+              'event: tool_call',
               'data: {"text":"tool: read_analyzer_resource"}',
               '',
               '',

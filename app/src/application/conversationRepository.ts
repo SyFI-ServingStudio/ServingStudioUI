@@ -11,23 +11,39 @@ export interface ConversationTokens {
   output: number;
 }
 
-export type CodexBackendId = 'traditional' | 'codexds';
-
-export interface CodexBackendSelection {
-  orchestrator: CodexBackendId;
-  implementer: CodexBackendId;
+/** One role's Codex choice: which model runs it, and at what reasoning effort. */
+export interface CodexRoleRuntime {
+  model: string;
+  effort: string;
 }
 
-export interface CodexBackendOption {
-  id: CodexBackendId;
+export interface CodexRuntimeSelection {
+  orchestrator: CodexRoleRuntime;
+  implementer: CodexRoleRuntime;
+}
+
+export interface CodexModelOption {
+  id: string;
   label: string;
-  model: string;
+  /** Session-compatibility boundary: a started conversation may only move within it. */
+  family: string;
+  familyLabel: string;
+  efforts: readonly string[];
+  defaultEffort: string;
   available: boolean;
 }
 
-export interface CodexBackendCatalog {
-  backends: readonly CodexBackendOption[];
-  defaults: CodexBackendSelection;
+export interface CodexFamilyOption {
+  id: string;
+  label: string;
+  available: boolean;
+  requiredEnvironment: readonly string[];
+}
+
+export interface CodexRuntimeCatalog {
+  models: readonly CodexModelOption[];
+  families: readonly CodexFamilyOption[];
+  defaults: CodexRuntimeSelection;
 }
 
 export interface ConversationFailure {
@@ -35,14 +51,25 @@ export interface ConversationFailure {
   message: string;
 }
 
+export type AgentTerminalOutcome = 'final_answer' | 'request_user_input';
+export type CommentaryLevel = 'progress' | 'milestone';
+
 export type ConversationTurnEvent =
-  | { kind: 'intermediate_output'; role: string; backend?: CodexBackendId; text: string }
+  | {
+      kind: 'intermediate_output';
+      role: string;
+      model?: string;
+      effort?: string;
+      level?: CommentaryLevel;
+      text: string;
+    }
   | { kind: 'decision'; action: string; task: string }
   | { kind: 'implementer'; text: string }
   | {
       kind: 'usage';
       role: string;
-      backend?: CodexBackendId;
+      model?: string;
+      effort?: string;
       duration_ms: number;
       tokens: ConversationTokens;
     }
@@ -60,12 +87,16 @@ export type ConversationTurnEvent =
       descriptor?: Record<string, unknown>;
       summary?: Record<string, unknown> | null;
     }
-  | { kind: 'final'; text: string };
+  | { kind: 'final'; text: string; outcome?: AgentTerminalOutcome };
 
 export interface ConversationMessage {
   role: string;
   content: string;
-  intermediate_outputs?: readonly { role?: string; text: string }[] | null;
+  intermediate_outputs?: readonly {
+    role?: string;
+    level?: CommentaryLevel;
+    text: string;
+  }[] | null;
   activity?: readonly ConversationTurnEvent[] | null;
   citations?: readonly FrozenCitationV2[] | null;
   citation_dictionary_id?: string | null;
@@ -77,7 +108,7 @@ export interface Conversation {
   id: string;
   title: string;
   naming_state: NamingState;
-  codex_backends?: CodexBackendSelection;
+  codex_runtime?: CodexRuntimeSelection;
   messages: readonly ConversationMessage[];
   message_page?: ConversationMessagePage;
 }
@@ -113,6 +144,7 @@ function workspaceConversationSummaryFromWire(value: unknown): WorkspaceConversa
 
 export interface TurnCompletion {
   text: string;
+  outcome: AgentTerminalOutcome;
   citations: readonly FrozenCitationV2[];
   citationDictionaryId: string | null;
   citationDslVersion: string | null;
@@ -121,7 +153,7 @@ export interface TurnCompletion {
 }
 
 export interface ConversationStreamHandlers {
-  progress?: (text: string) => void;
+  toolCall?: (text: string) => void;
   event?: (event: ConversationTurnEvent) => void;
   done?: (completion: TurnCompletion) => void;
 }
@@ -214,6 +246,7 @@ function normalizeConversationMessage(message: ConversationMessage): Conversatio
             {
               kind: 'intermediate_output' as const,
               role: output.role ?? 'orchestrator',
+              level: output.level ?? 'progress',
               text: output.text,
             },
           ]
@@ -222,25 +255,28 @@ function normalizeConversationMessage(message: ConversationMessage): Conversatio
   return {
     ...message,
     content,
-    activity: [...processEvents, { kind: 'final', text: content }],
+    activity: [...processEvents, { kind: 'final', text: content, outcome: 'final_answer' }],
   };
 }
 
-export async function listCodexBackends(): Promise<CodexBackendCatalog> {
+export async function listCodexBackends(): Promise<CodexRuntimeCatalog> {
   const response = await requireResponse(await fetch('/api/codex-backends'), 'List Codex backends');
-  const payload = (await response.json()) as Partial<CodexBackendCatalog>;
-  const fallback: CodexBackendCatalog = {
-    backends: [{ id: 'traditional', label: 'Traditional', model: '', available: true }],
-    defaults: { orchestrator: 'traditional', implementer: 'traditional' },
-  };
-  return Array.isArray(payload.backends) && payload.defaults
-    ? (payload as CodexBackendCatalog)
-    : fallback;
+  const payload = (await response.json()) as Partial<CodexRuntimeCatalog>;
+  return Array.isArray(payload.models) && payload.models.length > 0 && payload.defaults
+    ? { ...(payload as CodexRuntimeCatalog), families: payload.families ?? [] }
+    : {
+        models: [],
+        families: [],
+        defaults: payload.defaults ?? {
+          orchestrator: { model: '', effort: '' },
+          implementer: { model: '', effort: '' },
+        },
+      };
 }
 
 export async function createConversation(
   workspaceId: string,
-  codexBackends: CodexBackendSelection,
+  codexRuntime: CodexRuntimeSelection,
 ): Promise<Conversation> {
   const response = await requireResponse(
     await fetch(conversationApi(workspaceId), {
@@ -249,7 +285,7 @@ export async function createConversation(
       body: JSON.stringify({
         sandbox: 'workspace-write',
         autonomous: true,
-        codex_backends: codexBackends,
+        codex_runtime: codexRuntime,
       }),
     }),
     'Create conversation',
@@ -261,13 +297,13 @@ export async function createConversation(
 export async function updateConversationRuntime(
   workspaceId: string,
   conversationId: string,
-  codexBackends: CodexBackendSelection,
+  codexRuntime: CodexRuntimeSelection,
 ): Promise<Conversation> {
   const response = await requireResponse(
     await fetch(`${conversationApi(workspaceId)}/${conversationId}/runtime`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codex_backends: codexBackends }),
+      body: JSON.stringify({ codex_runtime: codexRuntime }),
     }),
     'Update conversation runtime',
   );
@@ -421,15 +457,15 @@ function eventData(chunk: string): { event: string; data: Record<string, unknown
 
 function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): void {
   const { event, data } = eventData(chunk);
-  if (event === 'progress') {
-    handlers.progress?.(String(data.text ?? ''));
+  if (event === 'tool_call') {
+    handlers.toolCall?.(String(data.text ?? ''));
   } else if (event === 'intermediate_output') {
     handlers.event?.({
       kind: 'intermediate_output',
       role: String(data.role ?? ''),
-      ...(data.backend === 'traditional' || data.backend === 'codexds'
-        ? { backend: data.backend }
-        : {}),
+      ...(typeof data.model === 'string' ? { model: data.model } : {}),
+      ...(typeof data.effort === 'string' ? { effort: data.effort } : {}),
+      level: data.level === 'milestone' ? 'milestone' : 'progress',
       text: String(data.text ?? ''),
     });
   } else if (event === 'decision') {
@@ -444,9 +480,8 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
     handlers.event?.({
       kind: 'usage',
       role: String(data.role ?? ''),
-      ...(data.backend === 'traditional' || data.backend === 'codexds'
-        ? { backend: data.backend }
-        : {}),
+      ...(typeof data.model === 'string' ? { model: data.model } : {}),
+      ...(typeof data.effort === 'string' ? { effort: data.effort } : {}),
       duration_ms: numberOrZero(data.duration_ms),
       tokens: tokensFrom(data.tokens),
     });
@@ -471,7 +506,11 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
   } else if (event === 'done') {
     const text = String(data.text ?? '');
     const failure = conversationFailureFrom(data.failure, text);
-    handlers.event?.(failure ? { kind: 'error', text: failure.message } : { kind: 'final', text });
+    const outcome: AgentTerminalOutcome =
+      data.outcome === 'request_user_input' ? 'request_user_input' : 'final_answer';
+    handlers.event?.(
+      failure ? { kind: 'error', text: failure.message } : { kind: 'final', text, outcome },
+    );
     const citations = Array.isArray(data.citations)
       ? data.citations.flatMap((citation) => {
           const parsed = frozenCitationV2Schema.safeParse(citation);
@@ -480,6 +519,7 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
       : [];
     handlers.done?.({
       text,
+      outcome,
       citations,
       citationDictionaryId:
         typeof data.citation_dictionary_id === 'string' ? data.citation_dictionary_id : null,

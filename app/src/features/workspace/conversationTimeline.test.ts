@@ -15,6 +15,51 @@ function job(status: string, jobId: string, experimentId = 'e_sweep'): Conversat
 }
 
 describe('conversationCards managed-run lifecycle', () => {
+  it('preserves semantic progress and milestone levels on role notes', () => {
+    expect(
+      conversationCards([
+        {
+          kind: 'intermediate_output',
+          role: 'orchestrator',
+          level: 'progress',
+          text: 'Checking the sweep.',
+        },
+        {
+          kind: 'intermediate_output',
+          role: 'orchestrator',
+          level: 'milestone',
+          text: 'All sweep runs are ready.',
+        },
+      ]),
+    ).toMatchObject([
+      {
+        type: 'role',
+        notes: [
+          { level: 'progress', text: 'Checking the sweep.' },
+          { level: 'milestone', text: 'All sweep runs are ready.' },
+        ],
+      },
+    ]);
+  });
+
+  it('keeps clarification requests distinct from final answers', () => {
+    expect(
+      conversationCards([
+        {
+          kind: 'final',
+          text: 'Which GPU should I use?',
+          outcome: 'request_user_input',
+        },
+      ]),
+    ).toEqual([
+      {
+        type: 'response',
+        text: 'Which GPU should I use?',
+        outcome: 'request_user_input',
+      },
+    ]);
+  });
+
   it('renders one latest-state card for all transitions of one experiment', () => {
     const cards = conversationCards([
       job('simulation.requested', 'j_first'),

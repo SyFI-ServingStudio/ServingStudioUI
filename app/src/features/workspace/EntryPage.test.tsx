@@ -53,8 +53,22 @@ describe('Page 0 conversation entry', () => {
       },
     ]);
     vi.mocked(listCodexBackends).mockResolvedValue({
-      backends: [{ id: 'traditional', label: 'Traditional', model: '', available: true }],
-      defaults: { orchestrator: 'traditional', implementer: 'traditional' },
+      models: [
+        {
+          id: 'gpt-5.6-sol',
+          label: 'GPT-5.6-Sol',
+          family: 'gpt',
+          familyLabel: 'GPT-5.6',
+          efforts: ['low', 'medium', 'high', 'xhigh'],
+          defaultEffort: 'xhigh',
+          available: true,
+        },
+      ],
+      families: [{ id: 'gpt', label: 'GPT-5.6', available: true, requiredEnvironment: [] }],
+      defaults: {
+        orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+        implementer: { model: 'gpt-5.6-sol', effort: 'xhigh' },
+      },
     });
   });
 
