@@ -2,10 +2,18 @@ import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { WorkspaceConversationSummary } from '../../application/conversationRepository';
+import {
+  listCodexBackends,
+  type CodexBackendId,
+  type CodexBackendOption,
+  type CodexBackendSelection,
+  type WorkspaceConversationSummary,
+} from '../../application/conversationRepository';
 import { listManagedJobs, type ManagedJobListItem } from '../../application/managedJobRepository';
 import {
   forgetActiveConversation,
+  forgetPendingCodexBackends,
+  rememberPendingCodexBackends,
   rememberActiveConversation,
 } from '../../application/conversationSession';
 import { useOfflineResourcesQuery, useSweepListQuery } from '../../application/queries';
@@ -70,7 +78,12 @@ function navigateToOfflineResource(
   window.location.hash = `#/job?${query.toString()}`;
 }
 
-function navigateToAgent(prompt: string, workspaceId: string, conversationId?: string): void {
+function navigateToAgent(
+  prompt: string,
+  workspaceId: string,
+  conversationId?: string,
+  codexBackends?: CodexBackendSelection,
+): void {
   if (prompt) {
     window.sessionStorage.setItem('vibesim.entry.prompt', prompt);
   } else {
@@ -78,8 +91,10 @@ function navigateToAgent(prompt: string, workspaceId: string, conversationId?: s
   }
   if (conversationId) {
     rememberActiveConversation(workspaceId, conversationId);
+    forgetPendingCodexBackends();
   } else {
     forgetActiveConversation(workspaceId);
+    if (codexBackends) rememberPendingCodexBackends(codexBackends);
   }
   const destination = new URL(window.location.href);
   destination.search = '';
@@ -146,6 +161,13 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
+  const [backendOptions, setBackendOptions] = useState<readonly CodexBackendOption[]>([
+    { id: 'traditional', label: 'Traditional', model: '', available: true },
+  ]);
+  const [codexBackends, setCodexBackends] = useState<CodexBackendSelection>({
+    orchestrator: 'traditional',
+    implementer: 'traditional',
+  });
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedWorkspace =
     workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null;
@@ -156,16 +178,29 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
     setCreating(true);
     setCreationError(null);
     if (selectedWorkspaceId !== null) {
-      navigateToAgent(text, selectedWorkspaceId);
+      navigateToAgent(text, selectedWorkspaceId, undefined, codexBackends);
       return;
     }
     void createWorkspace(workspaceNameFromPrompt(text))
-      .then((workspace) => navigateToAgent(text, workspace.workspaceId))
+      .then((workspace) => navigateToAgent(text, workspace.workspaceId, undefined, codexBackends))
       .catch((caught) => {
         setCreationError(caught instanceof Error ? caught.message : 'Workspace creation failed');
         setCreating(false);
       });
   };
+  useEffect(() => {
+    let disposed = false;
+    void listCodexBackends()
+      .then((catalog) => {
+        if (disposed) return;
+        setBackendOptions(catalog.backends);
+        setCodexBackends(catalog.defaults);
+      })
+      .catch(() => undefined);
+    return () => {
+      disposed = true;
+    };
+  }, []);
   return (
     <Box>
       <Box sx={{ maxWidth: 700, mx: 'auto', textAlign: 'center' }}>
@@ -234,11 +269,50 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
           }}
         />
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 1 }}>
-          <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
-            {selectedWorkspace
-              ? `New conversation in ${selectedWorkspace.displayName}`
-              : 'A new workspace will be created'}
-          </Typography>
+          <Stack sx={{ gap: 0.65 }}>
+            <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
+              {selectedWorkspace
+                ? `New conversation in ${selectedWorkspace.displayName}`
+                : 'A new workspace will be created'}
+            </Typography>
+            <Stack direction="row" sx={{ gap: 1 }}>
+              {(['orchestrator', 'implementer'] as const).map((role) => (
+                <Stack key={role} direction="row" alignItems="center" sx={{ gap: 0.5 }}>
+                  <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+                    {role === 'orchestrator' ? 'Orchestrator' : 'Implementer'}
+                  </Typography>
+                  <Box
+                    component="select"
+                    aria-label={`${role} Codex backend`}
+                    value={codexBackends[role]}
+                    onChange={(event) =>
+                      setCodexBackends((current) => ({
+                        ...current,
+                        [role]: event.target.value as CodexBackendId,
+                      }))
+                    }
+                    sx={{
+                      height: 25,
+                      px: 0.65,
+                      border: `1px solid ${tokens.hair}`,
+                      borderRadius: 0.65,
+                      background: tokens.paper,
+                      color: tokens.sub,
+                      fontFamily: tokens.mono,
+                      fontSize: 8.5,
+                    }}
+                  >
+                    {backendOptions.map((backend) => (
+                      <option key={backend.id} value={backend.id} disabled={!backend.available}>
+                        {backend.label}
+                        {backend.available ? '' : ' (unavailable)'}
+                      </option>
+                    ))}
+                  </Box>
+                </Stack>
+              ))}
+            </Stack>
+          </Stack>
           <ButtonBase
             type="submit"
             disabled={!prompt.trim() || creating}

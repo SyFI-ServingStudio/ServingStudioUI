@@ -33,6 +33,7 @@ export default defineConfig(({ mode }) => {
         // Workspace, conversation, and managed-run state belong to the shared
         // conversation backend; explicit prefixes prevent accidental overlap.
         '/api/v1': { target: analyzerTarget, changeOrigin: true },
+        '/api/codex-backends': { target: conversationTarget, changeOrigin: true },
         '/api/conversations': { target: conversationTarget, changeOrigin: true },
         '/api/jobs': { target: conversationTarget, changeOrigin: true },
         '/api/workspaces': { target: conversationTarget, changeOrigin: true },

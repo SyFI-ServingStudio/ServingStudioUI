@@ -2,13 +2,14 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { listAllConversations } from '../../application/conversationRepository';
+import { listAllConversations, listCodexBackends } from '../../application/conversationRepository';
 import type { WorkspaceSummary } from '../../application/workspaceRepository';
 import ConversationCatalog from './ConversationCatalog';
 import { AgentStart } from './EntryPage';
 
 vi.mock('../../application/conversationRepository', () => ({
   listAllConversations: vi.fn(),
+  listCodexBackends: vi.fn(),
 }));
 
 const workspaces: readonly WorkspaceSummary[] = [
@@ -51,6 +52,10 @@ describe('Page 0 conversation entry', () => {
         updated_at: 1785254400,
       },
     ]);
+    vi.mocked(listCodexBackends).mockResolvedValue({
+      backends: [{ id: 'traditional', label: 'Traditional', model: '', available: true }],
+      defaults: { orchestrator: 'traditional', implementer: 'traditional' },
+    });
   });
 
   it('places a compact workspace picker above the new-conversation composer', async () => {

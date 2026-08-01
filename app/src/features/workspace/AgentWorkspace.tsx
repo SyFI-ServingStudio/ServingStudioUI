@@ -32,6 +32,8 @@ import { analyzerSelectionFromVizState } from '../../application/analyzerSelecti
 import {
   activeConversationId,
   forgetActiveConversation,
+  forgetPendingCodexBackends,
+  pendingCodexBackends,
   rememberActiveConversation,
 } from '../../application/conversationSession';
 import {
@@ -39,9 +41,14 @@ import {
   createConversation,
   deleteConversation,
   getConversation,
+  listCodexBackends,
   listConversations,
   resumeConversationTurn,
   sendConversationTurn,
+  updateConversationRuntime,
+  type CodexBackendId,
+  type CodexBackendOption,
+  type CodexBackendSelection,
   type Conversation,
   type ConversationMessage,
   type ConversationMessagePage,
@@ -102,6 +109,7 @@ function RoleCard({
   icon,
   title,
   round,
+  backend,
   status,
   children,
 }: {
@@ -109,6 +117,7 @@ function RoleCard({
   icon: ReactNode;
   title: string;
   round?: number;
+  backend?: CodexBackendId;
   status: string;
   children: ReactNode;
 }) {
@@ -142,6 +151,11 @@ function RoleCard({
         {round !== undefined && (
           <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9 }}>
             round {round}
+          </Typography>
+        )}
+        {backend && (
+          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+            {backend === 'codexds' ? 'CodexDS' : 'Traditional'}
           </Typography>
         )}
         <Typography
@@ -800,6 +814,7 @@ function AssistantTimeline({
           }
           title={implementer ? 'Implementer' : 'Orchestrator'}
           round={card.round}
+          backend={card.backend}
           status={!card.done && streaming ? 'working' : 'done'}
         >
           <Stack sx={{ gap: 0.65 }}>
@@ -1139,6 +1154,10 @@ const AgentComposer = memo(function AgentComposer({
   showSelectionContext,
   streaming,
   interrupting,
+  backendOptions,
+  codexBackends,
+  backendSelectionLocked,
+  onBackendChange,
   onSend,
   onCancel,
 }: {
@@ -1147,6 +1166,10 @@ const AgentComposer = memo(function AgentComposer({
   showSelectionContext: boolean;
   streaming: boolean;
   interrupting: boolean;
+  backendOptions: readonly CodexBackendOption[];
+  codexBackends: CodexBackendSelection;
+  backendSelectionLocked: boolean;
+  onBackendChange: (role: keyof CodexBackendSelection, backend: CodexBackendId) => void;
   onSend: (message: string) => void;
   onCancel: () => void;
 }) {
@@ -1257,6 +1280,44 @@ const AgentComposer = memo(function AgentComposer({
             >
               <ArrowUpwardRounded sx={{ fontSize: 17 }} />
             </ButtonBase>
+          )}
+        </Stack>
+        <Stack direction="row" alignItems="center" sx={{ mt: 0.8, gap: 1.2 }}>
+          {(['orchestrator', 'implementer'] as const).map((role) => (
+            <Stack key={role} direction="row" alignItems="center" sx={{ gap: 0.55 }}>
+              <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+                {role === 'orchestrator' ? 'Orch backend' : 'Impl backend'}
+              </Typography>
+              <Box
+                component="select"
+                aria-label={`${role} Codex backend`}
+                value={codexBackends[role]}
+                disabled={backendSelectionLocked}
+                onChange={(event) => onBackendChange(role, event.target.value as CodexBackendId)}
+                sx={{
+                  height: 25,
+                  px: 0.65,
+                  border: `1px solid ${tokens.hair}`,
+                  borderRadius: 0.65,
+                  background: tokens.tile,
+                  color: tokens.sub,
+                  fontFamily: tokens.mono,
+                  fontSize: 8.5,
+                }}
+              >
+                {backendOptions.map((backend) => (
+                  <option key={backend.id} value={backend.id} disabled={!backend.available}>
+                    {backend.label}
+                    {backend.available ? '' : ' (unavailable)'}
+                  </option>
+                ))}
+              </Box>
+            </Stack>
+          ))}
+          {backendSelectionLocked && (
+            <Typography sx={{ ml: 'auto', color: tokens.sub2, fontSize: 8.5 }}>
+              Fixed for this conversation
+            </Typography>
           )}
         </Stack>
       </Box>
@@ -1650,6 +1711,10 @@ function useAgentConversation(
   onInitialPromptStarted?: () => void,
   onWorkspaceNameChange?: (name: string) => void,
 ) {
+  const [backendOptions, setBackendOptions] = useState<readonly CodexBackendOption[]>([]);
+  const [codexBackends, setCodexBackends] = useState<CodexBackendSelection>(
+    () => pendingCodexBackends() ?? { orchestrator: 'traditional', implementer: 'traditional' },
+  );
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
   const [messagePage, setMessagePage] = useState<ConversationMessagePage | null>(null);
@@ -1734,6 +1799,7 @@ function useAgentConversation(
       setLiveEvents([]);
       setProgress('');
       setError(null);
+      if (conversation.codex_backends) setCodexBackends(conversation.codex_backends);
       if (markInitialPromptHandled) initialPromptStarted.current = true;
     },
     [workspaceId],
@@ -1743,6 +1809,9 @@ function useAgentConversation(
     async (activeConversationId: string, text: string, context: AnalyzerTurnContextV2 | null) => {
       const trimmed = text.trim();
       if (!trimmed || streamingRef.current) return;
+      if (messages.length === 0) {
+        await updateConversationRuntime(workspaceId, activeConversationId, codexBackends);
+      }
       const controller = new AbortController();
       abortController.current = controller;
       setMessages((current) => [...current, { role: 'user', content: trimmed }]);
@@ -1796,7 +1865,14 @@ function useAgentConversation(
         setProgress('');
       }
     },
-    [pollGeneratedNames, refreshHistory, setStreamingState, workspaceId],
+    [
+      codexBackends,
+      messages.length,
+      pollGeneratedNames,
+      refreshHistory,
+      setStreamingState,
+      workspaceId,
+    ],
   );
 
   const selectConversation = useCallback(
@@ -1831,13 +1907,47 @@ function useAgentConversation(
   }, [workspaceId]);
 
   const materializeConversation = useCallback(async (): Promise<Conversation> => {
-    const creation = createConversation(workspaceId);
+    const creation = createConversation(workspaceId, codexBackends);
     initializationPromise.current = creation;
     const conversation = await creation;
     installConversation(conversation, true);
+    forgetPendingCodexBackends();
     await refreshHistory();
     return conversation;
-  }, [installConversation, refreshHistory, workspaceId]);
+  }, [codexBackends, installConversation, refreshHistory, workspaceId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let disposed = false;
+    void listCodexBackends()
+      .then((catalog) => {
+        if (disposed) return;
+        setBackendOptions(catalog.backends);
+        setCodexBackends((current) => {
+          const available = new Set(
+            catalog.backends.filter((backend) => backend.available).map((backend) => backend.id),
+          );
+          return {
+            orchestrator: available.has(current.orchestrator)
+              ? current.orchestrator
+              : catalog.defaults.orchestrator,
+            implementer: available.has(current.implementer)
+              ? current.implementer
+              : catalog.defaults.implementer,
+          };
+        });
+      })
+      .catch(() => {
+        if (!disposed) {
+          setBackendOptions([
+            { id: 'traditional', label: 'Traditional', model: '', available: true },
+          ]);
+        }
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [enabled]);
 
   const removeConversation = useCallback(
     async (removedConversationId: string) => {
@@ -2063,6 +2173,9 @@ function useAgentConversation(
     selectConversation,
     startConversation,
     removeConversation,
+    backendOptions,
+    codexBackends,
+    setCodexBackends,
   };
 }
 
@@ -2359,6 +2472,12 @@ export default function AgentPane({
         showSelectionContext={showSelectionContext}
         streaming={conversation.streaming}
         interrupting={conversation.interrupting}
+        backendOptions={conversation.backendOptions}
+        codexBackends={conversation.codexBackends}
+        backendSelectionLocked={conversation.streaming || conversation.messages.length > 0}
+        onBackendChange={(role, backend) =>
+          conversation.setCodexBackends((current) => ({ ...current, [role]: backend }))
+        }
         onSend={sendMessage}
         onCancel={cancelTurn}
       />

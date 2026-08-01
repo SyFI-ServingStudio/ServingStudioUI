@@ -1,4 +1,5 @@
 import type {
+  CodexBackendId,
   ConversationTokens,
   ConversationTurnEvent,
 } from '../../application/conversationRepository';
@@ -9,6 +10,7 @@ export type ConversationCard =
   | {
       type: 'role';
       role: ConversationRole;
+      backend?: CodexBackendId;
       round: number;
       notes: string[];
       durationMs: number | null;
@@ -65,11 +67,12 @@ export function conversationCards(
   });
   const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
-  const openRole = (role: ConversationRole) => {
+  const openRole = (role: ConversationRole, backend?: CodexBackendId) => {
     rounds[role] += 1;
     const card: Extract<ConversationCard, { type: 'role' }> = {
       type: 'role',
       role,
+      ...(backend ? { backend } : {}),
       round: rounds[role],
       notes: [],
       durationMs: null,
@@ -85,7 +88,9 @@ export function conversationCards(
       const note = cleanNote(event.text);
       if (!note) return;
       const role = roleFrom(event.role);
-      const target = current?.role === role && !current.done ? current : openRole(role);
+      const target =
+        current?.role === role && !current.done ? current : openRole(role, event.backend);
+      if (event.backend) target.backend = event.backend;
       target.notes.push(note);
       current = target;
     } else if (event.kind === 'usage') {
@@ -98,7 +103,8 @@ export function conversationCards(
               .find(
                 (card): card is Extract<ConversationCard, { type: 'role' }> =>
                   card.type === 'role' && card.role === role && !card.done,
-              ) ?? openRole(role));
+              ) ?? openRole(role, event.backend));
+      if (event.backend) target.backend = event.backend;
       target.durationMs = event.duration_ms;
       target.tokens = event.tokens;
       target.done = true;

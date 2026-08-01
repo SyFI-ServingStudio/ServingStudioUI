@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnalyzerTurnContextV2 } from '../domain/citation';
 import {
+  createConversation,
   deleteConversation,
   getConversation,
   listAllConversations,
   listConversations,
   resumeConversationTurn,
   sendConversationTurn,
+  updateConversationRuntime,
 } from './conversationRepository';
 
 const context: AnalyzerTurnContextV2 = {
@@ -39,6 +41,36 @@ afterEach(() => {
 });
 
 describe('conversation repository', () => {
+  it('persists role-specific Codex backends on create and empty-conversation updates', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            id: 'c_new',
+            title: 'New conversation',
+            naming_state: 'manual',
+            codex_backends: { orchestrator: 'codexds', implementer: 'traditional' },
+            messages: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const selection = { orchestrator: 'codexds', implementer: 'traditional' } as const;
+
+    await createConversation('w_main', selection);
+    await updateConversationRuntime('w_main', 'c_new', selection);
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/workspaces/w_main/conversations');
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      codex_backends: selection,
+    });
+    expect(fetchMock.mock.calls[1]).toEqual([
+      '/api/workspaces/w_main/conversations/c_new/runtime',
+      expect.objectContaining({ method: 'PATCH' }),
+    ]);
+  });
+
   it('lists and deletes saved conversations through the shared browser API', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === 'DELETE') return new Response('{}', { status: 200 });
@@ -133,7 +165,7 @@ describe('conversation repository', () => {
     };
     const stream = [
       'event: intermediate_output',
-      'data: {"role":"orchestrator","text":"Inspecting."}',
+      'data: {"role":"orchestrator","backend":"codexds","text":"Inspecting."}',
       '',
       'event: done',
       `data: ${JSON.stringify({
@@ -172,6 +204,7 @@ describe('conversation repository', () => {
     expect(events).toContainEqual({
       kind: 'intermediate_output',
       role: 'orchestrator',
+      backend: 'codexds',
       text: 'Inspecting.',
     });
     expect(events).toContainEqual({ kind: 'final', text: 'See `exp.throughput`.' });

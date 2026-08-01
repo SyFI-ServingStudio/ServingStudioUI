@@ -11,16 +11,41 @@ export interface ConversationTokens {
   output: number;
 }
 
+export type CodexBackendId = 'traditional' | 'codexds';
+
+export interface CodexBackendSelection {
+  orchestrator: CodexBackendId;
+  implementer: CodexBackendId;
+}
+
+export interface CodexBackendOption {
+  id: CodexBackendId;
+  label: string;
+  model: string;
+  available: boolean;
+}
+
+export interface CodexBackendCatalog {
+  backends: readonly CodexBackendOption[];
+  defaults: CodexBackendSelection;
+}
+
 export interface ConversationFailure {
   code: string;
   message: string;
 }
 
 export type ConversationTurnEvent =
-  | { kind: 'intermediate_output'; role: string; text: string }
+  | { kind: 'intermediate_output'; role: string; backend?: CodexBackendId; text: string }
   | { kind: 'decision'; action: string; task: string }
   | { kind: 'implementer'; text: string }
-  | { kind: 'usage'; role: string; duration_ms: number; tokens: ConversationTokens }
+  | {
+      kind: 'usage';
+      role: string;
+      backend?: CodexBackendId;
+      duration_ms: number;
+      tokens: ConversationTokens;
+    }
   | { kind: 'error'; text: string }
   | {
       kind: 'job';
@@ -52,6 +77,7 @@ export interface Conversation {
   id: string;
   title: string;
   naming_state: NamingState;
+  codex_backends?: CodexBackendSelection;
   messages: readonly ConversationMessage[];
   message_page?: ConversationMessagePage;
 }
@@ -200,14 +226,50 @@ function normalizeConversationMessage(message: ConversationMessage): Conversatio
   };
 }
 
-export async function createConversation(workspaceId: string): Promise<Conversation> {
+export async function listCodexBackends(): Promise<CodexBackendCatalog> {
+  const response = await requireResponse(await fetch('/api/codex-backends'), 'List Codex backends');
+  const payload = (await response.json()) as Partial<CodexBackendCatalog>;
+  const fallback: CodexBackendCatalog = {
+    backends: [{ id: 'traditional', label: 'Traditional', model: '', available: true }],
+    defaults: { orchestrator: 'traditional', implementer: 'traditional' },
+  };
+  return Array.isArray(payload.backends) && payload.defaults
+    ? (payload as CodexBackendCatalog)
+    : fallback;
+}
+
+export async function createConversation(
+  workspaceId: string,
+  codexBackends: CodexBackendSelection,
+): Promise<Conversation> {
   const response = await requireResponse(
     await fetch(conversationApi(workspaceId), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sandbox: 'workspace-write', autonomous: true }),
+      body: JSON.stringify({
+        sandbox: 'workspace-write',
+        autonomous: true,
+        codex_backends: codexBackends,
+      }),
     }),
     'Create conversation',
+  );
+  const conversation = (await response.json()) as Conversation;
+  return { ...conversation, naming_state: namingStateFrom(conversation.naming_state) };
+}
+
+export async function updateConversationRuntime(
+  workspaceId: string,
+  conversationId: string,
+  codexBackends: CodexBackendSelection,
+): Promise<Conversation> {
+  const response = await requireResponse(
+    await fetch(`${conversationApi(workspaceId)}/${conversationId}/runtime`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codex_backends: codexBackends }),
+    }),
+    'Update conversation runtime',
   );
   const conversation = (await response.json()) as Conversation;
   return { ...conversation, naming_state: namingStateFrom(conversation.naming_state) };
@@ -365,6 +427,9 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
     handlers.event?.({
       kind: 'intermediate_output',
       role: String(data.role ?? ''),
+      ...(data.backend === 'traditional' || data.backend === 'codexds'
+        ? { backend: data.backend }
+        : {}),
       text: String(data.text ?? ''),
     });
   } else if (event === 'decision') {
@@ -379,6 +444,9 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
     handlers.event?.({
       kind: 'usage',
       role: String(data.role ?? ''),
+      ...(data.backend === 'traditional' || data.backend === 'codexds'
+        ? { backend: data.backend }
+        : {}),
       duration_ms: numberOrZero(data.duration_ms),
       tokens: tokensFrom(data.tokens),
     });
