@@ -1,50 +1,77 @@
 # VibeSim Visualization UI
 
-VibeSim 运行结果、部署拓扑和 worker/kernel 明细的交互式可视化界面。本目录是独立 Git 仓库；当前主应用位于 `app/`，根目录下的 `design-*.html` 与 `shared/` 是早期视觉原型，仅作为设计参考。
+The browser application for exploring VibeSim simulations, timing predictions,
+kernel profiles, kernel measurements, and Agent conversations. The production
+React application lives in `app/`; the HTML files under `design/` and the
+root-level `design-*.html` files are visual references, not runtime entry points.
 
-当前界面由真实 analyzer 输出裁剪出的 fixture 驱动，顶层按 simulation folder 选择；旧的 Llama/Qwen demo 数据不再进入运行时。接下来的目标不是让组件直接读取日志文件，而是让同一 repository 边界接入 Rust analyzer 的 run catalog 与按需 artifact API。
+For a complete deployment, clone the
+[`VibeSimWorkspace`](https://github.com/serendipity-zk/VibeSimWorkspace)
+meta-repository and follow its `reproduce.md`. That repository pins compatible
+revisions of VibeSim, VibeSimAgent, and this UI.
 
-## 开发
+## Runtime architecture
 
-```bash
-cd app
-# Node.js 22
-npm ci
-npx playwright install chromium
-npm run dev
+The browser uses one same-origin Vite entry point and two backend services:
+
+```text
+browser
+  -> Vite
+       -> /api/v1/*       Rust Analyzer (read-only result resources)
+       -> /api/*          VibeSimAgent FastAPI backend (workspaces and conversations)
 ```
 
-读取 workspace registry、Agent history 与实时 analyzer 服务时，从 `MLSim_workspace/`
-在三个终端分别运行：
+The ownership boundary is deliberate:
+
+- Rust Analyzer discovers and serves simulation runs/sweeps, timing
+  predictions, kernel profile curves, kernel measurement summaries/plots, and
+  GPU hardware limits.
+- VibeSimAgent owns workspace, conversation, turn, job-lifecycle, and
+  conversation-to-result relationships. Its `/api/jobs` response is only an
+  ownership overlay; it never reparses result artifacts.
+- The UI joins those two catalogs by stable Analyzer resource ID.
+
+The entry page supports existing results, new Agent conversations, and resumed
+conversations. Run, aggregate sweep, timing-prediction, kernel-job, and Agent
+views share the same workspace shell and selectable evidence protocol.
+
+## Local development
+
+Requirements: Node.js 22, npm, a built/runnable Analyzer, and the Agent backend.
+From the common parent containing `main/`, `user-facing-ui/`, and `viz-ui/`, run:
 
 ```bash
+# Terminal 1: conversation backend
+cd user-facing-ui
+UV_CACHE_DIR="$TMPDIR/uv-cache-user-facing-ui" \
+  uv run uvicorn backend.app:app --host 127.0.0.1 --port 8765
+```
+
+```bash
+# Terminal 2: read-only result service
 cd main
-cargo run -p analyzer -- serve \
+cargo run -p analyzer --release -- serve \
+  --bind 127.0.0.1:8787 \
   --workspace-registry ../agent-workspaces/registry.json
 ```
 
 ```bash
-cd user-facing-ui
-UV_CACHE_DIR="$TMPDIR/uv-cache-user-facing-ui" \
-uv run uvicorn backend.app:app --host 127.0.0.1 --port 8765
-```
-
-```bash
+# Terminal 3: browser entry
 cd viz-ui/app
+npm ci
 npm run dev:live
 ```
 
-`dev:live` 让浏览器使用一个同源入口：`/api/v1/` 默认代理到 Rust Analyzer
-`http://127.0.0.1:8787`；`/api/workspaces`、`/api/agent`、`/api/internal` 与
-`/api/eval` 默认代理到 conversation backend `http://127.0.0.1:8765`。需要不同后端时
-设置 `ANALYZER_PROXY_TARGET` / `CONVERSATION_PROXY_TARGET`。production build 可通过
-`VITE_ANALYZER_API_BASE` 显式选择 Analyzer HTTP 根。proxy 会把 `Host` 重写为目标 host，
-使 Rust 服务仍能执行自己的 allowlist。普通 `npm run dev` 和 E2E 继续读取可复现的
-checked-in analyzer artifact。
+Open `http://127.0.0.1:5177`. `dev:live` proxies `/api/v1` to
+`http://127.0.0.1:8787` and conversation routes to
+`http://127.0.0.1:8765`. Override them with `ANALYZER_PROXY_TARGET` and
+`CONVERSATION_PROXY_TARGET`.
 
-开发服务器默认只绑定 `127.0.0.1`，这也是 Codex Playwright MCP 和 SSH 端口转发的
-推荐方式。确需直接从可信远端访问时，显式给出监听地址和允许的 browser-facing
-hostname，不能使用 `allowedHosts: true`：
+Plain `npm run dev` uses the checked-in Analyzer fixture for deterministic UI
+development and tests. It is not the integrated production data path.
+
+The dev server binds to `127.0.0.1` by default. For trusted remote access,
+provide both an explicit bind address and browser-facing host allowlist:
 
 ```bash
 VIBESIM_UI_HOST=0.0.0.0 \
@@ -52,10 +79,10 @@ VIBESIM_UI_ALLOWED_HOSTS=ui.example.internal \
 npm run dev:live
 ```
 
-若 `ANALYZER_PROXY_TARGET` 不是 loopback hostname，还需给 Rust 服务传对应的
-`--allow-host <target-hostname>`。
+Do not use an unrestricted Vite host allowlist. If the Analyzer proxy target is
+not loopback, pass the corresponding `--allow-host` value to Analyzer as well.
 
-验证当前应用：
+## Validation
 
 ```bash
 cd app
@@ -69,38 +96,24 @@ npm run build
 npm run size:check
 ```
 
-`test:e2e` 会自动启动或复用 5177 端口的开发服务，并在 desktop 与 390 px
-Chromium 中执行导航、响应式、console/page error 和 axe 检查；只重跑无障碍门槛可用
-`npm run test:a11y`。失败产物写入 `.artifacts/playwright-test/`。
+Playwright covers desktop and mobile layouts, console/page errors, and axe
+accessibility checks. Failure artifacts are written under
+`.artifacts/playwright-test/`. `fixture:check` validates the checked-in fixture's
+descriptor/catalog revisions; `size:check` checks an existing `dist/`, while
+`npm run size` builds first.
 
-`fixture:check` 会从 checked-in analyzer JSON 重新计算 descriptor、catalog 和内容 revision，
-确保重新裁剪 fixture 后不会留下陈旧 sidecar。`size:check` 检查已有 `dist/`；需要从干净源码构建并检查时运行 `npm run size`。
-当前预算同时约束入口 JavaScript 与所有 chunks 的 gzip 总量，避免 code splitting 仅把体积移出入口。
-
-`.github/workflows/ci.yml` 在 Node.js 22 上并行运行静态/单测/bundle 与 Chromium
-质量门槛；Playwright 失败诊断保留 7 天。仓库接入 GitHub remote 后即可启用该 workflow。
-
-## 目录
+## Repository map
 
 ```text
 viz-ui/
-├── app/                    React + TypeScript + Vite 主应用
-├── docs/
-│   ├── data-protocol.md    analyzer → UI 数据边界与版本策略
-│   └── fixture-policy.md   真实输出裁剪、状态覆盖与单位不变量
-├── design-*.html           旧视觉原型
-├── shared/                 旧原型共享脚本
-├── WORKPLAN.md             分阶段工作清单和架构决定
-└── README.md
+├── app/                    React + TypeScript + Vite application
+├── docs/                   data, citation, and frontend architecture contracts
+├── fixtures/analyzer-v1/   bounded deterministic Analyzer test fixture
+├── scripts/                fixture extraction and validation
+├── design/                 visual explorations only
+├── design-*.html           earlier visual prototypes only
+└── WORKPLAN.md             historical decisions and remaining work
 ```
 
-## 当前方向
-
-- 浏览器消费 analyzer 的有界 reports、payloads、trace URL 和运行描述，不扫描 raw parquet。
-- transport DTO、领域模型和视图模型分离；现有 analyzer v1 由 subject-specific adapter 兼容。
-- worker 用 `(pool_tag, worker_id)` 复合标识，避免跨 pool 冲突。
-- fixture、静态 artifact 和 HTTP 使用同一个 `AnalyzerRepository` 接口。
-- 运行选择器展示 simulation folder 名称、状态只保存 opaque run id；当前 fixture catalog 含 `20260715_1_afd_ui_reanalysis`。
-- 缺失、未生成、失败和版本不兼容均为显式状态，不伪装成零值。
-
-具体任务见 [WORKPLAN.md](WORKPLAN.md)，协议依据见 [docs/data-protocol.md](docs/data-protocol.md)。
+Start with `docs/frontend-architecture.md` for code ownership and
+`docs/data-protocol.md` for the Analyzer boundary.

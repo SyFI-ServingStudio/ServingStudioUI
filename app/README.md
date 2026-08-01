@@ -1,17 +1,21 @@
 # VibeSim Visualization App
 
-React + TypeScript + Vite 主应用，使用 MUI、ECharts、Motion、TanStack Query 和 Zustand。当前页面展示运行概览、系统拓扑、worker kernel time-share 和 analyzer 指标；默认数据来自真实 analyzer 输出的确定性 fixture，缺失的 iteration/backpressure/trace subject 不使用假数据补齐。
+React 18 + TypeScript + Vite application for the integrated VibeSim result and
+Agent workspace. It uses MUI, ECharts, Motion, TanStack Query, Zustand, and
+runtime-validated Analyzer v1 adapters.
 
-## 命令
+## Commands
+
+Node.js 22 is required.
 
 ```bash
-# Node.js 22
 npm ci
-npx playwright install chromium
-npm run dev -- --host 0.0.0.0 --port 5177
+npm run dev          # deterministic checked-in Analyzer fixture
+npm run dev:live     # live Analyzer + VibeSimAgent proxies
 npm run format:check
 npm run typecheck
 npm run lint
+npm run fixture:check
 npm run test:unit
 npm run test:coverage
 npm run test:e2e
@@ -19,20 +23,44 @@ npm run build
 npm run size:check
 ```
 
-Vitest 测试锁定 analyzer descriptor、active-run 装配和 Provider 生命周期。测试使用独立 QueryClient 与 test repository，不读取生产 fixture，也不依赖 GPU。
+See the repository-level [`README.md`](../README.md) for the three-service live
+startup and proxy configuration.
 
-Playwright 会自动启动或复用 5177 端口的开发服务，并在 1440×900 与 390×844
-Chromium 中覆盖核心导航、实时响应式重排、浏览器 console/page error 和 axe WCAG
-A/AA 门槛。`npm run test:a11y` 可只运行无障碍检查；失败 trace、截图、视频和报告写入
-`../.artifacts/playwright-test/`。
+## Application surfaces
 
-`npm run size:check` 对已有 `dist/` 执行 Size Limit；`npm run size` 会先生产构建再检查。
-预算分别约束初始入口和全部 JavaScript chunks 的 gzip 总量。
+- Entry catalog for existing results, new Agent conversations, and resume.
+- Aggregate sweep heatmaps with coordinated run selection.
+- Per-run deployment, pool, worker, iteration, kernel, trace, and optimality
+  analysis.
+- Offline timing-prediction cost trees and optimality analysis.
+- Kernel profile curves and kernel measurement results.
+- Dockable, resizable, and full-page Agent conversation UI with durable SSE
+  reconnection and Analyzer evidence navigation.
 
-CI 使用 `.nvmrc` 固定 Node.js 22，并把工程质量与 Chromium 浏览器门槛拆成并行 jobs。
+## Data boundary
 
-## 数据接入原则
+Features depend only on `AnalyzerRepository`; components never concatenate
+artifact paths or read Parquet directly. `HttpAnalyzerRepository` reads live
+Analyzer resources, while the fixture repository supports deterministic tests.
+The FastAPI `/api/jobs` catalog contributes only conversation ownership and
+lifecycle state. Result descriptors and payloads always come from Analyzer.
 
-组件不直接拼接 analyzer 路径；旧 fake repository/data 已删除。application active-run assembler 只通过 `AnalyzerRepository` 读取 descriptor、summary 和 topology；每个 analyzer subject 由实际 consumer 独立订阅带版本 identity 的 Query cache。普通开发模式读取可验证的真实 artifact fixture，live 模式读取 HTTP repository。异步数据、加载/失败/不可用状态由 repository/query 层处理；Zustand 只保留目录 ID 和本地交互选择。
+TanStack Query owns server state and versioned result identities. Zustand keeps
+only local UI selection and layout state. Missing, unavailable, failed, and
+incompatible resources remain explicit states rather than fabricated zeroes.
 
-完整工作计划和 analyzer 协议分别见 [`../WORKPLAN.md`](../WORKPLAN.md) 与 [`../docs/data-protocol.md`](../docs/data-protocol.md)。
+## Tests
+
+Vitest covers repository adapters, route/selection behavior, visualization
+models, and workspace interactions with isolated Query clients. Playwright runs
+at 1440x900 and 390x844, checks browser errors, and enforces axe WCAG A/AA
+thresholds. Failure traces, screenshots, videos, and reports are written under
+`../.artifacts/playwright-test/`.
+
+`npm run size:check` checks an existing `dist/`; `npm run size` performs a
+production build first. The size budget covers both the initial entry and the
+gzip total of all JavaScript chunks.
+
+Architecture and wire contracts live in
+[`../docs/frontend-architecture.md`](../docs/frontend-architecture.md) and
+[`../docs/data-protocol.md`](../docs/data-protocol.md).
