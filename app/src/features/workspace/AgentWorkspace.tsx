@@ -18,7 +18,8 @@ import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
 import PushPinRounded from '@mui/icons-material/PushPinRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import StopRounded from '@mui/icons-material/StopRounded';
-import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material';
+import TocRounded from '@mui/icons-material/TocRounded';
+import { Box, ButtonBase, Skeleton, Stack, Typography, useMediaQuery } from '@mui/material';
 import {
   type FormEvent,
   type ReactNode,
@@ -69,6 +70,22 @@ import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import { conversationTimeLabel } from './conversationPresentation';
 import { conversationCards, type ConversationCard } from './conversationTimeline';
+import {
+  LIVE_OUTLINE_BLOCK_ID,
+  conversationOutline,
+  managedResultLabel,
+  managedResultStatus,
+  outlineBlockId,
+  outlineCardAnchorId,
+  outlineNoteAnchorId,
+  type OutlineEntry,
+} from './conversationOutline';
+import ConversationProgressRail from './ConversationProgressRail';
+import {
+  activeOutlineAnchor,
+  outlineAnchorOnScreen,
+  scrollToOutlineAnchor,
+} from './outlineNavigation';
 
 type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
 
@@ -95,11 +112,31 @@ const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }>
   },
 };
 
-const managedJobLabels: Record<string, string> = {
-  timing_predict: 'Timing prediction',
-  kernel_profile: 'Kernel profile',
-  kernel_measure: 'Kernel measurement',
-};
+// Both margins of the full-page reading room. Declared once so the grid track
+// and the composer inset that keeps the reading column centred cannot drift.
+const HISTORY_RAIL_WIDTH = 'clamp(232px,22vw,272px)';
+const PROGRESS_RAIL_WIDTH = 'clamp(228px,20vw,288px)';
+
+/**
+ * Ring that marks where a progress-rail jump landed. Drawn outside the card so
+ * it reads against the card's own wash, and gated on reduced motion by
+ * `scrollToOutlineAnchor`, which chooses the attribute value.
+ */
+function outlineFlashSx(borderRadius: number) {
+  return {
+    borderRadius,
+    '&[data-outline-flash="animated"]': {
+      animation: `outlineFlash 900ms ${tokens.ease} both`,
+    },
+    '&[data-outline-flash="static"]': {
+      boxShadow: `0 0 0 2px rgba(31,111,107,.45)`,
+    },
+    '@keyframes outlineFlash': {
+      from: { boxShadow: '0 0 0 3px rgba(31,111,107,.3)' },
+      to: { boxShadow: '0 0 0 3px rgba(31,111,107,0)' },
+    },
+  } as const;
+}
 
 function managedResultHref(
   workspaceId: string,
@@ -191,23 +228,27 @@ function Note({
   children,
   workspaceId,
   level = 'progress',
+  anchorId,
 }: {
   children: ReactNode;
   workspaceId?: string;
   level?: 'progress' | 'milestone';
+  /** Present on milestones, which the progress rail navigates to individually. */
+  anchorId?: string;
 }) {
   if (level === 'milestone') {
     return (
       <Stack
         direction="row"
+        data-outline-anchor={anchorId}
         sx={{
           alignItems: 'flex-start',
           gap: 0.7,
           px: 0.85,
           py: 0.65,
           border: `1px solid ${tokens.teal}28`,
-          borderRadius: 1,
           background: `${tokens.teal}0A`,
+          ...outlineFlashSx(1),
         }}
       >
         <CheckCircleOutlineRounded
@@ -406,10 +447,20 @@ function LazyTranscriptBlock({
   children,
   eager = false,
   estimatedHeight,
+  blockId,
+  anchorId,
 }: {
   children: ReactNode;
   eager?: boolean;
   estimatedHeight: number;
+  /**
+   * Progress-rail handle that survives unmounting. The placeholder keeps the
+   * approximate position, so jumping to it is what brings the real content
+   * within this observer's margin and mounts it.
+   */
+  blockId?: string;
+  /** Set when the block's content is itself an indexed rail entry. */
+  anchorId?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(
@@ -440,6 +491,8 @@ function LazyTranscriptBlock({
     <Box
       ref={containerRef}
       data-lazy-state={mounted ? 'mounted' : 'deferred'}
+      data-outline-block={blockId}
+      data-outline-anchor={anchorId}
       sx={{
         width: '100%',
         minWidth: 0,
@@ -449,6 +502,7 @@ function LazyTranscriptBlock({
         gap: 1.1,
         contentVisibility: mounted ? 'auto' : undefined,
         containIntrinsicSize: mounted ? `auto ${estimatedHeight}px` : undefined,
+        ...(anchorId ? outlineFlashSx(1.2) : {}),
       }}
     >
       {mounted ? children : null}
@@ -480,12 +534,15 @@ function messageEstimatedHeight(message: ConversationMessage): number {
 
 const TimelineCardView = memo(function TimelineCardView({
   card,
+  cardAnchorId,
   message,
   streaming,
   toolCall,
   workspaceId,
 }: {
   card: ConversationCard;
+  /** Anchor of the enclosing block, used to address individual milestones. */
+  cardAnchorId?: string;
   message?: ConversationMessage;
   streaming: boolean;
   toolCall: string;
@@ -520,7 +577,16 @@ const TimelineCardView = memo(function TimelineCardView({
       >
         <Stack sx={{ gap: 0.65 }}>
           {card.notes.map((note, noteIndex) => (
-            <Note key={noteIndex} workspaceId={workspaceId} level={note.level}>
+            <Note
+              key={noteIndex}
+              workspaceId={workspaceId}
+              level={note.level}
+              anchorId={
+                cardAnchorId && note.level === 'milestone'
+                  ? outlineNoteAnchorId(cardAnchorId, noteIndex)
+                  : undefined
+              }
+            >
               {note.text}
             </Note>
           ))}
@@ -530,12 +596,11 @@ const TimelineCardView = memo(function TimelineCardView({
     );
   }
   if (card.type === 'job') {
-    const ready = card.status === 'ready' || card.status === 'experiment.ready';
-    const failed = card.status === 'failed' || card.status === 'interrupted';
+    const status = managedResultStatus(card.status);
+    const ready = status === 'ready';
+    const failed = status === 'failed';
     const typedJob = Boolean(card.jobKind && card.resourceId);
-    const jobLabel = typedJob
-      ? (managedJobLabels[card.jobKind ?? ''] ?? 'Managed job')
-      : 'Experiment';
+    const jobLabel = managedResultLabel(card);
     const title = ready
       ? `${jobLabel} ready`
       : failed
@@ -626,12 +691,15 @@ function AssistantTimeline({
   streaming,
   toolCall,
   workspaceId,
+  blockId,
 }: {
   message?: ConversationMessage;
   events: readonly ConversationTurnEvent[];
   streaming: boolean;
   toolCall: string;
   workspaceId: string;
+  /** Turn-level progress-rail handle; each card derives its own from it. */
+  blockId: string;
 }) {
   const cards = conversationCards(events);
   if (message?.failure) {
@@ -650,29 +718,40 @@ function AssistantTimeline({
       </RoleCard>
     );
   }
-  return cards.map((card, index) => (
-    <LazyTranscriptBlock
-      key={index}
-      eager={index >= cards.length - EAGER_TIMELINE_CARDS}
-      estimatedHeight={cardEstimatedHeight(card)}
-    >
-      <TimelineCardView
-        card={card}
-        message={message}
-        streaming={streaming}
-        toolCall={toolCall}
-        workspaceId={workspaceId}
-      />
-    </LazyTranscriptBlock>
-  ));
+  return cards.map((card, index) => {
+    const cardAnchorId = outlineCardAnchorId(blockId, index);
+    // Job and answer cards are rail entries in their own right; a role card is
+    // only reachable through the individual milestones inside it.
+    const indexed = card.type === 'job' || card.type === 'response';
+    return (
+      <LazyTranscriptBlock
+        key={index}
+        eager={index >= cards.length - EAGER_TIMELINE_CARDS}
+        estimatedHeight={cardEstimatedHeight(card)}
+        blockId={cardAnchorId}
+        anchorId={indexed ? cardAnchorId : undefined}
+      >
+        <TimelineCardView
+          card={card}
+          cardAnchorId={cardAnchorId}
+          message={message}
+          streaming={streaming}
+          toolCall={toolCall}
+          workspaceId={workspaceId}
+        />
+      </LazyTranscriptBlock>
+    );
+  });
 }
 
 const PersistedConversationMessage = memo(function PersistedConversationMessage({
   message,
   workspaceId,
+  blockId,
 }: {
   message: ConversationMessage;
   workspaceId: string;
+  blockId: string;
 }) {
   if (message.role === 'user') return <UserMessage>{message.content}</UserMessage>;
   return (
@@ -684,6 +763,7 @@ const PersistedConversationMessage = memo(function PersistedConversationMessage(
       streaming={false}
       toolCall=""
       workspaceId={workspaceId}
+      blockId={blockId}
     />
   );
 });
@@ -732,21 +812,30 @@ export const ConversationTranscript = memo(function ConversationTranscript({
           {loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
         </ButtonBase>
       )}
-      {messages.map((message, index) => (
-        <LazyTranscriptBlock
-          key={messageStartIndex + index}
-          eager={index >= messages.length - EAGER_TRANSCRIPT_MESSAGES}
-          estimatedHeight={messageEstimatedHeight(message)}
-        >
-          <PersistedConversationMessage message={message} workspaceId={workspaceId} />
-        </LazyTranscriptBlock>
-      ))}
+      {messages.map((message, index) => {
+        const blockId = outlineBlockId(messageStartIndex + index);
+        return (
+          <LazyTranscriptBlock
+            key={messageStartIndex + index}
+            eager={index >= messages.length - EAGER_TRANSCRIPT_MESSAGES}
+            estimatedHeight={messageEstimatedHeight(message)}
+            blockId={blockId}
+          >
+            <PersistedConversationMessage
+              message={message}
+              workspaceId={workspaceId}
+              blockId={blockId}
+            />
+          </LazyTranscriptBlock>
+        );
+      })}
       {streaming && (
         <AssistantTimeline
           events={liveEvents}
           streaming
           toolCall={toolCall}
           workspaceId={workspaceId}
+          blockId={LIVE_OUTLINE_BLOCK_ID}
         />
       )}
       {error && (
@@ -956,7 +1045,8 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
 }
 
 const AgentComposer = memo(function AgentComposer({
-  gridColumn,
+  insetLeft,
+  insetRight,
   readingColumnWidth,
   showSelectionContext,
   focusRequest,
@@ -972,7 +1062,9 @@ const AgentComposer = memo(function AgentComposer({
   onSend,
   onCancel,
 }: {
-  gridColumn: number;
+  /** Rail widths to reserve, so the reading column lands where the transcript is. */
+  insetLeft: string;
+  insetRight: string;
   readingColumnWidth: string;
   showSelectionContext: boolean;
   focusRequest: number;
@@ -1009,8 +1101,13 @@ const AgentComposer = memo(function AgentComposer({
       component="form"
       onSubmit={submit}
       sx={{
-        gridColumn,
+        // The composer is the page's bottom band, like the header is its top
+        // one. Both rails stop above it rather than running down beside the
+        // input, which would dead-end their borders into this one.
+        gridColumn: '1 / -1',
         gridRow: 3,
+        pl: insetLeft,
+        pr: insetRight,
         borderTop: `1px solid ${tokens.hair}`,
       }}
     >
@@ -1249,7 +1346,7 @@ function ConversationHistory({
           left: persistent ? 'auto' : 0,
           zIndex: persistent ? 1 : 5,
           gridColumn: persistent ? 1 : 'auto',
-          gridRow: persistent ? '2 / 4' : 'auto',
+          gridRow: persistent ? 2 : 'auto',
           width: persistent ? '100%' : expanded ? 304 : 'min(304px,calc(100% - 16px))',
           minWidth: 0,
           minHeight: 0,
@@ -1545,6 +1642,29 @@ function saveHistoryPinned(pinned: boolean): void {
       window.localStorage.setItem(HISTORY_PINNED_KEY, 'true');
     } else {
       window.localStorage.removeItem(HISTORY_PINNED_KEY);
+    }
+  } catch {
+    // Storage can be unavailable in privacy-restricted embeds; the current UI state still works.
+  }
+}
+
+const PROGRESS_RAIL_KEY = 'vibesim.conversation.progress.hidden';
+
+/** The rail is the point of the full-page surface, so it opts out, not in. */
+function savedProgressRailOpen(): boolean {
+  try {
+    return window.localStorage.getItem(PROGRESS_RAIL_KEY) !== 'true';
+  } catch {
+    return true;
+  }
+}
+
+function saveProgressRailOpen(open: boolean): void {
+  try {
+    if (open) {
+      window.localStorage.removeItem(PROGRESS_RAIL_KEY);
+    } else {
+      window.localStorage.setItem(PROGRESS_RAIL_KEY, 'true');
     }
   } catch {
     // Storage can be unavailable in privacy-restricted embeds; the current UI state still works.
@@ -2199,6 +2319,7 @@ export default function AgentPane({
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyPinned, setHistoryPinned] = useState(savedHistoryPinned);
+  const [progressRailOpen, setProgressRailOpen] = useState(savedProgressRailOpen);
   const analyzerContextIdentity = useMemo(
     () => (analyzerContext === null ? null : JSON.stringify(analyzerContext)),
     [analyzerContext],
@@ -2223,9 +2344,14 @@ export default function AgentPane({
   );
   // A persistent rail belongs to the roomy agent surfaces. Docked mode keeps the saved
   // preference but uses the overlay so history never consumes most of the analysis column.
-  const persistentHistory = historyPinned && (full || expanded);
+  const roomy = full || expanded;
+  const persistentHistory = historyPinned && roomy;
   const historyVisible = persistentHistory || historyOpen;
-  const readingColumnWidth = full || expanded ? 'min(720px,calc(100% - 40px))' : '100%';
+  // Both margins plus the 720px reading column need about this much room; below
+  // it the reading column comes first and the progress rail steps aside.
+  const roomForProgressRail = useMediaQuery('(min-width:1280px)', { noSsr: true });
+  const progressRailVisible = roomy && progressRailOpen && roomForProgressRail;
+  const readingColumnWidth = roomy ? 'min(720px,calc(100% - 40px))' : '100%';
   const activeConversationTitle =
     conversation.conversations.find((item) => item.id === conversation.conversationId)?.title ??
     'New conversation';
@@ -2236,6 +2362,100 @@ export default function AgentPane({
   } = conversation;
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingScrollRestoreRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const stickToBottomRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
+  const lastScrollHeightRef = useRef(0);
+  const scrollFrameRef = useRef(0);
+  const cancelOutlineJumpRef = useRef<(() => void) | null>(null);
+  const pinnedAnchorRef = useRef<string | null>(null);
+  const pinnedArrivedRef = useRef(false);
+  const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
+  const outline = useMemo(
+    () =>
+      conversationOutline(
+        conversation.messages,
+        conversation.messageStartIndex,
+        conversation.liveEvents,
+        conversation.streaming,
+      ),
+    [
+      conversation.liveEvents,
+      conversation.messageStartIndex,
+      conversation.messages,
+      conversation.streaming,
+    ],
+  );
+  // One rAF-throttled reader for both jobs the rail needs: whether following the
+  // newest output is still wanted, and which entry the reader is looking at.
+  const readScrollPosition = useCallback(() => {
+    if (scrollFrameRef.current) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = 0;
+      const scrollElement = scrollRef.current;
+      if (!scrollElement) return;
+      const { scrollTop, scrollHeight, clientHeight } = scrollElement;
+      // Only deliberate upward scrolling detaches the reader. Two things would
+      // otherwise be mistaken for it: the frames of our own smooth scroll to the
+      // bottom, and the browser's scroll anchoring, which moves scrollTop by
+      // itself when a lazy block above the viewport mounts at a height the
+      // estimate got wrong. Both come with a scrollHeight change, so a frame
+      // that resized the content is never read as a gesture.
+      const resized = scrollHeight !== lastScrollHeightRef.current;
+      const scrolledUp = !resized && scrollTop < lastScrollTopRef.current - 1;
+      lastScrollTopRef.current = scrollTop;
+      lastScrollHeightRef.current = scrollHeight;
+      if (scrollHeight - scrollTop - clientHeight <= 120) {
+        stickToBottomRef.current = true;
+      } else if (scrolledUp) {
+        stickToBottomRef.current = false;
+      }
+      // A picked entry stays marked while it is on screen, and through the
+      // frames of the jump that is still travelling towards it. Handing the mark
+      // straight back to the reading position would light up a neighbour
+      // whenever the column could not centre the target, which reads as the
+      // click having gone somewhere else.
+      const pinned = pinnedAnchorRef.current;
+      if (pinned !== null) {
+        if (outlineAnchorOnScreen(scrollElement, pinned)) {
+          pinnedArrivedRef.current = true;
+          setActiveAnchorId(pinned);
+          return;
+        }
+        if (!pinnedArrivedRef.current) {
+          setActiveAnchorId(pinned);
+          return;
+        }
+        pinnedAnchorRef.current = null;
+      }
+      setActiveAnchorId(activeOutlineAnchor(scrollElement));
+    });
+  }, []);
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current);
+      // Clearing the id matters as much as cancelling the frame: it is also the
+      // throttle guard, and a StrictMode remount would otherwise find it set and
+      // drop every later read.
+      scrollFrameRef.current = 0;
+      cancelOutlineJumpRef.current?.();
+    },
+    [],
+  );
+  const selectOutlineEntry = useCallback((entry: OutlineEntry) => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+    cancelOutlineJumpRef.current?.();
+    stickToBottomRef.current = false;
+    pinnedAnchorRef.current = entry.anchorId;
+    pinnedArrivedRef.current = false;
+    setActiveAnchorId(entry.anchorId);
+    cancelOutlineJumpRef.current = scrollToOutlineAnchor(scrollElement, entry);
+  }, []);
+  const toggleProgressRail = () => {
+    const nextOpen = !progressRailOpen;
+    setProgressRailOpen(nextOpen);
+    saveProgressRailOpen(nextOpen);
+  };
   const toggleHistoryPinned = () => {
     const nextPinned = !historyPinned;
     setHistoryPinned(nextPinned);
@@ -2254,7 +2474,11 @@ export default function AgentPane({
     if (!loaded) pendingScrollRestoreRef.current = null;
   }, [loadEarlierConversationMessages]);
   const sendMessage = useCallback(
-    (message: string) => void sendConversationMessage(message),
+    (message: string) => {
+      // A new question always re-attaches the reader to the newest output.
+      stickToBottomRef.current = true;
+      void sendConversationMessage(message);
+    },
     [sendConversationMessage],
   );
   const cancelTurn = useCallback(() => void cancelConversation(), [cancelConversation]);
@@ -2265,7 +2489,17 @@ export default function AgentPane({
     if (pendingRestore) {
       scrollElement.scrollTop =
         pendingRestore.scrollTop + (scrollElement.scrollHeight - pendingRestore.scrollHeight);
+      lastScrollTopRef.current = scrollElement.scrollTop;
       pendingScrollRestoreRef.current = null;
+      readScrollPosition();
+      return;
+    }
+    // Following the newest output is only right while the reader is at the
+    // bottom. Once they have scrolled up, or jumped to an entry in the progress
+    // rail, a streaming turn must not drag them back.
+    if (!stickToBottomRef.current) {
+      // New content shifts which entry sits at the middle of the column.
+      readScrollPosition();
       return;
     }
     if (typeof scrollElement.scrollTo === 'function') {
@@ -2276,11 +2510,13 @@ export default function AgentPane({
     } else {
       scrollElement.scrollTop = scrollElement.scrollHeight;
     }
+    readScrollPosition();
   }, [
     conversation.liveEvents,
     conversation.messageStartIndex,
     conversation.messages,
     conversation.streaming,
+    readScrollPosition,
   ]);
   return (
     <Box
@@ -2291,13 +2527,15 @@ export default function AgentPane({
         height: '100%',
         minHeight: 0,
         display: 'grid',
-        gridTemplateColumns: persistentHistory
-          ? 'clamp(232px,22vw,272px) minmax(0,1fr)'
-          : 'minmax(0,1fr)',
+        gridTemplateColumns: [
+          ...(persistentHistory ? [HISTORY_RAIL_WIDTH] : []),
+          'minmax(0,1fr)',
+          ...(progressRailVisible ? [PROGRESS_RAIL_WIDTH] : []),
+        ].join(' '),
         gridTemplateRows: 'auto minmax(0,1fr) auto',
         position: 'relative',
         overflow: 'hidden',
-        background: full || expanded ? tokens.paper : '#eee7da',
+        background: roomy ? tokens.paper : '#eee7da',
         transition: `grid-template-columns 190ms ${tokens.ease}`,
         '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
       }}
@@ -2355,6 +2593,26 @@ export default function AgentPane({
             >
               <HistoryRounded sx={{ fontSize: 17 }} />
             </ButtonBase>
+            {roomy && roomForProgressRail && (
+              <ButtonBase
+                onClick={toggleProgressRail}
+                aria-label={progressRailOpen ? 'Hide progress summary' : 'Show progress summary'}
+                aria-expanded={progressRailOpen}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  border: `1px solid ${progressRailOpen ? 'rgba(31,111,107,.42)' : tokens.hair}`,
+                  borderRadius: 0.85,
+                  color: progressRailOpen ? tokens.teal : tokens.sub,
+                  background: progressRailOpen ? 'rgba(31,111,107,.055)' : 'transparent',
+                  '&:hover': { borderColor: tokens.teal, color: tokens.teal },
+                  '&:active': { transform: 'translateY(1px)' },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                <TocRounded sx={{ fontSize: 16 }} />
+              </ButtonBase>
+            )}
             {onToggleFull && (
               <ButtonBase
                 onClick={(event) => {
@@ -2422,8 +2680,8 @@ export default function AgentPane({
       </Box>
       <ConversationHistory
         open={historyVisible}
-        expanded={full || expanded}
-        canPersist={full || expanded}
+        expanded={roomy}
+        canPersist={roomy}
         persistent={persistentHistory}
         conversations={conversation.conversations}
         currentId={conversation.conversationId}
@@ -2442,6 +2700,7 @@ export default function AgentPane({
       <Box
         ref={scrollRef}
         data-testid="agent-message-column"
+        onScroll={readScrollPosition}
         sx={{
           gridColumn: persistentHistory ? 2 : 1,
           gridRow: 2,
@@ -2450,7 +2709,7 @@ export default function AgentPane({
           minHeight: 0,
           overflowY: 'auto',
           px: 2,
-          py: full || expanded ? 5 : 2.5,
+          py: roomy ? 5 : 2.5,
           scrollbarWidth: 'thin',
           scrollbarColor: `${tokens.hair} transparent`,
         }}
@@ -2468,8 +2727,20 @@ export default function AgentPane({
           onLoadEarlier={loadEarlierMessages}
         />
       </Box>
+      {progressRailVisible && (
+        <ConversationProgressRail
+          groups={outline}
+          activeAnchorId={activeAnchorId}
+          loading={conversation.messages.length === 0 && conversation.historyLoading}
+          canLoadEarlier={conversation.canLoadEarlier}
+          loadingEarlier={conversation.loadingEarlier}
+          onLoadEarlier={loadEarlierMessages}
+          onSelect={selectOutlineEntry}
+        />
+      )}
       <AgentComposer
-        gridColumn={persistentHistory ? 2 : 1}
+        insetLeft={persistentHistory ? HISTORY_RAIL_WIDTH : '0px'}
+        insetRight={progressRailVisible ? PROGRESS_RAIL_WIDTH : '0px'}
         readingColumnWidth={readingColumnWidth}
         showSelectionContext={showSelectionContext && activeAnalyzerContext !== null}
         focusRequest={conversation.composerFocusRequest}
@@ -2479,7 +2750,7 @@ export default function AgentPane({
         catalogUnavailable={conversation.catalogUnavailable}
         codexRuntime={conversation.codexRuntime}
         lockedFamilies={conversation.lockedFamilies}
-        compactRuntime={!full && !expanded}
+        compactRuntime={!roomy}
         onRuntimeChange={(role, runtime) =>
           conversation.setCodexRuntime((current) => ({ ...current, [role]: runtime }))
         }

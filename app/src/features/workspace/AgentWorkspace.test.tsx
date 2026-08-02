@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StrictMode, useState } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useViz } from '../../store';
 import AgentPane, { ConversationTranscript } from './AgentWorkspace';
@@ -895,6 +895,200 @@ describe('AgentPane', () => {
       });
       expect(screen.getByRole('button', { name: 'Send follow-up' })).toBeInTheDocument();
     });
+  });
+});
+
+describe('progress rail on the full-page Agent surface', () => {
+  const originalMatchMedia = window.matchMedia;
+  const scrollIntoViewMock = vi.fn();
+
+  const progressConversation = {
+    id: 'c_test',
+    title: 'Test',
+    messages: [
+      { role: 'user', content: 'Compare TP choices.' },
+      {
+        role: 'assistant',
+        content: 'TP=2 wins on throughput.',
+        activity: [
+          { kind: 'intermediate_output', role: 'orchestrator', text: 'Reading the preset.' },
+          {
+            kind: 'intermediate_output',
+            role: 'orchestrator',
+            level: 'milestone',
+            text: 'Scoped the sweep to TP=2 and TP=4.',
+          },
+          { kind: 'decision', action: 'delegate', task: 'Run the sweep.' },
+          {
+            kind: 'job',
+            workspaceId: 'w_main',
+            status: 'ready',
+            experimentId: 'e_sweep',
+            experimentPath: '20260731_0_sweep',
+            jobId: 'j_1',
+            jobKind: 'timing_predict',
+            resourceId: 'p_1',
+            analyzerResourceId: 'p_1',
+            artifactPath: 'logs/20260731_0_predict',
+          },
+          { kind: 'final', text: 'TP=2 wins on throughput.' },
+        ],
+      },
+      { role: 'user', content: 'Now profile the dense GEMM kernel.' },
+      {
+        role: 'assistant',
+        content: 'Which GEMM shape should I pin the profile to?',
+        activity: [
+          {
+            kind: 'intermediate_output',
+            role: 'orchestrator',
+            level: 'milestone',
+            text: 'dense_gemm owns 46% of decode GPU time.',
+          },
+          {
+            kind: 'job',
+            workspaceId: 'w_main',
+            status: 'running',
+            experimentId: 'e_gemm',
+            experimentPath: '20260731_1_gemm',
+            jobId: 'j_2',
+            jobKind: 'kernel_profile',
+            resourceId: 'kp_1',
+            artifactPath: 'logs/20260731_1_gemm_profile',
+          },
+          {
+            kind: 'final',
+            text: 'Which GEMM shape should I pin the profile to?',
+            outcome: 'request_user_input',
+          },
+        ],
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: vi.fn((query: string) => ({
+        matches: query.includes('min-width'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(() => true),
+      })),
+    });
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoViewMock,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('/stream')) return new Response(null, { status: 204 });
+        return new Response(JSON.stringify(progressConversation), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  it('indexes only milestones, results and answers, grouped under the question', async () => {
+    render(<AgentPane full prompt="" />);
+
+    const rail = await screen.findByRole('region', { name: 'Conversation progress' });
+    expect(within(rail).getByText('2 milestones · 2 results')).toBeInTheDocument();
+    expect(within(rail).getByText('Compare TP choices.')).toBeInTheDocument();
+    expect(within(rail).getByText('Now profile the dense GEMM kernel.')).toBeInTheDocument();
+    expect(
+      within(rail).getByRole('button', { name: /Scoped the sweep to TP=2 and TP=4\./ }),
+    ).toBeInTheDocument();
+    expect(within(rail).getByText('logs/20260731_0_predict')).toBeInTheDocument();
+    expect(within(rail).getByText('timing prediction · ready')).toBeInTheDocument();
+    expect(within(rail).getByText('kernel profile · running')).toBeInTheDocument();
+    // Progress chatter and delegated tasks stay in the transcript.
+    expect(within(rail).queryByText(/Reading the preset/)).not.toBeInTheDocument();
+    expect(within(rail).queryByText(/Run the sweep/)).not.toBeInTheDocument();
+  });
+
+  it('gives every kind its own marker shape rather than only its own colour', async () => {
+    render(<AgentPane full prompt="" />);
+
+    const rail = await screen.findByRole('region', { name: 'Conversation progress' });
+    const markers = within(rail)
+      .getAllByRole('button')
+      .map((entry) => entry.querySelector('svg')?.getAttribute('data-testid'));
+    expect(markers).toEqual([
+      'OutlinedFlagRoundedIcon', // milestone
+      'BarChartRoundedIcon', // result, ready
+      'LightbulbOutlinedIcon', // answer
+      'OutlinedFlagRoundedIcon', // milestone
+      'BarChartRoundedIcon', // result, running: same shape, different colour
+      'HelpOutlineRoundedIcon', // input needed
+    ]);
+    expect(new Set(markers).size).toBe(4);
+  });
+
+  it('brings its own newest entry into view when a conversation loads', async () => {
+    const scrolledRailEntries: string[] = [];
+    scrollIntoViewMock.mockImplementation(function (this: Element) {
+      const railEntry = this.closest('[data-rail-entry]')?.getAttribute('data-rail-entry');
+      if (railEntry) scrolledRailEntries.push(railEntry);
+    });
+    render(<AgentPane full prompt="" />);
+
+    await screen.findByRole('region', { name: 'Conversation progress' });
+    // The transcript opens at its newest turn, so the index has to be showing
+    // the same turn rather than the opening question.
+    await waitFor(() => expect(scrolledRailEntries.at(-1)).toBe('t3-c2'));
+    scrollIntoViewMock.mockReset();
+  });
+
+  it('centres the transcript on the card a rail entry points at', async () => {
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const rail = await screen.findByRole('region', { name: 'Conversation progress' });
+    scrollIntoViewMock.mockClear();
+    await user.click(within(rail).getByRole('button', { name: /Scoped the sweep/ }));
+
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+    expect(
+      screen.getByTestId('agent-message-column').querySelector('[data-outline-flash]'),
+    ).toHaveAttribute('data-outline-anchor', 't1-c0-n1');
+  });
+
+  it('hides behind a header toggle and restores the preference', async () => {
+    const user = userEvent.setup();
+    const firstRender = render(<AgentPane full prompt="" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Hide progress summary' }));
+    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem('vibesim.conversation.progress.hidden')).toBe('true');
+
+    firstRender.unmount();
+    render(<AgentPane full prompt="" />);
+    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Show progress summary' }));
+    expect(screen.getByRole('region', { name: 'Conversation progress' })).toBeInTheDocument();
+  });
+
+  it('stays out of the docked pane, which has no room for a third column', async () => {
+    render(<AgentPane prompt="" />);
+
+    await screen.findByText('Answer');
+    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hide progress summary' })).not.toBeInTheDocument();
   });
 });
 
