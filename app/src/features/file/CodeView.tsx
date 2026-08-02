@@ -16,12 +16,18 @@ export default function CodeView({
   highlightLine,
   wrap,
   highlightedLines,
+  matchLines,
+  activeMatchLine = null,
 }: {
   text: string;
   highlightLine: number | null;
   wrap: boolean;
   /** Per-line HTML from `highlightLines`, or null to render plain text. */
   highlightedLines?: readonly string[] | null;
+  /** 1-indexed lines containing the current search query. */
+  matchLines?: readonly number[];
+  /** The match the reader is currently stepped onto. */
+  activeMatchLine?: number | null;
 }) {
   const lines = useMemo(() => {
     const split = text.split('\n');
@@ -29,13 +35,17 @@ export default function CodeView({
     if (split.length > 1 && split.at(-1) === '') split.pop();
     return split;
   }, [text]);
+  const matched = useMemo(() => new Set(matchLines ?? []), [matchLines]);
   const anchor = useRef<HTMLSpanElement | null>(null);
+  // An active search match takes the reader's attention from the deep-linked
+  // line; falling back keeps `?line=` working when nothing is being searched.
+  const focusLine = activeMatchLine ?? highlightLine;
 
   useEffect(() => {
     // Optional call: jsdom and older embedded engines have no scrollIntoView,
     // and a missing scroll must not take the whole preview down with it.
     anchor.current?.scrollIntoView?.({ block: 'center' });
-  }, [highlightLine, text]);
+  }, [focusLine, text]);
 
   return (
     <Box
@@ -58,6 +68,15 @@ export default function CodeView({
       {lines.map((line, index) => {
         const number = index + 1;
         const highlighted = number === highlightLine;
+        const isActiveMatch = number === activeMatchLine;
+        const isMatch = matched.has(number);
+        const rowBackground = isActiveMatch
+          ? 'rgba(128,102,0,.2)'
+          : isMatch
+            ? 'rgba(128,102,0,.09)'
+            : highlighted
+              ? 'rgba(31,111,107,.12)'
+              : null;
         // highlight.js escapes the source before wrapping it in spans, so its
         // per-line fragment carries no markup from the file itself.
         const markup = highlightedLines?.[index];
@@ -75,7 +94,7 @@ export default function CodeView({
                 fontVariantNumeric: 'tabular-nums',
                 textAlign: 'right',
                 userSelect: 'none',
-                background: highlighted ? 'rgba(31,111,107,.12)' : tokens.tile,
+                background: rowBackground ?? tokens.tile,
                 borderRight: `1px solid ${tokens.hair}`,
               }}
             >
@@ -83,13 +102,14 @@ export default function CodeView({
             </Box>
             <Box
               component="span"
-              ref={highlighted ? anchor : undefined}
+              ref={number === focusLine ? anchor : undefined}
               data-line={number}
+              data-match={isMatch ? (isActiveMatch ? 'active' : 'yes') : undefined}
               sx={{
                 px: 1.2,
                 whiteSpace: wrap ? 'pre-wrap' : 'pre',
                 overflowWrap: wrap ? 'anywhere' : 'normal',
-                background: highlighted ? 'rgba(31,111,107,.12)' : 'transparent',
+                background: rowBackground ?? 'transparent',
               }}
               {...(markup === undefined
                 ? { children: line === '' ? ' ' : line }

@@ -223,3 +223,46 @@ describe('structured views', () => {
     expect(screen.getByRole('button', { name: 'Wrap' })).toBeInTheDocument();
   });
 });
+
+describe('find in file', () => {
+  it('marks matching lines and steps between them', async () => {
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
+      body: 'start\nerror: one\nok\nerror: two\n',
+    });
+    const user = userEvent.setup();
+
+    render(
+      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Find' }));
+    await user.type(screen.getByLabelText('Find in file'), 'error');
+
+    expect(screen.getByText('1 of 2 lines')).toBeInTheDocument();
+    const body = screen.getByLabelText('File contents');
+    expect(body.querySelectorAll('[data-match]')).toHaveLength(2);
+    expect(body.querySelector('[data-match="active"]')).toHaveAttribute('data-line', '2');
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('2 of 2 lines')).toBeInTheDocument();
+    expect(body.querySelector('[data-match="active"]')).toHaveAttribute('data-line', '4');
+  });
+
+  it('says when nothing matches', async () => {
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
+      body: 'start\n',
+    });
+    const user = userEvent.setup();
+
+    render(
+      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Find' }));
+    await user.type(screen.getByLabelText('Find in file'), 'absent');
+
+    expect(screen.getByText('no matches')).toBeInTheDocument();
+  });
+});

@@ -1,4 +1,6 @@
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
+import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
 import DataObjectRounded from '@mui/icons-material/DataObjectRounded';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
@@ -6,9 +8,10 @@ import DownloadRounded from '@mui/icons-material/DownloadRounded';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
 import InsertDriveFileOutlined from '@mui/icons-material/InsertDriveFileOutlined';
 import OpenInNewRounded from '@mui/icons-material/OpenInNewRounded';
+import SearchRounded from '@mui/icons-material/SearchRounded';
 import WrapTextRounded from '@mui/icons-material/WrapTextRounded';
 import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   fileContentUrl,
@@ -33,6 +36,7 @@ import CodeView from './CodeView';
 import JsonView from './JsonView';
 import TableView from './TableView';
 import { canHighlight, highlightLines } from './highlight';
+import { matchingLines, stepMatch } from './search';
 
 function byteLabel(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -185,6 +189,86 @@ function DirectoryView({
   );
 }
 
+function SearchBar({
+  query,
+  onQuery,
+  matchCount,
+  matchIndex,
+  onStep,
+  onClose,
+}: {
+  query: string;
+  onQuery: (value: string) => void;
+  matchCount: number;
+  matchIndex: number;
+  onStep: (delta: number) => void;
+  onClose: () => void;
+}) {
+  const field = useRef<HTMLInputElement | null>(null);
+  // Focused on open rather than through autoFocus: the bar appears only in
+  // response to the reader pressing Find, so moving focus is expected, and the
+  // static prop would move it on any render.
+  useEffect(() => field.current?.focus(), []);
+
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      sx={{ mt: 0.9, gap: 0.5, flexWrap: 'wrap' }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onClose();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          onStep(event.shiftKey ? -1 : 1);
+        }
+      }}
+    >
+      <Box
+        component="input"
+        ref={field}
+        value={query}
+        onChange={(event) => onQuery(event.target.value)}
+        placeholder="Find in file"
+        aria-label="Find in file"
+        sx={{
+          minWidth: 0,
+          flex: '1 1 160px',
+          px: 0.9,
+          py: 0.5,
+          border: `1px solid ${tokens.hair}`,
+          borderRadius: 0.8,
+          background: tokens.leafbg,
+          color: tokens.ink,
+          fontFamily: tokens.mono,
+          fontSize: 10.5,
+          '&:focus': { outline: `2px solid ${tokens.teal}`, outlineOffset: -1 },
+        }}
+      />
+      <Typography
+        aria-live="polite"
+        sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9, minWidth: 64 }}
+      >
+        {query.trim() === ''
+          ? ''
+          : matchCount === 0
+            ? 'no matches'
+            : `${matchIndex + 1} of ${matchCount} lines`}
+      </Typography>
+      <ActionButton
+        label="Previous"
+        icon={<ArrowBackRounded sx={{ fontSize: 13 }} />}
+        onClick={() => onStep(-1)}
+      />
+      <ActionButton
+        label="Next"
+        icon={<ArrowForwardRounded sx={{ fontSize: 13 }} />}
+        onClick={() => onStep(1)}
+      />
+      <ActionButton label="Close" icon={<CloseRounded sx={{ fontSize: 13 }} />} onClick={onClose} />
+    </Stack>
+  );
+}
+
 type StructuredView = { kind: 'json' | 'table' | 'markdown'; label: string };
 
 /** The richer-than-text view a file qualifies for, if any. */
@@ -212,6 +296,8 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
   const [showSource, setShowSource] = useState(false);
   const [wrap, setWrap] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [query, setQuery] = useState<string | null>(null);
+  const [matchIndex, setMatchIndex] = useState(0);
   // JSON, delimited data and Markdown each read far better as themselves than
   // as text; source is always one toggle away.
   const structured = meta === null ? null : structuredViewFor(meta);
@@ -224,6 +310,7 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
     setFailure(null);
     setHighlighted(null);
     setShowSource(false);
+    setQuery(null);
     void (async () => {
       try {
         const loaded = await getFileMeta(workspaceId, path);
@@ -265,6 +352,12 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
     return () => window.clearTimeout(timer);
   }, [copied]);
 
+  const matches = useMemo(
+    () => (query === null || body === null ? [] : matchingLines(body.text, query)),
+    [body, query],
+  );
+  useEffect(() => setMatchIndex(0), [query]);
+
   const contentUrl = fileContentUrl(workspaceId, path);
   return (
     <Stack sx={{ gap: 1.2, p: { xs: 1.2, md: 2 }, minWidth: 0 }}>
@@ -272,7 +365,11 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
         <Stack direction="row" alignItems="center" sx={{ gap: 1.1, flexWrap: 'wrap' }}>
           <DescriptionOutlined sx={{ color: tokens.teal, fontSize: 18, flex: '0 0 auto' }} />
           <Box sx={{ minWidth: 0, flex: '1 1 200px' }}>
-            <Typography noWrap sx={{ color: tokens.ink, fontSize: 15, fontWeight: 700 }}>
+            <Typography
+              component="h2"
+              noWrap
+              sx={{ m: 0, color: tokens.ink, fontSize: 15, fontWeight: 700 }}
+            >
               {fileName(path)}
             </Typography>
             <Breadcrumbs workspaceId={workspaceId} path={path} />
@@ -283,6 +380,14 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
                 label={showSource ? structured.label : 'Source'}
                 icon={<DataObjectRounded sx={{ fontSize: 13 }} />}
                 onClick={() => setShowSource((current) => !current)}
+              />
+            )}
+            {meta?.previewKind === 'text' && (!structured || showSource) && (
+              <ActionButton
+                label="Find"
+                icon={<SearchRounded sx={{ fontSize: 13 }} />}
+                onClick={() => setQuery((current) => (current === null ? '' : null))}
+                active={query !== null}
               />
             )}
             {meta?.previewKind === 'text' && (!structured || showSource) && (
@@ -310,6 +415,18 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
             />
           </Stack>
         </Stack>
+        {query !== null && (
+          <SearchBar
+            query={query}
+            onQuery={setQuery}
+            matchCount={matches.length}
+            matchIndex={matchIndex}
+            onStep={(delta) =>
+              setMatchIndex((current) => stepMatch(matches.length, current, delta))
+            }
+            onClose={() => setQuery(null)}
+          />
+        )}
         {meta && (
           <Typography sx={{ mt: 0.6, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
             {meta.isDir ? 'directory' : `${meta.previewKind} · ${byteLabel(meta.size)}`}
@@ -381,6 +498,8 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
               highlightLine={line}
               wrap={wrap}
               highlightedLines={highlighted}
+              matchLines={matches}
+              activeMatchLine={matches[matchIndex] ?? null}
             />
           </Box>
         )}

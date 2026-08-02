@@ -97,11 +97,13 @@ export type ConversationTurnEvent =
 export interface ConversationMessage {
   role: string;
   content: string;
-  intermediate_outputs?: readonly {
-    role?: string;
-    level?: CommentaryLevel;
-    text: string;
-  }[] | null;
+  intermediate_outputs?:
+    | readonly {
+        role?: string;
+        level?: CommentaryLevel;
+        text: string;
+      }[]
+    | null;
   activity?: readonly ConversationTurnEvent[] | null;
   citations?: readonly FrozenCitationV2[] | null;
   citation_dictionary_id?: string | null;
