@@ -178,13 +178,19 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   高度展开，第二轨在 480px 到 723px 之间吃掉剩余空间；超高 viewport 不继续拉长工作面，矮屏则
   保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
   左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
-  不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。
+  不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。CostTree 的 browser-expanded 模式
+  是该高度合同的显式例外：frame 使用 fixed viewport 填满 `100dvh`，保留浏览器 chrome，锁定页面
+  滚动，并允许按钮或 `Escape` 恢复原工作台布局；进入和退出时各重新 fit 一次 canvas。
 - Worker 的 Iteration 模式只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
   `by kernel family` 与 `by kernel position`，两者都按 critical path / CostTree root wall-clock
   计算。Worker aggregate 模式使用 aggregate `kernel-time-share` worker row 展示跨全部 operation
   的 kernel family 与 position composition；position mix 必须明确标出 exact 或 sampled，不能冒充
   exact operation CostTree。所有 kernel-time breakdown、CostTree family legend、leaf
   与 operation selection lane 必须复用 `domain/cost-tree` 的同一套 Mineral family palette。Worker
+  CostTree leaf hover 只显示 kind、backend、time、time share、compute rate 与 bandwidth；caption
+  和 value 使用清楚分离的视觉层级，rate 与 kernel inspector 复用同一工程单位缩放和舍入规则。
+  hover card 优先锚定在 leaf 侧边并与目标留出间距，空间不足时向另一侧或下方 flip，不得覆盖被
+  hover 的 kernel card。
   breakdown 另提供一条六 family 等宽的 visual-only palette bar；它不得伪装成真实时间比例。
 - exact CostTree ready 工作面在 `lg` 及以上保持左右两列：左列是完整 CostTree frame，右列是约
   `clamp(300px, 26vw, 340px)` 的 kernel inspector。未选择 kernel 时右列保留轻量 placeholder，

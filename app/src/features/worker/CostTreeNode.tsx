@@ -16,9 +16,18 @@ import {
   type SumNode,
 } from '../../domain/cost-tree';
 import { tokens } from '../../theme';
+import { scaledQuantity } from '../../util';
 import SelectionBoundary from './SelectionBoundary';
 
 const SEQUENTIAL_RGB = '74,91,104';
+const COMPUTE_RATE_SCALES = [
+  { divisor: 1000, unit: 'PFLOP/s' },
+  { divisor: 1, unit: 'TFLOP/s' },
+] as const;
+const BANDWIDTH_RATE_SCALES = [
+  { divisor: 1000, unit: 'TB/s' },
+  { divisor: 1, unit: 'GB/s' },
+] as const;
 
 interface NodeProps<Node extends CostNode = CostNode> {
   node: Node;
@@ -285,33 +294,89 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
   const color = colorOf(s.kind);
   const selected = selId === node.id;
   const compact = density === 'compact';
+  const hoverFacts = [
+    { label: 'Kind', value: s.kind },
+    { label: 'Backend', value: s.backend ?? '—' },
+    { label: 'Time', value: fmtMs(node.ms) },
+    { label: 'Time share', value: fmtPct(node.pct) },
+    {
+      label: 'Compute',
+      value: scaledQuantity(node.stats.tflops, COMPUTE_RATE_SCALES).display,
+      accent: true,
+    },
+    {
+      label: 'Bandwidth',
+      value: scaledQuantity(node.stats.gbps, BANDWIDTH_RATE_SCALES).display,
+      accent: true,
+    },
+  ] as const;
   // The family rail grows into the selection perimeter. Reusing one hue avoids
   // a teal selection ring fighting with GEMM/attention/collective edge colors.
   const title = (
-    <Box sx={{ maxWidth: 320 }}>
-      <Typography
-        sx={{
-          fontFamily: tokens.serif,
-          fontWeight: 600,
-          fontSize: 14,
-          mb: 0.5,
-          wordBreak: 'break-all',
-        }}
-      >
-        {s.name}
-      </Typography>
-      <Box sx={{ fontFamily: tokens.mono, fontSize: 10.5 }}>
-        <div>kind · {kindLabel(s.kind)}</div>
-        <div>config · {JSON.stringify(s.kernelConfig)}</div>
-        <div>backend · {s.backend || 'default'}</div>
-        <div style={{ color: '#5fc7c1' }}>
-          {fmtMs(node.ms)} · {fmtPct(node.pct)} of worker total
-        </div>
-      </Box>
+    <Box component="dl" sx={{ width: 248, m: 0, py: 0.25 }}>
+      {hoverFacts.map((fact, index) => (
+        <Box
+          component="div"
+          key={fact.label}
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: '82px minmax(0, 1fr)',
+            alignItems: 'baseline',
+            gap: 1.25,
+            py: 0.55,
+            borderBottom:
+              index < hoverFacts.length - 1 ? '1px solid rgba(255,255,255,.14)' : undefined,
+          }}
+        >
+          <Box
+            component="dt"
+            sx={{
+              fontFamily: tokens.mono,
+              fontSize: 9,
+              fontWeight: 600,
+              letterSpacing: '.08em',
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,.62)',
+            }}
+          >
+            {fact.label}
+          </Box>
+          <Box
+            component="dd"
+            sx={{
+              m: 0,
+              minWidth: 0,
+              overflowWrap: 'anywhere',
+              fontFamily: tokens.mono,
+              fontSize: 10.5,
+              fontWeight: 600,
+              fontVariantNumeric: 'tabular-nums',
+              color: 'accent' in fact && fact.accent ? '#72d8d1' : '#fff',
+            }}
+          >
+            {fact.value}
+          </Box>
+        </Box>
+      ))}
     </Box>
   );
   return (
-    <Tooltip title={title} arrow placement="top" enterDelay={120} describeChild>
+    <Tooltip
+      title={title}
+      arrow
+      placement="right-start"
+      enterDelay={120}
+      describeChild
+      PopperProps={{
+        modifiers: [
+          { name: 'offset', options: { offset: [0, 10] } },
+          {
+            name: 'flip',
+            options: { fallbackPlacements: ['left-start', 'bottom-start'] },
+          },
+        ],
+      }}
+    >
       <Box
         component={onSelect ? 'button' : 'div'}
         data-cost-node-kind="leaf"

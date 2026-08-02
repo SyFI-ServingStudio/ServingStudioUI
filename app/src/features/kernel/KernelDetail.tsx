@@ -19,6 +19,7 @@ import type {
 import type { SubjectResult } from '../../domain/subject';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import { scaledQuantity } from '../../util';
 import { KernelInputDistributionEvidenceView } from './KernelInputDistributionEvidence';
 import KernelThroughputAnalysis from './KernelThroughputAnalysis';
 
@@ -154,25 +155,6 @@ function FieldList({ fields }: { fields: readonly DisplayField[] }) {
       ))}
     </Box>
   );
-}
-
-function compactNumber(value: number): string {
-  return value.toLocaleString(undefined, {
-    maximumFractionDigits: value >= 100 ? 0 : value >= 10 ? 1 : 2,
-  });
-}
-
-function scaledQuantity(
-  value: number | null,
-  scales: readonly { divisor: number; unit: string }[],
-): { display: string; exact?: string } {
-  if (value === null) return { display: 'not recorded' };
-  const scale = scales.find((candidate) => Math.abs(value) >= candidate.divisor) ?? scales.at(-1);
-  if (scale === undefined) return { display: value.toLocaleString() };
-  return {
-    display: `${compactNumber(value / scale.divisor)} ${scale.unit}`,
-    exact: value.toLocaleString(),
-  };
 }
 
 const FLOP_SCALES = [

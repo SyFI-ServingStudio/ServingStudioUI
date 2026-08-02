@@ -1,4 +1,6 @@
 import CenterFocusStrongRoundedIcon from '@mui/icons-material/CenterFocusStrongRounded';
+import CloseFullscreenRoundedIcon from '@mui/icons-material/CloseFullscreenRounded';
+import OpenInFullRoundedIcon from '@mui/icons-material/OpenInFullRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import ZoomInRoundedIcon from '@mui/icons-material/ZoomInRounded';
 import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutRounded';
@@ -60,6 +62,12 @@ interface CostTreeCanvasProps {
   onSelectRoot: () => void;
   ariaLabel: string;
   controlLabels: CostTreeCanvasControlLabels;
+  browserExpansion?: {
+    expanded: boolean;
+    onToggle: () => void;
+    expandLabel: string;
+    collapseLabel: string;
+  };
   /** Fill the dynamic worker frame; omitted by the isolated demo, which keeps
    * the stable default height for standalone rendering. */
   fillFrame?: boolean;
@@ -87,6 +95,7 @@ export default function CostTreeCanvas({
   onSelectRoot,
   ariaLabel,
   controlLabels,
+  browserExpansion,
   fillFrame = false,
 }: CostTreeCanvasProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -191,6 +200,17 @@ export default function CostTreeCanvas({
   useLayoutEffect(() => {
     resetView();
   }, [resetView, tree]);
+
+  const browserExpanded = browserExpansion?.expanded ?? false;
+  const supportsBrowserExpansion = browserExpansion !== undefined;
+  useLayoutEffect(() => {
+    if (!supportsBrowserExpansion) return;
+    // The fixed frame has its final viewport dimensions on the next paint.
+    // Re-fit once per mode transition without making ordinary resizes destroy
+    // a user's deliberate pan/zoom position.
+    const fitFrame = requestAnimationFrame(fitTree);
+    return () => cancelAnimationFrame(fitFrame);
+  }, [browserExpanded, fitTree, supportsBrowserExpansion]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -324,6 +344,24 @@ export default function CostTreeCanvas({
             <RestartAltRoundedIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+        {browserExpansion !== undefined && (
+          <Tooltip title={browserExpanded ? 'Exit expanded view' : 'Fill browser'}>
+            <IconButton
+              size="small"
+              aria-label={
+                browserExpanded ? browserExpansion.collapseLabel : browserExpansion.expandLabel
+              }
+              aria-pressed={browserExpanded}
+              onClick={browserExpansion.onToggle}
+            >
+              {browserExpanded ? (
+                <CloseFullscreenRoundedIcon fontSize="small" />
+              ) : (
+                <OpenInFullRoundedIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
 
       <Box

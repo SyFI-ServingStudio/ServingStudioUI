@@ -24,6 +24,7 @@ interface CostTreeFrameProps {
   };
   timeBasis?: string;
   totalMs?: number;
+  browserExpanded?: boolean;
   children: ReactNode;
 }
 
@@ -34,6 +35,7 @@ export function CostTreeFrame({
   identity,
   timeBasis,
   totalMs,
+  browserExpanded = false,
   children,
 }: CostTreeFrameProps) {
   const displayedIdentity =
@@ -45,7 +47,12 @@ export function CostTreeFrame({
     <SurfaceCard
       data-testid="cost-tree-frame"
       sx={{
-        height: WORKER_WORKBENCH_HEIGHT,
+        position: browserExpanded ? 'fixed' : 'relative',
+        inset: browserExpanded ? 0 : undefined,
+        zIndex: browserExpanded ? (theme) => theme.zIndex.modal + 1 : undefined,
+        width: browserExpanded ? '100%' : undefined,
+        height: browserExpanded ? '100dvh' : WORKER_WORKBENCH_HEIGHT,
+        borderRadius: browserExpanded ? 0 : undefined,
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',

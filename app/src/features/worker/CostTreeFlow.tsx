@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { useActiveRun } from '../../application/ActiveRunProvider';
 import { currentWorker } from '../../application/runSelection';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
@@ -12,6 +14,8 @@ const PRODUCTION_CONTROLS = {
   zoomOut: 'Zoom out worker CostTree',
   fit: 'Fit worker CostTree',
   reset: 'Reset worker CostTree',
+  expand: 'Expand worker CostTree to fill browser',
+  collapse: 'Restore worker CostTree layout',
 } as const;
 
 interface CostTreeEvidenceProps {
@@ -41,8 +45,30 @@ export function CostTreeEvidence({
   onSelectRoot,
   ariaLabel = 'CostTree canvas',
 }: CostTreeEvidenceProps) {
+  const [browserExpanded, setBrowserExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!browserExpanded) return;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const collapseOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setBrowserExpanded(false);
+    };
+    window.addEventListener('keydown', collapseOnEscape);
+    return () => {
+      window.removeEventListener('keydown', collapseOnEscape);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [browserExpanded]);
+
   return (
-    <CostTreeFrame worker={worker} identity={identity} timeBasis={timeBasis} totalMs={tree.totalMs}>
+    <CostTreeFrame
+      worker={worker}
+      identity={identity}
+      timeBasis={timeBasis}
+      totalMs={tree.totalMs}
+      browserExpanded={browserExpanded}
+    >
       <CostTreeCanvas
         tree={tree}
         selectedLeafId={selectedLeafId}
@@ -52,6 +78,12 @@ export function CostTreeEvidence({
         onSelectRoot={onSelectRoot}
         ariaLabel={ariaLabel}
         controlLabels={PRODUCTION_CONTROLS}
+        browserExpansion={{
+          expanded: browserExpanded,
+          onToggle: () => setBrowserExpanded((expanded) => !expanded),
+          expandLabel: PRODUCTION_CONTROLS.expand,
+          collapseLabel: PRODUCTION_CONTROLS.collapse,
+        }}
         fillFrame
       />
     </CostTreeFrame>
