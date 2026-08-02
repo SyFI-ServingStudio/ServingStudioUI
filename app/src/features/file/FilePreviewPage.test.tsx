@@ -265,4 +265,56 @@ describe('find in file', () => {
 
     expect(screen.getByText('no matches')).toBeInTheDocument();
   });
+
+  it('renders a tty-captured log in colour instead of printing its escapes', async () => {
+    const escape = String.fromCharCode(27);
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run/stdout.log', name: 'stdout.log', language: null },
+      body:
+        `${escape}[2m2026-05-23T11:10:54Z${escape}[0m ${escape}[32m INFO${escape}[0m built\n` +
+        `${escape}[2m2026-05-23T11:10:55Z${escape}[0m ${escape}[32m INFO${escape}[0m done\n`,
+    });
+
+    render(
+      <FilePreviewPage
+        fileRef={{ workspaceId: 'w_main', path: 'logs/run/stdout.log', line: null }}
+      />,
+    );
+
+    const body = await screen.findByLabelText('File contents');
+    // The escapes are gone from the text, and the level is a coloured element.
+    expect(body.textContent).not.toContain('[32m');
+    expect(body.textContent).toContain('INFO built');
+    expect(body.querySelector('[style*="color:#566a2e"]')?.textContent).toBe(' INFO');
+    expect(body.querySelector('[style*="opacity:.62"]')?.textContent).toBe('2026-05-23T11:10:54Z');
+    // Two log lines stay two gutter rows.
+    expect(body.querySelectorAll('[data-line]')).toHaveLength(2);
+    expect(screen.getByText(/terminal colour/)).toBeInTheDocument();
+  });
+
+  it('searches the visible text of a coloured log, not its escape codes', async () => {
+    const escape = String.fromCharCode(27);
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run/stdout.log', name: 'stdout.log', language: null },
+      body: `${escape}[32m INFO${escape}[0m first\nplain second\n${escape}[32m INFO${escape}[0m third\n`,
+    });
+    const user = userEvent.setup();
+
+    render(
+      <FilePreviewPage
+        fileRef={{ workspaceId: 'w_main', path: 'logs/run/stdout.log', line: null }}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Find' }));
+    await user.type(screen.getByLabelText('Find in file'), 'INFO');
+
+    expect(screen.getByText('1 of 2 lines')).toBeInTheDocument();
+    // The escape code itself is unfindable, because it is no longer text.
+    // Typed without its leading bracket, which user-event reads as a key
+    // descriptor rather than a character.
+    await user.clear(screen.getByLabelText('Find in file'));
+    await user.type(screen.getByLabelText('Find in file'), '32m');
+    expect(screen.getByText('no matches')).toBeInTheDocument();
+  });
 });

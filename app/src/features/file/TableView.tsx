@@ -11,7 +11,16 @@ function looksNumeric(value: string): boolean {
   return value !== '' && Number.isFinite(Number(value));
 }
 
-export default function TableView({ text, path }: { text: string; path: string }) {
+export default function TableView({
+  text,
+  path,
+  truncated = false,
+}: {
+  text: string;
+  path: string;
+  /** The backend already cut the body short, so Source is not the whole file. */
+  truncated?: boolean;
+}) {
   const table = useMemo(() => parseDelimitedText(text, delimiterFor(path), MAX_ROWS), [path, text]);
 
   if (table === null) {
@@ -107,7 +116,12 @@ export default function TableView({ text, path }: { text: string; path: string }
         }}
       >
         {table.rows.length} of {table.totalRows} rows · {table.header.length} columns
-        {table.totalRows > table.rows.length ? ' · switch to Source for the rest' : ''}
+        {table.totalRows > table.rows.length
+          ? truncated
+            ? ' · download for the rest'
+            : ' · switch to Source for the rest'
+          : ''}
+        {truncated ? ' · body truncated by the server' : ''}
       </Typography>
     </Stack>
   );

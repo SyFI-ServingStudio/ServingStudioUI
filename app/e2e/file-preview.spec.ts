@@ -95,3 +95,31 @@ test('finds text in the open file and steps between matches', async ({ page }) =
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('2 of 2 lines')).toBeVisible();
 });
+
+test('shows a tty-captured log in colour rather than printing its escapes', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
+  // Built rather than pasted: a raw ESC byte in a spec is invisible in review.
+  const escape = String.fromCharCode(27);
+  await stubFileRoutes(page, {
+    path: 'logs/run/stdout.log',
+    name: 'stdout.log',
+    language: null,
+    body:
+      `${escape}[2m2026-05-23T08:32:42Z${escape}[0m ${escape}[32m INFO${escape}[0m [build] kernel done\n` +
+      `${escape}[2m2026-05-23T08:32:43Z${escape}[0m ${escape}[31mERROR${escape}[0m [build] kernel failed\n`,
+  });
+
+  await page.goto('/#/file?workspace=w_main&path=logs%2Frun%2Fstdout.log');
+
+  const body = page.getByLabel('File contents');
+  await expect(body).toContainText('kernel done');
+  await expect(body).not.toContainText('[32m');
+
+  // The colour has to survive as a computed style, not just as an attribute.
+  const level = body.locator('span', { hasText: /^ INFO$/ }).first();
+  await expect(level).toHaveCSS('color', 'rgb(86, 106, 46)');
+  await expect(body.locator('span', { hasText: /^ERROR$/ }).first()).toHaveCSS(
+    'color',
+    'rgb(168, 75, 46)',
+  );
+});

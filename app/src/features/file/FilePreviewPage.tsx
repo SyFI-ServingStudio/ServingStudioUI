@@ -35,7 +35,8 @@ import { tokens } from '../../theme';
 import CodeView from './CodeView';
 import JsonView from './JsonView';
 import TableView from './TableView';
-import { canHighlight, highlightLines } from './highlight';
+import { ansiLines, hasAnsi, stripAnsi } from './ansi';
+import { MAX_HIGHLIGHT_LINES, canHighlight, highlightLines } from './highlight';
 import { matchingLines, stepMatch } from './search';
 
 function byteLabel(size: number): string {
@@ -322,7 +323,8 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
           setBody(text);
           // The text is already on screen; colour arrives after the grammar
           // chunk loads, and a highlighter failure must not blank the preview.
-          if (canHighlight(loaded.language)) {
+          // A file carrying its own terminal colour is coloured by that instead.
+          if (canHighlight(loaded.language) && !hasAnsi(text.text)) {
             const lines = await highlightLines(text.text, loaded.language).catch(() => null);
             if (active) setHighlighted(lines);
           }
@@ -352,9 +354,26 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
     return () => window.clearTimeout(timer);
   }, [copied]);
 
+  // Logs come off a tty with SGR escapes in them. Everything downstream — the
+  // gutter, search, the structured views — works on the text a reader can see,
+  // and the colour rides alongside as per-line markup.
+  const ansi = body !== null && hasAnsi(body.text);
+  const displayText = useMemo(
+    () => (body === null ? '' : ansi ? stripAnsi(body.text) : body.text),
+    [ansi, body],
+  );
+  const ansiMarkup = useMemo(() => {
+    if (body === null || !ansi) return null;
+    // Same ceiling as syntax highlighting. Past it the escapes are still
+    // removed, so the worst case is a clean but colourless log, never a dirty
+    // one.
+    if (displayText.split('\n', MAX_HIGHLIGHT_LINES + 1).length > MAX_HIGHLIGHT_LINES) return null;
+    return ansiLines(body.text);
+  }, [ansi, body, displayText]);
+
   const matches = useMemo(
-    () => (query === null || body === null ? [] : matchingLines(body.text, query)),
-    [body, query],
+    () => (query === null ? [] : matchingLines(displayText, query)),
+    [displayText, query],
   );
   useEffect(() => setMatchIndex(0), [query]);
 
@@ -431,6 +450,7 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
           <Typography sx={{ mt: 0.6, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
             {meta.isDir ? 'directory' : `${meta.previewKind} · ${byteLabel(meta.size)}`}
             {meta.language ? ` · ${meta.language}` : ''}
+            {ansi ? ' · terminal colour' : ''}
             {body?.truncated ? ` · truncated to ${byteLabel(body.text.length)}` : ''}
           </Typography>
         )}
@@ -483,21 +503,21 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
           </Box>
         ) : structured && !showSource ? (
           structured.kind === 'json' ? (
-            <JsonView text={body.text} />
+            <JsonView text={displayText} />
           ) : structured.kind === 'table' ? (
-            <TableView text={body.text} path={meta.path} />
+            <TableView text={displayText} path={meta.path} truncated={body.truncated} />
           ) : (
             <Box sx={{ p: 1.6, minWidth: 0, overflow: 'auto' }}>
-              <MarkdownBody text={body.text} citations={[]} workspaceId={workspaceId} />
+              <MarkdownBody text={displayText} citations={[]} workspaceId={workspaceId} />
             </Box>
           )
         ) : (
           <Box sx={{ minWidth: 0, overflow: 'auto', py: 0.8 }}>
             <CodeView
-              text={body.text}
+              text={displayText}
               highlightLine={line}
               wrap={wrap}
-              highlightedLines={highlighted}
+              highlightedLines={ansiMarkup ?? highlighted}
               matchLines={matches}
               activeMatchLine={matches[matchIndex] ?? null}
             />
