@@ -4,6 +4,7 @@ import { makeWorkerKey } from '../domain/worker';
 import { useViz } from '../store';
 import {
   ANALYZER_SELECTION_CHANGE_EVENT,
+  analyzerSelectionForView,
   analyzerSelectionFromVizState,
   inquiryContextFromVizState,
   installAnalyzerSelectionPublisher,
@@ -13,6 +14,9 @@ beforeEach(() => {
   useViz.setState({
     selectionSurface: 'aggregate',
     aggregateSelection: null,
+    predictionSelection: null,
+    kernelProfileSelection: null,
+    kernelMeasurementSelection: null,
     inquiryId: null,
     phaseId: null,
     runWorkspaceId: null,
@@ -88,6 +92,73 @@ describe('shared analyzer selection', () => {
       phaseId: 'refine_01',
       selection: { kind: 'aggregate', workspaceId: 'w_main', experimentId: 's_1' },
     });
+  });
+
+  it('never exposes retained run state as hidden context on another route', () => {
+    const runSelection = {
+      kind: 'run' as const,
+      workspaceId: 'w_main',
+      runId: 'r_old',
+      panelId: 'optimality-breakdown',
+      scope: 'cluster' as const,
+      poolRole: null,
+      workerKey: null,
+      leafId: null,
+      parId: null,
+      cursorMs: null,
+      cursorNeedsSeek: false,
+      operation: null,
+      workerAnalysisLevel: 'worker' as const,
+    };
+
+    expect(analyzerSelectionForView('agent', runSelection)).toBeNull();
+    expect(analyzerSelectionForView('run', runSelection)).toEqual(runSelection);
+  });
+
+  it('allows a timing-prediction selection only on its direct route', () => {
+    const predictionSelection = {
+      kind: 'prediction' as const,
+      workspaceId: 'w_main',
+      predictionId: 'p_test',
+      panelId: 'optimality-breakdown',
+      caseId: '40',
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'unlocked' as const,
+    };
+
+    expect(analyzerSelectionForView('prediction', predictionSelection)).toEqual(
+      predictionSelection,
+    );
+    expect(analyzerSelectionForView('aggregate', predictionSelection)).toBeNull();
+  });
+
+  it('scopes each kernel selection to its own first-class route', () => {
+    const profileSelection = {
+      kind: 'kernel_profile' as const,
+      workspaceId: 'w_main',
+      profileId: 'kp_test',
+      panelId: 'curve',
+      metricKey: 'time_ms',
+    };
+    const measurementSelection = {
+      kind: 'kernel_measurement' as const,
+      workspaceId: 'w_main',
+      measurementId: 'km_test',
+      panelId: 'summary',
+      metricKey: 'median',
+      plotName: null,
+    };
+
+    expect(analyzerSelectionForView('kernel-profile', profileSelection)).toEqual(
+      profileSelection,
+    );
+    expect(analyzerSelectionForView('kernel-measurement', profileSelection)).toBeNull();
+    expect(analyzerSelectionForView('kernel-measurement', measurementSelection)).toEqual(
+      measurementSelection,
+    );
+    expect(analyzerSelectionForView('agent', measurementSelection)).toBeNull();
   });
 
   it('publishes one versioned message per semantic selection change', () => {

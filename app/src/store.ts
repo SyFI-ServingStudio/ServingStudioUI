@@ -6,6 +6,9 @@
 import { create } from 'zustand';
 import type {
   AggregateAnalyzerSelectionV2,
+  KernelMeasurementAnalyzerSelectionV2,
+  KernelProfileAnalyzerSelectionV2,
+  PredictionAnalyzerSelectionV2,
   RunAnalyzerSelectionV2,
 } from './domain/analyzerSelection';
 import { makeWorkerKey, type WorkerKey, type WorkerRef } from './domain/worker';
@@ -13,7 +16,12 @@ import type { OperationRef, OperationSummary } from './domain/workerOperation';
 
 export type Scope = 'cluster' | 'pool' | 'worker' | 'kernel' | 'parallel';
 export type WorkerAnalysisLevel = 'worker' | 'iteration';
-export type AnalyzerSurface = 'aggregate' | 'run';
+export type AnalyzerSurface =
+  | 'aggregate'
+  | 'run'
+  | 'prediction'
+  | 'kernel_profile'
+  | 'kernel_measurement';
 
 export interface SetRunOptions {
   readonly keepSelection?: boolean;
@@ -23,6 +31,9 @@ export interface SetRunOptions {
 export interface VizState {
   selectionSurface: AnalyzerSurface;
   aggregateSelection: AggregateAnalyzerSelectionV2 | null;
+  predictionSelection: PredictionAnalyzerSelectionV2 | null;
+  kernelProfileSelection: KernelProfileAnalyzerSelectionV2 | null;
+  kernelMeasurementSelection: KernelMeasurementAnalyzerSelectionV2 | null;
   inquiryId: string | null;
   phaseId: string | null;
   runWorkspaceId: string | null;
@@ -39,6 +50,13 @@ export interface VizState {
   workerAnalysisLevel: WorkerAnalysisLevel;
   setSelectionSurface: (surface: AnalyzerSurface) => void;
   setAggregateSelection: (selection: AggregateAnalyzerSelectionV2) => void;
+  setPredictionSelection: (selection: PredictionAnalyzerSelectionV2) => void;
+  restorePredictionSelection: (selection: PredictionAnalyzerSelectionV2) => void;
+  setKernelProfileSelection: (selection: KernelProfileAnalyzerSelectionV2) => void;
+  restoreKernelProfileSelection: (selection: KernelProfileAnalyzerSelectionV2) => void;
+  setKernelMeasurementSelection: (selection: KernelMeasurementAnalyzerSelectionV2) => void;
+  restoreKernelMeasurementSelection: (selection: KernelMeasurementAnalyzerSelectionV2) => void;
+  selectEvidencePanel: (panelId: string) => void;
   setInquiryContextIdentity: (inquiryId: string | null, phaseId: string | null) => void;
   setRun: (runId: string, options?: SetRunOptions) => void;
   restoreRunSelection: (selection: RunAnalyzerSelectionV2) => void;
@@ -59,6 +77,9 @@ export interface VizState {
 export const useViz = create<VizState>((set) => ({
   selectionSurface: 'aggregate',
   aggregateSelection: null,
+  predictionSelection: null,
+  kernelProfileSelection: null,
+  kernelMeasurementSelection: null,
   inquiryId: null,
   phaseId: null,
   runWorkspaceId: null,
@@ -77,6 +98,31 @@ export const useViz = create<VizState>((set) => ({
   setSelectionSurface: (selectionSurface) => set({ selectionSurface }),
   setAggregateSelection: (aggregateSelection) =>
     set({ selectionSurface: 'aggregate', aggregateSelection }),
+  setPredictionSelection: (predictionSelection) =>
+    set({ selectionSurface: 'prediction', predictionSelection }),
+  restorePredictionSelection: (predictionSelection) =>
+    set({ selectionSurface: 'prediction', predictionSelection }),
+  setKernelProfileSelection: (kernelProfileSelection) =>
+    set({ selectionSurface: 'kernel_profile', kernelProfileSelection }),
+  restoreKernelProfileSelection: (kernelProfileSelection) =>
+    set({ selectionSurface: 'kernel_profile', kernelProfileSelection }),
+  setKernelMeasurementSelection: (kernelMeasurementSelection) =>
+    set({ selectionSurface: 'kernel_measurement', kernelMeasurementSelection }),
+  restoreKernelMeasurementSelection: (kernelMeasurementSelection) =>
+    set({ selectionSurface: 'kernel_measurement', kernelMeasurementSelection }),
+  selectEvidencePanel: (panelId) =>
+    set((state) =>
+      state.selectionSurface === 'prediction' && state.predictionSelection !== null
+        ? {
+            predictionSelection: { ...state.predictionSelection, panelId },
+          }
+        : state.selectionSurface === 'kernel_profile' && state.kernelProfileSelection !== null
+          ? { kernelProfileSelection: { ...state.kernelProfileSelection, panelId } }
+          : state.selectionSurface === 'kernel_measurement' &&
+              state.kernelMeasurementSelection !== null
+            ? { kernelMeasurementSelection: { ...state.kernelMeasurementSelection, panelId } }
+            : { selectionSurface: 'run', runPanelId: panelId },
+    ),
   setInquiryContextIdentity: (inquiryId, phaseId) => set({ inquiryId, phaseId }),
   selectRunPanel: (runPanelId) => set({ selectionSurface: 'run', runPanelId }),
   setRun: (runId, options) =>

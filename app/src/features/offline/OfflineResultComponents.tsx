@@ -1,20 +1,7 @@
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
-import CheckCircleOutlineRounded from '@mui/icons-material/CheckCircleOutlineRounded';
-import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
-import { Box, ButtonBase, IconButton, Skeleton, Stack, Typography } from '@mui/material';
+import { Box, IconButton, Stack, Typography } from '@mui/material';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import type { EChartsOption } from 'echarts';
-import { useEffect, useMemo, useState } from 'react';
-
-import {
-  getManagedJobResource,
-  type ManagedJobResource,
-} from '../../application/managedJobRepository';
-import {
-  useHardwareGpuQuery,
-  useKernelMeasurementQueries,
-  useKernelProfileQueries,
-} from '../../application/queries';
+import { memo, useMemo } from 'react';
 import type {
   KernelMeasurementDescriptor,
   KernelMeasurementSummary,
@@ -22,34 +9,9 @@ import type {
   KernelProfileRow,
 } from '../../domain/offlineResource';
 import EChart from '../../components/EChart';
+import { EvidenceSurfaceCard } from '../../components/EvidenceSurfaceCard';
 import { useOpenChartFocus, type ChartFocusPayload } from '../../components/ChartFocusContext';
-import SurfaceCard from '../../components/SurfaceCard';
 import { tokens } from '../../theme';
-import { PredictionPage } from '../prediction';
-
-function locationIdentity(): {
-  workspaceId: string | null;
-  resourceId: string | null;
-  analyzerResourceId: string | null;
-  jobKind: ManagedJobResource['jobKind'] | null;
-} {
-  const query = new URLSearchParams(window.location.hash.split('?', 2)[1] ?? '');
-  const workspaceId = query.get('workspace');
-  const resourceId = query.get('resource');
-  const analyzerResourceId = query.get('analyzer');
-  const kind = query.get('kind');
-  const jobKind =
-    kind === 'kernel_profile' || kind === 'kernel_measure' || kind === 'timing_predict'
-      ? kind
-      : null;
-  return { workspaceId, resourceId, analyzerResourceId, jobKind };
-}
-
-const JOB_LABELS: Record<ManagedJobResource['jobKind'], string> = {
-  timing_predict: 'Timing prediction',
-  kernel_profile: 'Kernel profile',
-  kernel_measure: 'Kernel measurement',
-};
 
 function valueLabel(value: unknown): string {
   if (typeof value === 'number')
@@ -62,7 +24,7 @@ function compactEntries(values: Record<string, unknown>) {
   return Object.entries(values).filter(([, value]) => value !== null && value !== undefined);
 }
 
-function MetadataTags({ values }: { values: Record<string, unknown> }) {
+export function MetadataTags({ values }: { values: Record<string, unknown> }) {
   const entries = compactEntries(values);
   if (entries.length === 0) return null;
   return (
@@ -274,6 +236,38 @@ function metricLabel(metric: string): string {
   return METRIC_LABELS[metric] ?? metric;
 }
 
+const MetricTileCharts = memo(function MetricTileCharts({
+  curve,
+  metric,
+  unit,
+}: {
+  curve: KernelProfileCurve;
+  metric: string;
+  unit: string;
+}) {
+  const groups = useMemo(() => facetGroups(curve), [curve]);
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
+      {groups.map(([facet, rows]) => (
+        <Box key={facet || 'main'} data-testid={`${metric}-facet${facet ? `-${facet}` : ''}`}>
+          {facet && (
+            <Typography
+              sx={{ pt: 0.9, pb: 0.3, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}
+            >
+              {facet}
+            </Typography>
+          )}
+          <EChart
+            option={chartOption(curve, rows, metric, unit)}
+            ariaLabel={`${metricLabel(metric)}${facet ? `, ${facet}` : ''} · ${curve.table}`}
+            style={{ height: 216, width: '100%' }}
+          />
+        </Box>
+      ))}
+    </Box>
+  );
+});
+
 function ParamStatline({ values }: { values: Record<string, unknown> }) {
   const entries = compactEntries(values);
   if (entries.length === 0) return null;
@@ -331,9 +325,16 @@ function ParamStatline({ values }: { values: Record<string, unknown> }) {
   );
 }
 
-function MetricTile({ curve }: { curve: KernelProfileCurve }) {
+export function MetricTile({
+  curve,
+  selected,
+  onSelect,
+}: {
+  curve: KernelProfileCurve;
+  selected: boolean;
+  onSelect: (metric: string) => void;
+}) {
   const openFocus = useOpenChartFocus();
-  const groups = useMemo(() => facetGroups(curve), [curve]);
   const series = curve.series[0];
   const metric = series?.metric ?? '';
   const unit = series?.unit ?? '';
@@ -349,7 +350,10 @@ function MetricTile({ curve }: { curve: KernelProfileCurve }) {
     option: chartOption(curve, curve.rows, metric, unit),
   };
   return (
-    <SurfaceCard
+    <EvidenceSurfaceCard
+      evidenceId={`kernel-profile:${metric}`}
+      selectedForAgent={selected}
+      onEvidenceSelect={() => onSelect(metric)}
       accent={accent}
       sx={{
         p: '14px 16px 12px',
@@ -406,42 +410,27 @@ function MetricTile({ curve }: { curve: KernelProfileCurve }) {
           {subtitle}
         </Typography>
       </Stack>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: groups.length > 1 ? '1fr' : '1fr',
-          gap: 1,
-        }}
-      >
-        {groups.map(([facet, rows]) => (
-          <Box key={facet || 'main'} data-testid={`${metric}-facet${facet ? `-${facet}` : ''}`}>
-            {facet && (
-              <Typography
-                sx={{ pt: 0.9, pb: 0.3, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}
-              >
-                {facet}
-              </Typography>
-            )}
-            <EChart
-              option={chartOption(curve, rows, metric, unit)}
-              ariaLabel={`${metricLabel(metric)}${facet ? `, ${facet}` : ''} · ${curve.table}`}
-              style={{ height: 216, width: '100%' }}
-            />
-          </Box>
-        ))}
-      </Box>
-    </SurfaceCard>
+      <MetricTileCharts curve={curve} metric={metric} unit={unit} />
+    </EvidenceSurfaceCard>
   );
 }
 
-function KernelCurve({
+export function KernelCurve({
   curve,
   descriptor,
+  selectedMetric,
+  onMetricSelect,
 }: {
   curve: KernelProfileCurve;
   descriptor?: Record<string, unknown>;
+  selectedMetric: string | null;
+  onMetricSelect: (metric: string) => void;
 }) {
   const [xAxis] = curve.axes;
+  const seriesCurves = useMemo(
+    () => curve.series.map((series) => ({ series, curve: { ...curve, series: [series] } })),
+    [curve],
+  );
   const readyPointCount = curve.rows.filter((row) => row.status === 'ok').length;
   const params = useMemo<Record<string, unknown>>(
     () => ({
@@ -486,8 +475,13 @@ function KernelCurve({
           alignItems: 'start',
         }}
       >
-        {curve.series.map((series) => (
-          <MetricTile key={series.metric} curve={{ ...curve, series: [series] }} />
+        {seriesCurves.map(({ series, curve: seriesCurve }) => (
+          <MetricTile
+            key={series.metric}
+            curve={seriesCurve}
+            selected={selectedMetric === series.metric}
+            onSelect={onMetricSelect}
+          />
         ))}
       </Box>
       {curve.series.length === 0 && (
@@ -497,46 +491,76 @@ function KernelCurve({
   );
 }
 
-function PlotGallery({ descriptor }: { descriptor: KernelMeasurementDescriptor }) {
+export function PlotGallery({
+  descriptor,
+  selectedPlot,
+  onPlotSelect,
+}: {
+  descriptor: KernelMeasurementDescriptor;
+  selectedPlot: string | null;
+  onPlotSelect: (plotName: string) => void;
+}) {
   if (!descriptor.plotUrls.length) return null;
   return (
     <Box
       sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))', gap: 1 }}
     >
-      {descriptor.plotUrls.map((url) => (
-        <Box
-          key={url}
-          component="figure"
-          sx={{ m: 0, border: `1px solid ${tokens.hair}`, borderRadius: 1.1, overflow: 'hidden' }}
-        >
-          <Box
-            component="img"
-            src={url}
-            alt={new URL(url).pathname.split('/').at(-1) ?? 'Kernel measurement plot'}
-            loading="lazy"
-            sx={{ display: 'block', width: '100%', background: '#faf7f0' }}
-          />
-          <Typography
-            component="figcaption"
-            sx={{ px: 1, py: 0.7, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+      {descriptor.plotUrls.map((url) => {
+        const plotName = new URL(url).pathname.split('/').at(-1) ?? 'plot';
+        return (
+          <EvidenceSurfaceCard
+            key={url}
+            component="figure"
+            evidenceId={`kernel-measurement:plot:${plotName}`}
+            selectedForAgent={selectedPlot === plotName}
+            onEvidenceSelect={() => onPlotSelect(plotName)}
+            sx={{
+              m: 0,
+              border: `1px solid ${tokens.hair}`,
+              borderRadius: 1.1,
+              overflow: 'hidden',
+            }}
           >
-            {new URL(url).pathname.split('/').at(-1)}
-          </Typography>
-        </Box>
-      ))}
+            <Box
+              component="img"
+              src={url}
+              alt={plotName}
+              loading="lazy"
+              sx={{ display: 'block', width: '100%', background: '#faf7f0' }}
+            />
+            <Typography
+              component="figcaption"
+              sx={{ px: 1, py: 0.7, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+            >
+              {plotName}
+            </Typography>
+          </EvidenceSurfaceCard>
+        );
+      })}
     </Box>
   );
 }
 
-function MeasurementSummary({ summary }: { summary: KernelMeasurementSummary }) {
+export function MeasurementSummary({
+  summary,
+  selectedMetric,
+  onMetricSelect,
+}: {
+  summary: KernelMeasurementSummary;
+  selectedMetric: string | null;
+  onMetricSelect: (metric: string) => void;
+}) {
   const runtimeEntries = Object.entries(summary.runtimeMs);
   return (
     <Box
       sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 1 }}
     >
       {runtimeEntries.map(([label, value]) => (
-        <SurfaceCard
+        <EvidenceSurfaceCard
           key={label}
+          evidenceId={`kernel-measurement:summary:${label}`}
+          selectedForAgent={selectedMetric === label}
+          onEvidenceSelect={() => onMetricSelect(label)}
           accent={label === 'median' ? tokens.teal : tokens.gold}
           sx={{ p: 1.4 }}
         >
@@ -548,163 +572,8 @@ function MeasurementSummary({ summary }: { summary: KernelMeasurementSummary }) 
           >
             {value.toPrecision(4)} ms
           </Typography>
-        </SurfaceCard>
+        </EvidenceSurfaceCard>
       ))}
     </Box>
-  );
-}
-
-export default function JobResultPage() {
-  const identity = locationIdentity();
-  const workspaceId = identity?.workspaceId;
-  const resourceId = identity?.resourceId;
-  const [resource, setResource] = useState<ManagedJobResource | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    if (!workspaceId || !resourceId) return;
-    let active = true;
-    void getManagedJobResource(workspaceId, resourceId)
-      .then((result) => {
-        if (active) setResource(result);
-      })
-      .catch((reason: unknown) => {
-        if (active) setError(reason instanceof Error ? reason.message : String(reason));
-      });
-    return () => {
-      active = false;
-    };
-  }, [resourceId, workspaceId]);
-
-  const jobKind = identity.jobKind ?? resource?.jobKind ?? null;
-  const analyzerResourceId = identity.analyzerResourceId ?? resource?.analyzerResourceId ?? null;
-  const profile = useKernelProfileQueries(jobKind === 'kernel_profile' ? analyzerResourceId : null);
-  const measurement = useKernelMeasurementQueries(
-    jobKind === 'kernel_measure' ? analyzerResourceId : null,
-  );
-  const measurementGpuName =
-    measurement.descriptor.data?.gpu.observedName ??
-    measurement.descriptor.data?.gpu.cacheKey ??
-    null;
-  const hardware = useHardwareGpuQuery(measurementGpuName);
-
-  if ((!workspaceId || !resourceId) && (!identity.analyzerResourceId || !identity.jobKind)) {
-    return <Typography>Missing Analyzer resource identity.</Typography>;
-  }
-  if (error) {
-    return (
-      <Stack direction="row" sx={{ p: 2, gap: 1, color: '#9a4538' }}>
-        <ErrorOutlineRounded />
-        <Typography>{error}</Typography>
-      </Stack>
-    );
-  }
-  if (workspaceId && resourceId && !resource) {
-    return (
-      <Stack sx={{ gap: 1.2 }}>
-        <Skeleton variant="rounded" height={74} />
-        <Skeleton variant="rounded" height={360} />
-      </Stack>
-    );
-  }
-  return (
-    <Stack sx={{ gap: 1.4, p: { xs: 1.2, md: 2 } }}>
-      <SurfaceCard
-        sx={{
-          p: 1.5,
-          background: 'rgba(31,111,107,.035)',
-        }}
-      >
-        <Stack direction="row" alignItems="center" sx={{ gap: 1.1 }}>
-          <CheckCircleOutlineRounded sx={{ color: tokens.teal, fontSize: 18 }} />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ color: tokens.ink, fontSize: 15, fontWeight: 700 }}>
-              {jobKind ? JOB_LABELS[jobKind] : 'Analyzer result'}
-            </Typography>
-            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9 }}>
-              {analyzerResourceId ?? 'pending identity'}
-            </Typography>
-          </Box>
-          <ButtonBase
-            onClick={() => window.history.back()}
-            sx={{ ml: 'auto', px: 0.9, py: 0.5, gap: 0.45, color: tokens.sub, fontSize: 10 }}
-          >
-            <ArrowBackRounded sx={{ fontSize: 14 }} /> Back
-          </ButtonBase>
-        </Stack>
-      </SurfaceCard>
-
-      {jobKind === 'timing_predict' ? (
-        analyzerResourceId ? (
-          <PredictionPage predictionId={analyzerResourceId} />
-        ) : (
-          <SurfaceCard role="alert" accent={tokens.terra} sx={{ p: 2 }}>
-            <Typography sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 11 }}>
-              Timing prediction has no Analyzer resource identity.
-            </Typography>
-          </SurfaceCard>
-        )
-      ) : jobKind === 'kernel_profile' ? (
-        profile.descriptor.data && profile.curve.data ? (
-          <KernelCurve
-            curve={profile.curve.data}
-            descriptor={{
-              backend: profile.descriptor.data.kernel.backend,
-              family: profile.descriptor.data.kernel.metricFamily,
-              gpu:
-                profile.descriptor.data.gpu?.observedName ?? profile.descriptor.data.gpu?.cacheKey,
-              profile_action:
-                profile.descriptor.data.mode === 'jit-fill'
-                  ? 'filled missing points'
-                  : profile.descriptor.data.mode === 'force-refresh'
-                    ? 'refreshed all points'
-                    : profile.descriptor.data.mode,
-              source: profile.descriptor.data.legacy ? 'legacy profile' : undefined,
-              data_source:
-                profile.descriptor.data.provenanceSource === 'measurement'
-                  ? 'measured now'
-                  : profile.descriptor.data.provenanceSource === 'cache_key'
-                    ? 'profile cache'
-                    : undefined,
-              gpu_status:
-                profile.descriptor.data.legacy && profile.descriptor.data.gpu === null
-                  ? 'not recorded'
-                  : undefined,
-            }}
-          />
-        ) : (
-          <Typography sx={{ p: 2, color: profile.curve.isError ? tokens.terra : tokens.sub }}>
-            {profile.curve.isError
-              ? 'Kernel profile could not be loaded from Analyzer.'
-              : 'Kernel profile is pending in Analyzer.'}
-          </Typography>
-        )
-      ) : jobKind === 'kernel_measure' ? (
-        measurement.descriptor.data && measurement.summary.data ? (
-          <Stack sx={{ gap: 1.4 }}>
-            <MetadataTags
-              values={{
-                kernel: measurement.descriptor.data.kernel.kind,
-                backend: measurement.descriptor.data.kernel.backend,
-                gpu:
-                  measurement.descriptor.data.gpu.observedName ??
-                  measurement.descriptor.data.gpu.cacheKey,
-                duration_s: measurement.descriptor.data.durationSeconds,
-                hbm_gbps: hardware.data?.hbmBandwidthGbps,
-                interconnect_one_way_gbps: hardware.data?.interconnect?.oneWayGbps,
-                ...measurement.descriptor.data.shape,
-              }}
-            />
-            <MeasurementSummary summary={measurement.summary.data} />
-            <PlotGallery descriptor={measurement.descriptor.data} />
-          </Stack>
-        ) : (
-          <Typography sx={{ p: 2, color: measurement.summary.isError ? tokens.terra : tokens.sub }}>
-            {measurement.summary.isError
-              ? 'Kernel measurement could not be loaded from Analyzer.'
-              : 'Kernel measurement is pending in Analyzer.'}
-          </Typography>
-        )
-      ) : null}
-    </Stack>
   );
 }

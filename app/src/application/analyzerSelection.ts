@@ -4,6 +4,7 @@ import {
   type AnalyzerSelectionV2,
   type InquiryContextV2,
 } from '../domain/analyzerSelection';
+import type { AppView } from './appRoute';
 import { useViz, type VizState } from '../store';
 
 export const ANALYZER_SELECTION_CHANGE_EVENT = 'vibesim:analyzer-selection-change';
@@ -12,6 +13,9 @@ export const ANALYZER_SELECTION_CHANGE_EVENT = 'vibesim:analyzer-selection-chang
  * Actions and panel geometry never cross this boundary. */
 export function analyzerSelectionFromVizState(state: VizState): AnalyzerSelectionV2 | null {
   if (state.selectionSurface === 'aggregate') return state.aggregateSelection;
+  if (state.selectionSurface === 'prediction') return state.predictionSelection;
+  if (state.selectionSurface === 'kernel_profile') return state.kernelProfileSelection;
+  if (state.selectionSurface === 'kernel_measurement') return state.kernelMeasurementSelection;
   if (state.runWorkspaceId === null || state.runId === null) return null;
   return {
     kind: 'run',
@@ -28,6 +32,24 @@ export function analyzerSelectionFromVizState(state: VizState): AnalyzerSelectio
     operation: state.operation,
     workerAnalysisLevel: state.workerAnalysisLevel,
   };
+}
+
+/** Keep retained back-navigation state separate from the evidence attachment
+ * owned by the page that is actually visible. */
+export function analyzerSelectionForView(
+  view: AppView,
+  selection: AnalyzerSelectionV2 | null,
+): AnalyzerSelectionV2 | null {
+  if (view === 'aggregate') return selection?.kind === 'aggregate' ? selection : null;
+  if (view === 'run') return selection?.kind === 'run' ? selection : null;
+  if (view === 'prediction') return selection?.kind === 'prediction' ? selection : null;
+  if (view === 'kernel-profile') {
+    return selection?.kind === 'kernel_profile' ? selection : null;
+  }
+  if (view === 'kernel-measurement') {
+    return selection?.kind === 'kernel_measurement' ? selection : null;
+  }
+  return null;
 }
 
 export function inquiryContextFromVizState(state: VizState): InquiryContextV2 | null {

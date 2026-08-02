@@ -55,9 +55,59 @@ export const runAnalyzerSelectionV2Schema = z
 
 export type RunAnalyzerSelectionV2 = z.infer<typeof runAnalyzerSelectionV2Schema>;
 
+export const predictionAnalyzerSelectionV2Schema = z
+  .object({
+    kind: z.literal('prediction'),
+    workspaceId: nonEmptyString,
+    predictionId: nonEmptyString,
+    panelId: nonEmptyString.nullable(),
+    caseId: nonEmptyString.nullable(),
+    operationId: nonEmptyString.nullable(),
+    leafId: z.number().int().nonnegative().nullable(),
+    parallelId: z.number().int().nonnegative().nullable(),
+    optimalityMode: z.enum(['unlocked', 'batch_locked']),
+  })
+  .strict();
+
+export type PredictionAnalyzerSelectionV2 = z.infer<
+  typeof predictionAnalyzerSelectionV2Schema
+>;
+
+export const kernelProfileAnalyzerSelectionV2Schema = z
+  .object({
+    kind: z.literal('kernel_profile'),
+    workspaceId: nonEmptyString,
+    profileId: nonEmptyString,
+    panelId: nonEmptyString.nullable(),
+    metricKey: nonEmptyString.nullable(),
+  })
+  .strict();
+
+export type KernelProfileAnalyzerSelectionV2 = z.infer<
+  typeof kernelProfileAnalyzerSelectionV2Schema
+>;
+
+export const kernelMeasurementAnalyzerSelectionV2Schema = z
+  .object({
+    kind: z.literal('kernel_measurement'),
+    workspaceId: nonEmptyString,
+    measurementId: nonEmptyString,
+    panelId: nonEmptyString.nullable(),
+    metricKey: nonEmptyString.nullable(),
+    plotName: nonEmptyString.nullable(),
+  })
+  .strict();
+
+export type KernelMeasurementAnalyzerSelectionV2 = z.infer<
+  typeof kernelMeasurementAnalyzerSelectionV2Schema
+>;
+
 export const analyzerSelectionV2Schema = z.discriminatedUnion('kind', [
   aggregateAnalyzerSelectionV2Schema,
   runAnalyzerSelectionV2Schema,
+  predictionAnalyzerSelectionV2Schema,
+  kernelProfileAnalyzerSelectionV2Schema,
+  kernelMeasurementAnalyzerSelectionV2Schema,
 ]);
 
 export type AnalyzerSelectionV2 = z.infer<typeof analyzerSelectionV2Schema>;

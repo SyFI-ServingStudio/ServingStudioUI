@@ -32,7 +32,8 @@ The ownership boundary is deliberate:
 - The UI joins those two catalogs by stable Analyzer resource ID.
 
 The entry page supports existing results, new Agent conversations, and resumed
-conversations. Run, aggregate sweep, timing-prediction, kernel-job, and Agent
+conversations. Run, aggregate sweep, timing-prediction, kernel-profile,
+kernel-measurement, and Agent
 views share the same workspace shell and selectable evidence protocol.
 
 ## Local development

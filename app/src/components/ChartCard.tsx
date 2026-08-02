@@ -9,21 +9,24 @@ import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
 import { EvidenceSurfaceCard, EvidenceTitleButton } from './EvidenceSurfaceCard';
 
-function RunEvidenceSurfaceCard({
+function AnalyzerEvidenceSurfaceCard({
   evidenceId,
   children,
   ...props
 }: Omit<EvidenceSurfaceCardProps, 'selectedForAgent' | 'onEvidenceSelect'>) {
   const selectedForAgent = useViz(
-    (state) => state.selectionSurface === 'run' && state.runPanelId === evidenceId,
+    (state) =>
+      state.selectionSurface === 'prediction'
+        ? state.predictionSelection?.panelId === evidenceId
+        : state.selectionSurface === 'run' && state.runPanelId === evidenceId,
   );
-  const selectRunPanel = useViz((state) => state.selectRunPanel);
+  const selectEvidencePanel = useViz((state) => state.selectEvidencePanel);
   return (
     <EvidenceSurfaceCard
       {...props}
       evidenceId={evidenceId}
       selectedForAgent={selectedForAgent}
-      onEvidenceSelect={() => selectRunPanel(evidenceId)}
+      onEvidenceSelect={() => selectEvidencePanel(evidenceId)}
     >
       {children}
     </EvidenceSurfaceCard>
@@ -58,7 +61,7 @@ export default function ChartCard({
 }) {
   const openFocus = useOpenChartFocus();
   return (
-    <RunEvidenceSurfaceCard
+    <AnalyzerEvidenceSurfaceCard
       evidenceId={evidenceId}
       badgePlacement="top-edge"
       sx={{
@@ -186,6 +189,6 @@ export default function ChartCard({
           {note}
         </Typography>
       )}
-    </RunEvidenceSurfaceCard>
+    </AnalyzerEvidenceSurfaceCard>
   );
 }

@@ -68,8 +68,7 @@ import { tokens } from '../../theme';
 import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import { conversationTimeLabel } from './conversationPresentation';
-import { conversationCards } from './conversationTimeline';
-import { useWorkspaceUi } from './workspaceUiStore';
+import { conversationCards, type ConversationCard } from './conversationTimeline';
 
 type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
 
@@ -102,9 +101,23 @@ const managedJobLabels: Record<string, string> = {
   kernel_measure: 'Kernel measurement',
 };
 
-function managedJobHref(workspaceId: string, resourceId: string): string {
-  const query = new URLSearchParams({ workspace: workspaceId, resource: resourceId });
-  return `#/job?${query.toString()}`;
+function managedResultHref(
+  workspaceId: string,
+  jobKind: string,
+  analyzerResourceId: string,
+): string {
+  const query = new URLSearchParams({ workspace: workspaceId });
+  if (jobKind === 'timing_predict') {
+    query.set('prediction', analyzerResourceId);
+    query.set('optimalityMode', 'unlocked');
+    return `#/prediction?${query.toString()}`;
+  }
+  if (jobKind === 'kernel_profile') {
+    query.set('profile', analyzerResourceId);
+    return `#/kernel-profile?${query.toString()}`;
+  }
+  query.set('measurement', analyzerResourceId);
+  return `#/kernel-measurement?${query.toString()}`;
 }
 
 function RoleCard({
@@ -380,6 +393,233 @@ function UserMessage({ children }: { children: ReactNode }) {
   );
 }
 
+const EAGER_TRANSCRIPT_MESSAGES = 4;
+const EAGER_TIMELINE_CARDS = 3;
+
+/**
+ * Keeps distant conversation content out of the React tree entirely. The empty
+ * block preserves approximate scroll geometry; once it approaches the viewport
+ * it mounts once and stays mounted, so scrolling back never flashes or reparses
+ * Markdown a second time.
+ */
+function LazyTranscriptBlock({
+  children,
+  eager = false,
+  estimatedHeight,
+}: {
+  children: ReactNode;
+  eager?: boolean;
+  estimatedHeight: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(
+    () => eager || typeof IntersectionObserver === 'undefined',
+  );
+
+  useEffect(() => {
+    if (mounted) return;
+    if (eager || typeof IntersectionObserver === 'undefined') {
+      setMounted(true);
+      return;
+    }
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setMounted(true);
+        observer.disconnect();
+      },
+      { rootMargin: '720px 0px' },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [eager, mounted]);
+
+  return (
+    <Box
+      ref={containerRef}
+      data-lazy-state={mounted ? 'mounted' : 'deferred'}
+      sx={{
+        width: '100%',
+        minWidth: 0,
+        minHeight: mounted ? 0 : estimatedHeight,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1.1,
+        contentVisibility: mounted ? 'auto' : undefined,
+        containIntrinsicSize: mounted ? `auto ${estimatedHeight}px` : undefined,
+      }}
+    >
+      {mounted ? children : null}
+    </Box>
+  );
+}
+
+function cardEstimatedHeight(card: ConversationCard): number {
+  if (card.type === 'job') return 66;
+  const textLength =
+    card.type === 'role'
+      ? card.notes.reduce((total, note) => total + note.text.length, 0)
+      : card.text.length;
+  return Math.min(720, Math.max(82, 68 + Math.ceil(textLength / 72) * 17));
+}
+
+function messageEstimatedHeight(message: ConversationMessage): number {
+  if (message.role === 'user') {
+    return Math.min(220, Math.max(48, 34 + Math.ceil(message.content.length / 60) * 17));
+  }
+  const events = message.activity ?? [];
+  const textLength = events.reduce((total, event) => {
+    if ('text' in event && typeof event.text === 'string') return total + event.text.length;
+    if ('task' in event && typeof event.task === 'string') return total + event.task.length;
+    return total;
+  }, message.content.length);
+  return Math.min(1_600, Math.max(120, 72 + events.length * 22 + Math.ceil(textLength / 72) * 17));
+}
+
+const TimelineCardView = memo(function TimelineCardView({
+  card,
+  message,
+  streaming,
+  toolCall,
+  workspaceId,
+}: {
+  card: ConversationCard;
+  message?: ConversationMessage;
+  streaming: boolean;
+  toolCall: string;
+  workspaceId: string;
+}) {
+  if (card.type === 'handoff') {
+    return (
+      <Handoff
+        from={card.variant === 'delegated-task' ? 'Orchestrator' : 'Implementer'}
+        to={card.variant === 'delegated-task' ? 'Implementer' : 'Orchestrator'}
+        text={card.text}
+        workspaceId={workspaceId}
+      />
+    );
+  }
+  if (card.type === 'role') {
+    const implementer = card.role === 'implementer';
+    return (
+      <RoleCard
+        tone={card.role}
+        icon={
+          implementer ? (
+            <BuildOutlined sx={{ fontSize: 15 }} />
+          ) : (
+            <HubOutlined sx={{ fontSize: 15 }} />
+          )
+        }
+        title={implementer ? 'Implementer' : 'Orchestrator'}
+        round={card.round}
+        runtime={card.runtime}
+        status={!card.done && streaming ? 'working' : 'done'}
+      >
+        <Stack sx={{ gap: 0.65 }}>
+          {card.notes.map((note, noteIndex) => (
+            <Note key={noteIndex} workspaceId={workspaceId} level={note.level}>
+              {note.text}
+            </Note>
+          ))}
+          {!card.done && streaming && toolCall && <ActivityLine text={toolCall} />}
+        </Stack>
+      </RoleCard>
+    );
+  }
+  if (card.type === 'job') {
+    const ready = card.status === 'ready' || card.status === 'experiment.ready';
+    const failed = card.status === 'failed' || card.status === 'interrupted';
+    const typedJob = Boolean(card.jobKind && card.resourceId);
+    const jobLabel = typedJob
+      ? (managedJobLabels[card.jobKind ?? ''] ?? 'Managed job')
+      : 'Experiment';
+    const title = ready
+      ? `${jobLabel} ready`
+      : failed
+        ? `${jobLabel} stopped`
+        : `${jobLabel} running`;
+    const destination = typedJob
+      ? card.analyzerResourceId
+        ? managedResultHref(card.workspaceId, card.jobKind ?? '', card.analyzerResourceId)
+        : null
+      : analyzerEvidenceHref({
+          protocol: 'vibesim.analyzer/v2',
+          kind: 'aggregate',
+          workspaceId: card.workspaceId,
+          experimentId: card.experimentId,
+        });
+    return (
+      <ButtonBase
+        disabled={!ready || (typedJob ? !card.analyzerResourceId : !card.experimentId)}
+        onClick={() => {
+          if (destination) window.location.hash = destination;
+        }}
+        sx={{
+          width: '100%',
+          p: 1.25,
+          justifyContent: 'flex-start',
+          border: `1px solid ${
+            failed ? 'rgba(154,69,56,.3)' : ready ? 'rgba(31,111,107,.34)' : tokens.hair
+          }`,
+          borderLeft: `2px solid ${failed ? '#9a4538' : tokens.teal}`,
+          borderRadius: 1.1,
+          background: ready ? 'rgba(31,111,107,.055)' : 'rgba(91,82,71,.035)',
+          textAlign: 'left',
+          '&:hover': ready ? { background: 'rgba(31,111,107,.09)' } : undefined,
+          '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+        }}
+      >
+        <Stack direction="row" alignItems="center" sx={{ width: '100%', minWidth: 0, gap: 1 }}>
+          {failed ? (
+            <ErrorOutlineRounded sx={{ color: '#9a4538', fontSize: 16 }} />
+          ) : card.jobKind === 'kernel_profile' || card.jobKind === 'kernel_measure' ? (
+            <BuildOutlined sx={{ color: ready ? tokens.teal : tokens.gold, fontSize: 16 }} />
+          ) : ready ? (
+            <CheckCircleOutlineRounded sx={{ color: tokens.teal, fontSize: 16 }} />
+          ) : (
+            <AdjustRounded sx={{ color: tokens.gold, fontSize: 16 }} />
+          )}
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 700 }}>
+              {title}
+            </Typography>
+            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+              {card.artifactPath || card.experimentPath}
+            </Typography>
+          </Box>
+          {ready && <NorthEastRounded sx={{ ml: 'auto', color: tokens.teal, fontSize: 15 }} />}
+        </Stack>
+      </ButtonBase>
+    );
+  }
+  if (card.type === 'error') {
+    return <FailureCard text={card.text} workspaceId={workspaceId} />;
+  }
+  return (
+    <RoleCard
+      tone={card.outcome === 'request_user_input' ? 'orchestrator' : 'answer'}
+      icon={
+        card.outcome === 'request_user_input' ? (
+          <HelpOutlineRounded sx={{ fontSize: 15 }} />
+        ) : (
+          <CheckCircleOutlineRounded sx={{ fontSize: 15 }} />
+        )
+      }
+      title={card.outcome === 'request_user_input' ? 'Input needed' : 'Answer'}
+      status={card.outcome === 'request_user_input' ? 'waiting' : 'ready'}
+    >
+      <MarkdownBody
+        text={card.text}
+        citations={message?.citations ?? []}
+        workspaceId={workspaceId}
+      />
+    </RoleCard>
+  );
+});
+
 function AssistantTimeline({
   message,
   events,
@@ -410,142 +650,43 @@ function AssistantTimeline({
       </RoleCard>
     );
   }
-  return cards.map((card, index) => {
-    if (card.type === 'handoff') {
-      return (
-        <Handoff
-          key={index}
-          from={card.variant === 'delegated-task' ? 'Orchestrator' : 'Implementer'}
-          to={card.variant === 'delegated-task' ? 'Implementer' : 'Orchestrator'}
-          text={card.text}
-          workspaceId={workspaceId}
-        />
-      );
-    }
-    if (card.type === 'role') {
-      const implementer = card.role === 'implementer';
-      return (
-        <RoleCard
-          key={index}
-          tone={card.role}
-          icon={
-            implementer ? (
-              <BuildOutlined sx={{ fontSize: 15 }} />
-            ) : (
-              <HubOutlined sx={{ fontSize: 15 }} />
-            )
-          }
-          title={implementer ? 'Implementer' : 'Orchestrator'}
-          round={card.round}
-          runtime={card.runtime}
-          status={!card.done && streaming ? 'working' : 'done'}
-        >
-          <Stack sx={{ gap: 0.65 }}>
-            {card.notes.map((note, noteIndex) => (
-              <Note key={noteIndex} workspaceId={workspaceId} level={note.level}>
-                {note.text}
-              </Note>
-            ))}
-            {!card.done && streaming && toolCall && <ActivityLine text={toolCall} />}
-          </Stack>
-        </RoleCard>
-      );
-    }
-    if (card.type === 'job') {
-      const ready = card.status === 'ready' || card.status === 'experiment.ready';
-      const failed = card.status === 'failed' || card.status === 'interrupted';
-      const typedJob = Boolean(card.jobKind && card.resourceId);
-      const jobLabel = typedJob
-        ? (managedJobLabels[card.jobKind ?? ''] ?? 'Managed job')
-        : 'Experiment';
-      const title = ready
-        ? `${jobLabel} ready`
-        : failed
-          ? `${jobLabel} stopped`
-          : `${jobLabel} running`;
-      const destination = typedJob
-        ? managedJobHref(card.workspaceId, card.resourceId ?? '')
-        : analyzerEvidenceHref({
-            protocol: 'vibesim.analyzer/v2',
-            kind: 'aggregate',
-            workspaceId: card.workspaceId,
-            experimentId: card.experimentId,
-          });
-      return (
-        <ButtonBase
-          key={index}
-          disabled={!ready || (typedJob ? !card.resourceId : !card.experimentId)}
-          onClick={() => {
-            window.location.hash = destination;
-          }}
-          sx={{
-            width: '100%',
-            p: 1.25,
-            justifyContent: 'flex-start',
-            border: `1px solid ${
-              failed ? 'rgba(154,69,56,.3)' : ready ? 'rgba(31,111,107,.34)' : tokens.hair
-            }`,
-            borderLeft: `2px solid ${failed ? '#9a4538' : tokens.teal}`,
-            borderRadius: 1.1,
-            background: ready ? 'rgba(31,111,107,.055)' : 'rgba(91,82,71,.035)',
-            textAlign: 'left',
-            '&:hover': ready ? { background: 'rgba(31,111,107,.09)' } : undefined,
-            '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-          }}
-        >
-          <Stack direction="row" alignItems="center" sx={{ width: '100%', minWidth: 0, gap: 1 }}>
-            {failed ? (
-              <ErrorOutlineRounded sx={{ color: '#9a4538', fontSize: 16 }} />
-            ) : card.jobKind === 'kernel_profile' || card.jobKind === 'kernel_measure' ? (
-              <BuildOutlined sx={{ color: ready ? tokens.teal : tokens.gold, fontSize: 16 }} />
-            ) : ready ? (
-              <CheckCircleOutlineRounded sx={{ color: tokens.teal, fontSize: 16 }} />
-            ) : (
-              <AdjustRounded sx={{ color: tokens.gold, fontSize: 16 }} />
-            )}
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 700 }}>
-                {title}
-              </Typography>
-              <Typography
-                noWrap
-                sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
-              >
-                {card.artifactPath || card.experimentPath}
-              </Typography>
-            </Box>
-            {ready && <NorthEastRounded sx={{ ml: 'auto', color: tokens.teal, fontSize: 15 }} />}
-          </Stack>
-        </ButtonBase>
-      );
-    }
-    if (card.type === 'error') {
-      return <FailureCard key={index} text={card.text} workspaceId={workspaceId} />;
-    }
-    return (
-      <RoleCard
-        key={index}
-        tone={card.outcome === 'request_user_input' ? 'orchestrator' : 'answer'}
-        icon={
-          card.outcome === 'request_user_input' ? (
-            <HelpOutlineRounded sx={{ fontSize: 15 }} />
-          ) : (
-            <CheckCircleOutlineRounded sx={{ fontSize: 15 }} />
-          )
-        }
-        title={card.outcome === 'request_user_input' ? 'Input needed' : 'Answer'}
-        status={card.outcome === 'request_user_input' ? 'waiting' : 'ready'}
-      >
-        <MarkdownBody
-          text={card.text}
-          citations={message?.citations ?? []}
-          workspaceId={workspaceId}
-          onEvidenceNavigate={() => useWorkspaceUi.getState().setAgentPanelMode('docked')}
-        />
-      </RoleCard>
-    );
-  });
+  return cards.map((card, index) => (
+    <LazyTranscriptBlock
+      key={index}
+      eager={index >= cards.length - EAGER_TIMELINE_CARDS}
+      estimatedHeight={cardEstimatedHeight(card)}
+    >
+      <TimelineCardView
+        card={card}
+        message={message}
+        streaming={streaming}
+        toolCall={toolCall}
+        workspaceId={workspaceId}
+      />
+    </LazyTranscriptBlock>
+  ));
 }
+
+const PersistedConversationMessage = memo(function PersistedConversationMessage({
+  message,
+  workspaceId,
+}: {
+  message: ConversationMessage;
+  workspaceId: string;
+}) {
+  if (message.role === 'user') return <UserMessage>{message.content}</UserMessage>;
+  return (
+    <AssistantTimeline
+      message={message}
+      events={
+        message.activity?.length ? message.activity : [{ kind: 'final', text: message.content }]
+      }
+      streaming={false}
+      toolCall=""
+      workspaceId={workspaceId}
+    />
+  );
+});
 
 export const ConversationTranscript = memo(function ConversationTranscript({
   workspaceId,
@@ -591,24 +732,15 @@ export const ConversationTranscript = memo(function ConversationTranscript({
           {loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
         </ButtonBase>
       )}
-      {messages.map((message, index) =>
-        message.role === 'user' ? (
-          <UserMessage key={messageStartIndex + index}>{message.content}</UserMessage>
-        ) : (
-          <AssistantTimeline
-            key={messageStartIndex + index}
-            message={message}
-            events={
-              message.activity?.length
-                ? message.activity
-                : [{ kind: 'final', text: message.content }]
-            }
-            streaming={false}
-            toolCall=""
-            workspaceId={workspaceId}
-          />
-        ),
-      )}
+      {messages.map((message, index) => (
+        <LazyTranscriptBlock
+          key={messageStartIndex + index}
+          eager={index >= messages.length - EAGER_TRANSCRIPT_MESSAGES}
+          estimatedHeight={messageEstimatedHeight(message)}
+        >
+          <PersistedConversationMessage message={message} workspaceId={workspaceId} />
+        </LazyTranscriptBlock>
+      ))}
       {streaming && (
         <AssistantTimeline
           events={liveEvents}
@@ -642,6 +774,35 @@ function contextValues(selection: AnalyzerSelectionV2 | null): readonly string[]
       ...Object.entries(selection.coordinates ?? {}).map(
         ([axis, value]) => `${axis}=${Array.isArray(value) ? value.join('+') : String(value)}`,
       ),
+    ];
+  }
+  if (selection.kind === 'prediction') {
+    return [
+      'prediction',
+      selection.predictionId,
+      ...(selection.panelId ? [selection.panelId] : []),
+      ...(selection.caseId ? [`case=${selection.caseId}`] : []),
+      ...(selection.operationId ? [`operation=${selection.operationId}`] : []),
+      ...(selection.leafId !== null ? [`kernel=${selection.leafId}`] : []),
+      ...(selection.parallelId !== null ? [`parallel=${selection.parallelId}`] : []),
+      `optimality=${selection.optimalityMode}`,
+    ];
+  }
+  if (selection.kind === 'kernel_profile') {
+    return [
+      'kernel profile',
+      selection.profileId,
+      ...(selection.panelId ? [selection.panelId] : []),
+      ...(selection.metricKey ? [selection.metricKey] : []),
+    ];
+  }
+  if (selection.kind === 'kernel_measurement') {
+    return [
+      'kernel measurement',
+      selection.measurementId,
+      ...(selection.panelId ? [selection.panelId] : []),
+      ...(selection.metricKey ? [selection.metricKey] : []),
+      ...(selection.plotName ? [selection.plotName] : []),
     ];
   }
   return [

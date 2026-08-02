@@ -33,6 +33,7 @@ export type ConversationCard =
       jobId?: string;
       jobKind?: string;
       resourceId?: string;
+      analyzerResourceId?: string;
       artifactPath?: string;
       descriptor?: Record<string, unknown>;
       summary?: Record<string, unknown> | null;
@@ -146,6 +147,9 @@ export function conversationCards(
                 jobId: event.jobId,
                 jobKind: event.jobKind,
                 resourceId: event.resourceId,
+                ...(event.analyzerResourceId
+                  ? { analyzerResourceId: event.analyzerResourceId }
+                  : {}),
                 artifactPath: event.artifactPath,
                 descriptor: event.descriptor,
                 summary: event.summary,

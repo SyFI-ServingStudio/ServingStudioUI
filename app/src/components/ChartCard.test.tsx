@@ -97,4 +97,42 @@ describe('ChartCard', () => {
     expect(screen.getByText('Selected for agent')).toBeVisible();
     expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
   });
+
+  it('updates prediction evidence without falling back to the retained run', async () => {
+    const user = userEvent.setup();
+    useViz.setState({
+      selectionSurface: 'prediction',
+      runPanelId: 'throughput',
+      predictionSelection: {
+        kind: 'prediction',
+        workspaceId: 'w_main',
+        predictionId: 'p_test',
+        panelId: null,
+        caseId: '40',
+        operationId: 'post_norm',
+        leafId: 12,
+        parallelId: null,
+        optimalityMode: 'unlocked',
+      },
+    });
+    renderWithFocus(
+      <ChartCard
+        evidenceId="optimality-breakdown"
+        title="Optimality Breakdown"
+        option={{ series: [] }}
+      />,
+    );
+    const initialChartRenders = chartRender.mock.calls.length;
+
+    await user.click(
+      screen
+        .getByRole('button', { name: 'Select Optimality Breakdown panel' })
+        .closest('[data-evidence-id]')!,
+    );
+
+    expect(useViz.getState().selectionSurface).toBe('prediction');
+    expect(useViz.getState().predictionSelection?.panelId).toBe('optimality-breakdown');
+    expect(useViz.getState().runPanelId).toBe('throughput');
+    expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
+  });
 });

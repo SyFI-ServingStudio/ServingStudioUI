@@ -27,15 +27,10 @@ type NavigationStatus = 'opening' | 'ok' | 'not-found' | 'unavailable';
 function navigateToFrozenEvidence(
   target: FrozenCitationV2['target'],
   onStatus: (status: NavigationStatus) => void,
-  beforeNavigate?: () => void,
 ): void {
-  // Evidence navigation leaves the full Agent surface for the shared
-  // Analyzer+Agent workspace. The caller's pane-mode change has to land before
-  // the route changes: a lazy Analyzer page may suspend and remount
-  // WorkspaceShell, so its previous-view ref is not a reliable transition
-  // boundary. Taking it as an argument rather than reaching into the workspace
-  // store keeps this shared renderer off a feature's internals.
-  beforeNavigate?.();
+  // Workspace layout is route-owned: the persistent WorkspaceShell folds the
+  // Agent only after the destination route is active, keeping this shared
+  // renderer off feature-local UI state.
   const requestId = globalThis.crypto?.randomUUID?.() ?? `evidence-${Date.now()}`;
   const command = analyzerNavigateCommandV2Schema.parse({
     protocol: 'vibesim.analyzer/v2',
@@ -121,15 +116,11 @@ export default function MarkdownBody({
   citations,
   workspaceId,
   compact = false,
-  onEvidenceNavigate,
 }: {
   text: string;
   citations: readonly FrozenCitationV2[];
   workspaceId?: string;
   compact?: boolean;
-  /** Run just before a citation navigates away, while this surface is still
-   * mounted — see `navigateToFrozenEvidence`. */
-  onEvidenceNavigate?: () => void;
 }) {
   const [statuses, setStatuses] = useState<Record<number, NavigationStatus>>({});
   const workspace = workspaceId ?? 'w_main';
@@ -282,7 +273,6 @@ export default function MarkdownBody({
             navigateToFrozenEvidence(
               citation.target,
               (next) => setStatuses((current) => ({ ...current, [citationIndex]: next })),
-              onEvidenceNavigate,
             )
           }
           title={

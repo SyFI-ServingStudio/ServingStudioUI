@@ -16,7 +16,10 @@ import {
 
 import type { AppView } from '../../application/appRoute';
 import { useSweepListQuery, useSweepQuery } from '../../application/queries';
-import { analyzerSelectionFromVizState } from '../../application/analyzerSelection';
+import {
+  analyzerSelectionForView,
+  analyzerSelectionFromVizState,
+} from '../../application/analyzerSelection';
 import { listWorkspaces } from '../../application/workspaceRepository';
 import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import { evidenceRefFromHash } from '../../domain/analyzerNavigation';
@@ -116,7 +119,12 @@ export default function WorkspaceShell({
   const [workspaceName, setWorkspaceName] = useState<string>();
   const sweepList = useSweepListQuery();
   const aggregateSelection = useViz((state) => state.aggregateSelection);
-  const analyzerSelection = useViz(analyzerSelectionFromVizState);
+  const storedAnalyzerSelection = useViz(analyzerSelectionFromVizState);
+  // Stores retain the last selection of every Analyzer surface so browser
+  // back-navigation can restore it. Only the selection owned by the visible
+  // route may become Agent context; this prevents an old run from becoming a
+  // hidden attachment while a timing prediction or another result is open.
+  const analyzerSelection = analyzerSelectionForView(view, storedAnalyzerSelection);
   const hashEvidence = evidenceRefFromHash(window.location.hash);
   const fileRef = view === 'file' ? fileRefFromHash(window.location.hash) : null;
   const experimentId =
@@ -317,9 +325,9 @@ export default function WorkspaceShell({
           onToggleFull={() => setAgentPanelMode(agentPanelMode === 'full' ? 'docked' : 'full')}
           analyzerContext={turnContext}
           enabled={agentPaneVisible}
-          requireAnalyzerContext={view !== 'agent' && view !== 'job' && view !== 'file'}
+          requireAnalyzerContext={view !== 'agent' && view !== 'file'}
           expanded={agentPanelMode === 'full'}
-          showSelectionContext={view !== 'agent' && view !== 'job' && view !== 'file'}
+          showSelectionContext={view !== 'agent' && view !== 'file'}
         />
       </Box>
 
@@ -428,11 +436,13 @@ export default function WorkspaceShell({
                   ? fileName(fileRef.path)
                   : experiment
                     ? displayExperimentName(experiment.displayName)
-                    : view === 'job'
-                      ? 'Result'
-                      : view === 'prediction'
-                        ? 'Timing prediction'
-                        : 'Analyzer'}
+                    : view === 'prediction'
+                      ? 'Timing prediction'
+                      : view === 'kernel-profile'
+                        ? 'Kernel profile'
+                        : view === 'kernel-measurement'
+                          ? 'Kernel measurement'
+                          : 'Analyzer'}
               </Typography>
               {fileRef && (
                 <Typography

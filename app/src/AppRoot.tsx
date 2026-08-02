@@ -1,6 +1,11 @@
 import App from './App';
 import { installAnalyzerSelectionPublisher } from './application/analyzerSelection';
-import { appViewFromHash, predictionIdFromHash } from './application/appRoute';
+import {
+  appViewFromHash,
+  kernelMeasurementIdFromHash,
+  kernelProfileIdFromHash,
+  predictionIdFromHash,
+} from './application/appRoute';
 import { ChartFocusProvider } from './components/ChartFocusProvider';
 import FocusDialog from './components/FocusDialog';
 import {
@@ -10,6 +15,7 @@ import {
   evidenceRefFromHash,
   navigationResult,
 } from './domain/analyzerNavigation';
+import { analyzerSelectionFromEvidenceRef } from './domain/evidenceRef';
 import { fileRefFromHash } from './domain/workspaceFile';
 import { useViz } from './store';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
@@ -23,8 +29,13 @@ const EntryPage = lazy(() =>
 const WorkspaceShell = lazy(() =>
   import('./features/workspace').then((feature) => ({ default: feature.WorkspaceShell })),
 );
-const JobResultPage = lazy(() =>
-  import('./features/job').then((feature) => ({ default: feature.JobResultPage })),
+const KernelProfilePage = lazy(() =>
+  import('./features/kernel-profile').then((feature) => ({ default: feature.KernelProfilePage })),
+);
+const KernelMeasurementPage = lazy(() =>
+  import('./features/kernel-measurement').then((feature) => ({
+    default: feature.KernelMeasurementPage,
+  })),
 );
 const PredictionPage = lazy(() =>
   import('./features/prediction').then((feature) => ({ default: feature.PredictionPage })),
@@ -46,7 +57,9 @@ export default function AppRoot() {
     new Map<string, { source: WindowProxy; origin: string; href: string }>(),
   );
   useEffect(() => {
-    if (view === 'aggregate' || view === 'run') setSelectionSurface(view);
+    if (view === 'aggregate' || view === 'run' || view === 'prediction') setSelectionSurface(view);
+    if (view === 'kernel-profile') setSelectionSurface('kernel_profile');
+    if (view === 'kernel-measurement') setSelectionSurface('kernel_measurement');
   }, [setSelectionSurface, view]);
   useEffect(() => installAnalyzerSelectionPublisher(), []);
   useEffect(() => {
@@ -57,7 +70,17 @@ export default function AppRoot() {
     }
     const updateView = () => {
       const evidence = evidenceRefFromHash(window.location.hash);
-      if (evidence?.kind === 'run') useViz.getState().restoreRunSelection(evidence);
+      const selection = evidence ? analyzerSelectionFromEvidenceRef(evidence) : null;
+      if (selection?.kind === 'run') useViz.getState().restoreRunSelection(selection);
+      if (selection?.kind === 'prediction') {
+        useViz.getState().restorePredictionSelection(selection);
+      }
+      if (selection?.kind === 'kernel_profile') {
+        useViz.getState().restoreKernelProfileSelection(selection);
+      }
+      if (selection?.kind === 'kernel_measurement') {
+        useViz.getState().restoreKernelMeasurementSelection(selection);
+      }
       setLocationHash(window.location.hash);
     };
     const receiveAgentNavigation = (event: MessageEvent<unknown>) => {
@@ -69,8 +92,18 @@ export default function AppRoot() {
         origin: event.origin,
         href: analyzerEvidenceHref(parsed.data.target),
       });
-      if (parsed.data.target.kind === 'run') {
-        useViz.getState().restoreRunSelection(parsed.data.target);
+      const selection = analyzerSelectionFromEvidenceRef(parsed.data.target);
+      if (selection.kind === 'run') {
+        useViz.getState().restoreRunSelection(selection);
+      }
+      if (selection.kind === 'prediction') {
+        useViz.getState().restorePredictionSelection(selection);
+      }
+      if (selection.kind === 'kernel_profile') {
+        useViz.getState().restoreKernelProfileSelection(selection);
+      }
+      if (selection.kind === 'kernel_measurement') {
+        useViz.getState().restoreKernelMeasurementSelection(selection);
       }
       const href = analyzerEvidenceHref(parsed.data.target);
       if (window.location.hash === href) {
@@ -109,21 +142,37 @@ export default function AppRoot() {
   else if (view === 'prediction') {
     const predictionId = predictionIdFromHash(locationHash);
     content = predictionId === null ? null : <PredictionPage predictionId={predictionId} />;
-  } else if (view === 'job') content = <JobResultPage />;
-  else if (view === 'file') {
+  } else if (view === 'kernel-profile') {
+    const profileId = kernelProfileIdFromHash(locationHash);
+    content = profileId === null ? null : <KernelProfilePage profileId={profileId} />;
+  } else if (view === 'kernel-measurement') {
+    const measurementId = kernelMeasurementIdFromHash(locationHash);
+    content =
+      measurementId === null ? null : <KernelMeasurementPage measurementId={measurementId} />;
+  } else if (view === 'file') {
     const fileRef = fileRefFromHash(locationHash);
     content = fileRef === null ? null : <FilePreviewPage fileRef={fileRef} />;
   } else content = <App />;
-  // Chart cards are shared by run, sweep, job, and prediction surfaces. Their
+  // Chart cards are shared by all Analyzer surfaces. Their
   // provider and single dialog therefore belong to the route root rather than
   // the legacy run page. A route/resource change invalidates an open snapshot.
   const chartFocusResetKey = view === 'run' ? `run:${runId ?? ''}` : locationHash;
   return (
-    <Suspense fallback={null}>
-      <ChartFocusProvider resetKey={chartFocusResetKey}>
-        {view === 'entry' ? content : <WorkspaceShell view={view}>{content}</WorkspaceShell>}
-        <FocusDialog />
-      </ChartFocusProvider>
-    </Suspense>
+    <ChartFocusProvider resetKey={chartFocusResetKey}>
+      {view === 'entry' ? (
+        <Suspense fallback={null}>{content}</Suspense>
+      ) : (
+        <Suspense fallback={null}>
+          <WorkspaceShell view={view}>
+            {/* A first visit may suspend while its Analyzer feature chunk loads.
+                Keep that boundary inside the persistent workspace shell so the
+                Agent conversation, draft, scroll, and panel transition never
+                disappear with the route content. */}
+            <Suspense fallback={null}>{content}</Suspense>
+          </WorkspaceShell>
+        </Suspense>
+      )}
+      <FocusDialog />
+    </ChartFocusProvider>
   );
 }

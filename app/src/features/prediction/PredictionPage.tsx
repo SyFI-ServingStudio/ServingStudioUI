@@ -9,7 +9,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   usePredictionCasesQuery,
@@ -19,11 +19,20 @@ import {
   usePredictionKernelInputDistributionQuery,
   usePredictionOptimalityQueries,
 } from '../../application/queries';
+import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import SurfaceCard from '../../components/SurfaceCard';
 import { fmtMs, leafById, type CostNode, type JsonValue } from '../../domain/cost-tree';
+import type { PredictionAnalyzerSelectionV2 } from '../../domain/analyzerSelection';
+import {
+  ANALYZER_NAVIGATION_RESULT_EVENT,
+  analyzerEvidenceHref,
+  evidenceRefFromHash,
+  replaceAnalyzerEvidenceHref,
+} from '../../domain/analyzerNavigation';
 import type { OptimalityMode } from '../../domain/optimality';
 import type { PredictionCase } from '../../domain/prediction';
 import type { SubjectResult } from '../../domain/subject';
+import { useViz } from '../../store';
 import { tokens } from '../../theme';
 import { KernelEvidenceView, KernelInspectorView } from '../kernel';
 import {
@@ -42,6 +51,17 @@ import {
 import { TimeShareBlocksView } from '../worker/TimeShareBlocks';
 
 const CASE_PAGE_SIZE = 64;
+
+function PredictionSelectionUrlSync({ predictionId }: { predictionId: string }) {
+  const selection = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId ? state.predictionSelection : null,
+  );
+  useEffect(() => {
+    if (selection === null) return;
+    replaceAnalyzerEvidenceHref({ protocol: 'vibesim.analyzer/v2', ...selection });
+  }, [selection]);
+  return null;
+}
 
 function scalarLabel(value: JsonValue): string | null {
   if (typeof value === 'number') return value.toLocaleString();
@@ -235,12 +255,66 @@ function nonReadySubject(
 }
 
 export default function PredictionPage({ predictionId }: { predictionId: string }) {
-  const [caseOffset, setCaseOffset] = useState(0);
-  const [selectedCaseId, setSelectedCaseId] = useState<string>();
-  const [selectedOperationId, setSelectedOperationId] = useState<string>();
-  const [selectedLeafId, setSelectedLeafId] = useState<number | null>(null);
-  const [selectedParallelId, setSelectedParallelId] = useState<number | null>(null);
-  const [optimalityMode, setOptimalityMode] = useState<OptimalityMode>('unlocked');
+  const navigationTarget = useMemo(() => {
+    const target = evidenceRefFromHash(window.location.hash);
+    return target?.kind === 'prediction' && target.predictionId === predictionId ? target : null;
+  }, [predictionId]);
+  const [caseOffset, setCaseOffset] = useState(() => {
+    const requestedCase = Number(navigationTarget?.caseId);
+    return Number.isInteger(requestedCase) && requestedCase >= 0
+      ? Math.floor(requestedCase / CASE_PAGE_SIZE) * CASE_PAGE_SIZE
+      : 0;
+  });
+  const workspaceId = workspaceIdFromLocation();
+  const selectedCaseId = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId
+      ? (state.predictionSelection.caseId ?? undefined)
+      : undefined,
+  );
+  const selectedOperationId = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId
+      ? (state.predictionSelection.operationId ?? undefined)
+      : undefined,
+  );
+  const selectedLeafId = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId
+      ? state.predictionSelection.leafId
+      : null,
+  );
+  const selectedParallelId = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId
+      ? state.predictionSelection.parallelId
+      : null,
+  );
+  const optimalityMode = useViz((state) =>
+    state.predictionSelection?.predictionId === predictionId
+      ? state.predictionSelection.optimalityMode
+      : 'unlocked',
+  );
+  const setPredictionSelection = useViz((state) => state.setPredictionSelection);
+  const updatePredictionSelection = useCallback(
+    (
+      patch: Partial<
+        Omit<PredictionAnalyzerSelectionV2, 'kind' | 'workspaceId' | 'predictionId'>
+      >,
+    ) => {
+      const current = useViz.getState().predictionSelection;
+      setPredictionSelection({
+        kind: 'prediction',
+        workspaceId,
+        predictionId,
+        panelId: null,
+        caseId: null,
+        operationId: null,
+        leafId: null,
+        parallelId: null,
+        optimalityMode: 'unlocked',
+        ...(current?.predictionId === predictionId ? current : {}),
+        ...patch,
+      });
+    },
+    [predictionId, setPredictionSelection, workspaceId],
+  );
   const autoSelectedCostTreeIdentity = useRef<string>();
   const descriptor = usePredictionDescriptorQuery(predictionId);
   const casePage = usePredictionCasesQuery(predictionId, caseOffset, CASE_PAGE_SIZE);
@@ -264,26 +338,53 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
   const optimality = usePredictionOptimalityQueries(predictionId, selectedCaseId, optimalityMode);
 
   useEffect(() => {
+    const current = useViz.getState().predictionSelection;
+    if (navigationTarget !== null) {
+      const { protocol: _protocol, ...selection } = navigationTarget;
+      if (JSON.stringify(current) !== JSON.stringify(selection)) {
+        setPredictionSelection(selection);
+      }
+      return;
+    }
+    if (current?.predictionId === predictionId && current.workspaceId === workspaceId) return;
+    setPredictionSelection({
+      kind: 'prediction',
+      workspaceId,
+      predictionId,
+      panelId: null,
+      caseId: null,
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'unlocked',
+    });
+  }, [navigationTarget, predictionId, setPredictionSelection, workspaceId]);
+
+  useEffect(() => {
     const cases = casePage.data?.cases;
     if (cases === undefined || cases.length === 0) return;
     if (!cases.some((candidate) => candidate.caseId === selectedCaseId)) {
-      setSelectedCaseId(cases[0].caseId);
+      updatePredictionSelection({
+        caseId: cases[0].caseId,
+        operationId: null,
+        leafId: null,
+        parallelId: null,
+      });
     }
-  }, [casePage.data, selectedCaseId]);
+  }, [casePage.data, selectedCaseId, updatePredictionSelection]);
 
   useEffect(() => {
     if (selectedCase === undefined || selectedCase.operations.length === 0) return;
     if (
       !selectedCase.operations.some((operation) => operation.operationId === selectedOperationId)
     ) {
-      setSelectedOperationId(selectedCase.operations[0].operationId);
+      updatePredictionSelection({
+        operationId: selectedCase.operations[0].operationId,
+        leafId: null,
+        parallelId: null,
+      });
     }
-  }, [selectedCase, selectedOperationId]);
-
-  useEffect(() => {
-    setSelectedLeafId(null);
-    setSelectedParallelId(null);
-  }, [selectedCaseId, selectedOperationId]);
+  }, [selectedCase, selectedOperationId, updatePredictionSelection]);
 
   useEffect(() => {
     if (
@@ -295,8 +396,20 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     const costTreeIdentity = `${selectedCaseId}/${selectedOperationId}`;
     if (autoSelectedCostTreeIdentity.current === costTreeIdentity) return;
     autoSelectedCostTreeIdentity.current = costTreeIdentity;
-    setSelectedLeafId(firstLeafId(costTree.data.tree));
-  }, [costTree.data, selectedCaseId, selectedOperationId]);
+    if (selectedLeafId === null && selectedParallelId === null) {
+      // The default inspector leaf is viewing state, not an implicit choice of
+      // the CostTree evidence panel. Do not overwrite a panel restored from an
+      // Agent citation (for example, Optimality Breakdown).
+      updatePredictionSelection({ leafId: firstLeafId(costTree.data.tree) });
+    }
+  }, [
+    costTree.data,
+    selectedCaseId,
+    selectedLeafId,
+    selectedOperationId,
+    selectedParallelId,
+    updatePredictionSelection,
+  ]);
 
   const selectedLeaf =
     costTree.data === undefined ? null : leafById(costTree.data.tree, selectedLeafId);
@@ -340,6 +453,47 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             : 'Could not load prediction optimality waterfall.'
           : 'Loading prediction optimality waterfall.',
       };
+
+  useEffect(() => {
+    if (
+      navigationTarget === null ||
+      descriptor.data === undefined ||
+      casePage.data === undefined
+    ) {
+      return;
+    }
+    const requestedCaseExists =
+      navigationTarget.caseId === null ||
+      casePage.data.cases.some((candidate) => candidate.caseId === navigationTarget.caseId);
+    if (!requestedCaseExists) {
+      window.dispatchEvent(
+        new CustomEvent(ANALYZER_NAVIGATION_RESULT_EVENT, {
+          detail: { href: analyzerEvidenceHref(navigationTarget), status: 'not-found' },
+        }),
+      );
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const panel = navigationTarget.panelId
+        ? Array.from(document.querySelectorAll<HTMLElement>('[data-evidence-id]')).find(
+            (element) => element.dataset.evidenceId === `panel:${navigationTarget.panelId}`,
+          ) ?? null
+        : null;
+      if (panel !== null) {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        panel.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      }
+      window.dispatchEvent(
+        new CustomEvent(ANALYZER_NAVIGATION_RESULT_EVENT, {
+          detail: {
+            href: analyzerEvidenceHref(navigationTarget),
+            status: navigationTarget.panelId === null || panel !== null ? 'ok' : 'not-found',
+          },
+        }),
+      );
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [casePage.data, descriptor.data, navigationTarget]);
 
   if (!descriptor.supported || !casePage.supported) {
     return (
@@ -413,16 +567,25 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
           selectedLeafId={selectedLeafId}
           selectedParallelId={selectedParallelId}
           onSelectLeaf={(leafId) => {
-            setSelectedLeafId(leafId);
-            setSelectedParallelId(null);
+            updatePredictionSelection({
+              panelId: 'cost-tree',
+              leafId,
+              parallelId: null,
+            });
           }}
           onSelectParallel={(parallelId) => {
-            setSelectedParallelId(parallelId);
-            setSelectedLeafId(null);
+            updatePredictionSelection({
+              panelId: 'cost-tree',
+              parallelId,
+              leafId: null,
+            });
           }}
           onSelectRoot={() => {
-            setSelectedLeafId(null);
-            setSelectedParallelId(null);
+            updatePredictionSelection({
+              panelId: 'cost-tree',
+              leafId: null,
+              parallelId: null,
+            });
           }}
           ariaLabel="Timing prediction CostTree canvas"
         />
@@ -431,7 +594,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             node={selectedLeaf}
             height={COST_TREE_FRAME_HEIGHT}
             closeLabel="Close selected prediction kernel"
-            onClose={() => setSelectedLeafId(null)}
+            onClose={() => updatePredictionSelection({ leafId: null })}
           />
         ) : (
           <SurfaceCard
@@ -452,14 +615,28 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
 
   return (
     <Stack sx={{ gap: 2 }}>
+      <PredictionSelectionUrlSync predictionId={predictionId} />
       <PredictionCasePicker
         cases={casePage.data.cases}
         selectedCaseId={selectedCaseId}
         selectedOperationId={selectedOperationId}
         offset={casePage.data.offset}
         total={casePage.data.total}
-        onSelectCase={setSelectedCaseId}
-        onSelectOperation={setSelectedOperationId}
+        onSelectCase={(caseId) =>
+          updatePredictionSelection({
+            caseId,
+            operationId: null,
+            leafId: null,
+            parallelId: null,
+          })
+        }
+        onSelectOperation={(operationId) =>
+          updatePredictionSelection({
+            operationId,
+            leafId: null,
+            parallelId: null,
+          })
+        }
         onPage={setCaseOffset}
       />
       {workbench}
@@ -475,8 +652,11 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
           tree={costTree.data.tree}
           selectedLeafId={selectedLeafId}
           onSelectKernel={(leafId) => {
-            setSelectedLeafId(leafId);
-            setSelectedParallelId(null);
+            updatePredictionSelection({
+              panelId: 'kernel-time-share',
+              leafId,
+              parallelId: null,
+            });
           }}
         />
       )}
@@ -486,7 +666,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
           size="small"
           value={optimalityMode}
           onChange={(_event, nextMode: OptimalityMode | null) => {
-            if (nextMode !== null) setOptimalityMode(nextMode);
+            if (nextMode !== null) updatePredictionSelection({ optimalityMode: nextMode });
           }}
           aria-label="Prediction optimality batch-size mode"
           sx={{

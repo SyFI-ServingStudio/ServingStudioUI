@@ -53,31 +53,24 @@ function navigateToExperiment(entry: SweepListItem): void {
   window.location.assign(destination);
 }
 
-function navigateToJob(job: ManagedJobListItem): void {
-  const destination = new URL(window.location.href);
-  destination.search = '';
-  const query = new URLSearchParams({
-    workspace: job.workspaceId,
-    resource: job.resourceId,
-  });
-  destination.hash = `#/job?${query.toString()}`;
-  window.location.assign(destination);
-}
-
 function navigateToOfflineResource(
   resource: OfflineResourceCatalogItem,
-  job?: ManagedJobListItem,
+  workspaceId: string,
 ): void {
+  const query = new URLSearchParams({ workspace: workspaceId });
+  let route: 'prediction' | 'kernel-profile' | 'kernel-measurement';
   if (resource.kind === 'timing_predict') {
-    window.location.hash = `#/prediction?prediction=${encodeURIComponent(resource.resourceId)}`;
-    return;
+    route = 'prediction';
+    query.set('prediction', resource.resourceId);
+    query.set('optimalityMode', 'unlocked');
+  } else if (resource.kind === 'kernel_profile') {
+    route = 'kernel-profile';
+    query.set('profile', resource.resourceId);
+  } else {
+    route = 'kernel-measurement';
+    query.set('measurement', resource.resourceId);
   }
-  const query = new URLSearchParams({ kind: resource.kind, analyzer: resource.resourceId });
-  if (job) {
-    query.set('workspace', job.workspaceId);
-    query.set('resource', job.resourceId);
-  }
-  window.location.hash = `#/job?${query.toString()}`;
+  window.location.hash = `#/${route}?${query.toString()}`;
 }
 
 function navigateToAgent(
@@ -516,7 +509,6 @@ export default function EntryPage() {
                   offlineResources={analyzerOfflineResults}
                   workspaceNames={workspaceNames}
                   onActivate={navigateToExperiment}
-                  onActivateJob={navigateToJob}
                   onActivateOfflineResource={navigateToOfflineResource}
                 />
               )}

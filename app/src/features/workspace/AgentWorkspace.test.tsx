@@ -69,6 +69,71 @@ beforeEach(() => {
 });
 
 describe('AgentPane', () => {
+  it('does not mount distant transcript cards until they approach the viewport', () => {
+    const revealers: Array<() => void> = [];
+    class TestIntersectionObserver {
+      readonly root = null;
+      readonly rootMargin = '720px 0px';
+      readonly thresholds = [0];
+
+      constructor(callback: IntersectionObserverCallback) {
+        revealers.push(() =>
+          callback(
+            [{ isIntersecting: true } as IntersectionObserverEntry],
+            this as unknown as IntersectionObserver,
+          ),
+        );
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return [];
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', TestIntersectionObserver);
+
+    const rendered = render(
+      <ConversationTranscript
+        workspaceId="w_main"
+        messages={[
+          ...Array.from({ length: 5 }, (_, index) => ({
+            role: 'user',
+            content: `message-${index}`,
+          })),
+          {
+            role: 'assistant',
+            content: 'answer-7',
+            activity: Array.from({ length: 8 }, (_, index) => ({
+              kind: 'final' as const,
+              text: `answer-${index}`,
+            })),
+          },
+        ]}
+        messageStartIndex={0}
+        liveEvents={[]}
+        toolCall=""
+        streaming={false}
+        error={null}
+        canLoadEarlier={false}
+        loadingEarlier={false}
+        onLoadEarlier={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByText('message-0')).not.toBeInTheDocument();
+    expect(screen.getByText('message-2')).toBeInTheDocument();
+    expect(screen.queryByText('answer-0')).not.toBeInTheDocument();
+    expect(screen.getByText('answer-5')).toBeInTheDocument();
+    expect(rendered.container.querySelectorAll('[data-lazy-state="deferred"]')).toHaveLength(7);
+    act(() => revealers.forEach((reveal) => reveal()));
+    expect(screen.getByText('message-0')).toBeInTheDocument();
+    expect(screen.getByText('answer-0')).toBeInTheDocument();
+    expect(rendered.container.querySelectorAll('[data-lazy-state="deferred"]')).toHaveLength(0);
+    vi.stubGlobal('IntersectionObserver', undefined);
+  });
+
   it('renders a clarification request as an input-needed terminal state', () => {
     render(
       <ConversationTranscript
@@ -174,7 +239,10 @@ describe('AgentPane', () => {
 
     expect(postMessage).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /TP=2 · rate=20 · Throughput/ }));
-    expect(useWorkspaceUi.getState().agentPanelMode).toBe('docked');
+    // The citation owns navigation only. WorkspaceShell folds the pane after
+    // the destination route is active, so the transition never races a lazy
+    // Analyzer page against an empty result column.
+    expect(useWorkspaceUi.getState().agentPanelMode).toBe('full');
     expect(postMessage).toHaveBeenCalledOnce();
     expect(postMessage.mock.calls[0]?.[0]).toMatchObject({
       type: 'navigate',

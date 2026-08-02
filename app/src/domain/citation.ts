@@ -9,7 +9,7 @@ export const citationDictionaryEntryV2Schema = z
       .string()
       .min(5)
       .max(160)
-      .regex(/^(?:exp|run)\.[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$/),
+      .regex(/^(?:exp|run|pred|kprof|kmeasure)\.[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$/),
     displayLabel: z.string().min(1).max(240),
     target: evidenceRefV2Schema,
   })

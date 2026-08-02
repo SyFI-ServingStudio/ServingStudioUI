@@ -1,14 +1,4 @@
-export interface ManagedJobResource {
-  schemaVersion: 1;
-  workspaceId: string;
-  jobId: string;
-  resourceId: string;
-  analyzerResourceId: string | null;
-  jobKind: 'timing_predict' | 'kernel_profile' | 'kernel_measure';
-  status: string;
-}
-
-export type ManagedJobKind = ManagedJobResource['jobKind'];
+export type ManagedJobKind = 'timing_predict' | 'kernel_profile' | 'kernel_measure';
 
 export interface ManagedJobListItem {
   workspaceId: string;
@@ -72,15 +62,4 @@ export async function listManagedJobs(): Promise<readonly ManagedJobListItem[]> 
         return job ? [job] : [];
       })
     : [];
-}
-
-export async function getManagedJobResource(
-  workspaceId: string,
-  resourceId: string,
-): Promise<ManagedJobResource> {
-  const response = await fetch(
-    `/api/workspaces/${encodeURIComponent(workspaceId)}/jobs/${encodeURIComponent(resourceId)}`,
-  );
-  if (!response.ok) throw new Error(`Load job result failed (${response.status})`);
-  return (await response.json()) as ManagedJobResource;
 }

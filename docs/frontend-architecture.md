@@ -260,7 +260,8 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
   deployment、trace 或 sweep axis。Catalog 按日期倒序，表体最多显示
   六行，超出后只滚动表体，Page 0 顶部与列头不能随筛选结果重新居中或跳动。显式选择
   simulation 后进入 integrated Aggregate；显式选择 offline resource 后按 Analyzer identity
-  进入 Prediction 或 `#/job` Result surface。尚未被 Analyzer discovery 找到的 owned job
+  进入对应的一等 Result surface。五类稳定 Analyzer route 为 `#/aggregate`、`#/run`、
+  `#/prediction`、`#/kernel-profile` 与 `#/kernel-measurement`。尚未被 Analyzer discovery 找到的 owned job
   可以显示 pending lifecycle，但不能伪造 descriptor、curve、summary 或 plot。
   `timing_predict` Result 只用 `analyzerResourceId` 装配一等 Prediction surface，
   也允许用 `#/prediction?prediction=p_…` 直接深链；它不能由 conversation backend
@@ -324,12 +325,23 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 - Full Agent surface 返回 Page 0 的 header control 使用 back-arrow 与
   `Return to workspace home` accessible name，不能使用 close/X icon；后者会错误暗示
   turn 被取消。返回导航不改变 backend turn 状态。
-- Agent、Aggregate、Run 与 Prediction 是同一个 workspace-owned surface 的布局状态，不是多套独立
-  page shell。`#/agent`、`#/aggregate`、`#/run`、`#/prediction` 暂时保留为兼容入口，但都必须挂在同一个
+- Agent 与五类 Analyzer result 是同一个 workspace-owned surface 的布局状态，不是多套独立
+  page shell。所有 result route 都必须挂在同一个
   `WorkspaceShell` 下；跨这些 route 切换时 `AgentPane` 不能卸载，active conversation、
   SSE、scroll、draft 与 history 必须保持。`#/agent` 初始进入 Agent full 且允许没有
   Analyzer context 的首条 prompt；从 Agent evidence 导航到 Aggregate/Run 时，full 自动
   转为 docked split。Analyze 内的 full/fold 只改变 grid layout，不能卸载 Analyzer child。
+- Prediction 必须拥有独立的 `prediction` selection surface。case、operation、CostTree leaf/parallel、
+  optimality mode 与 panel selection 统一投影成 Agent context；进入 Prediction 后禁止沿用之前的
+  Aggregate/Run selection。共享 ChartCard 必须按当前 Analyzer surface 选择证据，不能把 Prediction
+  card 点击硬编码成 Run panel selection。
+- Agent 输入区显示的 selection strip 与实际随 turn 发送的 context 必须来自同一个 route-scoped
+  projection。Kernel profile 与 measurement 分别拥有独立的 `kernel_profile`、
+  `kernel_measurement` selection；独立 Agent 和 file 页面不得携带 retained Analyzer selection，
+  避免不可见的 ghost context。
+- Managed job 是 conversation backend 的 lifecycle/ownership overlay，不是 Analyzer result identity，
+  因而没有 `#/job` route 或通用 job result renderer。Ready job card 必须使用其
+  `analyzerResourceId` 直接生成对应一等 route；pending job 只展示状态，不伪造可打开的结果。
 - 独立 Aggregate 的 Experiment selector 采用 TraceLab session picker
   的高密度模式：固定高度的可滚动 listbox 按实验日期倒序分组，每个日期下排列紧凑的
   option cards；toolbar 提供名称搜索，以及类似 issue labels 的 trace 与 deployment

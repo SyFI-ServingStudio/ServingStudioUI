@@ -76,7 +76,6 @@ describe('ExperimentCatalog', () => {
         jobs={[]}
         offlineResources={[]}
         onActivate={onActivate}
-        onActivateJob={vi.fn()}
         onActivateOfflineResource={vi.fn()}
       />,
     );
@@ -97,7 +96,6 @@ describe('ExperimentCatalog', () => {
         jobs={[]}
         offlineResources={[]}
         onActivate={vi.fn()}
-        onActivateJob={vi.fn()}
         onActivateOfflineResource={vi.fn()}
       />,
     );
@@ -122,7 +120,6 @@ describe('ExperimentCatalog', () => {
 
   it('mixes typed jobs with simulations and filters them by result type', async () => {
     const user = userEvent.setup();
-    const onActivateJob = vi.fn();
     const onActivateOfflineResource = vi.fn();
     render(
       <ExperimentCatalog
@@ -130,7 +127,6 @@ describe('ExperimentCatalog', () => {
         jobs={jobs}
         offlineResources={offlineResources}
         onActivate={vi.fn()}
-        onActivateJob={onActivateJob}
         onActivateOfflineResource={onActivateOfflineResource}
       />,
     );
@@ -144,6 +140,6 @@ describe('ExperimentCatalog', () => {
     const visibleRows = screen.getAllByRole('option');
     expect(visibleRows).toHaveLength(1);
     await user.click(visibleRows[0]!);
-    expect(onActivateOfflineResource).toHaveBeenCalledWith(offlineResources[0], jobs[0]);
+    expect(onActivateOfflineResource).toHaveBeenCalledWith(offlineResources[0], 'w_main');
   });
 });

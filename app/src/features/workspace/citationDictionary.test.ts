@@ -115,4 +115,57 @@ describe('citation dictionary', () => {
       cursorMs: 12,
     });
   });
+
+  it('builds a path-ready timing-prediction citation without run identity', () => {
+    const context = analyzerTurnContext({
+      kind: 'prediction',
+      workspaceId: 'w_main',
+      predictionId: 'p_test',
+      panelId: 'optimality-breakdown',
+      caseId: '40',
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'batch_locked',
+    });
+    const entry = context?.citationDictionary.entries[0];
+
+    expect(entry?.token).toBe('pred.casev40.batch_locked.optimality-breakdown');
+    expect(entry?.target).toEqual({
+      protocol: 'vibesim.analyzer/v2',
+      kind: 'prediction',
+      workspaceId: 'w_main',
+      predictionId: 'p_test',
+      panelId: 'optimality-breakdown',
+      caseId: '40',
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'batch_locked',
+    });
+    expect(entry?.target).not.toHaveProperty('runId');
+  });
+
+  it('builds exact kernel profile and measurement citations', () => {
+    const profile = analyzerTurnContext({
+      kind: 'kernel_profile',
+      workspaceId: 'w_main',
+      profileId: 'kp_test',
+      panelId: 'curve',
+      metricKey: 'time_ms',
+    });
+    const measurement = analyzerTurnContext({
+      kind: 'kernel_measurement',
+      workspaceId: 'w_main',
+      measurementId: 'km_test',
+      panelId: 'summary',
+      metricKey: 'median',
+      plotName: null,
+    });
+
+    expect(profile?.citationDictionary.entries[0]?.token).toBe('kprof.curve.time_ms');
+    expect(measurement?.citationDictionary.entries[0]?.token).toBe(
+      'kmeasure.summary.median',
+    );
+  });
 });

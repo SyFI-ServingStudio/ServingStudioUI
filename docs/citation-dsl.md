@@ -94,7 +94,7 @@ not change this ownership rule.
 ```ebnf
 citation-source = "`", citation-token, "`" ;
 citation-token  = namespace, ".", path ;
-namespace       = "exp" | "run" ;
+namespace       = "exp" | "run" | "pred" | "kprof" | "kmeasure" ;
 path            = segment, { ".", segment } ;
 segment         = letter, { letter | digit | "_" | "-" } ;
 letter          = "a" … "z" ;
@@ -155,7 +155,24 @@ panel, scope, worker, operation, leaf, parallel branch, and cursor identity as
 needed. A click never inherits missing dimensions from the current Analyzer
 state.
 
-## 7. Registration and freezing
+## 7. Prediction and kernel namespaces
+
+`pred` freezes a timing-prediction case, operation, CostTree node, optimality
+mode, and panel. `kprof` freezes a profile curve metric, while `kmeasure`
+freezes either a runtime summary metric or a declared plot:
+
+```text
+pred.casev40.batch_locked.optimality-breakdown
+kprof.curve.time_ms
+kmeasure.summary.median
+kmeasure.plot.runtime_png
+```
+
+These are symbolic handles only. Their frozen targets carry `predictionId`,
+`profileId`, or `measurementId` and navigate to the corresponding first-class
+Analyzer route. Managed job IDs never appear in a citation target.
+
+## 8. Registration and freezing
 
 For an Agent-first exact sweep read:
 
@@ -183,7 +200,7 @@ Every follow-up turn that reports result values re-reads the exact resource and
 registers a dictionary for that turn. Historical messages continue using their
 already-frozen targets.
 
-## 8. Derived claims
+## 9. Derived claims
 
 The compact evidence block is the numerical authority. A derived value may use
 its raw values, but the answer must cite every source coordinate used and label
@@ -191,12 +208,10 @@ the result as derived. The Agent must not substitute `/api/jobs`, launcher
 status, an implementer summary, or direct report-file parsing when the Analyzer
 resource is ready.
 
-Resource families without an implemented citation target contract—currently
-timing predictions, kernel profiles, and kernel measurements—must not receive
-invented `exp.*` tokens. They use typed result cards for navigation until their
-own citation target kinds are designed.
+Every resource family uses its own namespace. An Agent must never substitute an
+`exp.*` token for a run, prediction, profile, or measurement.
 
-## 9. Click semantics
+## 10. Click semantics
 
 Renderer behavior:
 
@@ -210,7 +225,7 @@ If the artifact later disappears, the citation is stale rather than invalid.
 Analyzer returns `not-found` or `unavailable`; the UI retains its current view
 and shows a concise status.
 
-## 10. Implementation boundaries
+## 11. Implementation boundaries
 
 - Analyzer owns catalogs and result payloads.
 - The conversation backend owns capability validation, dictionaries, frozen

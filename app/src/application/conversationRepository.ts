@@ -88,6 +88,7 @@ export type ConversationTurnEvent =
       jobId: string;
       jobKind?: string;
       resourceId?: string;
+      analyzerResourceId?: string;
       artifactPath?: string;
       descriptor?: Record<string, unknown>;
       summary?: Record<string, unknown> | null;
@@ -519,6 +520,9 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
       jobId: String(data.jobId ?? ''),
       ...(typeof data.jobKind === 'string' ? { jobKind: data.jobKind } : {}),
       ...(typeof data.resourceId === 'string' ? { resourceId: data.resourceId } : {}),
+      ...(typeof data.analyzerResourceId === 'string'
+        ? { analyzerResourceId: data.analyzerResourceId }
+        : {}),
       ...(typeof data.artifactPath === 'string' ? { artifactPath: data.artifactPath } : {}),
       ...(data.descriptor !== null && typeof data.descriptor === 'object'
         ? { descriptor: data.descriptor as Record<string, unknown> }

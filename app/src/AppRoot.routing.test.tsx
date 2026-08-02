@@ -2,8 +2,19 @@ import { act, render, screen } from '@testing-library/react';
 import { type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const aggregateRenderState = vi.hoisted(() => ({
+  shouldSuspend: false,
+  pending: Promise.resolve(),
+  release: (() => undefined) as () => void,
+}));
+
 vi.mock('./App', () => ({ default: () => <div>run</div> }));
-vi.mock('./features/sweep', () => ({ SweepPage: () => <div>aggregate</div> }));
+vi.mock('./features/sweep', () => ({
+  SweepPage: () => {
+    if (aggregateRenderState.shouldSuspend) throw aggregateRenderState.pending;
+    return <div>aggregate</div>;
+  },
+}));
 vi.mock('./features/prediction', async () => {
   const { useOpenChartFocus } = await import('./components/ChartFocusContext');
   return {
@@ -43,6 +54,9 @@ vi.mock('./features/workspace', () => ({
 import AppRoot from './AppRoot';
 
 beforeEach(() => {
+  aggregateRenderState.shouldSuspend = false;
+  aggregateRenderState.pending = Promise.resolve();
+  aggregateRenderState.release = () => undefined;
   window.history.replaceState(null, '', '#/agent?workspace=w_one');
 });
 
@@ -71,6 +85,33 @@ describe('AppRoot workspace routing', () => {
     });
 
     expect(await screen.findByText('view:aggregate')).toBeInTheDocument();
+    expect(await screen.findByText('aggregate')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
+  });
+
+  it('keeps the workspace Agent host visible while a destination route suspends', async () => {
+    aggregateRenderState.pending = new Promise<void>((resolve) => {
+      aggregateRenderState.release = () => resolve();
+    });
+    aggregateRenderState.shouldSuspend = true;
+    render(<AppRoot />);
+    const agentHost = await screen.findByTestId('agent-host');
+
+    act(() => {
+      window.history.replaceState(null, '', '#/aggregate?workspace=w_one&experiment=s_test');
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    });
+
+    expect(screen.getByText('view:aggregate')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
+    expect(screen.queryByText('aggregate')).not.toBeInTheDocument();
+
+    aggregateRenderState.shouldSuspend = false;
+    await act(async () => {
+      aggregateRenderState.release();
+      await aggregateRenderState.pending;
+    });
+
     expect(await screen.findByText('aggregate')).toBeInTheDocument();
     expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
   });

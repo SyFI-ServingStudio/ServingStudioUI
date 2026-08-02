@@ -5,8 +5,28 @@ import {
   analyzerNavigateCommandV2Schema,
   evidenceRefFromHash,
 } from './analyzerNavigation';
+import { analyzerSelectionFromEvidenceRef } from './evidenceRef';
 
 describe('analyzer navigation protocol', () => {
+  it('removes transport metadata before retaining a prediction selection', () => {
+    const evidence = evidenceRefFromHash(
+      '#/prediction?workspace=w_main&prediction=p_test&panel=overview',
+    );
+
+    expect(evidence).not.toBeNull();
+    expect(analyzerSelectionFromEvidenceRef(evidence!)).toEqual({
+      kind: 'prediction',
+      workspaceId: 'w_main',
+      predictionId: 'p_test',
+      panelId: 'overview',
+      caseId: null,
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'unlocked',
+    });
+  });
+
   it('round-trips a bounded aggregate evidence reference through the URL', () => {
     const target = {
       protocol: 'vibesim.analyzer/v2' as const,
@@ -46,6 +66,46 @@ describe('analyzer navigation protocol', () => {
     };
 
     expect(evidenceRefFromHash(analyzerEvidenceHref(target))).toEqual(target);
+  });
+
+  it('round-trips an exact timing-prediction panel through the URL', () => {
+    const target = {
+      protocol: 'vibesim.analyzer/v2' as const,
+      kind: 'prediction' as const,
+      workspaceId: 'w_main',
+      predictionId: 'p_test',
+      panelId: 'optimality-breakdown',
+      caseId: '40',
+      operationId: null,
+      leafId: null,
+      parallelId: null,
+      optimalityMode: 'batch_locked' as const,
+    };
+
+    expect(evidenceRefFromHash(analyzerEvidenceHref(target))).toEqual(target);
+  });
+
+  it('round-trips first-class kernel profile and measurement evidence', () => {
+    const profile = {
+      protocol: 'vibesim.analyzer/v2' as const,
+      kind: 'kernel_profile' as const,
+      workspaceId: 'w_main',
+      profileId: 'kp_test',
+      panelId: 'curve',
+      metricKey: 'time_ms',
+    };
+    const measurement = {
+      protocol: 'vibesim.analyzer/v2' as const,
+      kind: 'kernel_measurement' as const,
+      workspaceId: 'w_main',
+      measurementId: 'km_test',
+      panelId: 'plot',
+      metricKey: null,
+      plotName: 'runtime.png',
+    };
+
+    expect(evidenceRefFromHash(analyzerEvidenceHref(profile))).toEqual(profile);
+    expect(evidenceRefFromHash(analyzerEvidenceHref(measurement))).toEqual(measurement);
   });
 
   it('rejects malformed coordinates and incomplete run routes', () => {

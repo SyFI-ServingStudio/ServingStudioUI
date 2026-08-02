@@ -186,7 +186,6 @@ export default function ExperimentCatalog({
   jobs,
   offlineResources,
   onActivate,
-  onActivateJob,
   onActivateOfflineResource,
   workspaceNames = {},
 }: {
@@ -194,10 +193,9 @@ export default function ExperimentCatalog({
   jobs: readonly ManagedJobListItem[];
   offlineResources: readonly OfflineResourceCatalogItem[];
   onActivate: (entry: SweepListItem) => void;
-  onActivateJob: (job: ManagedJobListItem) => void;
   onActivateOfflineResource: (
     resource: OfflineResourceCatalogItem,
-    job?: ManagedJobListItem,
+    workspaceId: string,
   ) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
@@ -398,13 +396,12 @@ export default function ExperimentCatalog({
               aria-label={`Open ${RESULT_LABELS[entry.kind]} ${entry.name}`}
               aria-selected={false}
               aria-hidden={!visible}
+              disabled={!entry.offlineResource && !entry.simulation}
               tabIndex={visible ? 0 : -1}
               onClick={() =>
                 entry.offlineResource
-                  ? onActivateOfflineResource(entry.offlineResource, entry.job)
-                  : entry.job
-                    ? onActivateJob(entry.job)
-                    : onActivate(entry.simulation!)
+                  ? onActivateOfflineResource(entry.offlineResource, entry.workspaceId)
+                  : onActivate(entry.simulation!)
               }
               sx={{
                 width: '100%',

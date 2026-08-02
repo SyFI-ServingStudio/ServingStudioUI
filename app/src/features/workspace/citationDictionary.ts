@@ -224,7 +224,10 @@ function aggregateDictionary(analysis: SweepAnalysis): CitationDictionarySnapsho
     '- forms: `exp.<metric>` and `exp.<member>.<metric>`',
   ].join('\n');
   const identitySource = entries
-    .map((entry) => `${entry.token}:${entry.target.runId ?? ''}`)
+    .map(
+      (entry) =>
+        `${entry.token}:${entry.target.kind === 'aggregate' ? (entry.target.runId ?? '') : ''}`,
+    )
     .join('|');
   return citationDictionarySnapshotV2Schema.parse({
     protocol: 'vibesim.citation-dictionary/v2',
@@ -317,6 +320,104 @@ function runDictionary(
   });
 }
 
+function predictionDictionary(
+  selection: Extract<AnalyzerSelectionV2, { kind: 'prediction' }>,
+): CitationDictionarySnapshotV2 {
+  const panel = selection.panelId ?? 'overview';
+  const segments = [
+    'pred',
+    ...(selection.caseId ? [`case${compactValue(selection.caseId)}`] : []),
+    ...(selection.operationId ? [`operation${compactValue(selection.operationId)}`] : []),
+    ...(selection.leafId !== null ? [`kernel${selection.leafId}`] : []),
+    ...(selection.parallelId !== null ? [`parallel${selection.parallelId}`] : []),
+    ...(selection.optimalityMode === 'batch_locked' ? ['batch_locked'] : []),
+    safeSegment(panel),
+  ];
+  const token = segments.join('.');
+  const labels = [
+    `prediction ${selection.predictionId}`,
+    ...(selection.caseId ? [`case ${selection.caseId}`] : []),
+    ...(selection.operationId ? [`operation ${selection.operationId}`] : []),
+    ...(selection.leafId !== null ? [`kernel ${selection.leafId}`] : []),
+    ...(selection.parallelId !== null ? [`parallel ${selection.parallelId}`] : []),
+    panel,
+  ];
+  const entry: CitationDictionaryEntryV2 = {
+    token,
+    displayLabel: labels.join(' · '),
+    target: {
+      protocol: 'vibesim.analyzer/v2',
+      ...selection,
+    },
+  };
+  return citationDictionarySnapshotV2Schema.parse({
+    protocol: 'vibesim.citation-dictionary/v2',
+    identity: `prediction-${shortIdentity(`${selection.predictionId}|${token}`)}`,
+    document: [
+      '## Analyzer citation references',
+      '',
+      'Use this exact Markdown inline-code reference for the selected timing prediction evidence.',
+      `- \`${token}\`: ${entry.displayLabel}`,
+    ].join('\n'),
+    entries: [entry],
+  });
+}
+
+function kernelProfileDictionary(
+  selection: Extract<AnalyzerSelectionV2, { kind: 'kernel_profile' }>,
+): CitationDictionarySnapshotV2 {
+  const panel = selection.panelId ?? 'overview';
+  const token = [
+    'kprof',
+    safeSegment(panel),
+    ...(selection.metricKey ? [safeSegment(selection.metricKey)] : []),
+  ].join('.');
+  const entry: CitationDictionaryEntryV2 = {
+    token,
+    displayLabel: [selection.profileId, panel, selection.metricKey].filter(Boolean).join(' · '),
+    target: { protocol: 'vibesim.analyzer/v2', ...selection },
+  };
+  return citationDictionarySnapshotV2Schema.parse({
+    protocol: 'vibesim.citation-dictionary/v2',
+    identity: `kernel-profile-${shortIdentity(`${selection.profileId}|${token}`)}`,
+    document: [
+      '## Analyzer citation references',
+      '',
+      'Use this exact Markdown inline-code reference for the selected kernel profile evidence.',
+      `- \`${token}\`: ${entry.displayLabel}`,
+    ].join('\n'),
+    entries: [entry],
+  });
+}
+
+function kernelMeasurementDictionary(
+  selection: Extract<AnalyzerSelectionV2, { kind: 'kernel_measurement' }>,
+): CitationDictionarySnapshotV2 {
+  const panel = selection.panelId ?? 'overview';
+  const detail = selection.metricKey ?? selection.plotName;
+  const token = [
+    'kmeasure',
+    safeSegment(panel),
+    ...(detail ? [safeSegment(detail)] : []),
+  ].join('.');
+  const entry: CitationDictionaryEntryV2 = {
+    token,
+    displayLabel: [selection.measurementId, panel, detail].filter(Boolean).join(' · '),
+    target: { protocol: 'vibesim.analyzer/v2', ...selection },
+  };
+  return citationDictionarySnapshotV2Schema.parse({
+    protocol: 'vibesim.citation-dictionary/v2',
+    identity: `kernel-measurement-${shortIdentity(`${selection.measurementId}|${token}`)}`,
+    document: [
+      '## Analyzer citation references',
+      '',
+      'Use this exact Markdown inline-code reference for the selected kernel measurement evidence.',
+      `- \`${token}\`: ${entry.displayLabel}`,
+    ].join('\n'),
+    entries: [entry],
+  });
+}
+
 export function analyzerTurnContext(
   selection: AnalyzerSelectionV2 | null,
   analysis?: SweepAnalysis,
@@ -331,7 +432,15 @@ export function analyzerTurnContext(
     return null;
   }
   const citationDictionary =
-    selection.kind === 'aggregate' ? aggregateDictionary(analysis!) : runDictionary(selection);
+    selection.kind === 'aggregate'
+      ? aggregateDictionary(analysis!)
+      : selection.kind === 'prediction'
+        ? predictionDictionary(selection)
+        : selection.kind === 'kernel_profile'
+          ? kernelProfileDictionary(selection)
+          : selection.kind === 'kernel_measurement'
+            ? kernelMeasurementDictionary(selection)
+            : runDictionary(selection);
   return analyzerTurnContextV2Schema.parse({
     protocol: 'vibesim.conversation-context/v2',
     selection,

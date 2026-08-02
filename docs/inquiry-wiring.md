@@ -202,10 +202,19 @@ does not remount and charts resize coherently.
 
 ## 11. Current citation scope
 
-Aggregate and run `EvidenceRefV2` targets are implemented. Timing predictions,
-kernel profiles, and kernel measurements are Analyzer-owned and navigable through
-typed result cards, but their inline citation target kinds are not yet designed.
-Agents must not invent aggregate `exp.*` tokens for those resource families.
+Aggregate, run, timing-prediction, kernel-profile, and kernel-measurement
+`EvidenceRefV2` targets are implemented.
+Timing prediction selection is resource-local and carries `predictionId`,
+`caseId`, `operationId`, CostTree `leafId` / `parallelId`, the active optimality
+mode, and the selected panel. It must never fall back to a previously visited
+run or sweep selection. Prediction citations use `pred.*` tokens and navigate
+back to that exact case/operation/panel in the shared workspace shell.
+
+Kernel profile selections carry `profileId`, `panelId`, and `metricKey`; their
+citations use `kprof.*`. Kernel measurement selections carry `measurementId`,
+`panelId`, `metricKey`, and `plotName`; their citations use `kmeasure.*`.
+Both navigate directly to their first-class Analyzer pages. Managed job identity
+never appears in an evidence target and cannot be used as a result URL.
 
 ## 12. Acceptance checks
 
