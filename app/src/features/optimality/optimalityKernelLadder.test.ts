@@ -227,5 +227,7 @@ describe('optimality kernel ladder projection', () => {
       total: 167,
       values: { batching: 8, communication: 4, hardwareGap: 6, hardwareOptimal: 149 },
     });
+    expect(headroom.rows.at(-1)?.values).not.toHaveProperty('necessaryCovered');
+    expect(headroom.rows.at(-1)?.values).not.toHaveProperty('redundant');
   });
 });

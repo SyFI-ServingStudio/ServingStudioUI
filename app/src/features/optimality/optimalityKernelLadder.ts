@@ -163,17 +163,13 @@ function kernelHeadroomRow(kernel: OptimalityKernelLadderKernel): OptimalityStac
 }
 
 function collapseHeadroomRows(rows: readonly OptimalityStackRow[]): OptimalityStackRow {
-  const values = {
-    batching: 0,
-    communication: 0,
-    hardwareGap: 0,
-    hardwareOptimal: 0,
-    redundant: 0,
-    necessaryCovered: 0,
-  };
+  const values: Record<string, number> = {};
   for (const row of rows) {
-    for (const key of Object.keys(values) as (keyof typeof values)[]) {
-      values[key] += row.values[key] ?? 0;
+    // Optional bucket presence is semantic: absent necessary-work buckets mean
+    // the scope must use the R5 hardware-optimal fallback. Do not synthesize
+    // zero-valued keys while folding lower-ranked locations into `other`.
+    for (const [key, value] of Object.entries(row.values)) {
+      values[key] = (values[key] ?? 0) + value;
     }
   }
   return {

@@ -66,4 +66,35 @@ describe('OptimalityKernelsCard scale control', () => {
     );
     expect(firstSeriesValue(renderedOptions.at(-1) ?? {})).toBe(10);
   });
+
+  it('keeps the hardware-optimal fallback after collapsing kernels without R6', async () => {
+    const user = userEvent.setup();
+    const kernels = Array.from({ length: 18 }, (_, index) => ({
+      name: `model.kernel_${index}`,
+      kind: 'single_gemm',
+      isComm: false,
+      rungs: {
+        balanced: 100,
+        perConfigBest: 100,
+        ignoreNetwork: 100,
+        hardwareLimit: 70,
+      },
+    }));
+    render(
+      <ChartFocusProvider>
+        <OptimalityKernelsCard
+          title="Per-kernel optimality"
+          projection={{
+            ...projection,
+            kernelNames: kernels.map((kernel) => kernel.name),
+            kernels,
+          }}
+        />
+      </ChartFocusProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Normalized' }));
+
+    expect(firstSeriesValue(renderedOptions.at(-1) ?? {})).toBe(70);
+  });
 });
