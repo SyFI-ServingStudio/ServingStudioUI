@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import FilePreviewPage from './FilePreviewPage';
@@ -58,18 +59,21 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('FilePreviewPage', () => {
   it('numbers the lines of a text file and marks the referenced one', async () => {
-    stubBackend({ meta: textMeta, body: 'alpha\nbeta\ngamma\n' });
+    // A .log rather than the JSON default, so this stays a test about the text
+    // renderer and not about which structured view a file qualifies for.
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
+      body: 'alpha\nbeta\ngamma\n',
+    });
 
-    render(
-      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/summary.json', line: 2 }} />,
-    );
+    render(<FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: 2 }} />);
 
     const body = await screen.findByLabelText('File contents');
     expect(body).toHaveTextContent('alpha');
     expect(body).toHaveTextContent('gamma');
     // Three content lines, not four: the trailing newline is a terminator.
     expect(body.querySelectorAll('[data-line]')).toHaveLength(3);
-    expect(screen.getByText('text · 42 B · json')).toBeInTheDocument();
+    expect(screen.getByText('text · 42 B')).toBeInTheDocument();
   });
 
   it('offers a download instead of a preview for a binary artifact', async () => {
@@ -135,5 +139,87 @@ describe('FilePreviewPage', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No such file');
+  });
+});
+
+describe('structured views', () => {
+  it('opens JSON as a tree and switches back to source', async () => {
+    stubBackend({ meta: textMeta, body: '{"total_tps": 4195, "workers": [{"id": "attn/0"}]}' });
+    const user = userEvent.setup();
+
+    render(
+      <FilePreviewPage
+        fileRef={{ workspaceId: 'w_main', path: 'logs/summary.json', line: null }}
+      />,
+    );
+
+    expect(await screen.findByLabelText('JSON tree')).toBeInTheDocument();
+    expect(screen.getByText('total_tps')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Source' }));
+    expect(screen.getByLabelText('File contents')).toBeInTheDocument();
+    expect(screen.queryByLabelText('JSON tree')).not.toBeInTheDocument();
+  });
+
+  it('says so plainly when a .json file does not parse', async () => {
+    stubBackend({ meta: textMeta, body: '{not json' });
+
+    render(
+      <FilePreviewPage
+        fileRef={{ workspaceId: 'w_main', path: 'logs/summary.json', line: null }}
+      />,
+    );
+
+    expect(await screen.findByText(/not valid JSON/)).toBeInTheDocument();
+  });
+
+  it('opens a CSV as a table with its true row count', async () => {
+    stubBackend({
+      meta: {
+        ...textMeta,
+        path: 'logs/rows.csv',
+        name: 'rows.csv',
+        language: null,
+      },
+      body: 'worker,tps\nattn/0,120\nffn/0,240\n',
+    });
+
+    render(
+      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/rows.csv', line: null }} />,
+    );
+
+    const table = await screen.findByLabelText('File contents as a table');
+    expect(within(table).getByText('worker')).toBeInTheDocument();
+    expect(within(table).getByText('attn/0')).toBeInTheDocument();
+    expect(screen.getByText(/2 of 2 rows · 2 columns/)).toBeInTheDocument();
+  });
+
+  it('renders Markdown, with its relative links still openable', async () => {
+    stubBackend({
+      meta: { ...textMeta, path: 'docs/design.md', name: 'design.md', language: 'markdown' },
+      body: '# Design\n\nSee [the summary](logs/summary.json).\n',
+    });
+
+    render(
+      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'docs/design.md', line: null }} />,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Design' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'the summary' })).toBeInTheDocument();
+  });
+
+  it('leaves a plain log file with no structured toggle', async () => {
+    stubBackend({
+      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
+      body: 'started\n',
+    });
+
+    render(
+      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
+    );
+
+    expect(await screen.findByLabelText('File contents')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Source' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wrap' })).toBeInTheDocument();
   });
 });

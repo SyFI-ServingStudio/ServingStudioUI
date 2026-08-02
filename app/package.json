@@ -36,9 +36,9 @@
     {
       "name": "all JavaScript chunks",
       "path": "dist/assets/*.js",
-      "limit": "590 kB",
+      "limit": "640 kB",
       "gzip": true,
-      "message": "This budget includes the entry and every deferred application chunk."
+      "message": "This budget includes the entry and every deferred application chunk. Raised from 590 kB for the file-preview syntax highlighter; raise it again deliberately for a feature, never to absorb accidental growth."
     }
   ],
   "dependencies": {
@@ -49,6 +49,7 @@
     "@tanstack/react-query": "^5.101.2",
     "echarts": "^5.5.1",
     "echarts-for-react": "^3.0.2",
+    "highlight.js": "^11.11.1",
     "motion": "^12.42.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

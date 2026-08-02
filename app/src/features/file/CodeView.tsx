@@ -2,6 +2,7 @@ import { Box } from '@mui/material';
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 
 import { tokens } from '../../theme';
+import { highlightSx } from './highlight';
 
 /**
  * A gutter-numbered text body with one optionally highlighted line.
@@ -14,10 +15,13 @@ export default function CodeView({
   text,
   highlightLine,
   wrap,
+  highlightedLines,
 }: {
   text: string;
   highlightLine: number | null;
   wrap: boolean;
+  /** Per-line HTML from `highlightLines`, or null to render plain text. */
+  highlightedLines?: readonly string[] | null;
 }) {
   const lines = useMemo(() => {
     const split = text.split('\n');
@@ -38,6 +42,7 @@ export default function CodeView({
       component="pre"
       aria-label="File contents"
       sx={{
+        ...highlightSx,
         m: 0,
         display: 'grid',
         gridTemplateColumns: 'auto minmax(0,1fr)',
@@ -53,6 +58,9 @@ export default function CodeView({
       {lines.map((line, index) => {
         const number = index + 1;
         const highlighted = number === highlightLine;
+        // highlight.js escapes the source before wrapping it in spans, so its
+        // per-line fragment carries no markup from the file itself.
+        const markup = highlightedLines?.[index];
         return (
           <Fragment key={number}>
             <Box
@@ -83,9 +91,10 @@ export default function CodeView({
                 overflowWrap: wrap ? 'anywhere' : 'normal',
                 background: highlighted ? 'rgba(31,111,107,.12)' : 'transparent',
               }}
-            >
-              {line === '' ? ' ' : line}
-            </Box>
+              {...(markup === undefined
+                ? { children: line === '' ? ' ' : line }
+                : { dangerouslySetInnerHTML: { __html: markup === '' ? ' ' : markup } })}
+            />
           </Fragment>
         );
       })}

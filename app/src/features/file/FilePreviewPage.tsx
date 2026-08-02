@@ -1,5 +1,6 @@
 import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded';
 import ContentCopyRounded from '@mui/icons-material/ContentCopyRounded';
+import DataObjectRounded from '@mui/icons-material/DataObjectRounded';
 import DescriptionOutlined from '@mui/icons-material/DescriptionOutlined';
 import DownloadRounded from '@mui/icons-material/DownloadRounded';
 import FolderOutlined from '@mui/icons-material/FolderOutlined';
@@ -25,9 +26,13 @@ import {
   pathAncestors,
   type WorkspaceFileRef,
 } from '../../domain/workspaceFile';
+import MarkdownBody from '../../components/MarkdownBody';
 import SurfaceCard from '../../components/SurfaceCard';
 import { tokens } from '../../theme';
 import CodeView from './CodeView';
+import JsonView from './JsonView';
+import TableView from './TableView';
+import { canHighlight, highlightLines } from './highlight';
 
 function byteLabel(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -180,6 +185,16 @@ function DirectoryView({
   );
 }
 
+type StructuredView = { kind: 'json' | 'table' | 'markdown'; label: string };
+
+/** The richer-than-text view a file qualifies for, if any. */
+function structuredViewFor(meta: WorkspaceFileMeta): StructuredView | null {
+  if (meta.previewKind !== 'text') return null;
+  if (meta.language === 'json') return { kind: 'json', label: 'Tree' };
+  if (meta.language === 'markdown') return { kind: 'markdown', label: 'Rendered' };
+  return /\.(csv|tsv)$/i.test(meta.path) ? { kind: 'table', label: 'Table' } : null;
+}
+
 /**
  * Preview one workspace file beside the Agent conversation.
  *
@@ -193,8 +208,13 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
   const [body, setBody] = useState<WorkspaceFileText | null>(null);
   const [entries, setEntries] = useState<readonly WorkspaceDirectoryEntry[] | null>(null);
   const [failure, setFailure] = useState<{ status: number; message: string } | null>(null);
+  const [highlighted, setHighlighted] = useState<readonly string[] | null>(null);
+  const [showSource, setShowSource] = useState(false);
   const [wrap, setWrap] = useState(false);
   const [copied, setCopied] = useState(false);
+  // JSON, delimited data and Markdown each read far better as themselves than
+  // as text; source is always one toggle away.
+  const structured = meta === null ? null : structuredViewFor(meta);
 
   useEffect(() => {
     let active = true;
@@ -202,6 +222,8 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
     setBody(null);
     setEntries(null);
     setFailure(null);
+    setHighlighted(null);
+    setShowSource(false);
     void (async () => {
       try {
         const loaded = await getFileMeta(workspaceId, path);
@@ -209,7 +231,14 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
         setMeta(loaded);
         if (loaded.previewKind === 'text') {
           const text = await getFileText(workspaceId, loaded.path);
-          if (active) setBody(text);
+          if (!active) return;
+          setBody(text);
+          // The text is already on screen; colour arrives after the grammar
+          // chunk loads, and a highlighter failure must not blank the preview.
+          if (canHighlight(loaded.language)) {
+            const lines = await highlightLines(text.text, loaded.language).catch(() => null);
+            if (active) setHighlighted(lines);
+          }
         } else if (loaded.previewKind === 'directory') {
           const listing = await listDirectory(workspaceId, loaded.path);
           if (active) setEntries(listing);
@@ -249,7 +278,14 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
             <Breadcrumbs workspaceId={workspaceId} path={path} />
           </Box>
           <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
-            {meta?.previewKind === 'text' && (
+            {structured && (
+              <ActionButton
+                label={showSource ? structured.label : 'Source'}
+                icon={<DataObjectRounded sx={{ fontSize: 13 }} />}
+                onClick={() => setShowSource((current) => !current)}
+              />
+            )}
+            {meta?.previewKind === 'text' && (!structured || showSource) && (
               <ActionButton
                 label={wrap ? 'No wrap' : 'Wrap'}
                 icon={<WrapTextRounded sx={{ fontSize: 13 }} />}
@@ -328,9 +364,24 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
           <Box sx={{ p: 1.4 }}>
             <Skeleton variant="rounded" height={280} />
           </Box>
+        ) : structured && !showSource ? (
+          structured.kind === 'json' ? (
+            <JsonView text={body.text} />
+          ) : structured.kind === 'table' ? (
+            <TableView text={body.text} path={meta.path} />
+          ) : (
+            <Box sx={{ p: 1.6, minWidth: 0, overflow: 'auto' }}>
+              <MarkdownBody text={body.text} citations={[]} workspaceId={workspaceId} />
+            </Box>
+          )
         ) : (
           <Box sx={{ minWidth: 0, overflow: 'auto', py: 0.8 }}>
-            <CodeView text={body.text} highlightLine={line} wrap={wrap} />
+            <CodeView
+              text={body.text}
+              highlightLine={line}
+              wrap={wrap}
+              highlightedLines={highlighted}
+            />
           </Box>
         )}
       </SurfaceCard>
