@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, max, sum } from '../../domain/cost-tree';
+import { annotate, leaf, max, scale, sum } from '../../domain/cost-tree';
 import { makeWorkerKey } from '../../domain/worker';
 import { useViz } from '../../store';
 import CostTreeFlow from './CostTreeFlow';
@@ -34,23 +34,28 @@ vi.mock('../../application/WorkerTreeProvider', () => ({
 const tree = annotate(
   sum(
     'root',
-    max(
-      'attention branches',
-      1,
-      leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 2, 'fa3', {
-        input: null,
-        flops: 2_469_000_000_000,
-        bytes: 5_606_500_000,
-        tflops: 1_234.5,
-        gbps: 2_803.25,
-      }),
-      leaf('attention.decode', 'flashinfer_attn_decode', {}, 1),
+    scale(
+      'two attention blocks',
+      2,
+      max(
+        'attention branches',
+        1,
+        leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 2, 'fa3', {
+          input: null,
+          flops: 2_469_000_000_000,
+          bytes: 5_606_500_000,
+          tflops: 1_234.5,
+          gbps: 2_803.25,
+        }),
+        leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 2, 'fa3'),
+      ),
     ),
     leaf('ffn.gemm', 'single_gemm', {}, 3),
   ),
 );
 
-const parallelNode = tree.kind === 'sum' ? tree.children[0] : null;
+const scaledParallelNode = tree.kind === 'sum' ? tree.children[0] : null;
+const parallelNode = scaledParallelNode?.kind === 'scale' ? scaledParallelNode.children[0] : null;
 const kernelNode = parallelNode?.kind === 'max' ? parallelNode.children[0] : null;
 if (parallelNode?.kind !== 'max' || kernelNode?.kind !== 'leaf') {
   throw new Error('CostTree interaction fixture has an invalid shape.');
@@ -91,7 +96,12 @@ describe('CostTreeFlow interaction semantics', () => {
     const user = userEvent.setup();
     render(<CostTreeFlow />);
 
-    await user.hover(screen.getByRole('button', { name: 'Inspect kernel attention.prefill' }));
+    const [kernelCard] = screen.getAllByRole('button', {
+      name: 'Inspect kernel attention.prefill',
+    });
+    if (kernelCard === undefined) throw new Error('Expected an attention.prefill kernel card.');
+    expect(within(kernelCard).getByText('57%')).toBeVisible();
+    await user.hover(kernelCard);
     const tooltip = await screen.findByRole('tooltip');
     const facts = within(tooltip);
 
@@ -102,7 +112,7 @@ describe('CostTreeFlow interaction semantics', () => {
     expect(facts.getByText('Time')).toBeVisible();
     expect(facts.getByText('2.00 ms')).toBeVisible();
     expect(facts.getByText('Time share')).toBeVisible();
-    expect(facts.getByText('40%')).toBeVisible();
+    expect(facts.getByText('57%')).toBeVisible();
     expect(facts.getByText('Compute')).toBeVisible();
     expect(facts.getByText('1.23 PFLOP/s')).toBeVisible();
     expect(facts.getByText('Bandwidth')).toBeVisible();
@@ -150,7 +160,8 @@ describe('CostTreeFlow interaction semantics', () => {
     const parallel = screen.getByRole('button', {
       name: 'Inspect parallel critical path attention branches',
     });
-    const kernel = screen.getByRole('button', { name: 'Inspect kernel attention.prefill' });
+    const [kernel] = screen.getAllByRole('button', { name: 'Inspect kernel attention.prefill' });
+    if (kernel === undefined) throw new Error('Expected an attention.prefill kernel card.');
 
     expect(root).toHaveAttribute('aria-pressed', 'true');
     expect(parallel).toHaveAttribute('aria-pressed', 'false');

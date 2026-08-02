@@ -9,11 +9,12 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import type { CostTree } from '../../domain/cost-tree';
+import { criticalLeafTotals, type CostTree } from '../../domain/cost-tree';
 import { tokens } from '../../theme';
 import CostTreeNode from './CostTreeNode';
 
@@ -98,6 +99,10 @@ export default function CostTreeCanvas({
   browserExpansion,
   fillFrame = false,
 }: CostTreeCanvasProps) {
+  const criticalContributionByPositionName = useMemo(
+    () => new Map(criticalLeafTotals(tree).positions.map((position) => [position.name, position])),
+    [tree],
+  );
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const transformRef = useRef<ViewTransform>({
@@ -380,6 +385,7 @@ export default function CostTreeCanvas({
       >
         <CostTreeNode
           node={tree}
+          criticalContributionByPositionName={criticalContributionByPositionName}
           selId={selectedLeafId}
           parSel={selectedParallelId}
           onSelect={onSelectLeaf}

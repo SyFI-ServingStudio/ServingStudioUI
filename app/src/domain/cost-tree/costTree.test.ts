@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   annotate,
+  criticalLeafContributions,
   criticalLeafTotals,
   leaf,
   leafById,
@@ -133,6 +134,7 @@ describe('CostTree annotation', () => {
       ),
     );
 
+    const contributions = criticalLeafContributions(tree);
     const totals = criticalLeafTotals(tree);
 
     expect(tree.totalMs).toBe(14);
@@ -147,6 +149,12 @@ describe('CostTree annotation', () => {
     expect(totals.positions[0]?.pct).toBeCloseTo((10 / 14) * 100);
     expect(totals.positions[1]?.pct).toBeCloseTo((4 / 14) * 100);
     expect(totals.positions.reduce((total, position) => total + position.pct, 0)).toBeCloseTo(100);
+    expect(contributions).toMatchObject([
+      { id: 5, name: 'c', ms: 10 },
+      { id: 1, name: 'a', ms: 4 },
+    ]);
+    expect(contributions[0]?.pct).toBeCloseTo((10 / 14) * 100);
+    expect(contributions.find((contribution) => contribution.name === 'b')).toBeUndefined();
   });
 
   it('splits exact Max ties without losing Scale attribution', () => {
@@ -158,6 +166,7 @@ describe('CostTree annotation', () => {
       ),
     );
 
+    const contributions = criticalLeafContributions(tree);
     const totals = criticalLeafTotals(tree);
 
     expect(totals).toMatchObject({
@@ -167,6 +176,29 @@ describe('CostTree annotation', () => {
         { ms: 5, pct: 50 },
       ],
     });
+    expect(contributions).toMatchObject([
+      { name: 'left', ms: 5, pct: 50 },
+      { name: 'right', ms: 5, pct: 50 },
+    ]);
+  });
+
+  it('keeps exact duplicate leaf identities while position totals aggregate their name', () => {
+    const tree = annotate(
+      sum(
+        'root',
+        leaf('shared', 'single_gemm', {}, 2),
+        scale('twice', 2, leaf('shared', 'single_gemm', {}, 3)),
+      ),
+    );
+
+    const contributions = criticalLeafContributions(tree);
+    const totals = criticalLeafTotals(tree);
+
+    expect(contributions).toMatchObject([
+      { id: 3, name: 'shared', ms: 6, pct: 75 },
+      { id: 1, name: 'shared', ms: 2, pct: 25 },
+    ]);
+    expect(totals.positions).toMatchObject([{ name: 'shared', ms: 8, pct: 100 }]);
   });
 
   it('keeps preorder selection ids stable across value-only reannotation', () => {

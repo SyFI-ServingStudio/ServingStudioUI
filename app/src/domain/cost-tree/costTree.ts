@@ -410,16 +410,25 @@ export function leafTotals(root: CostNode): LeafTotals {
   return { positions, groups, totalMs };
 }
 
-/** Attribute one exact CostTree root to its critical-path leaves.
+export interface CriticalLeafContribution {
+  readonly id: number;
+  readonly name: string;
+  readonly kind: string;
+  readonly group: string;
+  readonly ms: number;
+  readonly calls: number;
+  readonly pct: number;
+}
+
+/** Attribute one exact CostTree root to its critical-path leaf identities.
  *
  * This mirrors analyzer `kernel-time-share`: Sum forwards to every child,
  * Scale multiplies its child, and Max forwards only to the largest child after
  * dividing by overlap. Exactly tied Max children split attribution evenly.
  * Consequently the returned leaf times sum to the modeled root wall-clock
  * cost, rather than to the work performed by all parallel branches. */
-export function criticalLeafTotals(root: CostTree): LeafTotals {
-  const byName = new Map<string, LeafPosition>();
-  const byGroup = new Map<string, number>();
+export function criticalLeafContributions(root: CostTree): readonly CriticalLeafContribution[] {
+  const contributions: Omit<CriticalLeafContribution, 'pct'>[] = [];
   const tieRelativeEpsilon = 1e-9;
 
   function walk(node: CostNode, attributionScale: number): void {
@@ -427,27 +436,17 @@ export function criticalLeafTotals(root: CostTree): LeafTotals {
       const ms = multiplyFinite(
         attributionScale,
         node.base,
-        `criticalLeafTotals.${node.slot.name}.ms`,
+        `criticalLeafContributions.${node.id}.ms`,
       );
       const group = groupOf(node.slot.kind);
-      const current = byName.get(node.slot.name) ?? {
+      contributions.push({
+        id: node.id,
         name: node.slot.name,
         kind: node.slot.kind,
         group,
-        ms: 0,
-        calls: 0,
-        pct: 0,
-      };
-      byName.set(node.slot.name, {
-        ...current,
-        ms: addFinite(current.ms, ms, `criticalLeafTotals.${node.slot.name}.ms`),
-        calls: addFinite(
-          current.calls,
-          attributionScale,
-          `criticalLeafTotals.${node.slot.name}.calls`,
-        ),
+        ms,
+        calls: attributionScale,
       });
-      byGroup.set(group, addFinite(byGroup.get(group) ?? 0, ms, `criticalLeafTotals.${group}.ms`));
       return;
     }
     if (node.kind === 'sum') {
@@ -457,7 +456,7 @@ export function criticalLeafTotals(root: CostTree): LeafTotals {
     if (node.kind === 'scale') {
       walk(
         node.children[0],
-        multiplyFinite(attributionScale, node.n, `criticalLeafTotals.scale.${node.id}`),
+        multiplyFinite(attributionScale, node.n, `criticalLeafContributions.scale.${node.id}`),
       );
       return;
     }
@@ -469,37 +468,83 @@ export function criticalLeafTotals(root: CostTree): LeafTotals {
     );
     const childScale = finiteOperation(
       attributionScale / node.overlap / criticalChildren.length,
-      `criticalLeafTotals.max.${node.id}`,
+      `criticalLeafContributions.max.${node.id}`,
     );
     criticalChildren.forEach((child) => walk(child, childScale));
   }
 
   walk(root, 1);
-  const attributedMs = [...byGroup.values()].reduce(
-    (total, ms) => addFinite(total, ms, 'criticalLeafTotals.attributedMs'),
+  const attributedMs = contributions.reduce(
+    (total, contribution) =>
+      addFinite(total, contribution.ms, 'criticalLeafContributions.attributedMs'),
     0,
   );
   // Match Analyzer's final normalization: remove only floating-point fold
   // drift after the CostTree algebra has selected the owning critical leaves.
   const normalization = attributedMs > 0 ? root.totalMs / attributedMs : 0;
-  const pct = (ms: number, path: string) => finitePct(ms, root.totalMs, path);
-  const positions = [...byName.values()]
-    .map((position) => {
-      const ms = multiplyFinite(position.ms, normalization, `criticalLeafTotals.${position.name}`);
-      return { ...position, ms, pct: pct(ms, `criticalLeafTotals.${position.name}.pct`) };
-    })
-    .sort((left, right) => right.ms - left.ms);
-  const groups = [...byGroup.entries()]
-    .map(([group, rawMs]) => {
-      const ms = multiplyFinite(rawMs, normalization, `criticalLeafTotals.${group}`);
+  return contributions
+    .map((contribution) => {
+      const ms = multiplyFinite(
+        contribution.ms,
+        normalization,
+        `criticalLeafContributions.${contribution.id}`,
+      );
       return {
-        group,
-        label: GROUP[group].label,
-        color: GROUP[group].color,
+        ...contribution,
         ms,
-        pct: pct(ms, `criticalLeafTotals.${group}.pct`),
+        pct: finitePct(ms, root.totalMs, `criticalLeafContributions.${contribution.id}.pct`),
       };
     })
+    .sort((left, right) => right.ms - left.ms);
+}
+
+/** Aggregate exact critical-path leaf contributions for breakdown charts. */
+export function criticalLeafTotals(root: CostTree): LeafTotals {
+  const byName = new Map<string, LeafPosition>();
+  const byGroup = new Map<string, number>();
+  criticalLeafContributions(root).forEach((contribution) => {
+    const current = byName.get(contribution.name) ?? {
+      name: contribution.name,
+      kind: contribution.kind,
+      group: contribution.group,
+      ms: 0,
+      calls: 0,
+      pct: 0,
+    };
+    byName.set(contribution.name, {
+      ...current,
+      ms: addFinite(current.ms, contribution.ms, `criticalLeafTotals.${contribution.name}.ms`),
+      calls: addFinite(
+        current.calls,
+        contribution.calls,
+        `criticalLeafTotals.${contribution.name}.calls`,
+      ),
+    });
+    byGroup.set(
+      contribution.group,
+      addFinite(
+        byGroup.get(contribution.group) ?? 0,
+        contribution.ms,
+        `criticalLeafTotals.${contribution.group}.ms`,
+      ),
+    );
+  });
+
+  const pct = (ms: number, path: string) => finitePct(ms, root.totalMs, path);
+  const positions = [...byName.values()]
+    .map((position) => ({
+      ...position,
+      pct: pct(position.ms, `criticalLeafTotals.${position.name}.pct`),
+    }))
+    .sort((left, right) => right.ms - left.ms);
+  const groups = [...byGroup.entries()]
+    .map(([group, ms]) => ({
+      group,
+      label: GROUP[group].label,
+      color: GROUP[group].color,
+      ms,
+      pct: pct(ms, `criticalLeafTotals.${group}.pct`),
+    }))
     .sort((left, right) => right.ms - left.ms);
   return { positions, groups, totalMs: root.totalMs };
 }

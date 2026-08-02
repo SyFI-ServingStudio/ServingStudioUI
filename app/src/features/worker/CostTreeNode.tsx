@@ -11,6 +11,7 @@ import {
   fmtPct,
   type CostNode,
   type LeafNode,
+  type LeafPosition,
   type MaxNode,
   type ScaleNode,
   type SumNode,
@@ -31,6 +32,7 @@ const BANDWIDTH_RATE_SCALES = [
 
 interface NodeProps<Node extends CostNode = CostNode> {
   node: Node;
+  criticalContributionByPositionName: ReadonlyMap<string, LeafPosition>;
   selId: number | null;
   onSelect?: (id: number) => void;
   onRoot?: () => void;
@@ -289,16 +291,26 @@ function ContainerHead({
   );
 }
 
-function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<LeafNode>) {
+function LeafCard({
+  node,
+  criticalContributionByPositionName,
+  selId,
+  onSelect,
+  density = 'default',
+}: NodeProps<LeafNode>) {
   const s = node.slot;
   const color = colorOf(s.kind);
   const selected = selId === node.id;
   const compact = density === 'compact';
+  const finalContributionPct = criticalContributionByPositionName.get(s.name)?.pct ?? 0;
   const hoverFacts = [
     { label: 'Kind', value: s.kind },
     { label: 'Backend', value: s.backend ?? '—' },
     { label: 'Time', value: fmtMs(node.ms) },
-    { label: 'Time share', value: fmtPct(node.pct) },
+    {
+      label: 'Time share',
+      value: fmtPct(finalContributionPct),
+    },
     {
       label: 'Compute',
       value: scaledQuantity(node.stats.tflops, COMPUTE_RATE_SCALES).display,
@@ -497,7 +509,7 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
               color: tokens.sub,
             }}
           >
-            {fmtPct(node.pct)}
+            {fmtPct(finalContributionPct)}
           </Box>
         </Stack>
       </Box>
@@ -507,6 +519,7 @@ function LeafCard({ node, selId, onSelect, density = 'default' }: NodeProps<Leaf
 
 export default function CostTreeNode({
   node,
+  criticalContributionByPositionName,
   selId,
   onSelect,
   onRoot,
@@ -516,7 +529,15 @@ export default function CostTreeNode({
 }: NodeProps) {
   const compact = density === 'compact';
   if (node.kind === 'leaf') {
-    return <LeafCard node={node} selId={selId} onSelect={onSelect} density={density} />;
+    return (
+      <LeafCard
+        node={node}
+        criticalContributionByPositionName={criticalContributionByPositionName}
+        selId={selId}
+        onSelect={onSelect}
+        density={density}
+      />
+    );
   }
 
   if (node.kind === 'sum') {
@@ -583,6 +604,7 @@ export default function CostTreeNode({
             <Box key={i} sx={{ display: 'flex', alignItems: 'center' }}>
               <CostTreeNode
                 node={c}
+                criticalContributionByPositionName={criticalContributionByPositionName}
                 selId={selId}
                 onSelect={onSelect}
                 parSel={parSel}
@@ -679,6 +701,7 @@ export default function CostTreeNode({
             <CostTreeNode
               key={i}
               node={c}
+              criticalContributionByPositionName={criticalContributionByPositionName}
               selId={selId}
               onSelect={onSelect}
               parSel={parSel}
@@ -741,6 +764,7 @@ export default function CostTreeNode({
       />
       <CostTreeNode
         node={node.children[0]}
+        criticalContributionByPositionName={criticalContributionByPositionName}
         selId={selId}
         onSelect={onSelect}
         parSel={parSel}

@@ -187,8 +187,11 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   的 kernel family 与 position composition；position mix 必须明确标出 exact 或 sampled，不能冒充
   exact operation CostTree。所有 kernel-time breakdown、CostTree family legend、leaf
   与 operation selection lane 必须复用 `domain/cost-tree` 的同一套 Mineral family palette。Worker
-  CostTree leaf hover 只显示 kind、backend、time、time share、compute rate 与 bandwidth；caption
-  和 value 使用清楚分离的视觉层级，rate 与 kernel inspector 复用同一工程单位缩放和舍入规则。
+  CostTree leaf hover 只显示 kind、backend、time、time share、compute rate 与 bandwidth；其中
+  time share 必须直接复用 `by kernel position` 的 position-name 聚合，显示经过 Scale 与 Max
+  critical-path 归因后该 kernel position 对 CostTree root wall-clock 的最终贡献；同名并列 leaf
+  不得展示平分后的 exact-leaf share。caption 和 value 使用清楚分离的视觉层级，rate 与 kernel
+  inspector 复用同一工程单位缩放和舍入规则。
   hover card 优先锚定在 leaf 侧边并与目标留出间距，空间不足时向另一侧或下方 flip，不得覆盖被
   hover 的 kernel card。
   breakdown 另提供一条六 family 等宽的 visual-only palette bar；它不得伪装成真实时间比例。
