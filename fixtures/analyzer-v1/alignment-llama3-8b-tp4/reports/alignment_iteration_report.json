@@ -1,0 +1,1981 @@
+{
+  "available": true,
+  "definitions": {
+    "breakdown_detail.byte_ranges": "iteration_id -> [byte offset, byte length] into the sibling .jsonl holding that iteration's measured and simulated kernel rows. Read that range and parse it as one JSON object; the whole file is never needed at once",
+    "cross_rank": "the mapping table's per-kernel reduction class: synchronizing (a collective barrier) or independent; the analyzer applies min/max from this, never from a category or name",
+    "gpu_cycle_relative_diff_pct": "(scaled timing-predict GPU cycle - measured GPU cycle) / measured GPU cycle * 100; positive means overprediction",
+    "mapping_coverage": "duration/workload fraction assigned by embedded labels; unmatched entries stay explicit and are never filled with zero",
+    "measured_busy_union_ms": "audit only: union of CUDA kernel intervals across every NSYS phase and TP rank; it removes cross-op rank-skew overlap that the critical-path sum keeps, so it reads below measured_ms",
+    "measured_gpu_cycle_ms": "CUPTI first-kernel start of the next valid measured iteration minus first-kernel start of this iteration; the final valid iteration has no cycle. Collective arrival-wait and launch gaps live here, not in measured_ms; the recommended_gpu_time_multiplier is the correction that spans them",
+    "measured_kernel_duration_ms": "one occurrence's cross-rank critical-path contribution per the cross_rank class: independent = max over ranks of (end-start); synchronizing collective = max(end) - max(start). rank_launches counts raw launches; replica_calls divides symmetric launches by captured device count",
+    "measured_ms": "replica critical-path sum: every measured occurrence reduced across ranks (independent op = slowest rank duration; synchronizing collective = max(end) - max(start), i.e. last-arrival to done) then summed. This is the baseline compared to the sim cost tree",
+    "operation_measured_ms": "sum over the operation's occurrences of each occurrence's cross-rank reduction (independent = slowest rank duration; synchronizing = max(end) - max(start)); arrival wait is dropped, not attributed to the collective",
+    "operation_simulated_ms": "sum of mapped sim leaf times after CostTree Scale multiplicity; workload time, not additive wall time when Max/overlap exists",
+    "recommended_gpu_time_multiplier": "pooled duty-cycle correction = Σ measured_gpu_cycle_ms / Σ measured_ms over iterations that have a measured cycle. Applying it as simulated_gpu_cycle = simulated_ms × this makes the pooled GPU-cycle gap equal the pooled kernel gap by construction. Derived from the measured side only (no simulation input); the aligned simulation worker should bake this value into its clock",
+    "relative_diff_pct": "(simulated - measured) / measured * 100; positive means overprediction",
+    "sequences": "the labelled kernel programs as the labeler wrote them, still folded: a `repeat{n}` band is one layer repeated, not n rows. Joined to a breakdown by row_id, which is `sequence_id:expanded_ordinal`",
+    "simulated_gpu_cycle_ms": "timing-predict total_time_ms multiplied by recommended_gpu_time_multiplier (the measured pooled duty-cycle correction), i.e. the kernel-only prediction scaled up to wall-clock",
+    "simulated_kernel_folded_ms": "one L1 leaf slot time multiplied by its exact CostTree Scale multiplicity",
+    "total_simulated_ms": "timing-predict cost-tree total_time_ms (Sum/Max/Scale semantics preserved)"
+  },
+  "iterations": [
+    {
+      "case_index": 0,
+      "cumulative_delta_ms": -0.6761497005310035,
+      "cumulative_relative_diff_pct": -9.885288793851013,
+      "delta_ms": -0.6761497005310035,
+      "gpu_cycle_cumulative_delta_ms": -2.3003900839088036,
+      "gpu_cycle_cumulative_relative_diff_pct": -21.925252940285965,
+      "gpu_cycle_delta_ms": -2.3003900839088036,
+      "gpu_cycle_relative_diff_pct": -21.925252940285965,
+      "iteration_id": 6,
+      "iteration_type": "prefill",
+      "measured_busy_union_ms": 8.889801,
+      "measured_gpu_cycle_ms": 10.491966,
+      "measured_ms": 6.839958999999998,
+      "relative_diff_pct": -9.885288793851013,
+      "simulated_gpu_cycle_ms": 8.191575916091196,
+      "simulated_ms": 6.163809299468994,
+      "stage": "mixed"
+    },
+    {
+      "case_index": 1019,
+      "cumulative_delta_ms": 272.4570431348866,
+      "cumulative_relative_diff_pct": 6.086131152350928,
+      "delta_ms": 0.09985604571533457,
+      "gpu_cycle_cumulative_delta_ms": 161.89014502131158,
+      "gpu_cycle_cumulative_relative_diff_pct": 2.6325207150650107,
+      "gpu_cycle_delta_ms": 2.0354039356884,
+      "gpu_cycle_relative_diff_pct": 16.074312996518923,
+      "iteration_id": 1025,
+      "iteration_type": "mixed",
+      "measured_busy_union_ms": 11.926811,
+      "measured_gpu_cycle_ms": 12.662463,
+      "measured_ms": 10.959657999999997,
+      "relative_diff_pct": 0.9111237386726355,
+      "simulated_gpu_cycle_ms": 14.6978669356884,
+      "simulated_ms": 11.059514045715332,
+      "stage": "mixed"
+    },
+    {
+      "case_index": 2039,
+      "cumulative_delta_ms": 516.870480085161,
+      "cumulative_relative_diff_pct": 5.849496441305353,
+      "delta_ms": 0.8722632977752682,
+      "gpu_cycle_cumulative_delta_ms": null,
+      "gpu_cycle_cumulative_relative_diff_pct": null,
+      "gpu_cycle_delta_ms": null,
+      "gpu_cycle_relative_diff_pct": null,
+      "iteration_id": 2045,
+      "iteration_type": "decode",
+      "measured_busy_union_ms": 3.307993,
+      "measured_gpu_cycle_ms": null,
+      "measured_ms": 2.4922470000000003,
+      "relative_diff_pct": 34.99907103008923,
+      "simulated_gpu_cycle_ms": null,
+      "simulated_ms": 3.3645102977752686,
+      "stage": "decode"
+    }
+  ],
+  "kernels": [
+    {
+      "calls": 1144,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 286,
+      "mean_call_us": 458.06094755244754,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 1144,
+      "replica_calls": 286,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_da1d36f6f1de:2",
+      "total_ms": 131.005431
+    },
+    {
+      "calls": 8160,
+      "calls_per_iteration": 4,
+      "category": "norm_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 2040,
+      "mean_call_us": 48.56242892156863,
+      "name": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+      "operation": null,
+      "phase": "sample",
+      "rank_launches": 8160,
+      "replica_calls": 2040,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_e07c1f3cdd95:2",
+      "total_ms": 99.067355
+    },
+    {
+      "calls": 404,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 101,
+      "mean_call_us": 903.8895346534654,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 404,
+      "replica_calls": 101,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_4c183971c81e:2",
+      "total_ms": 91.292843
+    },
+    {
+      "calls": 392,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 98,
+      "mean_call_us": 892.0925510204081,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 392,
+      "replica_calls": 98,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_d7e2b4c56fb3:2",
+      "total_ms": 87.42507
+    },
+    {
+      "calls": 868,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 217,
+      "mean_call_us": 347.81717511520736,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 868,
+      "replica_calls": 217,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_3a4b7110f357:2",
+      "total_ms": 75.476327
+    },
+    {
+      "calls": 596,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 149,
+      "mean_call_us": 500.2248657718121,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 596,
+      "replica_calls": 149,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_669ff75272c6:2",
+      "total_ms": 74.533505
+    },
+    {
+      "calls": 8160,
+      "calls_per_iteration": 4,
+      "category": "copy_other",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 2040,
+      "mean_call_us": 36.52419950980392,
+      "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+      "operation": null,
+      "phase": "sample",
+      "rank_launches": 8160,
+      "replica_calls": 2040,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_e07c1f3cdd95:1",
+      "total_ms": 74.509367
+    },
+    {
+      "calls": 812,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 203,
+      "mean_call_us": 356.67373399014775,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 812,
+      "replica_calls": 203,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_14020911008c:2",
+      "total_ms": 72.404768
+    },
+    {
+      "calls": 484,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 121,
+      "mean_call_us": 488.6355123966942,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 484,
+      "replica_calls": 121,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_4f1bb12cf270:2",
+      "total_ms": 59.124897
+    },
+    {
+      "calls": 196,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 49,
+      "mean_call_us": 1177.2053673469386,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 196,
+      "replica_calls": 49,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_8693e68a17b7:2",
+      "total_ms": 57.683063
+    },
+    {
+      "calls": 348,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 87,
+      "mean_call_us": 593.5328965517242,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 348,
+      "replica_calls": 87,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_d02e0b219252:2",
+      "total_ms": 51.637362
+    },
+    {
+      "calls": 472,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 118,
+      "mean_call_us": 434.06512711864406,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 472,
+      "replica_calls": 118,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_ec2a46068047:2",
+      "total_ms": 51.219685
+    },
+    {
+      "calls": 484,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 121,
+      "mean_call_us": 384.23129752066114,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 484,
+      "replica_calls": 121,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_6028c9d18434:2",
+      "total_ms": 46.491987
+    },
+    {
+      "calls": 1368,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 342,
+      "mean_call_us": 134.58083918128654,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 1368,
+      "replica_calls": 342,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f7ec4a8ffda5:4",
+      "total_ms": 46.026647
+    },
+    {
+      "calls": 180,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 45,
+      "mean_call_us": 769.3372222222223,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 180,
+      "replica_calls": 45,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_462611ce1f1d:2",
+      "total_ms": 34.620175
+    },
+    {
+      "calls": 256,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 64,
+      "mean_call_us": 490.4285,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 256,
+      "replica_calls": 64,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_12d56790895f:2",
+      "total_ms": 31.387424
+    },
+    {
+      "calls": 1368,
+      "calls_per_iteration": 4,
+      "category": "gemm_or_cutlass",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 342,
+      "mean_call_us": 87.03669005847954,
+      "name": "nvjet_tst_256x120_64x4_2x1_v_bz_coopA_TNT",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 1368,
+      "replica_calls": 342,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f7ec4a8ffda5:3",
+      "total_ms": 29.766548
+    },
+    {
+      "calls": 968,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 242,
+      "mean_call_us": 120.56602892561983,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 968,
+      "replica_calls": 242,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_3f5d0f72a998:4",
+      "total_ms": 29.176979
+    },
+    {
+      "calls": 944,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 236,
+      "mean_call_us": 119.18469491525424,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 944,
+      "replica_calls": 236,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f1edfc41837f:4",
+      "total_ms": 28.127588
+    },
+    {
+      "calls": 44,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 11,
+      "mean_call_us": 2226.1515454545456,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 44,
+      "replica_calls": 11,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_20394b3d858c:2",
+      "total_ms": 24.487667
+    },
+    {
+      "calls": 180,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 45,
+      "mean_call_us": 493.63706666666667,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 180,
+      "replica_calls": 45,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_5f753d68d2a8:2",
+      "total_ms": 22.213668
+    },
+    {
+      "calls": 272,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 68,
+      "mean_call_us": 312.0885441176471,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 272,
+      "replica_calls": 68,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_13fa2f4b1295:2",
+      "total_ms": 21.222021
+    },
+    {
+      "calls": 112,
+      "calls_per_iteration": 4,
+      "category": "attention",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 28,
+      "mean_call_us": 714.1751071428572,
+      "name": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "phase": "forward",
+      "rank_launches": 112,
+      "replica_calls": 28,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_de625c1c0de5:2",
+      "total_ms": 19.996903
+    },
+    {
+      "calls": 64,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 16,
+      "mean_call_us": 1246.5523125,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 64,
+      "replica_calls": 16,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_39cadc7d829d:2",
+      "total_ms": 19.944837
+    },
+    {
+      "calls": 944,
+      "calls_per_iteration": 4,
+      "category": "gemm_or_cutlass",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 236,
+      "mean_call_us": 84.02570338983051,
+      "name": "nvjet_tst_256x104_64x4_2x1_v_bz_coopA_TNT",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 944,
+      "replica_calls": 236,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f1edfc41837f:3",
+      "total_ms": 19.830066
+    },
+    {
+      "calls": 968,
+      "calls_per_iteration": 4,
+      "category": "gemm_or_cutlass",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 242,
+      "mean_call_us": 80.76002892561984,
+      "name": "nvjet_tst_256x88_64x4_2x1_v_bz_TNT",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 968,
+      "replica_calls": 242,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_3f5d0f72a998:3",
+      "total_ms": 19.543927
+    },
+    {
+      "calls": 64,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 16,
+      "mean_call_us": 1135.1074375,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 64,
+      "replica_calls": 16,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_fa09064df086:2",
+      "total_ms": 18.161719
+    },
+    {
+      "calls": 556,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 139,
+      "mean_call_us": 129.81027338129496,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 556,
+      "replica_calls": 139,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f6887009301d:4",
+      "total_ms": 18.043628
+    },
+    {
+      "calls": 44,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 11,
+      "mean_call_us": 1628.269,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 44,
+      "replica_calls": 11,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_31828aa0d71c:2",
+      "total_ms": 17.910959
+    },
+    {
+      "calls": 628,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 157,
+      "mean_call_us": 108.03913375796178,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 628,
+      "replica_calls": 157,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_9ef05ab3f8b1:4",
+      "total_ms": 16.962144
+    },
+    {
+      "calls": 564,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 141,
+      "mean_call_us": 115.13387943262411,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 564,
+      "replica_calls": 141,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_541c645eb52b:4",
+      "total_ms": 16.233877
+    },
+    {
+      "calls": 1368,
+      "calls_per_iteration": 4,
+      "category": "copy_other",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 342,
+      "mean_call_us": 46.11524853801169,
+      "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+      "operation": null,
+      "phase": "postprocess",
+      "rank_launches": 1368,
+      "replica_calls": 342,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_f7ec4a8ffda5:5",
+      "total_ms": 15.771415
+    },
+    {
+      "calls": 52,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 13,
+      "mean_call_us": 1177.7853076923077,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 52,
+      "replica_calls": 13,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_4df7fc7036d7:2",
+      "total_ms": 15.311209
+    },
+    {
+      "calls": 52,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 13,
+      "mean_call_us": 1154.3753076923078,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 52,
+      "replica_calls": 13,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_b7ff5dae7739:2",
+      "total_ms": 15.006879
+    },
+    {
+      "calls": 544,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 136,
+      "mean_call_us": 107.77914705882353,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 544,
+      "replica_calls": 136,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_6e2ac9cc6323:4",
+      "total_ms": 14.657964
+    },
+    {
+      "calls": 48,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 12,
+      "mean_call_us": 1170.0151666666668,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 48,
+      "replica_calls": 12,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_b263f3db50a2:2",
+      "total_ms": 14.040182
+    },
+    {
+      "calls": 60,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 15,
+      "mean_call_us": 930.0570666666666,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 60,
+      "replica_calls": 15,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_4b0e118406f7:2",
+      "total_ms": 13.950856
+    },
+    {
+      "calls": 40,
+      "calls_per_iteration": 4,
+      "category": "multimem_all_reduce",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 10,
+      "mean_call_us": 1348.5596,
+      "name": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+      "operation": "layer.mlp_allreduce",
+      "phase": "forward",
+      "rank_launches": 40,
+      "replica_calls": 10,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_ae38b8774c09:2",
+      "total_ms": 13.485596
+    },
+    {
+      "calls": 380,
+      "calls_per_iteration": 4,
+      "category": "nccl_collective",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 95,
+      "mean_call_us": 130.83045263157894,
+      "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 380,
+      "replica_calls": 95,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_27bb87a5f71d:4",
+      "total_ms": 12.428893
+    },
+    {
+      "calls": 628,
+      "calls_per_iteration": 4,
+      "category": "gemm_or_cutlass",
+      "device_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "iterations": 157,
+      "mean_call_us": 76.77760509554139,
+      "name": "nvjet_tst_256x48_64x5_2x1_v_bz_TNT",
+      "operation": "model.lm_head",
+      "phase": "postprocess",
+      "rank_launches": 628,
+      "replica_calls": 157,
+      "replica_calls_per_iteration": 1,
+      "row_id": "sequence_9ef05ab3f8b1:3",
+      "total_ms": 12.054084
+    }
+  ],
+  "mapping": {
+    "configured": true,
+    "coverage": {
+      "measured_duration_fraction": 0.958836445617607,
+      "measured_mapped_ms": 8472.425942000005,
+      "measured_total_kernel_ms": 8836.153423999998,
+      "simulated_mapped_ms": 9348.528415719047,
+      "simulated_total_leaf_workload_ms": 9353.023938444909,
+      "simulated_workload_fraction": 0.9995193508799456
+    },
+    "operations": [
+      {
+        "measured_rows": 1888,
+        "operation": "layer.activation",
+        "role": "SwiGLU activation",
+        "simulated_slots": [
+          "unified.mlp_block.activation"
+        ],
+        "type": "activation"
+      },
+      {
+        "measured_rows": 5088,
+        "operation": "layer.attention",
+        "role": "prefill/decode attention main and merge",
+        "simulated_slots": [
+          "unified.attn_block.attn.prefill",
+          "unified.attn_block.attn.decode"
+        ],
+        "type": "attention"
+      },
+      {
+        "measured_rows": 1376,
+        "operation": "layer.attention_allreduce",
+        "role": "row-parallel attention all-reduce",
+        "simulated_slots": [
+          "unified.attn_block.tp_allreduce"
+        ],
+        "type": "collective"
+      },
+      {
+        "measured_rows": 512,
+        "operation": "layer.attention_allreduce_post_norm",
+        "role": "fused attention all-reduce and post-attention RMS norm",
+        "simulated_slots": [
+          "unified.attn_block.tp_allreduce",
+          "unified.mlp_block.post_norm"
+        ],
+        "type": "collective_norm"
+      },
+      {
+        "measured_rows": 1376,
+        "operation": "layer.attention_post_norm",
+        "role": "post-attention RMS norm",
+        "simulated_slots": [
+          "unified.mlp_block.post_norm"
+        ],
+        "type": "norm"
+      },
+      {
+        "measured_rows": 2080,
+        "operation": "layer.down_projection",
+        "role": "row-parallel MLP down projection",
+        "simulated_slots": [
+          "unified.mlp_block.down_proj"
+        ],
+        "type": "gemm"
+      },
+      {
+        "measured_rows": 1888,
+        "operation": "layer.kv_cache_append",
+        "role": "KV cache append",
+        "simulated_slots": [
+          "unified.attn_block.attn.kv_cache_append"
+        ],
+        "type": "attention"
+      },
+      {
+        "measured_rows": 1419,
+        "operation": "layer.mlp_allreduce",
+        "role": "row-parallel MLP all-reduce",
+        "simulated_slots": [
+          "unified.mlp_block.tp_allreduce"
+        ],
+        "type": "collective"
+      },
+      {
+        "measured_rows": 1888,
+        "operation": "layer.output_projection",
+        "role": "row-parallel attention output projection",
+        "simulated_slots": [
+          "unified.attn_block.o_proj"
+        ],
+        "type": "gemm"
+      },
+      {
+        "measured_rows": 2240,
+        "operation": "layer.qkv_projection",
+        "role": "column-parallel QKV projection",
+        "simulated_slots": [
+          "unified.attn_block.qkv_proj"
+        ],
+        "type": "gemm"
+      },
+      {
+        "measured_rows": 1920,
+        "operation": "layer.up_gate_projection",
+        "role": "column-parallel MLP up/gate projection",
+        "simulated_slots": [
+          "unified.mlp_block.up_gate_proj"
+        ],
+        "type": "gemm"
+      },
+      {
+        "measured_rows": 34,
+        "operation": "model.lm_head",
+        "role": "vocab-parallel LM-head GEMM and all-gather",
+        "simulated_slots": [
+          "unified.lm_head"
+        ],
+        "type": "gemm_collective"
+      },
+      {
+        "measured_rows": 528,
+        "operation": "model.mlp_allreduce_and_norm_boundaries",
+        "role": "all MLP all-reduces plus initial/inter-layer/final RMS norms",
+        "simulated_slots": [
+          "unified.mlp_block.tp_allreduce",
+          "unified.attn_block.input_norm",
+          "unified.final_norm"
+        ],
+        "type": "collective_norm"
+      },
+      {
+        "measured_rows": 1419,
+        "operation": "model.mlp_boundary_norms",
+        "role": "initial/inter-layer/final RMS norms at MLP boundaries",
+        "simulated_slots": [
+          "unified.attn_block.input_norm",
+          "unified.final_norm"
+        ],
+        "type": "norm"
+      }
+    ],
+    "unmapped_measured_kernels": [
+      {
+        "calls": 8160,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+        "phase": "sample",
+        "row_id": "sequence_e07c1f3cdd95:2",
+        "total_ms": 99.067355
+      },
+      {
+        "calls": 8160,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+        "phase": "sample",
+        "row_id": "sequence_e07c1f3cdd95:1",
+        "total_ms": 74.509367
+      },
+      {
+        "calls": 1368,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_f7ec4a8ffda5:5",
+        "total_ms": 15.771415
+      },
+      {
+        "calls": 944,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_f1edfc41837f:5",
+        "total_ms": 9.645873
+      },
+      {
+        "calls": 8160,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(int) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+        "phase": "sample",
+        "row_id": "sequence_e07c1f3cdd95:3",
+        "total_ms": 9.585755
+      },
+      {
+        "calls": 968,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_3f5d0f72a998:5",
+        "total_ms": 8.238124
+      },
+      {
+        "calls": 556,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_f6887009301d:5",
+        "total_ms": 6.101759
+      },
+      {
+        "calls": 564,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_541c645eb52b:5",
+        "total_ms": 5.247796
+      },
+      {
+        "calls": 2892,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "_copy_page_indices_kernel",
+        "phase": "preprocess",
+        "row_id": "sequence_2b5b1ddeffc5:4",
+        "total_ms": 5.020583
+      },
+      {
+        "calls": 2548,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "_copy_page_indices_kernel",
+        "phase": "preprocess",
+        "row_id": "sequence_e2edce934d21:4",
+        "total_ms": 4.405375
+      },
+      {
+        "calls": 544,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+        "phase": "postprocess",
+        "row_id": "sequence_6e2ac9cc6323:5",
+        "total_ms": 4.338471
+      },
+      {
+        "calls": 2892,
+        "device_ids": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "name": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+        "phase": "preprocess",
+        "row_id": "sequence_2b5b1ddeffc5:1",
+        "total_ms": 3.734815
+      }
+    ],
+    "unmapped_simulated_slots": [
+      {
+        "slot": "unified.embedding (elementwise)",
+        "total_ms": 4.49552272586152
+      }
+    ]
+  },
+  "meta": {
+    "analysis_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/analysis_kernel",
+    "iterations": 2040,
+    "measured_device_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "measured_phases": [
+      "forward",
+      "postprocess",
+      "preprocess",
+      "sample"
+    ],
+    "predict_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/timing_predict",
+    "profile_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/profile",
+    "recommended_gpu_time_multiplier": 1.3289794537927855,
+    "representative_device_id": 0
+  },
+  "operations": [
+    {
+      "abs_relative_error_pct": {
+        "max": 55.35437894062236,
+        "mean": 27.508114838241976,
+        "n": 2040,
+        "p50": 26.91655319706661,
+        "p90": 32.93327067615094,
+        "p99": 45.71065902165721
+      },
+      "delta_ms": {
+        "max": 0.0755577433223723,
+        "mean": 0.016844748602791983,
+        "min": 0.003409923345565835,
+        "n": 2040,
+        "p50": 0.015016084347486504,
+        "p90": 0.018951536139488204,
+        "p99": 0.042423879083662026
+      },
+      "measured_ms": {
+        "max": 0.33538800000000013,
+        "mean": 0.0649695965686274,
+        "min": 0.038687999999999986,
+        "n": 2040,
+        "p50": 0.054880000000000005,
+        "p90": 0.11240540000000006,
+        "p99": 0.22010989999999986
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.activation",
+      "relative_diff_pct": {
+        "max": 55.35437894062236,
+        "mean": 27.508114838241976,
+        "min": 2.043485476883426,
+        "n": 2040,
+        "p50": 26.91655319706661,
+        "p90": 32.93327067615094,
+        "p99": 45.71065902165721
+      },
+      "simulated_ms": {
+        "max": 0.41094574332237244,
+        "mean": 0.08181434517141943,
+        "min": 0.06010350212454796,
+        "n": 2040,
+        "p50": 0.06970600038766861,
+        "p90": 0.14709293842315674,
+        "p99": 0.25673043131828305
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 36.6884431708445,
+        "mean": 12.619029139242835,
+        "n": 2040,
+        "p50": 14.727741276389832,
+        "p90": 16.826854171690826,
+        "p99": 18.700357154820956
+      },
+      "delta_ms": {
+        "max": 0.6624450623550415,
+        "mean": -0.13289223177363713,
+        "min": -0.3424120188808446,
+        "n": 2040,
+        "p50": -0.16568788320541394,
+        "p90": -0.007896157015228078,
+        "p99": 0.1320911337728116
+      },
+      "measured_ms": {
+        "max": 1.8875119999999994,
+        "mean": 1.0433592122549005,
+        "min": 0.332671,
+        "n": 2040,
+        "p50": 1.0953884999999999,
+        "p90": 1.3396877999999997,
+        "p99": 1.78633739
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.attention",
+      "relative_diff_pct": {
+        "max": 36.6884431708445,
+        "mean": -11.629725156894052,
+        "min": -20.247717271007424,
+        "n": 2040,
+        "p50": -14.683168407226447,
+        "p90": -1.5061152817066907,
+        "p99": 8.428679811990557
+      },
+      "simulated_ms": {
+        "max": 2.4680410623550415,
+        "mean": 0.9104669804812646,
+        "min": 0.33095064759254456,
+        "n": 2040,
+        "p50": 0.9166267812252045,
+        "p90": 1.1235764503479007,
+        "p99": 1.8089512115716933
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 12.777111901725277,
+        "mean": 6.8503395341342905,
+        "n": 240,
+        "p50": 6.758437354155719,
+        "p90": 10.94290624470187,
+        "p99": 11.854963317889275
+      },
+      "delta_ms": {
+        "max": 0.20183552751159706,
+        "mean": -0.029558659273052245,
+        "min": -0.17582833238983153,
+        "n": 240,
+        "p50": -0.05549712014007557,
+        "p90": 0.1499938924148557,
+        "p99": 0.19487950656829833
+      },
+      "measured_ms": {
+        "max": 2.3760639999999995,
+        "mean": 1.1768712124999996,
+        "min": 0.7907599999999999,
+        "n": 240,
+        "p50": 1.1430384999999998,
+        "p90": 1.4741737999999998,
+        "p99": 1.97353264
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 240,
+      "operation": "layer.attention_allreduce",
+      "relative_diff_pct": {
+        "max": 12.777111901725277,
+        "mean": -3.172853298510057,
+        "min": -11.893224942784784,
+        "n": 240,
+        "p50": -4.957107162491223,
+        "p90": 10.331157443412783,
+        "p99": 11.60391134328069
+      },
+      "simulated_ms": {
+        "max": 2.572124481201172,
+        "mean": 1.1473125532269477,
+        "min": 0.7775297164916992,
+        "n": 240,
+        "p50": 1.0668483972549438,
+        "p90": 1.5776552557945251,
+        "p99": 2.1684121465682984
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 316.8684214288284,
+        "mean": 104.87322900918284,
+        "n": 1800,
+        "p50": 86.14829054897946,
+        "p90": 180.99347131857823,
+        "p99": 312.7550785998581
+      },
+      "delta_ms": {
+        "max": 0.6003547546601296,
+        "mean": 0.3236564931171602,
+        "min": 0.18424405443906783,
+        "n": 1800,
+        "p50": 0.3174258028922081,
+        "p90": 0.42702729017038343,
+        "p99": 0.5984666246601296
+      },
+      "measured_ms": {
+        "max": 0.46442600000000006,
+        "mean": 0.35049088888888885,
+        "min": 0.174649,
+        "n": 1800,
+        "p50": 0.3683295,
+        "p90": 0.44626860000000007,
+        "p99": 0.46094523000000004
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 1800,
+      "operation": "layer.attention_allreduce_post_norm",
+      "relative_diff_pct": {
+        "max": 316.8684214288284,
+        "mean": 104.87322900918284,
+        "min": 39.81969359165276,
+        "n": 1800,
+        "p50": 86.14829054897946,
+        "p90": 180.99347131857823,
+        "p99": 312.7550785998581
+      },
+      "simulated_ms": {
+        "max": 0.7898197546601295,
+        "mean": 0.6741473820060492,
+        "min": 0.5771423727273941,
+        "n": 1800,
+        "p50": 0.6786582767963409,
+        "p90": 0.7011555507779121,
+        "p99": 0.7898197546601295
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 34.28858526500612,
+        "mean": 19.75947956901479,
+        "n": 240,
+        "p50": 21.637038941489408,
+        "p90": 25.306483264484232,
+        "p99": 32.11950294282205
+      },
+      "delta_ms": {
+        "max": 0.0003717467069626057,
+        "mean": -0.04307763239634434,
+        "min": -0.1645841806144714,
+        "n": 240,
+        "p50": -0.04214293213987347,
+        "p90": -0.01082987492618567,
+        "p99": -0.008107020723915115
+      },
+      "measured_ms": {
+        "max": 0.47999699999999995,
+        "mean": 0.20415169166666644,
+        "min": 0.12719999999999998,
+        "n": 240,
+        "p50": 0.195807,
+        "p90": 0.28046360000000004,
+        "p99": 0.3969941699999999
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 240,
+      "operation": "layer.attention_post_norm",
+      "relative_diff_pct": {
+        "max": 0.29225370044230015,
+        "mean": -19.757044121511097,
+        "min": -34.28858526500612,
+        "n": 240,
+        "p50": -21.637038941489408,
+        "p90": -7.489823833370093,
+        "p99": -5.611011646731603
+      },
+      "simulated_ms": {
+        "max": 0.31541281938552856,
+        "mean": 0.1610740592703223,
+        "min": 0.12757174670696259,
+        "n": 240,
+        "p50": 0.15350773930549622,
+        "p90": 0.21104192584753037,
+        "p99": 0.2695090174674988
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 24.280466234062846,
+        "mean": 6.60707891146634,
+        "n": 2040,
+        "p50": 4.365598285734068,
+        "p90": 15.096003377065554,
+        "p99": 22.35525603374841
+      },
+      "delta_ms": {
+        "max": 0.31821197650146527,
+        "mean": -0.034321684132864905,
+        "min": -0.27062327811431897,
+        "n": 2040,
+        "p50": -0.017646208984374995,
+        "p90": 0.003945950406646803,
+        "p99": 0.012934220761947514
+      },
+      "measured_ms": {
+        "max": 2.457518,
+        "mean": 0.4772497343137255,
+        "min": 0.35471900000000006,
+        "n": 2040,
+        "p50": 0.40414250000000007,
+        "p90": 0.8613039000000002,
+        "p99": 1.5019664099999996
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.down_projection",
+      "relative_diff_pct": {
+        "max": 14.674777142771875,
+        "mean": -6.095831101642527,
+        "min": -24.280466234062846,
+        "n": 2040,
+        "p50": -4.35354915462268,
+        "p90": 1.0520028972389173,
+        "p99": 3.1202868465438516
+      },
+      "simulated_ms": {
+        "max": 2.6832706928253174,
+        "mean": 0.4429280501808606,
+        "min": 0.33815285563468933,
+        "n": 2040,
+        "p50": 0.38376474380493164,
+        "p90": 0.6893085837364197,
+        "p99": 1.454772491455078
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 40.32199532332763,
+        "mean": 23.253976921276216,
+        "n": 2040,
+        "p50": 24.426800928623912,
+        "p90": 27.331147992666935,
+        "p99": 31.691884924162558
+      },
+      "delta_ms": {
+        "max": 0.03197068682479859,
+        "mean": 0.019621073563389393,
+        "min": -0.020459692841529847,
+        "n": 2040,
+        "p50": 0.020411985676050196,
+        "p90": 0.0225500352297306,
+        "p99": 0.026560028762912753
+      },
+      "measured_ms": {
+        "max": 0.28684800000000005,
+        "mean": 0.09164850049019607,
+        "min": 0.07075199999999998,
+        "n": 2040,
+        "p50": 0.08399800000000002,
+        "p90": 0.11072,
+        "p99": 0.21214690999999997
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.kv_cache_append",
+      "relative_diff_pct": {
+        "max": 40.32199532332763,
+        "mean": 22.96357641710773,
+        "min": -13.330920817260855,
+        "n": 2040,
+        "p50": 24.426800928623912,
+        "p90": 27.331147992666935,
+        "p99": 31.691884924162558
+      },
+      "simulated_ms": {
+        "max": 0.31273895502090454,
+        "mean": 0.11126957405358553,
+        "min": 0.09625016152858734,
+        "n": 2040,
+        "p50": 0.10387979447841644,
+        "p90": 0.12552277743816376,
+        "p99": 0.23799349114298812
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 15.164016771930905,
+        "mean": 9.178021079159448,
+        "n": 240,
+        "p50": 8.7752709138644,
+        "p90": 13.392557240151953,
+        "p99": 14.91130286508019
+      },
+      "delta_ms": {
+        "max": 0.14073252751159648,
+        "mean": -0.07192461343971891,
+        "min": -0.2378133323898317,
+        "n": 240,
+        "p50": -0.09982096217346204,
+        "p90": 0.11227733978347765,
+        "p99": 0.12941566910430924
+      },
+      "measured_ms": {
+        "max": 2.449655,
+        "mean": 1.2192371666666662,
+        "min": 0.8191369999999999,
+        "n": 240,
+        "p50": 1.184748,
+        "p90": 1.5152158999999998,
+        "p99": 2.03924447
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 240,
+      "operation": "layer.mlp_allreduce",
+      "relative_diff_pct": {
+        "max": 9.652459593035996,
+        "mean": -6.5671901214628745,
+        "min": -15.164016771930905,
+        "n": 240,
+        "p50": -8.742945550293067,
+        "p90": 7.359903800858945,
+        "p99": 8.646523648807243
+      },
+      "simulated_ms": {
+        "max": 2.572124481201172,
+        "mean": 1.1473125532269477,
+        "min": 0.7775297164916992,
+        "n": 240,
+        "p50": 1.0668483972549438,
+        "p90": 1.5776552557945251,
+        "p99": 2.1684121465682984
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 17.60481114902689,
+        "mean": 5.721827855902685,
+        "n": 2040,
+        "p50": 5.574324115168846,
+        "p90": 8.751359235447508,
+        "p99": 12.51338488120602
+      },
+      "delta_ms": {
+        "max": 0.05075341189575189,
+        "mean": -0.011759888189762237,
+        "min": -0.08593104517745964,
+        "n": 2040,
+        "p50": -0.010832518117427817,
+        "p90": -0.0032937607581138353,
+        "p99": 0.006076884331979719
+      },
+      "measured_ms": {
+        "max": 0.8309690000000001,
+        "mean": 0.21138029411764733,
+        "min": 0.16617500000000002,
+        "n": 2040,
+        "p50": 0.189664,
+        "p90": 0.31629109999999994,
+        "p99": 0.5333615899999997
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.output_projection",
+      "relative_diff_pct": {
+        "max": 7.45960709424488,
+        "mean": -5.518584993078839,
+        "min": -17.60481114902689,
+        "n": 2040,
+        "p50": -5.571008229354289,
+        "p90": -1.7489051897631043,
+        "p99": 3.402363305571818
+      },
+      "simulated_ms": {
+        "max": 0.796692967414856,
+        "mean": 0.19962040592788483,
+        "min": 0.16625574231147766,
+        "n": 2040,
+        "p50": 0.17845065891742706,
+        "p90": 0.2916083037853241,
+        "p99": 0.5258989977836608
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 31.8395881786525,
+        "mean": 4.600896430082339,
+        "n": 2040,
+        "p50": 3.376263660255181,
+        "p90": 8.0454660555823,
+        "p99": 29.21119810332848
+      },
+      "delta_ms": {
+        "max": 0.03340820639228814,
+        "mean": -0.016132028928703412,
+        "min": -0.21195008898353573,
+        "n": 2040,
+        "p50": -0.01028464852714539,
+        "p90": 0.005049597282600389,
+        "p99": 0.011335019563789323
+      },
+      "measured_ms": {
+        "max": 1.115252,
+        "mean": 0.3330360666666674,
+        "min": 0.2568939999999999,
+        "n": 2040,
+        "p50": 0.30787149999999996,
+        "p90": 0.4639455000000004,
+        "p99": 0.70155418
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.qkv_projection",
+      "relative_diff_pct": {
+        "max": 8.549239814390962,
+        "mean": -3.8096167960169978,
+        "min": -31.8395881786525,
+        "n": 2040,
+        "p50": -3.2805517116954714,
+        "p90": 1.8369649464693198,
+        "p99": 4.089186211087177
+      },
+      "simulated_ms": {
+        "max": 1.1139198541641235,
+        "mean": 0.3169040377379633,
+        "min": 0.26567816734313965,
+        "n": 2040,
+        "p50": 0.29779288172721863,
+        "p90": 0.4428676962852478,
+        "p99": 0.6707625490427016
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 94.58964240570047,
+        "mean": 11.425394533597686,
+        "n": 2040,
+        "p50": 13.142752512108363,
+        "p90": 14.733594230631363,
+        "p99": 25.715157714738766
+      },
+      "delta_ms": {
+        "max": 3.7904387158203123,
+        "mean": -0.07165084379248172,
+        "min": -0.7382228459930422,
+        "n": 2040,
+        "p50": -0.08576820011138936,
+        "p90": -0.02299250027771007,
+        "p99": 0.2736831225045737
+      },
+      "measured_ms": {
+        "max": 4.750880999999999,
+        "mean": 0.8129484249999994,
+        "min": 0.59507,
+        "n": 2040,
+        "p50": 0.6584930000000001,
+        "p90": 1.4241256000000004,
+        "p99": 2.95218582
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "layer.up_gate_projection",
+      "relative_diff_pct": {
+        "max": 94.58964240570047,
+        "mean": -10.59289251403387,
+        "min": -29.10588885115894,
+        "n": 2040,
+        "p50": -13.102871120881904,
+        "p90": -2.1710037609092145,
+        "p99": 9.76684269702211
+      },
+      "simulated_ms": {
+        "max": 8.027971267700195,
+        "mean": 0.7412975812075184,
+        "min": 0.5515333414077759,
+        "n": 2040,
+        "p50": 0.5744659304618835,
+        "p90": 1.3560783863067627,
+        "p99": 3.1422652769088746
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 222.71186680835774,
+        "mean": 95.15854920475785,
+        "n": 2040,
+        "p50": 83.55608945048895,
+        "p90": 143.46736259865386,
+        "p99": 216.03672756834982
+      },
+      "delta_ms": {
+        "max": 0.1701140052242279,
+        "mean": 0.1295209508585103,
+        "min": -0.14196345115661618,
+        "n": 2040,
+        "p50": 0.12878734854602814,
+        "p90": 0.1542866829273224,
+        "p99": 0.16876772557543757
+      },
+      "measured_ms": {
+        "max": 0.42575999999999997,
+        "mean": 0.14815978039215694,
+        "min": 0.076383,
+        "n": 2040,
+        "p50": 0.154127,
+        "p90": 0.18041920000000003,
+        "p99": 0.18569698999999998
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 2040,
+      "operation": "model.lm_head",
+      "relative_diff_pct": {
+        "max": 222.71186680835774,
+        "mean": 95.12585946075299,
+        "min": -33.34353888496246,
+        "n": 2040,
+        "p50": 83.55608945048895,
+        "p90": 143.46736259865386,
+        "p99": 216.03672756834982
+      },
+      "simulated_ms": {
+        "max": 0.28770938515663147,
+        "mean": 0.2776807312506671,
+        "min": 0.2451433688402176,
+        "n": 2040,
+        "p50": 0.2829665541648865,
+        "p90": 0.2867608070373535,
+        "p99": 0.2874722480773926
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 303.66239779246956,
+        "mean": 97.09288262697791,
+        "n": 1800,
+        "p50": 80.05715470626458,
+        "p90": 163.67996271240153,
+        "p99": 296.7384158711554
+      },
+      "delta_ms": {
+        "max": 0.5961834222099334,
+        "mean": 0.3118794841123152,
+        "min": 0.165123581461057,
+        "n": 1800,
+        "p50": 0.30624967406830944,
+        "p90": 0.4174015217060834,
+        "p99": 0.5927569922099334
+      },
+      "measured_ms": {
+        "max": 0.4842580000000001,
+        "mean": 0.36511319277777726,
+        "min": 0.187364,
+        "n": 1800,
+        "p50": 0.3824430000000001,
+        "p90": 0.4646836,
+        "p99": 0.4806639199999999
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 1800,
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "relative_diff_pct": {
+        "max": 303.66239779246956,
+        "mean": 97.09288262697791,
+        "min": 34.09826610217218,
+        "n": 1800,
+        "p50": 80.05715470626458,
+        "p90": 163.67996271240153,
+        "p99": 296.7384158711554
+      },
+      "simulated_ms": {
+        "max": 0.7925144222099334,
+        "mean": 0.676992676890093,
+        "min": 0.5798305519856513,
+        "n": 1800,
+        "p50": 0.6814798407722265,
+        "p90": 0.7039453799370676,
+        "p99": 0.7925144222099334
+      }
+    },
+    {
+      "abs_relative_error_pct": {
+        "max": 53.99903307679493,
+        "mean": 39.00964720017125,
+        "n": 240,
+        "p50": 40.49095028913686,
+        "p90": 46.44317157482335,
+        "p99": 53.41122026491113
+      },
+      "delta_ms": {
+        "max": -0.037880636208444785,
+        "mean": -0.11498776804414676,
+        "min": -0.37644153000867364,
+        "n": 240,
+        "p50": -0.10684836687585708,
+        "p90": -0.04738864630172851,
+        "p99": -0.043411010628892494
+      },
+      "measured_ms": {
+        "max": 0.701711,
+        "mean": 0.28109539166666675,
+        "min": 0.16943899999999995,
+        "n": 240,
+        "p50": 0.26510199999999995,
+        "p90": 0.40348220000000007,
+        "p99": 0.59656343
+      },
+      "missing_measured": 0,
+      "missing_simulated": 0,
+      "n_paired": 240,
+      "operation": "model.mlp_boundary_norms",
+      "relative_diff_pct": {
+        "max": -22.35650364346154,
+        "mean": -39.009647200171266,
+        "min": -53.99903307679493,
+        "n": 240,
+        "p50": -40.49095028913686,
+        "p90": -25.336142995541653,
+        "p99": -24.02260868470432
+      },
+      "simulated_ms": {
+        "max": 0.32526946999132633,
+        "mean": 0.1661076236225199,
+        "min": 0.13155836379155517,
+        "n": 240,
+        "p50": 0.15830485615879297,
+        "p90": 0.21763698603026568,
+        "p99": 0.2779311742633581
+      }
+    }
+  ],
+  "schema_version": 1,
+  "total_iteration": {
+    "abs_relative_error_pct": {
+      "max": 49.72055458481255,
+      "mean": 12.010007969053778,
+      "n": 2040,
+      "p50": 8.550080599453771,
+      "p90": 29.45120758481419,
+      "p99": 42.52953421570169
+    },
+    "delta_ms": {
+      "max": 4.296613301879882,
+      "mean": 0.2533678823946864,
+      "min": -1.6663507209472606,
+      "n": 2040,
+      "p50": 0.3060671561584489,
+      "p90": 0.8217045429046601,
+      "p99": 1.2705514872872907
+    },
+    "relative_diff_pct": {
+      "max": 49.72055458481255,
+      "mean": 9.68537214185607,
+      "min": -17.135224522615275,
+      "n": 2040,
+      "p50": 7.894426432254169,
+      "p90": 29.45120758481419,
+      "p99": 42.52953421570169
+    }
+  }
+}

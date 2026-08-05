@@ -17,6 +17,20 @@ import {
   parseAnalyzerV1WorkerOperationSeek,
 } from '../contracts/analyzer/v1/workerOperation';
 import {
+  parseAnalyzerV1AlignmentBreakdown,
+  parseAnalyzerV1AlignmentCatalog,
+  parseAnalyzerV1AlignmentDescriptor,
+  parseAnalyzerV1AlignmentE2eReport,
+  parseAnalyzerV1AlignmentE2eSeries,
+  parseAnalyzerV1AlignmentIterationReport,
+  parseAnalyzerV1AlignmentIterationSeries,
+  parseAnalyzerV1AlignmentTimelineIndex,
+  parseAnalyzerV1AlignmentTimelineIteration,
+  parseAnalyzerV1AlignmentWorkloadReport,
+  parseAnalyzerV1AlignmentWorkloadSeries,
+  type AnalyzerV1AlignmentCatalogEntry,
+} from '../contracts/analyzer/v1/alignment';
+import {
   parseAnalyzerV1SweepCatalog,
   parseAnalyzerV1SweepPayload,
   type AnalyzerV1SweepCatalog,
@@ -41,6 +55,26 @@ import type { ArtifactModuleReader } from './artifact/ArtifactModuleReader';
 
 const DEFAULT_CATALOG_PATH = 'run_catalog.json';
 const DEFAULT_SWEEP_CATALOG_PATH = 'sweep_catalog.json';
+const DEFAULT_ALIGNMENT_CATALOG_PATH = 'alignment_catalog.json';
+
+/**
+ * Where an exported alignment bundle keeps each document.
+ *
+ * The live service addresses these through hrefs it synthesizes per request;
+ * an export has no service, so the layout is a convention — the analyzer's own
+ * `reports/` and `payloads/` split, plus one file per shipped iteration where
+ * the service seeks into a JSONL shard.
+ */
+const ALIGNMENT_DESCRIPTOR_FILE = 'alignment_descriptor.json';
+const ALIGNMENT_DOCUMENTS = {
+  iterationReport: 'reports/alignment_iteration_report.json',
+  iterationSeries: 'payloads/alignment_iteration_series.json',
+  timelineIndex: 'payloads/alignment_timeline.json',
+  workloadReport: 'reports/alignment_workload_report.json',
+  workloadSeries: 'payloads/alignment_workload_series.json',
+  e2eReport: 'reports/alignment_e2e_report.json',
+  e2eSeries: 'payloads/alignment_e2e_series.json',
+} as const;
 const TOPOLOGY_PARAMS_HREF = 'raw/params.json';
 const TOPOLOGY_RUN_META_HREF = 'raw/run_meta.json';
 
@@ -56,6 +90,7 @@ interface BoundArtifactRun {
 export interface ArtifactAnalyzerRepositoryOptions {
   catalogPath?: string;
   sweepCatalogPath?: string;
+  alignmentCatalogPath?: string;
   /** Reserved for the first documented direct topology artifact schema. Static
    * analyzer-v1 exports without one use the explicit params+run_meta fallback. */
   topologyArtifactDecoder?: (input: unknown) => Topology;
@@ -65,6 +100,13 @@ export class UnknownAnalyzerRunError extends Error {
   constructor(readonly runId: string) {
     super(`Analyzer catalog has no run with opaque id ${runId}.`);
     this.name = 'UnknownAnalyzerRunError';
+  }
+}
+
+export class UnknownAnalyzerAlignmentError extends Error {
+  constructor(readonly alignmentId: string) {
+    super(`Analyzer catalog has no alignment bundle with opaque id ${alignmentId}.`);
+    this.name = 'UnknownAnalyzerAlignmentError';
   }
 }
 
@@ -127,8 +169,11 @@ function nonReadySubject<Name extends SubjectName>(
 export class ArtifactAnalyzerRepository implements AnalyzerRepository {
   private readonly catalogPath: string;
   private readonly sweepCatalogPath: string;
+  private readonly alignmentCatalogPath: string;
   private catalogPromise: Promise<AnalyzerV1RunCatalog> | null = null;
   private sweepCatalogPromise: Promise<AnalyzerV1SweepCatalog> | null = null;
+  private alignmentCatalogPromise: Promise<readonly AnalyzerV1AlignmentCatalogEntry[]> | null =
+    null;
   private readonly bindingPromises = new Map<string, Promise<BoundArtifactRun>>();
 
   constructor(
@@ -137,6 +182,7 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
   ) {
     this.catalogPath = options.catalogPath ?? DEFAULT_CATALOG_PATH;
     this.sweepCatalogPath = options.sweepCatalogPath ?? DEFAULT_SWEEP_CATALOG_PATH;
+    this.alignmentCatalogPath = options.alignmentCatalogPath ?? DEFAULT_ALIGNMENT_CATALOG_PATH;
   }
 
   async listRuns(): Promise<readonly RunListItem[]> {
@@ -361,6 +407,108 @@ export class ArtifactAnalyzerRepository implements AnalyzerRepository {
         reason: errorDetail(error),
       };
     }
+  }
+
+  // ---- alignment bundles --------------------------------------------------
+
+  async getAlignmentDescriptor(alignmentId: string) {
+    const document = await this.readAlignmentDocument(alignmentId, ALIGNMENT_DESCRIPTOR_FILE);
+    return parseAnalyzerV1AlignmentDescriptor(document, alignmentId);
+  }
+
+  async getAlignmentIterationReport(alignmentId: string) {
+    return parseAnalyzerV1AlignmentIterationReport(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.iterationReport),
+    );
+  }
+
+  async getAlignmentIterationSeries(alignmentId: string) {
+    return parseAnalyzerV1AlignmentIterationSeries(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.iterationSeries),
+    );
+  }
+
+  async getAlignmentTimelineIndex(alignmentId: string) {
+    return parseAnalyzerV1AlignmentTimelineIndex(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.timelineIndex),
+    );
+  }
+
+  async getAlignmentWorkloadReport(alignmentId: string) {
+    return parseAnalyzerV1AlignmentWorkloadReport(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.workloadReport),
+    );
+  }
+
+  async getAlignmentWorkloadSeries(alignmentId: string) {
+    return parseAnalyzerV1AlignmentWorkloadSeries(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.workloadSeries),
+    );
+  }
+
+  async getAlignmentE2eReport(alignmentId: string) {
+    return parseAnalyzerV1AlignmentE2eReport(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.e2eReport),
+    );
+  }
+
+  async getAlignmentE2eSeries(alignmentId: string) {
+    return parseAnalyzerV1AlignmentE2eSeries(
+      await this.readAlignmentDocument(alignmentId, ALIGNMENT_DOCUMENTS.e2eSeries),
+    );
+  }
+
+  async getAlignmentBreakdown(alignmentId: string, iterationId: number) {
+    const document = await this.readAlignmentIteration(alignmentId, 'breakdown', iterationId);
+    return parseAnalyzerV1AlignmentBreakdown(document, iterationId);
+  }
+
+  async getAlignmentTimelineIteration(alignmentId: string, iterationId: number) {
+    const document = await this.readAlignmentIteration(alignmentId, 'timeline', iterationId);
+    return parseAnalyzerV1AlignmentTimelineIteration(document, iterationId);
+  }
+
+  private loadAlignmentCatalog() {
+    if (this.alignmentCatalogPromise !== null) return this.alignmentCatalogPromise;
+    const promise = this.reader
+      .read(this.alignmentCatalogPath)
+      .then(parseAnalyzerV1AlignmentCatalog)
+      .catch((error: unknown) => {
+        if (this.alignmentCatalogPromise === promise) this.alignmentCatalogPromise = null;
+        throw error;
+      });
+    this.alignmentCatalogPromise = promise;
+    return promise;
+  }
+
+  /** An export ships whole iterations as files where the service seeks into a
+   * shard, so an id the fixture does not carry is a missing module rather than
+   * a 404 — the caller sees the same failure either way. */
+  private readAlignmentIteration(
+    alignmentId: string,
+    kind: 'timeline' | 'breakdown',
+    iterationId: number,
+  ): Promise<unknown> {
+    if (!Number.isSafeInteger(iterationId) || iterationId < 0) {
+      throw new Error(`Alignment iteration id must be a non-negative integer: ${iterationId}`);
+    }
+    return this.readAlignmentDocument(alignmentId, `iterations/${kind}_${iterationId}.json`);
+  }
+
+  private async readAlignmentDocument(alignmentId: string, file: string): Promise<unknown> {
+    const catalog = await this.loadAlignmentCatalog();
+    const entry = catalog.find((candidate) => candidate.alignmentId === alignmentId);
+    if (entry === undefined) throw new UnknownAnalyzerAlignmentError(alignmentId);
+    const descriptorPath = resolveAnalyzerV1ArtifactPath({
+      containingArtifactPath: this.alignmentCatalogPath,
+      artifactHref: entry.descriptorHref,
+    });
+    const bundleRoot = runRootOf(descriptorPath);
+    return this.reader.readRelative({
+      containingArtifactPath: descriptorPath,
+      artifactHref: file,
+      runRoot: bundleRoot,
+    });
   }
 
   private loadCatalog() {

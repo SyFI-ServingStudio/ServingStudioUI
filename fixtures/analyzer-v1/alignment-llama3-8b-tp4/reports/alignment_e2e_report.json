@@ -1,0 +1,138 @@
+{
+  "available": true,
+  "definitions": {
+    "client_completion_throughput": "all measured output tokens divided by TraceLab's earliest post/submit to latest client completion span; includes response and client completion overhead",
+    "client_ttft": "TraceLab client-observed first_token_ms distribution vs simulator ttft_ms distribution; includes frontend/network/tokenization and response-path overhead outside the engine",
+    "completion_throughput": "client-measured and simulated output tokens assigned to each request completion bin; not instantaneous token-production throughput",
+    "e2e": "measured total_duration_ms distribution vs simulator finish_decode_time_ms-arrival_time_ms distribution",
+    "latency_comparison": "measured and simulated raw latency distributions are summarized independently and overlaid as two CDF curves; no per-request subtraction or division",
+    "request_id_audit": "TraceLab source.data.id and simulator request_slo.request_id are intersected only to detect missing requests; ids do not pair latency samples",
+    "server_gpu_span_throughput": "all measured output tokens divided by parsed NSYS first-kernel-start to last-kernel-end span; includes inter-iteration no-kernel gaps and the final iteration, but excludes queue time before the first GPU kernel and client completion overhead",
+    "server_tpot": "vLLM EngineCore (last-token output timestamp - first-token output timestamp)/(num_output_tokens-1) distribution vs simulator tpot_mean_ms distribution; excludes HTTP/SSE/client completion overhead",
+    "server_ttft": "vLLM EngineCore queued timestamp to first-token EngineCore output timestamp distribution vs the same simulator ttft_ms distribution; excludes client/frontend transport",
+    "simulated_completion_throughput": "all simulated output tokens divided by earliest arrival to latest finish_decode_time span",
+    "tpot": "client-accounted (total_duration_ms - first_token_ms)/(output_tokens-1) distribution vs simulator tpot_mean_ms distribution; total_duration_ms includes response completion and client post-processing"
+  },
+  "latency": {
+    "client_ttft": {
+      "measured_ms": {
+        "max": 96.65,
+        "mean": 53.835133333333346,
+        "n": 300,
+        "p50": 52.245,
+        "p90": 78.142,
+        "p99": 90.7641
+      },
+      "simulated_ms": {
+        "max": 51.93117141723633,
+        "mean": 15.343514258066813,
+        "n": 300,
+        "p50": 14.046874523162842,
+        "p90": 20.94670238494873,
+        "p99": 34.110240211486804
+      }
+    },
+    "e2e": {
+      "measured_ms": {
+        "max": 4427.98,
+        "mean": 3187.113599999998,
+        "n": 300,
+        "p50": 3179.5950000000003,
+        "p90": 3975.895,
+        "p99": 4372.7351
+      },
+      "simulated_ms": {
+        "max": 4365.948703625,
+        "mean": 3294.4148194357813,
+        "n": 300,
+        "p50": 3257.0133698437494,
+        "p90": 4035.3628899531254,
+        "p99": 4281.337242810625
+      }
+    },
+    "server_tpot": {
+      "measured_ms": {
+        "max": 7.017143280379174,
+        "mean": 6.122303098181604,
+        "n": 300,
+        "p50": 6.184556212122713,
+        "p90": 6.8645338883729305,
+        "p99": 7.002885165052681
+      },
+      "simulated_ms": {
+        "max": 6.863796710968018,
+        "mean": 6.417142581939697,
+        "n": 300,
+        "p50": 6.517457962036133,
+        "p90": 6.806850481033326,
+        "p99": 6.846079730987548
+      }
+    },
+    "server_ttft": {
+      "measured_ms": {
+        "max": 36.48722200887278,
+        "mean": 22.140610937106732,
+        "n": 300,
+        "p50": 19.789629033766687,
+        "p90": 29.600460984511304,
+        "p99": 36.288555145729326
+      },
+      "simulated_ms": {
+        "max": 51.93117141723633,
+        "mean": 15.343514258066813,
+        "n": 300,
+        "p50": 14.046874523162842,
+        "p90": 20.94670238494873,
+        "p99": 34.110240211486804
+      }
+    },
+    "tpot": {
+      "measured_ms": {
+        "max": 7.056710816777042,
+        "mean": 6.13290245048968,
+        "n": 300,
+        "p50": 6.208073348519362,
+        "p90": 6.877196103569428,
+        "p99": 7.032439599317988
+      },
+      "simulated_ms": {
+        "max": 6.863796710968018,
+        "mean": 6.417142581939697,
+        "n": 300,
+        "p50": 6.517457962036133,
+        "p90": 6.806850481033326,
+        "p99": 6.846079730987548
+      }
+    }
+  },
+  "meta": {
+    "analysis_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/analysis_e2e",
+    "measured_successful_requests": 300,
+    "profile_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/profile",
+    "request_id_audit": {
+      "measured_only_ids": 0,
+      "shared_ids": 300,
+      "simulated_only_ids": 0
+    },
+    "server_measured_requests": 300,
+    "server_tpot_requests": 300,
+    "simulated_completed_requests": 300,
+    "simulation_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/simulation"
+  },
+  "schema_version": 1,
+  "throughput": {
+    "bins": 20,
+    "common_span_ms": 12293.7001953125,
+    "measured_client_completion_span_ms": 11755.738019943237,
+    "measured_client_completion_tps": 13065.959767002503,
+    "measured_completion_tps": 13065.959767002503,
+    "measured_output_tokens": 153600,
+    "measured_server_gpu_iterations": 2040,
+    "measured_server_gpu_kernels": 3310232,
+    "measured_server_gpu_span_ms": 11743.140875,
+    "measured_server_gpu_span_tps": 13079.97593105601,
+    "simulated_completion_span_ms": 12293.7001953125,
+    "simulated_completion_tps": 12494.20415007083,
+    "simulated_output_tokens": 153600
+  }
+}

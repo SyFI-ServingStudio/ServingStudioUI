@@ -1,0 +1,16 @@
+{
+  "alignments": [
+    {
+      "alignment_id": "al_fixture_llama3_8b_tp4",
+      "descriptor_href": "alignment-llama3-8b-tp4/alignment_descriptor.json",
+      "display_name": "20260805_1_llama3_8b_tp4_rate32_design_reference",
+      "kind": "alignment",
+      "lifecycle": {
+        "e2e_analysis": "complete",
+        "kernel_analysis": "complete"
+      },
+      "workspace_id": "w_main"
+    }
+  ],
+  "protocol_version": 1
+}

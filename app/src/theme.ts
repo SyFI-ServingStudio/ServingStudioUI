@@ -20,6 +20,25 @@ export const tokens = {
   violet: '#6548dc',
   sectionStructure: '#6f9f9c',
   sectionAnalysis: '#577e89',
+  // Operation colors rotate by mapping order. The operation label is the key
+  // that keeps measured/modelled pairs together; the label itself is never
+  // parsed to choose a hue.
+  operationColorPanel: [
+    '#3d5268',
+    '#49617a',
+    '#55708c',
+    '#62809e',
+    '#7190ae',
+    '#3f765b',
+    '#559072',
+    '#6f4351',
+    '#875263',
+    '#a0616f',
+    '#b8737d',
+    '#5f6f43',
+    '#74864f',
+    '#8b9d63',
+  ],
   shadow: '0 1px 0 rgba(42,38,34,.02), 0 10px 30px -22px rgba(42,38,34,.35)',
   shadowLift: '0 20px 60px -28px rgba(42,38,34,.5)',
   serif: "'Fraunces', Georgia, serif",

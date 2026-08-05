@@ -1,6 +1,7 @@
 import App from './App';
 import { installAnalyzerSelectionPublisher } from './application/analyzerSelection';
 import {
+  alignmentIdFromHash,
   appViewFromHash,
   kernelMeasurementIdFromHash,
   kernelProfileIdFromHash,
@@ -39,6 +40,9 @@ const KernelMeasurementPage = lazy(() =>
 );
 const PredictionPage = lazy(() =>
   import('./features/prediction').then((feature) => ({ default: feature.PredictionPage })),
+);
+const AlignmentPage = lazy(() =>
+  import('./features/alignment').then((feature) => ({ default: feature.AlignmentPage })),
 );
 const FilePreviewPage = lazy(() =>
   import('./features/file').then((feature) => ({ default: feature.FilePreviewPage })),
@@ -142,6 +146,9 @@ export default function AppRoot() {
   else if (view === 'prediction') {
     const predictionId = predictionIdFromHash(locationHash);
     content = predictionId === null ? null : <PredictionPage predictionId={predictionId} />;
+  } else if (view === 'alignment') {
+    const alignmentId = alignmentIdFromHash(locationHash);
+    content = alignmentId === null ? null : <AlignmentPage alignmentId={alignmentId} />;
   } else if (view === 'kernel-profile') {
     const profileId = kernelProfileIdFromHash(locationHash);
     content = profileId === null ? null : <KernelProfilePage profileId={profileId} />;

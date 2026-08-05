@@ -66,4 +66,16 @@ describe('analyzer-v1 concurrency decoder', () => {
       reason: expect.stringContaining('cannot exceed exact peak'),
     });
   });
+
+  it('accepts and normalizes legacy bin means with floating-point peak drift', () => {
+    expect(
+      decodeAnalyzerV1ConcurrencyPayload({
+        ...payload,
+        active: [1.25, 4.000000000000003],
+      }),
+    ).toMatchObject({
+      status: 'ready',
+      payload: { active: [1.25, 4] },
+    });
+  });
 });

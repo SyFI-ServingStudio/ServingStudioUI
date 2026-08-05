@@ -438,11 +438,13 @@ export default function WorkspaceShell({
                     ? displayExperimentName(experiment.displayName)
                     : view === 'prediction'
                       ? 'Timing prediction'
-                      : view === 'kernel-profile'
-                        ? 'Kernel profile'
-                        : view === 'kernel-measurement'
-                          ? 'Kernel measurement'
-                          : 'Analyzer'}
+                      : view === 'alignment'
+                        ? 'Alignment'
+                        : view === 'kernel-profile'
+                          ? 'Kernel profile'
+                          : view === 'kernel-measurement'
+                            ? 'Kernel measurement'
+                            : 'Analyzer'}
               </Typography>
               {fileRef && (
                 <Typography

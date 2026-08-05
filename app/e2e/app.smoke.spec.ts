@@ -1,4 +1,10 @@
-import { expectRenderedCharts, openRealRun, scopeToPool, scopeToWorker } from './helpers';
+import {
+  expectRenderedCharts,
+  openAlignmentFixture,
+  openRealRun,
+  scopeToPool,
+  scopeToWorker,
+} from './helpers';
 import { expect, test } from './quality.fixture';
 
 test('loads the real analyzer folder and drills through a composite worker identity', async ({
@@ -219,4 +225,38 @@ test('opens an unclaimed run through the singleton aggregate interface', async (
   await expect(page.getByRole('img', { name: /by request_rate/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Inspect run →' }).click();
   await expect(page.getByRole('heading', { name: 'Simulation overview', level: 3 })).toBeVisible();
+});
+
+test('draws an alignment bundle from the measured capture beside the model', async ({ page }) => {
+  await openAlignmentFixture(page);
+
+  for (const heading of [
+    'What is in the comparison, and what is not',
+    'One cycle, split by operation',
+    "Where one iteration's wall clock went",
+    'The whole run',
+  ]) {
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+  }
+  await expectRenderedCharts(page);
+
+  // Every explanatory sentence on the page is the analyzer's. These two only
+  // exist in its documents, so seeing them proves the page quoted rather than
+  // paraphrased.
+  await expect(
+    page.getByRole('heading', { name: /replica critical-path sum/i }).first(),
+  ).toBeVisible();
+  await page.getByText(/further host threads/).hover();
+  await expect(
+    page.getByText('a host event belongs to every iteration', { exact: false }),
+  ).toBeVisible();
+
+  // Stepping the picker must load a different iteration, not redraw the same
+  // one: the shard is fetched by id, and that is the whole point of the index.
+  const picker = page.getByRole('img', { name: /every iteration in the capture/i });
+  const selectedIteration = page.getByText(/^iteration [\d,]+ · /).first();
+  const before = await selectedIteration.innerText();
+  await picker.focus();
+  await page.keyboard.press('End');
+  await expect(selectedIteration).not.toHaveText(before);
 });

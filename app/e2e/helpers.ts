@@ -10,6 +10,20 @@ export async function openRealRun(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { name: 'Model overview', level: 3 })).toBeVisible();
 }
 
+/** The checked-in alignment bundle, three iterations wide. Built by
+ * `scripts/extract-alignment-fixture.mjs` from a real capture, so the page is
+ * exercised against the shapes the analyzer actually emits. */
+export const FIXTURE_ALIGNMENT_ID = 'al_fixture_llama3_8b_tp4';
+
+export async function openAlignmentFixture(page: Page): Promise<void> {
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
+  await page.goto(`/#/alignment?workspace=w_main&alignment=${FIXTURE_ALIGNMENT_ID}`);
+  await expect(page.getByRole('heading', { name: 'Every iteration, paired' })).toBeVisible();
+  await expect(
+    page.getByRole('application', { name: /measured and modelled per iteration/i }),
+  ).toBeVisible();
+}
+
 export async function scopeToPool(page: Page, poolTag: string): Promise<void> {
   await page.getByRole('button', { name: `Scope to pool ${poolTag}` }).click();
   await expect(page.getByRole('heading', { name: `Pool · ${poolTag}`, level: 2 })).toBeVisible();

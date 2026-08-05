@@ -11,6 +11,7 @@ import { makeWorkerRef } from '../domain/worker';
 import {
   ArtifactAnalyzerRepository,
   ArtifactDetailUnavailableError,
+  UnknownAnalyzerAlignmentError,
   UnknownAnalyzerRunError,
 } from './ArtifactAnalyzerRepository';
 import {
@@ -288,5 +289,66 @@ describe('bundled analyzer-v1 artifact export', () => {
       detailName: 'worker-cost-tree',
       status: 'not_generated',
     });
+  });
+});
+
+/**
+ * The checked-in alignment bundle, read the way the app reads it.
+ *
+ * These go through the bundled reader rather than a hand-written module map so
+ * the fixture's own layout is what is under test: a byte-range index the export
+ * cannot seek into, served instead as one file per shipped iteration.
+ */
+describe('bundled alignment bundle', () => {
+  const ALIGNMENT_ID = 'al_fixture_llama3_8b_tp4';
+
+  it('reports both analysis halves and which subjects serve per-iteration detail', async () => {
+    const descriptor = await bundledArtifactAnalyzerRepository.getAlignmentDescriptor(ALIGNMENT_ID);
+    expect(descriptor.lifecycle).toEqual({ kernelAnalysis: 'complete', e2eAnalysis: 'complete' });
+    expect(descriptor.subjects.timeline.hasIterationDetail).toBe(true);
+    expect(descriptor.subjects.workload.hasIterationDetail).toBe(false);
+  });
+
+  it('serves every iteration the index names, by id', async () => {
+    const index = await bundledArtifactAnalyzerRepository.getAlignmentTimelineIndex(ALIGNMENT_ID);
+    const iterationIds = index.iterations.map((row) => row.iterationId);
+    expect(iterationIds.length).toBeGreaterThan(1);
+    expect(index.iterationDetail?.iterationIds).toEqual(iterationIds);
+    for (const iterationId of iterationIds) {
+      const iteration = await bundledArtifactAnalyzerRepository.getAlignmentTimelineIteration(
+        ALIGNMENT_ID,
+        iterationId,
+      );
+      expect(iteration.iterationId).toBe(iterationId);
+      await expect(
+        bundledArtifactAnalyzerRepository.getAlignmentBreakdown(ALIGNMENT_ID, iterationId),
+      ).resolves.toMatchObject({ iterationId });
+    }
+  });
+
+  it('carries the capture`s last iteration, whose gpu cycle never closed', async () => {
+    const series =
+      await bundledArtifactAnalyzerRepository.getAlignmentIterationSeries(ALIGNMENT_ID);
+    const trailing = series.iterations.at(-1);
+    expect(trailing?.measuredMs).toBeGreaterThan(0);
+    expect(trailing?.measuredGpuCycleMs).toBeNull();
+  });
+
+  it('reads both halves` reports and payloads', async () => {
+    await expect(
+      bundledArtifactAnalyzerRepository.getAlignmentIterationReport(ALIGNMENT_ID),
+    ).resolves.toMatchObject({ available: true });
+    await expect(
+      bundledArtifactAnalyzerRepository.getAlignmentWorkloadSeries(ALIGNMENT_ID),
+    ).resolves.toMatchObject({ available: true });
+    await expect(
+      bundledArtifactAnalyzerRepository.getAlignmentE2eSeries(ALIGNMENT_ID),
+    ).resolves.toBeDefined();
+  });
+
+  it('names an alignment the catalog does not carry', async () => {
+    await expect(
+      bundledArtifactAnalyzerRepository.getAlignmentDescriptor('al_absent'),
+    ).rejects.toBeInstanceOf(UnknownAnalyzerAlignmentError);
   });
 });

@@ -1,4 +1,5 @@
-export type OfflineResourceKind = 'timing_predict' | 'kernel_profile' | 'kernel_measure';
+export type OfflineResourceKind =
+  'timing_predict' | 'kernel_profile' | 'kernel_measure' | 'alignment';
 
 export interface OfflineResourceCatalogItem {
   readonly workspaceId: string;
@@ -14,6 +15,9 @@ export interface OfflineResourceCatalogItem {
   readonly gpuName?: string;
   readonly selector?: string;
   readonly caseCount?: number;
+  /** Alignment bundles carry two independent analysis halves, either of which
+   * may be missing. A single `status` would have to pick one to report. */
+  readonly analysisHalves?: readonly { readonly name: string; readonly status: string }[];
 }
 
 export interface KernelIdentity {

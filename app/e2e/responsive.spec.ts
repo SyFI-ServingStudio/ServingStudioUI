@@ -1,6 +1,7 @@
 import {
   expectKernelShareGeometry,
   expectNoHorizontalOverflow,
+  openAlignmentFixture,
   openRealRun,
   scopeToPool,
   scopeToWorker,
@@ -65,5 +66,10 @@ test('SLO distributions share one desktop row and stack within 390px', async ({
 test('aggregate metric sections stay inside the viewport', async ({ page }) => {
   await page.goto('/#/aggregate');
   await expect(page.getByRole('heading', { name: 'Sweep aggregate', level: 1 })).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('the alignment page keeps its lanes and boards inside the viewport', async ({ page }) => {
+  await openAlignmentFixture(page);
   await expectNoHorizontalOverflow(page);
 });

@@ -21,6 +21,18 @@ import {
   parseAnalyzerV1PredictionDescriptor,
 } from '../contracts/analyzer/v1/prediction';
 import {
+  parseAnalyzerV1AlignmentBreakdown,
+  parseAnalyzerV1AlignmentDescriptor,
+  parseAnalyzerV1AlignmentE2eReport,
+  parseAnalyzerV1AlignmentE2eSeries,
+  parseAnalyzerV1AlignmentIterationReport,
+  parseAnalyzerV1AlignmentIterationSeries,
+  parseAnalyzerV1AlignmentTimelineIndex,
+  parseAnalyzerV1AlignmentTimelineIteration,
+  parseAnalyzerV1AlignmentWorkloadReport,
+  parseAnalyzerV1AlignmentWorkloadSeries,
+} from '../contracts/analyzer/v1/alignment';
+import {
   parseHardwareGpu,
   parseKernelMeasurementDescriptor,
   parseKernelMeasurementSummary,
@@ -51,6 +63,7 @@ import type {
   SubjectArtifact,
   TraceResource,
 } from '../domain/artifacts';
+import type { AlignmentSubjectName } from '../domain/alignment';
 import type { Topology } from '../domain/run';
 import type { OptimalityMode } from '../domain/optimality';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
@@ -516,13 +529,111 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     return decodeAnalyzerV1PredictionOptimalityWaterfall(input, predictionId, caseId);
   }
 
+  async getAlignmentDescriptor(alignmentId: string) {
+    const input = await this.client.readJson(this.alignmentEndpoint(alignmentId, 'descriptor'));
+    return parseAnalyzerV1AlignmentDescriptor(input, alignmentId);
+  }
+
+  async getAlignmentIterationReport(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'iteration', 'report');
+    return parseAnalyzerV1AlignmentIterationReport(input);
+  }
+
+  async getAlignmentIterationSeries(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'iteration', 'payload');
+    return parseAnalyzerV1AlignmentIterationSeries(input);
+  }
+
+  async getAlignmentTimelineIndex(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'timeline', 'payload');
+    return parseAnalyzerV1AlignmentTimelineIndex(input);
+  }
+
+  async getAlignmentWorkloadReport(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'workload', 'report');
+    return parseAnalyzerV1AlignmentWorkloadReport(input);
+  }
+
+  async getAlignmentWorkloadSeries(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'workload', 'payload');
+    return parseAnalyzerV1AlignmentWorkloadSeries(input);
+  }
+
+  async getAlignmentE2eReport(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'e2e', 'report');
+    return parseAnalyzerV1AlignmentE2eReport(input);
+  }
+
+  async getAlignmentE2eSeries(alignmentId: string) {
+    const input = await this.readAlignmentSubject(alignmentId, 'e2e', 'payload');
+    return parseAnalyzerV1AlignmentE2eSeries(input);
+  }
+
+  async getAlignmentBreakdown(alignmentId: string, iterationId: number) {
+    const input = await this.readAlignmentIteration(alignmentId, 'iteration', iterationId);
+    return parseAnalyzerV1AlignmentBreakdown(input, iterationId);
+  }
+
+  async getAlignmentTimelineIteration(alignmentId: string, iterationId: number) {
+    const input = await this.readAlignmentIteration(
+      alignmentId,
+      'timeline',
+      iterationId,
+      'reference-lane',
+    );
+    return parseAnalyzerV1AlignmentTimelineIteration(input, iterationId);
+  }
+
+  private alignmentEndpoint(alignmentId: string, path: string): URL {
+    const selectedAlignmentId = routeSegment(alignmentId, 'Alignment id');
+    return this.client.endpoint(`alignments/${selectedAlignmentId}/${path}`);
+  }
+
+  private readAlignmentSubject(
+    alignmentId: string,
+    subject: AlignmentSubjectName,
+    leaf: 'report' | 'payload',
+  ): Promise<unknown> {
+    return this.client.readJson(this.alignmentEndpoint(alignmentId, `subjects/${subject}/${leaf}`));
+  }
+
+  private readAlignmentIteration(
+    alignmentId: string,
+    subject: AlignmentSubjectName,
+    iterationId: number,
+    projection?: string,
+  ): Promise<unknown> {
+    if (!Number.isSafeInteger(iterationId) || iterationId < 0) {
+      throw new HttpRunBindingError('Alignment iteration id must be a non-negative safe integer.');
+    }
+    const resourceUrl = this.alignmentEndpoint(
+      alignmentId,
+      `subjects/${subject}/iterations/${iterationId}`,
+    );
+    if (projection !== undefined) resourceUrl.searchParams.set('projection', projection);
+    return this.client.readJson(resourceUrl);
+  }
+
+  /** The four catalogs are read independently and merged from whatever
+   * arrived. One kind can fail on its own — a copied log directory duplicates
+   * a resource id and the service refuses that whole kind — and losing the
+   * results page entirely over it hides three working kinds to report one
+   * broken one. Only a total failure is raised, because that is the only case
+   * where the page has nothing left to show. */
   async listOfflineResources() {
-    const [predictions, profiles, measurements] = await Promise.all([
-      this.client.readJson(this.client.endpoint('predictions')),
-      this.client.readJson(this.client.endpoint('kernel-profiles')),
-      this.client.readJson(this.client.endpoint('kernel-measurements')),
-    ]);
-    return parseOfflineCatalogs(predictions, profiles, measurements);
+    const settled = await Promise.allSettled(
+      ['predictions', 'kernel-profiles', 'kernel-measurements', 'alignments'].map((resource) =>
+        this.client.readJson(this.client.endpoint(resource)),
+      ),
+    );
+    const failure = settled.find((result) => result.status === 'rejected');
+    if (failure !== undefined && settled.every((result) => result.status === 'rejected')) {
+      throw failure.reason;
+    }
+    const [predictions, profiles, measurements, alignments] = settled.map((result) =>
+      result.status === 'fulfilled' ? result.value : undefined,
+    );
+    return parseOfflineCatalogs(predictions, profiles, measurements, alignments);
   }
 
   async getKernelProfileDescriptor(profileId: string) {

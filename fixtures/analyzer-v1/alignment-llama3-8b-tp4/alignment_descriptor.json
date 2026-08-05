@@ -1,0 +1,36 @@
+{
+  "alignment_id": "al_fixture_llama3_8b_tp4",
+  "display_name": "20260805_1_llama3_8b_tp4_rate32_design_reference",
+  "kind": "alignment",
+  "lifecycle": {
+    "e2e_analysis": "complete",
+    "kernel_analysis": "complete"
+  },
+  "schema_version": 1,
+  "subjects": {
+    "e2e": {
+      "iteration_href": null,
+      "payload_href": "alignments/al_fixture_llama3_8b_tp4/subjects/e2e/payload",
+      "report_href": "alignments/al_fixture_llama3_8b_tp4/subjects/e2e/report",
+      "status": "ready"
+    },
+    "iteration": {
+      "iteration_href": "alignments/al_fixture_llama3_8b_tp4/subjects/iteration/iterations/{iteration_id}",
+      "payload_href": "alignments/al_fixture_llama3_8b_tp4/subjects/iteration/payload",
+      "report_href": "alignments/al_fixture_llama3_8b_tp4/subjects/iteration/report",
+      "status": "ready"
+    },
+    "timeline": {
+      "iteration_href": "alignments/al_fixture_llama3_8b_tp4/subjects/timeline/iterations/{iteration_id}",
+      "payload_href": "alignments/al_fixture_llama3_8b_tp4/subjects/timeline/payload",
+      "report_href": "alignments/al_fixture_llama3_8b_tp4/subjects/timeline/report",
+      "status": "ready"
+    },
+    "workload": {
+      "iteration_href": null,
+      "payload_href": "alignments/al_fixture_llama3_8b_tp4/subjects/workload/payload",
+      "report_href": "alignments/al_fixture_llama3_8b_tp4/subjects/workload/report",
+      "status": "ready"
+    }
+  }
+}

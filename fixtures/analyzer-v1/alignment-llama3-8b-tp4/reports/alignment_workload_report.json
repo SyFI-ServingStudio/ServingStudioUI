@@ -1,0 +1,106 @@
+{
+  "available": true,
+  "definitions": {
+    "decode_batch_size": "number of decode requests scheduled in the iteration",
+    "grain": "one scheduler iteration; measured and simulated series keep their own iteration ids",
+    "iteration_cycle_ms": {
+      "last_iteration": "null because no next boundary exists",
+      "measured": "first kernel start of this NSYS iteration to first kernel start of the next valid iteration",
+      "simulated": "this actual top-level iter cost_log wall_start_ms to the next; includes gpu_time_multiplier, tick quantization, and any scheduler gap"
+    },
+    "plot_axis": "recorded iteration_id on each side; ids are not renumbered or paired",
+    "prefill_tokens": "number of prompt/chunk tokens scheduled in the iteration",
+    "scheduled_kv_tokens": "sum(decode request KV lengths) + sum(prefill prefix_len + append_len) for the iteration",
+    "scheduled_not_resident": "scheduled_kv_tokens is the attention/KV workload touched by this iteration, not logical or physical resident KV-cache occupancy",
+    "time_axis": {
+      "measured": "first kernel launch of an NSYS iteration minus the first captured iteration's first kernel launch",
+      "simulated": "top-level iter cost_log wall_start_ms minus the first simulated iteration's wall_start_ms; this includes simulator gpu_time_multiplier effects"
+    }
+  },
+  "meta": {
+    "analysis_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/analysis_e2e",
+    "measured_iteration_cycles": 2039,
+    "measured_iterations": 2040,
+    "measured_span_ms": 11739.754206,
+    "profile_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/profile",
+    "simulated_iteration_cycles": 1996,
+    "simulated_iterations": 1997,
+    "simulated_span_ms": 12289.2,
+    "simulation_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/simulation"
+  },
+  "metrics": {
+    "decode_batch_size": {
+      "measured": {
+        "max": 124,
+        "mean": 75.1470588235294,
+        "n": 2040,
+        "p50": 84,
+        "p90": 116,
+        "p99": 121
+      },
+      "simulated": {
+        "max": 122,
+        "mean": 76.76514772158238,
+        "n": 1997,
+        "p50": 88,
+        "p90": 116,
+        "p99": 120
+      }
+    },
+    "iteration_cycle_ms": {
+      "measured": {
+        "max": 23.13891999999987,
+        "mean": 5.757603828347227,
+        "n": 2039,
+        "p50": 4.564889000000221,
+        "p90": 11.589841800000116,
+        "p99": 16.833383100000386
+      },
+      "simulated": {
+        "max": 26.599999999999454,
+        "mean": 6.156913827655258,
+        "n": 1996,
+        "p50": 5.600000000000364,
+        "p90": 9.199999999999818,
+        "p99": 15.605000000000333
+      }
+    },
+    "prefill_tokens": {
+      "measured": {
+        "max": 1913,
+        "mean": 75.29411764705883,
+        "n": 2040,
+        "p50": 0,
+        "p90": 436.2000000000003,
+        "p99": 1066
+      },
+      "simulated": {
+        "max": 1660,
+        "mean": 76.91537305958938,
+        "n": 1997,
+        "p50": 0,
+        "p90": 450.4000000000001,
+        "p99": 1004.4799999999996
+      }
+    },
+    "scheduled_kv_tokens": {
+      "measured": {
+        "max": 97050,
+        "mean": 58198.06519607843,
+        "n": 2040,
+        "p50": 64777,
+        "p90": 89025.9,
+        "p99": 94497.81
+      },
+      "simulated": {
+        "max": 96044,
+        "mean": 59451.20330495744,
+        "n": 1997,
+        "p50": 68431,
+        "p90": 89713.8,
+        "p99": 93784.52
+      }
+    }
+  },
+  "schema_version": 1
+}

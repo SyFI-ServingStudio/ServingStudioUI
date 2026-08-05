@@ -9,7 +9,9 @@ import { tokens } from '../../theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
-type ResultKind = 'simulation' | ManagedJobKind;
+/** `alignment` is discovered, never launched from here, so it sits beside the
+ * job kinds rather than inside them. */
+type ResultKind = 'simulation' | 'alignment' | ManagedJobKind;
 type FilterKind = 'type' | 'workspace' | 'deployment' | 'trace' | 'axis';
 type SelectedFilters = Record<FilterKind, readonly string[]>;
 
@@ -39,6 +41,7 @@ const EMPTY_FILTERS: SelectedFilters = {
 
 const RESULT_LABELS: Record<ResultKind, string> = {
   simulation: 'Simulation',
+  alignment: 'Alignment',
   timing_predict: 'Timing prediction',
   kernel_profile: 'Kernel profile',
   kernel_measure: 'Kernel measurement',
@@ -46,6 +49,7 @@ const RESULT_LABELS: Record<ResultKind, string> = {
 
 const RESULT_TONES: Record<ResultKind, CatalogTagTone> = {
   simulation: 'simulation',
+  alignment: 'trace',
   timing_predict: 'timing',
   kernel_profile: 'profile',
   kernel_measure: 'measure',
@@ -80,6 +84,17 @@ function jobDetails(job: ManagedJobListItem): CatalogResult['detailTags'] {
   const details: { label: string; tone: CatalogTagTone }[] = [];
   if (job.status !== 'ready') details.push({ label: job.status, tone: 'measure' });
   return details;
+}
+
+function offlineResourceSubtitle(resource: OfflineResourceCatalogItem): string {
+  if (resource.kind === 'timing_predict') return `${resource.caseCount ?? 0} cases`;
+  if (resource.kind === 'alignment') {
+    const analysed = (resource.analysisHalves ?? [])
+      .filter((half) => half.status === 'complete')
+      .map((half) => half.name);
+    return analysed.length === 0 ? 'measured vs simulated' : `${analysed.join(' + ')} analysis`;
+  }
+  return resource.kernelKind || resource.table || 'kernel result';
 }
 
 function catalogResults(
@@ -123,10 +138,7 @@ function catalogResults(
         workspaceId: job?.workspaceId ?? resource.workspaceId,
         timestamp: Date.parse(resource.updatedAt),
         name: conciseName(resource.displayName),
-        subtitle:
-          resource.kind === 'timing_predict'
-            ? `${resource.caseCount ?? 0} cases`
-            : resource.kernelKind || resource.table || 'kernel result',
+        subtitle: offlineResourceSubtitle(resource),
         deployments: resource.backend ? [resource.backend] : [],
         traces: [],
         axes: resource.selector ? [resource.selector] : [],
@@ -193,10 +205,7 @@ export default function ExperimentCatalog({
   jobs: readonly ManagedJobListItem[];
   offlineResources: readonly OfflineResourceCatalogItem[];
   onActivate: (entry: SweepListItem) => void;
-  onActivateOfflineResource: (
-    resource: OfflineResourceCatalogItem,
-    workspaceId: string,
-  ) => void;
+  onActivateOfflineResource: (resource: OfflineResourceCatalogItem, workspaceId: string) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);

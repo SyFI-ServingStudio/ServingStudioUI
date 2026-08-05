@@ -58,11 +58,14 @@ function navigateToOfflineResource(
   workspaceId: string,
 ): void {
   const query = new URLSearchParams({ workspace: workspaceId });
-  let route: 'prediction' | 'kernel-profile' | 'kernel-measurement';
+  let route: 'prediction' | 'alignment' | 'kernel-profile' | 'kernel-measurement';
   if (resource.kind === 'timing_predict') {
     route = 'prediction';
     query.set('prediction', resource.resourceId);
     query.set('optimalityMode', 'unlocked');
+  } else if (resource.kind === 'alignment') {
+    route = 'alignment';
+    query.set('alignment', resource.resourceId);
   } else if (resource.kind === 'kernel_profile') {
     route = 'kernel-profile';
     query.set('profile', resource.resourceId);

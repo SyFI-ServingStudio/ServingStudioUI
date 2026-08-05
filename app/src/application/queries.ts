@@ -1,6 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 
 import { AnalyzerV1OverviewResourceError } from '../contracts/analyzer/v1/overviewResources';
+import type { AlignmentSubjectName } from '../domain/alignment';
 import type { RunDescriptor } from '../domain/artifacts';
 import type {
   ModelConfigResource,
@@ -197,6 +198,20 @@ export const analyzerQueryKeys = {
       'optimality',
       resource,
       mode,
+    ] as const,
+  alignments: () => [...analyzerQueryKeys.all, 'alignments'] as const,
+  alignmentDescriptor: (alignmentId: string) =>
+    [...analyzerQueryKeys.alignments(), alignmentId, 'descriptor'] as const,
+  alignmentSubject: (alignmentId: string, subject: AlignmentSubjectName, leaf: string) =>
+    [...analyzerQueryKeys.alignments(), alignmentId, 'subject', subject, leaf] as const,
+  alignmentIteration: (alignmentId: string, subject: AlignmentSubjectName, iterationId: number) =>
+    [
+      ...analyzerQueryKeys.alignments(),
+      alignmentId,
+      'subject',
+      subject,
+      'iteration',
+      iterationId,
     ] as const,
   workerOperations: (
     runId: string,
@@ -878,6 +893,151 @@ export function usePredictionOptimalityQueries(
     ladder: Object.assign(ladder, { supported: ladderSupported }),
     waterfall: Object.assign(waterfall, { supported: waterfallSupported }),
   };
+}
+
+/** One alignment subject document.
+ *
+ * Each subject is fetched on its own because the two analysis halves are
+ * independent: a bundle with only the kernel half must still render its
+ * kernel-half sections rather than fail as a whole. */
+function useAlignmentSubjectQuery<Value>(
+  alignmentId: string,
+  subject: AlignmentSubjectName,
+  leaf: 'report' | 'payload',
+  read: ((alignmentId: string) => Promise<Value>) | undefined,
+  enabled = true,
+) {
+  const supported = read !== undefined;
+  const query = useQuery({
+    queryKey: analyzerQueryKeys.alignmentSubject(alignmentId, subject, leaf),
+    queryFn: () => {
+      if (read === undefined) {
+        throw new Error('Alignment analysis requires the live Analyzer service.');
+      }
+      return read(alignmentId);
+    },
+    enabled: supported && enabled && alignmentId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function useAlignmentDescriptorQuery(alignmentId: string) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getAlignmentDescriptor !== undefined;
+  const query = useQuery({
+    queryKey: analyzerQueryKeys.alignmentDescriptor(alignmentId),
+    queryFn: () => {
+      if (repository.getAlignmentDescriptor === undefined) {
+        throw new Error('Alignment bundles require the live Analyzer service.');
+      }
+      return repository.getAlignmentDescriptor(alignmentId);
+    },
+    enabled: supported && alignmentId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function useAlignmentIterationReportQuery(alignmentId: string, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useAlignmentSubjectQuery(
+    alignmentId,
+    'iteration',
+    'report',
+    repository.getAlignmentIterationReport?.bind(repository),
+    enabled,
+  );
+}
+
+export function useAlignmentIterationSeriesQuery(alignmentId: string, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useAlignmentSubjectQuery(
+    alignmentId,
+    'iteration',
+    'payload',
+    repository.getAlignmentIterationSeries?.bind(repository),
+    enabled,
+  );
+}
+
+export function useAlignmentTimelineIndexQuery(alignmentId: string, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useAlignmentSubjectQuery(
+    alignmentId,
+    'timeline',
+    'payload',
+    repository.getAlignmentTimelineIndex?.bind(repository),
+    enabled,
+  );
+}
+
+export function useAlignmentWorkloadSeriesQuery(alignmentId: string, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useAlignmentSubjectQuery(
+    alignmentId,
+    'workload',
+    'payload',
+    repository.getAlignmentWorkloadSeries?.bind(repository),
+    enabled,
+  );
+}
+
+export function useAlignmentE2eSeriesQuery(alignmentId: string, enabled = true) {
+  const repository = useAnalyzerRepository();
+  return useAlignmentSubjectQuery(
+    alignmentId,
+    'e2e',
+    'payload',
+    repository.getAlignmentE2eSeries?.bind(repository),
+    enabled,
+  );
+}
+
+/** One iteration out of the timeline shard. Held forever once read: the
+ * picker walks back and forth over a handful of iterations and each is a
+ * separate range read on the service. */
+export function useAlignmentTimelineIterationQuery(
+  alignmentId: string,
+  iterationId: number | null,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getAlignmentTimelineIteration !== undefined;
+  const ready = iterationId !== null;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.alignmentIteration(alignmentId, 'timeline', iterationId)
+      : [...analyzerQueryKeys.alignments(), alignmentId, 'timeline-iteration', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getAlignmentTimelineIteration === undefined) {
+        throw new Error('An alignment iteration requires a selected iteration.');
+      }
+      return repository.getAlignmentTimelineIteration(alignmentId, iterationId);
+    },
+    enabled: supported && ready && alignmentId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
+}
+
+export function useAlignmentBreakdownQuery(alignmentId: string, iterationId: number | null) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getAlignmentBreakdown !== undefined;
+  const ready = iterationId !== null;
+  const query = useQuery({
+    queryKey: ready
+      ? analyzerQueryKeys.alignmentIteration(alignmentId, 'iteration', iterationId)
+      : [...analyzerQueryKeys.alignments(), alignmentId, 'breakdown', 'not-ready'],
+    queryFn: () => {
+      if (!ready || repository.getAlignmentBreakdown === undefined) {
+        throw new Error('An alignment breakdown requires a selected iteration.');
+      }
+      return repository.getAlignmentBreakdown(alignmentId, iterationId);
+    },
+    enabled: supported && ready && alignmentId.length > 0,
+    staleTime: Infinity,
+  });
+  return Object.assign(query, { supported });
 }
 
 export function useWorkerOperationsQuery(

@@ -67,6 +67,22 @@ describe('offline Analyzer resources', () => {
     expect(resources[1]).not.toHaveProperty('conversationId');
   });
 
+  it('lists the kinds it could read when another kind is missing', () => {
+    const resources = parseOfflineCatalogs(undefined, undefined, undefined, {
+      alignments: [
+        {
+          workspace_id: 'w_main',
+          alignment_id: 'al_one',
+          display_name: 'align',
+          kernel_analysis: 'complete',
+          e2e_analysis: 'complete',
+          updated_at: '2026-08-01T00:00:00Z',
+        },
+      ],
+    });
+    expect(resources.map((resource) => resource.resourceId)).toEqual(['al_one']);
+  });
+
   it('retains Analyzer hardware limits on profile rows', () => {
     const curve = parseKernelProfileCurve({
       schemaVersion: 1,

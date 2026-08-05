@@ -24,3 +24,6 @@ blob-report/
 .idea/
 .vscode/
 .DS_Store
+
+smoke/
+design-alignment-data/

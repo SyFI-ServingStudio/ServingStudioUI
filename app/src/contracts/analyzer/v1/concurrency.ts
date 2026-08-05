@@ -15,6 +15,7 @@ import {
 } from './subjectDecode';
 
 const MAX_POINTS = 512;
+const FLOAT_BOUND_RELATIVE_TOLERANCE = 1e-12;
 
 const readySchema = z
   .object({
@@ -69,8 +70,11 @@ function semanticIssues(wire: ReadyWire, options: AnalyzerV1PayloadDecodeOptions
   if (last !== wire.meta.span_ms) {
     issues.push(`t_ms.${wire.t_ms.length - 1}: must equal meta.span_ms (${wire.meta.span_ms})`);
   }
+  const peakTolerance = Math.max(1e-9, wire.peak * FLOAT_BOUND_RELATIVE_TOLERANCE);
   wire.active.forEach((value, index) => {
-    if (value > wire.peak) issues.push(`active.${index}: cannot exceed exact peak ${wire.peak}`);
+    if (value > wire.peak + peakTolerance) {
+      issues.push(`active.${index}: cannot exceed exact peak ${wire.peak}`);
+    }
   });
   if (wire.peak > wire.meta.request_count) {
     issues.push(`peak: cannot exceed meta.request_count (${wire.meta.request_count})`);
@@ -79,7 +83,14 @@ function semanticIssues(wire: ReadyWire, options: AnalyzerV1PayloadDecodeOptions
 }
 
 function toConcurrency(wire: ReadyWire): Concurrency {
-  return { t_ms: [...wire.t_ms], active: [...wire.active], peak: wire.peak };
+  // Analyzer versions before the producer-side clamp can exceed an integer
+  // peak by a few ULPs after area / bin-width division. Preserve compatibility
+  // with those artifacts without exposing an impossible chart value.
+  return {
+    t_ms: [...wire.t_ms],
+    active: wire.active.map((value) => Math.min(value, wire.peak)),
+    peak: wire.peak,
+  };
 }
 
 export function decodeAnalyzerV1ConcurrencyPayload(

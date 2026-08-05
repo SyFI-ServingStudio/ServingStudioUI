@@ -30,6 +30,18 @@ import type {
   PredictionOptimalityWaterfall,
 } from '../domain/prediction';
 import type {
+  AlignmentBreakdown,
+  AlignmentDescriptor,
+  AlignmentE2eReport,
+  AlignmentE2eSeries,
+  AlignmentIterationReport,
+  AlignmentIterationSeries,
+  AlignmentTimelineIndex,
+  AlignmentTimelineIteration,
+  AlignmentWorkloadReport,
+  AlignmentWorkloadSeries,
+} from '../domain/alignment';
+import type {
   HardwareGpu,
   KernelMeasurementDescriptor,
   KernelMeasurementSummary,
@@ -147,6 +159,34 @@ export interface AnalyzerRepository {
     caseId: string,
     mode: OptimalityMode,
   ): Promise<PredictionOptimalityWaterfall>;
+
+  /** An alignment bundle pairs a measured capture with the prediction of the
+   * same shapes. Its two analysis halves are independent, so a caller asks for
+   * one subject at a time rather than for a whole bundle. */
+  getAlignmentDescriptor?(alignmentId: string): Promise<AlignmentDescriptor>;
+
+  getAlignmentIterationReport?(alignmentId: string): Promise<AlignmentIterationReport>;
+
+  getAlignmentIterationSeries?(alignmentId: string): Promise<AlignmentIterationSeries>;
+
+  getAlignmentTimelineIndex?(alignmentId: string): Promise<AlignmentTimelineIndex>;
+
+  getAlignmentWorkloadReport?(alignmentId: string): Promise<AlignmentWorkloadReport>;
+
+  getAlignmentWorkloadSeries?(alignmentId: string): Promise<AlignmentWorkloadSeries>;
+
+  getAlignmentE2eReport?(alignmentId: string): Promise<AlignmentE2eReport>;
+
+  getAlignmentE2eSeries?(alignmentId: string): Promise<AlignmentE2eSeries>;
+
+  /** One iteration out of a subject's detail shard. The whole shard is
+   * hundreds of megabytes; the service reads this record by byte range. */
+  getAlignmentBreakdown?(alignmentId: string, iterationId: number): Promise<AlignmentBreakdown>;
+
+  getAlignmentTimelineIteration?(
+    alignmentId: string,
+    iterationId: number,
+  ): Promise<AlignmentTimelineIteration>;
 
   /** Offline results are discovered from Analyzer; conversation state is only
    * an ownership overlay and never supplies these payloads. */

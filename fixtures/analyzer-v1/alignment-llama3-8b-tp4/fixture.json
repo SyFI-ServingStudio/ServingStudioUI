@@ -1,0 +1,33 @@
+{
+  "alignment_id": "al_fixture_llama3_8b_tp4",
+  "fixture_id": "alignment-llama3-8b-tp4",
+  "iteration_ids": [
+    6,
+    1025,
+    2045
+  ],
+  "source_alignment_id": "al_17cbe054dabdad88f641e486e5df099eab32960ff6b207f6a034fba833588c55",
+  "source_display_name": "20260805_1_llama3_8b_tp4_rate32_design_reference",
+  "trims": [
+    "iterations 2040 -> 3: 6, 1025, 2045",
+    "timeline iteration 6: kernel intervals kept for reference rank 0 only",
+    "timeline iteration 1025: kernel intervals kept for reference rank 0 only",
+    "timeline iteration 2045: kernel intervals kept for reference rank 0 only",
+    "host string pool 12634 -> 61, renumbered",
+    "iteration series: sequences kept only for the fixture iterations",
+    "iteration report: kernels 25698 -> 40, costliest first",
+    "iteration report: unmapped rows capped at 12 per side; coverage numbers are the untrimmed ones",
+    "workload series measured: 2040 -> 96 points per series",
+    "workload series simulated: 1997 -> 96 points per series",
+    "cdf client_ttft measured: 300 -> 96 points per series",
+    "cdf client_ttft simulated: 300 -> 96 points per series",
+    "cdf server_ttft measured: 300 -> 96 points per series",
+    "cdf server_ttft simulated: 300 -> 96 points per series",
+    "cdf tpot measured: 300 -> 96 points per series",
+    "cdf tpot simulated: 300 -> 96 points per series",
+    "cdf server_tpot measured: 300 -> 96 points per series",
+    "cdf server_tpot simulated: 300 -> 96 points per series",
+    "cdf e2e measured: 300 -> 96 points per series",
+    "cdf e2e simulated: 300 -> 96 points per series"
+  ]
+}

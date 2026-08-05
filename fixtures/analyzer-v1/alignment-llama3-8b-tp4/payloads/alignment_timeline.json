@@ -1,0 +1,1059 @@
+{
+  "definitions": {
+    "anchor_ns": "where the modelled iteration is drawn from: the reference rank's first kernel start. An assumption, not a measurement — see meta.anchor_rule",
+    "gpu_span_ns": "reference rank's [first kernel start, last kernel end]. The correlated kernel span, NOT the NVTX range: under CUDA graphs the range can close before its own kernels finish",
+    "host.api": "per thread, one [start_ns, duration_ns, string_id, class_index] per CUDA runtime call, anchor-relative like host.nvtx. class_index indexes meta.host_timeline.api_classes; a thread between two calls is unaccounted for, not idle — the capture carries no CPU sampling",
+    "host.nvtx": "per thread, one [start_ns, duration_ns, string_id, depth] per NVTX range overlapping this iteration's host window. start_ns is anchor-relative like host.window_ns, NOT capture-relative like gpu_span_ns and the measured kernel intervals — the host block keeps small numbers because there are millions of these rows. Depth is measured containment on that thread, not an assumed outer/inner split",
+    "host.window_ns": "this iteration's host window, anchor-relative. Wider than the GPU span on both sides, and overlapping its neighbours' — that overlap is the pipelining, see meta.host_timeline.window_rule",
+    "iteration_detail.byte_ranges": "iteration_id -> [byte offset, byte length] into the sibling .jsonl. Read that range and parse it as one JSON object; the whole file is never needed at once",
+    "iterations": "one summary row per emitted iteration — the scalars a picker sorts on. Every per-kernel and per-host-event field lives in the detail shard instead",
+    "measured.kernels[].iv": "one [device_id, start_ns, end_ns] per rank launch of this kernel position, unreduced. Bubbles are the complement of the union of these over the span, and must be computed from these raw intervals rather than from drawn geometry",
+    "measured.kernels[].occ_ns": "this occurrence's cross-rank critical-path contribution (independent = slowest rank's duration; synchronizing collective = max(end) - max(start)). Their sum is measured.critical_path_ms",
+    "operation_totals": "the ONLY sound join between the two lanes. occurrence_ratio is a counting ratio (3 measured kernels priced as 1 modelled leaf), never a per-kernel correspondence",
+    "reference_rank.idle_ms": "span_ms - busy_ms over the reference rank's correlated kernels; this is the bubble budget the GPU lane draws",
+    "selected_as": "why this iteration is in the file: group_median (a typical member of its kernel program), global_max_error / global_min_error (the capture's extremes), or manifest_override",
+    "simulated.slot_ms": "per-slot UNIT time. Feed these to the cost-tree unfold and let Scale{n} repeat them; critical-path-attributed times would render a losing Max branch as a zero-width leaf",
+    "slot_multiplicity": "each slot's exact CostTree Scale multiplicity; folded workload = slot_ms x slot_multiplicity. Shared by every iteration because the tree shape is static",
+    "time_origin_ns": "absolute nsys timestamp every *_ns in this file is measured from; kept as an offset so a JSON number never loses nanosecond precision"
+  },
+  "iteration_detail": {
+    "byte_ranges": {
+      "6": [
+        0,
+        119047
+      ],
+      "1025": [
+        125838613,
+        155678
+      ],
+      "2045": [
+        249011538,
+        134612
+      ]
+    },
+    "encoding": "one JSON object per line, in the order of `iterations`",
+    "file": "alignment_timeline_iterations.jsonl"
+  },
+  "iterations": [
+    {
+      "anchor_ns": 53805,
+      "busy_ms": 8.359058,
+      "case_index": 0,
+      "gap_count": 396,
+      "has_host_lane": true,
+      "identity_sequence": "sequence_93bc4817bce9",
+      "idle_fraction": 0.2037280775496219,
+      "idle_ms": 2.1386850000000006,
+      "iteration_id": 6,
+      "iteration_type": "prefill",
+      "measured_gpu_cycle_ms": 10.491966,
+      "measured_ms": 6.839958999999998,
+      "relative_diff_pct": -9.885288793851013,
+      "selected_as": "group_median",
+      "simulated_gpu_cycle_ms": 8.191575916091196,
+      "simulated_ms": 6.163809299468994,
+      "span_ms": 10.497743,
+      "stage": "mixed"
+    },
+    {
+      "anchor_ns": 6136967128,
+      "busy_ms": 10.869263,
+      "case_index": 1019,
+      "gap_count": 350,
+      "has_host_lane": true,
+      "identity_sequence": "sequence_3c95063c7378",
+      "idle_fraction": 0.13692950308384008,
+      "idle_ms": 1.7244510000000002,
+      "iteration_id": 1025,
+      "iteration_type": "mixed",
+      "measured_gpu_cycle_ms": 12.662463,
+      "measured_ms": 10.959657999999997,
+      "relative_diff_pct": 0.9111237386726355,
+      "selected_as": "full_capture",
+      "simulated_gpu_cycle_ms": 14.6978669356884,
+      "simulated_ms": 11.059514045715332,
+      "span_ms": 12.593714,
+      "stage": "mixed"
+    },
+    {
+      "anchor_ns": 11739754206,
+      "busy_ms": 2.45827,
+      "case_index": 2039,
+      "gap_count": 458,
+      "has_host_lane": true,
+      "identity_sequence": "sequence_4c183971c81e",
+      "idle_fraction": 0.2738760862970536,
+      "idle_ms": 0.9271989999999999,
+      "iteration_id": 2045,
+      "iteration_type": "decode",
+      "measured_gpu_cycle_ms": null,
+      "measured_ms": 2.4922470000000003,
+      "relative_diff_pct": 34.99907103008923,
+      "selected_as": "full_capture",
+      "simulated_gpu_cycle_ms": 4.471365057817579,
+      "simulated_ms": 3.3645102977752686,
+      "span_ms": 3.385469,
+      "stage": "decode"
+    }
+  ],
+  "kernel_names": {
+    "1": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+    "2": "void at::native::vectorized_elementwise_kernel<(int)2, at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+    "3": "_copy_page_indices_kernel",
+    "4": "triton_poi_fused_add_all_reduce_bitwise_and_bitwise_not_bitwise_or_embedding_ge_lt_masked_fill_mul_sub_unsqueeze_0",
+    "5": "void vllm::cross_device_reduce_2stage<__nv_bfloat16, (int)4>(vllm::RankData *, vllm::RankSignals, vllm::Signal *, T1 *, int, int)",
+    "6": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_1",
+    "7": "nvjet_tst_112x64_64x9_2x1_v_bz_TNN",
+    "8": "triton_poi_fused_2",
+    "9": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, long, long, long, long, int, int, int, const float *, const float *, int)",
+    "10": "void flashinfer::PrefillWithKVCacheKernel<flashinfer::SparseCollectiveMainloop<PagedParams::AdditionalParams, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)1, (bool)0>, flashinfer::CollectiveEpilogue<flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>>, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)0, (bool)1, flashinfer::BatchPrefillPersistentTileScheduler<int>, (bool)0>(T1::Params, T2::Params, T6::Params)",
+    "11": "nvjet_tst_192x96_64x5_1x2_h_bz_TNT",
+    "12": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_0",
+    "13": "nvjet_tst_192x192_64x4_4x1_v_bz_coopB_TNN",
+    "14": "triton_poi_fused_mul_silu_slice_1",
+    "15": "nvjet_tst_128x160_64x5_2x1_v_bz_TNT",
+    "16": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_2",
+    "17": "triton_poi_fused_3",
+    "18": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+    "19": "void at::native::index_elementwise_kernel<(int)128, (int)4, void at::native::gpu_index_kernel<void at::native::index_kernel_impl<at::native::OpaqueType<(int)2>>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>)::[lambda(char *, const char *, long) (instance 1)]>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>, const T1 &, bool)::[lambda(int) (instance 1)]>(long, T3)",
+    "20": "nvjet_tst_256x8_64x6_2x1_v_bz_TNT",
+    "21": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+    "22": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+    "23": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+    "24": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(int) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+    "25": "triton_poi_fused_0",
+    "26": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+    "27": "nvjet_tst_64x8_64x16_4x1_v_bz_splitK_TNT",
+    "28": "void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, __nv_bfloat16, float, __nv_bfloat16, (bool)0, float, __nv_bfloat16, __nv_bfloat16, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T10 *, T9 *, T5 *, const T6 *, const T6 *, const T11 *, const T4 *, T11 *, void *, long, T6 *, int *, T6 *, T6 *, const T6 *, const T6 *, const T6 *, const T6 *, const T6 *)",
+    "29": "triton_poi_fused_1",
+    "30": "void flashinfer::BatchPrefillWithPagedKVCacheKernel<flashinfer::KernelTraits<(flashinfer::MaskMode)0, (unsigned int)16, (unsigned int)1, (unsigned int)2, (unsigned int)8, (unsigned int)8, (unsigned int)1, (unsigned int)4, (flashinfer::PosEncodingMode)0, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, float, int, flashinfer::DefaultAttention<(bool)0, (bool)0, (bool)0, (bool)0>>, PagedParams>(T2)",
+    "31": "void flashinfer::PersistentVariableLengthMergeStatesKernel<(unsigned int)8, (unsigned int)16, (unsigned int)8, (unsigned int)4, __nv_bfloat16, __nv_bfloat16, int>(T5 *, float *, T7 *, T6 *, float *, unsigned int, unsigned int *, unsigned int)",
+    "32": "nvjet_tst_64x8_64x16_4x1_v_bz_TNT",
+    "33": "nvjet_tst_64x8_64x16_2x1_v_bz_splitK_TNT",
+    "34": "triton_poi_fused_mul_silu_slice_0",
+    "35": "nvjet_tst_96x128_64x7_2x1_v_bz_TNN",
+    "36": "nvjet_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+    "37": "nvjet_tst_256x112_64x4_2x1_v_bz_coopA_TNT",
+    "38": "void at::native::vectorized_gather_kernel<(int)16, long>(char *, char *, T2 *, int, long, long, long, long, bool)",
+    "39": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+    "40": "nvjet_tst_96x64_64x10_1x2_h_bz_TNN",
+    "41": "nvjet_tst_128x128_64x6_2x1_v_bz_TNT",
+    "42": "nvjet_tst_112x128_64x7_2x1_v_bz_TNN",
+    "43": "nvjet_tst_128x96_64x7_4x2_h_bz_TNT",
+    "44": "nvjet_tst_192x160_64x4_1x2_h_bz_coopB_TNT",
+    "45": "void at::native::vectorized_elementwise_kernel<(int)4, at::native::FillFunctor<int>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+    "46": "nvjet_tst_128x64_64x8_4x2_h_bz_TNT",
+    "47": "nvjet_tst_256x160_64x4_2x4_v_bz_coopA_TNT",
+    "48": "void at::native::unrolled_elementwise_kernel<at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>, (int)4, TrivialOffsetCalculator<(int)0, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+    "49": "nvjet_tst_192x104_64x5_1x2_h_bz_TNT",
+    "50": "nvjet_tst_192x208_64x4_4x1_v_bz_coopB_TNT",
+    "51": "nvjet_tst_96x64_64x10_4x1_v_bz_TNN",
+    "52": "nvjet_tst_64x232_64x5_2x1_v_bz_TNT",
+    "53": "nvjet_tst_448x64_64x3_1x2_h_bz_coopB_TNN",
+    "54": "nvjet_tst_256x16_64x6_2x1_v_bz_TNT",
+    "55": "nvjet_tst_64x16_64x16_4x1_v_bz_splitK_TNT",
+    "56": "nvjet_tst_64x8_64x16_1x2_h_bz_TNT",
+    "57": "nvjet_tst_64x16_64x16_4x1_v_bz_TNT",
+    "58": "nvjet_tst_64x16_64x16_2x1_v_bz_splitK_TNT",
+    "59": "nvjet_tst_64x208_64x6_2x1_v_bz_TNT",
+    "60": "nvjet_tst_128x224_64x4_4x2_v_bz_coopA_TNT",
+    "61": "nvjet_tst_64x224_64x5_2x1_v_bz_TNT",
+    "62": "nvjet_tst_64x80_64x11_4x1_v_bz_TNT",
+    "63": "nvjet_tst_128x104_64x7_1x2_h_bz_TNT",
+    "64": "nvjet_tst_128x208_64x5_4x2_v_bz_coopA_TNT",
+    "65": "nvjet_tst_128x144_64x6_2x1_v_bz_TNT",
+    "66": "nvjet_tst_64x96_64x10_4x1_v_bz_TNT",
+    "67": "nvjet_tst_128x120_64x6_1x2_h_bz_TNT",
+    "68": "nvjet_tst_192x160_64x4_4x1_v_bz_coopB_TNT",
+    "69": "nvjet_tst_192x80_64x6_1x2_h_bz_TNT",
+    "70": "nvjet_tst_144x128_64x6_2x1_v_bz_TNN",
+    "71": "nvjet_tst_128x48_64x9_2x1_v_bz_TNT",
+    "72": "nvjet_tst_128x136_64x6_2x1_v_bz_TNT",
+    "73": "nvjet_tst_192x176_64x4_4x1_v_bz_coopB_TNT",
+    "74": "nvjet_tst_256x24_64x6_2x1_v_bz_TNT",
+    "75": "nvjet_tst_64x24_64x16_4x1_v_bz_splitK_TNT",
+    "76": "nvjet_tst_64x24_64x16_4x1_v_bz_TNT",
+    "77": "nvjet_tst_64x24_64x16_2x1_v_bz_splitK_TNT",
+    "78": "nvjet_tst_128x64_64x8_2x1_v_bz_TNT",
+    "79": "nvjet_tst_192x112_64x5_1x2_h_bz_TNT",
+    "80": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+    "81": "nvjet_tst_128x112_64x7_4x2_h_bz_TNT",
+    "82": "nvjet_tst_128x272_64x4_2x1_v_bz_coopA_TNT",
+    "83": "nvjet_tst_192x192_64x4_2x1_v_bz_coopB_TNN",
+    "84": "nvjet_tst_256x128_64x4_2x1_v_bz_coopA_TNT",
+    "85": "nvjet_tst_256x32_64x5_2x1_v_bz_TNT",
+    "86": "nvjet_tst_128x128_64x6_4x2_h_bz_TNT",
+    "87": "nvjet_tst_320x128_64x3_1x2_h_bz_coopB_TNT",
+    "88": "nvjet_tst_192x128_64x5_1x2_h_bz_coopB_TNT",
+    "89": "nvjet_tst_64x32_64x16_4x1_v_bz_splitK_TNT",
+    "90": "nvjet_tst_64x16_64x16_1x2_h_bz_TNT",
+    "91": "nvjet_tst_64x32_64x16_4x1_v_bz_TNT",
+    "92": "nvjet_tst_64x32_64x16_2x1_v_bz_splitK_TNT",
+    "93": "nvjet_tst_128x152_64x6_2x1_v_bz_TNT",
+    "94": "nvjet_tst_128x304_64x3_4x2_v_bz_coopA_TNT",
+    "95": "nvjet_tst_256x40_64x5_2x1_v_bz_TNT",
+    "96": "nvjet_tst_64x40_64x16_4x1_v_bz_splitK_TNT",
+    "97": "nvjet_tst_64x24_64x16_1x2_h_bz_TNT",
+    "98": "nvjet_tst_64x40_64x16_4x1_v_bz_TNT",
+    "99": "nvjet_tst_64x40_64x16_2x1_v_bz_splitK_TNT",
+    "100": "nvjet_tst_256x96_64x4_4x1_v_bz_coopA_TNT",
+    "101": "nvjet_tst_168x128_64x5_1x2_h_bz_TNN",
+    "102": "nvjet_tst_128x192_64x5_2x1_v_bz_coopB_TNN",
+    "103": "nvjet_tst_256x48_64x5_2x1_v_bz_TNT",
+    "104": "nvjet_tst_64x48_64x15_4x1_v_bz_splitK_TNT",
+    "105": "nvjet_tst_64x48_64x15_4x1_v_bz_TNT",
+    "106": "nvjet_tst_64x48_64x15_2x1_v_bz_splitK_TNT",
+    "107": "nvjet_tst_128x176_64x5_2x1_v_bz_TNT",
+    "108": "nvjet_tst_512x80_64x2_2x1_v_bz_coopA_TNT",
+    "109": "nvjet_tst_128x112_64x7_1x2_h_bz_TNT",
+    "110": "nvjet_tst_192x144_64x5_4x1_v_bz_coopB_TNT",
+    "111": "nvjet_tst_256x160_64x4_1x2_h_bz_coopA_TNT",
+    "112": "nvjet_tst_256x56_64x5_2x1_v_bz_TNT",
+    "113": "nvjet_tst_64x32_64x16_4x2_v_bz_splitK_TNT",
+    "114": "nvjet_tst_48x64_64x15_4x1_v_bz_TNN",
+    "115": "nvjet_tst_64x56_64x14_4x1_v_bz_TNT",
+    "116": "nvjet_tst_64x32_64x16_1x2_h_bz_TNT",
+    "117": "nvjet_tst_64x112_64x9_4x1_v_bz_TNT",
+    "118": "nvjet_tst_256x64_64x5_2x1_v_bz_TNT",
+    "119": "nvjet_tst_80x64_64x11_4x1_v_bz_TNN",
+    "120": "nvjet_tst_128x144_64x6_4x2_h_bz_TNT",
+    "121": "nvjet_tst_256x160_64x4_2x1_v_bz_coopA_TNT",
+    "122": "nvjet_tst_256x72_64x5_2x1_v_bz_TNT",
+    "123": "nvjet_tst_64x24_64x16_2x4_v_bz_TNT",
+    "124": "nvjet_tst_64x40_64x16_1x2_h_bz_TNT",
+    "125": "nvjet_tst_64x72_64x12_4x1_v_bz_TNT",
+    "126": "nvjet_tst_144x128_64x6_1x2_h_bz_TNN",
+    "127": "nvjet_tst_256x80_64x5_2x1_v_bz_TNT",
+    "128": "nvjet_tst_64x80_64x11_4x1_v_bz_splitK_TNT",
+    "129": "nvjet_tst_64x48_64x15_1x2_h_bz_TNT",
+    "130": "nvjet_tst_128x112_64x7_2x1_v_bz_TNT",
+    "131": "nvjet_tst_128x304_64x3_2x1_v_bz_coopA_TNT",
+    "132": "void at::native::index_elementwise_kernel<(int)128, (int)4, void at::native::gpu_index_kernel<void at::native::index_kernel_impl<at::native::OpaqueType<(int)4>>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>)::[lambda(char *, const char *, long) (instance 1)]>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>, const T1 &, bool)::[lambda(int) (instance 1)]>(long, T3)",
+    "133": "void at::native::_scatter_gather_elementwise_kernel<(int)128, (int)8, void at::native::_cuda_scatter_gather_internal_kernel<(bool)1, at::native::OpaqueType<(int)4>, long>::operator ()<at::native::TensorAssign>(at::TensorIterator &, long, long, long, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+    "134": "nvjet_tst_256x88_64x4_2x1_v_bz_TNT",
+    "135": "nvjet_tst_192x208_64x4_2x1_v_bz_coopB_TNT",
+    "136": "nvjet_tst_64x48_64x15_4x2_v_bz_splitK_TNT",
+    "137": "nvjet_tst_64x88_64x11_4x1_v_bz_TNT",
+    "138": "nvjet_tst_64x144_64x8_4x1_v_bz_TNT",
+    "139": "nvjet_tst_176x128_64x5_2x1_v_bz_TNN",
+    "140": "nvjet_tst_128x208_64x5_2x1_v_bz_coopA_TNT",
+    "141": "nvjet_tst_128x224_64x4_2x1_v_bz_coopA_TNT",
+    "142": "nvjet_tst_256x96_64x4_2x1_v_bz_coopA_TNT",
+    "143": "nvjet_tst_64x32_64x16_2x4_v_bz_TNT",
+    "144": "nvjet_tst_128x32_64x10_4x1_v_bz_TNT",
+    "145": "nvjet_tst_256x144_64x4_1x2_h_bz_coopA_TNT",
+    "146": "nvjet_tst_80x128_64x8_4x2_h_bz_TNN",
+    "147": "nvjet_tst_256x104_64x4_2x1_v_bz_coopA_TNT",
+    "148": "nvjet_tst_64x56_64x14_4x2_v_bz_splitK_TNT",
+    "149": "nvjet_tst_64x56_64x14_1x2_h_bz_TNT",
+    "150": "nvjet_tst_64x104_64x10_4x1_v_bz_TNT",
+    "151": "nvjet_tst_128x288_64x4_2x1_v_bz_coopA_TNT",
+    "152": "nvjet_tst_128x240_64x4_2x1_v_bz_coopA_TNT",
+    "153": "nvjet_tst_64x64_64x13_2x1_v_bz_TNT",
+    "154": "nvjet_tst_128x96_64x7_2x1_v_bz_TNT",
+    "155": "nvjet_tst_192x176_64x4_1x2_h_bz_coopB_TNT",
+    "156": "nvjet_tst_256x120_64x4_2x1_v_bz_coopA_TNT",
+    "157": "nvjet_tst_64x120_64x9_4x1_v_bz_TNT",
+    "158": "nvjet_tst_128x64_64x8_4x2_v_bz_TNT"
+  },
+  "meta": {
+    "analysis_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/analysis_kernel",
+    "anchor_rule": "min kernel start over the reference rank. Deliberately the same expression `measured_gpu_cycle_ms` uses to bound a GPU iteration, so the sim lane's left edge and the duty-cycle denominator agree by construction. It is an assumption about where a modelled iteration begins, not a measurement.",
+    "host_timeline": {
+      "api_classes": [
+        "kernel launch",
+        "graph launch",
+        "memcpy",
+        "synchronize",
+        "event bookkeeping",
+        "allocate",
+        "other runtime call"
+      ],
+      "ownership_rule": "a host event belongs to every iteration whose window it overlaps, on every thread that carries NVTX marks or CUDA API calls. A per-thread rule would be tighter for the four worker main threads and undefined for the scheduler and helper threads, which carry no iteration marks at all. Consecutive iterations therefore repeat each other's edge events; consumers drawing several on one axis deduplicate by (thread, start_ns).",
+      "source": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/profile/host_timeline.json",
+      "strings": [
+        "execute_context_1(564)_generation_0(0)",
+        "vllm_iteration(6): preprocess",
+        "schedule: update_after_schedule",
+        "vllm_iteration(6): forward",
+        "vllm_iteration(6): postprocess",
+        "ncclAllGather",
+        "vllm_iteration(6): sample",
+        "vllm_iteration(6): bookkeep",
+        "vllm_iteration(6): eplb",
+        "gpu_model_runner: ModelRunnerOutput",
+        "gpu_model_runner: AsyncGPUModelRunnerOutput",
+        "gpu_model_runner: set_async_sampled_token_ids",
+        "execute_context_0(0)_generation_1(1)",
+        "vllm_iteration(7): preprocess",
+        "schedule: allocate_slots",
+        "schedule: get_num_common_prefix_blocks",
+        "schedule: make_cached_request_data",
+        "vllm_iteration(1024): bookkeep",
+        "vllm_iteration(1024): eplb",
+        "execute_context_2(906)_generation_106(106)",
+        "vllm_iteration(1025): preprocess",
+        "vllm_iteration(1025): forward",
+        "vllm_iteration(1025): postprocess",
+        "vllm_iteration(1025): sample",
+        "vllm_iteration(1025): bookkeep",
+        "vllm_iteration(1025): eplb",
+        "execute_context_0(0)_generation_108(108)",
+        "vllm_iteration(1026): preprocess",
+        "vllm_iteration(1026): forward",
+        "vllm_iteration(2044): forward",
+        "vllm_iteration(2044): postprocess",
+        "vllm_iteration(2044): sample",
+        "vllm_iteration(2044): bookkeep",
+        "vllm_iteration(2044): eplb",
+        "vllm_iteration(2045): preprocess",
+        "vllm_iteration(2045): forward",
+        "vllm_iteration(2045): postprocess",
+        "vllm_iteration(2045): sample",
+        "vllm_iteration(2045): bookkeep",
+        "vllm_iteration(2045): eplb",
+        "execute_context_0(0)_generation_0(0)",
+        "vllm_iteration(2046): preprocess",
+        "cudaEventSynchronize_v3020",
+        "cudaMemcpyAsync_v3020",
+        "cudaLaunchKernel_v7000",
+        "cuLaunchKernelEx",
+        "cudaEventRecord_v3020",
+        "cudaEventDestroy_v3020",
+        "cudaEventCreateWithFlags_v3020",
+        "cudaStreamIsCapturing_v10000",
+        "cudaEventRecordWithFlags_v11010",
+        "cudaGraphLaunch_v10000",
+        "cudaGetDriverEntryPoint_v11030",
+        "cuTensorMapEncodeTiled",
+        "cuKernelGetAttribute",
+        "cudaStreamGetCaptureInfo_v2_v11030",
+        "cudaStreamWaitEvent_v3020",
+        "cudaGetFuncBySymbol_v11000",
+        "cudaEventQuery_v3020",
+        "cudaThreadExchangeStreamCaptureMode_v10010",
+        "cudaLaunchKernelExC_v11060"
+      ],
+      "threads": [
+        {
+          "device_id": null,
+          "global_tid": 287311904722692,
+          "main": true,
+          "process": "VLLM::EngineCor",
+          "role": "scheduler thread"
+        },
+        {
+          "device_id": 0,
+          "global_tid": 287320159113456,
+          "main": true,
+          "process": "VLLM::Worker_TP",
+          "role": "worker main thread"
+        },
+        {
+          "device_id": 0,
+          "global_tid": 287320159115418,
+          "main": false,
+          "process": "VLLM::Worker_TP",
+          "role": "worker helper thread"
+        },
+        {
+          "device_id": 0,
+          "global_tid": 287320159115599,
+          "main": false,
+          "process": "VLLM::Worker_TP",
+          "role": "worker helper thread"
+        },
+        {
+          "device_id": 1,
+          "global_tid": 287320175890673,
+          "main": true,
+          "process": "VLLM::Worker_TP",
+          "role": "worker main thread"
+        },
+        {
+          "device_id": 1,
+          "global_tid": 287320175892817,
+          "main": false,
+          "process": "VLLM::Worker_TP",
+          "role": "worker helper thread"
+        },
+        {
+          "device_id": 2,
+          "global_tid": 287320192667890,
+          "main": true,
+          "process": "VLLM::Worker_TP",
+          "role": "worker main thread"
+        },
+        {
+          "device_id": 2,
+          "global_tid": 287320192670034,
+          "main": false,
+          "process": "VLLM::Worker_TP",
+          "role": "worker helper thread"
+        },
+        {
+          "device_id": 3,
+          "global_tid": 287320209445107,
+          "main": true,
+          "process": "VLLM::Worker_TP",
+          "role": "worker main thread"
+        },
+        {
+          "device_id": 3,
+          "global_tid": 287320209447248,
+          "main": false,
+          "process": "VLLM::Worker_TP",
+          "role": "worker helper thread"
+        }
+      ],
+      "unclosed_nvtx_marks": 0,
+      "window_rule": "an iteration's host window is its reference-rank GPU span unioned with every worker's `vllm_iteration(N)` NVTX phase ranges. Consecutive windows overlap — that overlap IS the pipelining — but never nest."
+    },
+    "iterations_available": 2040,
+    "iterations_emitted": 2040,
+    "iterations_reported": 32,
+    "measured_device_ids": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "predict_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/timing_predict",
+    "profile_log_dir": "/m-coriander/coriander/kanzhu/MLSim_workspace/main/logs/20260805_1_llama3_8b_tp4_rate32_design_reference/profile",
+    "recommended_gpu_time_multiplier": 1.3289794537927855,
+    "reference_device_id": 0,
+    "selection_rule": "every iteration in the capture, in iteration order. At most 32 of them carry a distinguishing `selected_as`: one representative per (iteration_type, forward sequence_id) at that group's median |relative_diff_pct| with groups taken largest first, plus the capture's global argmax and argmin of |relative_diff_pct|. The rest are `full_capture`. Naming `timeline_iterations` in the alignment manifest restricts the file to those iterations instead.",
+    "time_base": "capture-relative nanoseconds: every *_ns in this file is (nsys timestamp - meta.time_origin_ns)",
+    "time_origin_ns": 2580193260
+  },
+  "operations": [
+    {
+      "operation": "layer.activation",
+      "role": "SwiGLU activation",
+      "simulated_slots": [
+        "unified.mlp_block.activation"
+      ],
+      "type": "activation"
+    },
+    {
+      "operation": "layer.attention",
+      "role": "prefill/decode attention main and merge",
+      "simulated_slots": [
+        "unified.attn_block.attn.prefill",
+        "unified.attn_block.attn.decode"
+      ],
+      "type": "attention"
+    },
+    {
+      "operation": "layer.attention_allreduce",
+      "role": "row-parallel attention all-reduce",
+      "simulated_slots": [
+        "unified.attn_block.tp_allreduce"
+      ],
+      "type": "collective"
+    },
+    {
+      "operation": "layer.attention_allreduce_post_norm",
+      "role": "fused attention all-reduce and post-attention RMS norm",
+      "simulated_slots": [
+        "unified.attn_block.tp_allreduce",
+        "unified.mlp_block.post_norm"
+      ],
+      "type": "collective_norm"
+    },
+    {
+      "operation": "layer.attention_post_norm",
+      "role": "post-attention RMS norm",
+      "simulated_slots": [
+        "unified.mlp_block.post_norm"
+      ],
+      "type": "norm"
+    },
+    {
+      "operation": "layer.down_projection",
+      "role": "row-parallel MLP down projection",
+      "simulated_slots": [
+        "unified.mlp_block.down_proj"
+      ],
+      "type": "gemm"
+    },
+    {
+      "operation": "layer.kv_cache_append",
+      "role": "KV cache append",
+      "simulated_slots": [
+        "unified.attn_block.attn.kv_cache_append"
+      ],
+      "type": "attention"
+    },
+    {
+      "operation": "layer.mlp_allreduce",
+      "role": "row-parallel MLP all-reduce",
+      "simulated_slots": [
+        "unified.mlp_block.tp_allreduce"
+      ],
+      "type": "collective"
+    },
+    {
+      "operation": "layer.output_projection",
+      "role": "row-parallel attention output projection",
+      "simulated_slots": [
+        "unified.attn_block.o_proj"
+      ],
+      "type": "gemm"
+    },
+    {
+      "operation": "layer.qkv_projection",
+      "role": "column-parallel QKV projection",
+      "simulated_slots": [
+        "unified.attn_block.qkv_proj"
+      ],
+      "type": "gemm"
+    },
+    {
+      "operation": "layer.up_gate_projection",
+      "role": "column-parallel MLP up/gate projection",
+      "simulated_slots": [
+        "unified.mlp_block.up_gate_proj"
+      ],
+      "type": "gemm"
+    },
+    {
+      "operation": "model.lm_head",
+      "role": "vocab-parallel LM-head GEMM and all-gather",
+      "simulated_slots": [
+        "unified.lm_head"
+      ],
+      "type": "gemm_collective"
+    },
+    {
+      "operation": "model.mlp_allreduce_and_norm_boundaries",
+      "role": "all MLP all-reduces plus initial/inter-layer/final RMS norms",
+      "simulated_slots": [
+        "unified.mlp_block.tp_allreduce",
+        "unified.attn_block.input_norm",
+        "unified.final_norm"
+      ],
+      "type": "collective_norm"
+    },
+    {
+      "operation": "model.mlp_boundary_norms",
+      "role": "initial/inter-layer/final RMS norms at MLP boundaries",
+      "simulated_slots": [
+        "unified.attn_block.input_norm",
+        "unified.final_norm"
+      ],
+      "type": "norm"
+    }
+  ],
+  "schema_version": 1,
+  "sim_manifest": {
+    "node_labels": [
+      "unified [dense TP (tp=4), 32 layers]",
+      null,
+      "layer",
+      null,
+      null,
+      null,
+      "unified.attn_block (AttnBlockTpWorklet) [tp=4; qo num_qo_heads/tp=8, kv num_kv_heads/tp=2, head_dim=128]",
+      "unified.mlp_block (MlpBlockTpWorklet) [tp=4; hidden=4096 (replicated), intermediate/tp=3584]",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "nodes": [
+      {
+        "Sum": {
+          "children": {
+            "end": 5,
+            "start": 1
+          }
+        }
+      },
+      {
+        "Leaf": 0
+      },
+      {
+        "Scale": {
+          "children": {
+            "end": 6,
+            "start": 5
+          },
+          "n": 32
+        }
+      },
+      {
+        "Leaf": 13
+      },
+      {
+        "Leaf": 14
+      },
+      {
+        "Sum": {
+          "children": {
+            "end": 8,
+            "start": 6
+          }
+        }
+      },
+      {
+        "Sum": {
+          "children": {
+            "end": 13,
+            "start": 8
+          }
+        }
+      },
+      {
+        "Sum": {
+          "children": {
+            "end": 18,
+            "start": 13
+          }
+        }
+      },
+      {
+        "Leaf": 1
+      },
+      {
+        "Leaf": 2
+      },
+      {
+        "Sum": {
+          "children": {
+            "end": 21,
+            "start": 18
+          }
+        }
+      },
+      {
+        "Leaf": 6
+      },
+      {
+        "Leaf": 7
+      },
+      {
+        "Leaf": 8
+      },
+      {
+        "Leaf": 9
+      },
+      {
+        "Leaf": 10
+      },
+      {
+        "Leaf": 11
+      },
+      {
+        "Leaf": 12
+      },
+      {
+        "Leaf": 3
+      },
+      {
+        "Leaf": 4
+      },
+      {
+        "Leaf": 5
+      }
+    ],
+    "section": "iter",
+    "slots": [
+      {
+        "kernel_config": {
+          "backends": [
+            "triton"
+          ],
+          "gpu_name": "NVIDIA H200",
+          "input_bytes_per_token": {
+            "bindings": {
+              "bytes": 2,
+              "hidden": 4096
+            },
+            "expression": "hidden*bytes",
+            "value": 8192
+          },
+          "output_bytes_per_token": {
+            "bindings": {
+              "bytes": 2,
+              "hidden": 4096
+            },
+            "expression": "hidden*bytes",
+            "value": 8192
+          }
+        },
+        "kind": "elementwise",
+        "name": "unified.embedding"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "flashinfer"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "hidden": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          }
+        },
+        "kind": "rms_norm",
+        "name": "unified.attn_block.input_norm"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "torch_linear"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "k": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          },
+          "n": {
+            "bindings": {
+              "head_dim": 128,
+              "num_kv_heads": 8,
+              "num_qo_heads": 32,
+              "tp": 4
+            },
+            "expression": "(num_qo_heads/tp+2*num_kv_heads/tp)*head_dim",
+            "value": 1536
+          }
+        },
+        "kind": "single_gemm",
+        "name": "unified.attn_block.qkv_proj"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "vllm_cuda"
+          ],
+          "block_size": 16,
+          "cache_layout": "NHD",
+          "gpu_name": "NVIDIA H200",
+          "head_dim": {
+            "bindings": {
+              "head_dim": 128
+            },
+            "expression": "head_dim",
+            "value": 128
+          },
+          "input_dtype": "bf16",
+          "kv_dtype": "bf16",
+          "num_kv_heads": {
+            "bindings": {
+              "num_kv_heads": 8,
+              "tp": 4
+            },
+            "expression": "num_kv_heads/tp",
+            "value": 2
+          },
+          "scale_granularity": "tensor"
+        },
+        "kind": "kv_cache_append",
+        "name": "unified.attn_block.attn.kv_cache_append"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "fa2",
+            "fa3"
+          ],
+          "gpu_name": "NVIDIA H200",
+          "head_dim": {
+            "bindings": {
+              "head_dim": 128
+            },
+            "expression": "head_dim",
+            "value": 128
+          },
+          "kv_dtype": "bf16",
+          "num_kv_heads": {
+            "bindings": {
+              "num_kv_heads": 8,
+              "tp": 4
+            },
+            "expression": "num_kv_heads/tp",
+            "value": 2
+          },
+          "num_qo_heads": {
+            "bindings": {
+              "num_qo_heads": 32,
+              "tp": 4
+            },
+            "expression": "num_qo_heads/tp",
+            "value": 8
+          },
+          "o_dtype": "bf16",
+          "q_dtype": "bf16"
+        },
+        "kind": "flashinfer_attn_prefill",
+        "name": "unified.attn_block.attn.prefill"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "fa2_cudagraph"
+          ],
+          "gpu_name": "NVIDIA H200",
+          "head_dim": {
+            "bindings": {
+              "head_dim": 128
+            },
+            "expression": "head_dim",
+            "value": 128
+          },
+          "kv_dtype": "bf16",
+          "num_kv_heads": {
+            "bindings": {
+              "num_kv_heads": 8,
+              "tp": 4
+            },
+            "expression": "num_kv_heads/tp",
+            "value": 2
+          },
+          "num_qo_heads": {
+            "bindings": {
+              "num_qo_heads": 32,
+              "tp": 4
+            },
+            "expression": "num_qo_heads/tp",
+            "value": 8
+          },
+          "o_dtype": "bf16",
+          "q_dtype": "bf16"
+        },
+        "kind": "flashinfer_attn_decode",
+        "name": "unified.attn_block.attn.decode"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "torch_linear"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "k": {
+            "bindings": {
+              "head_dim": 128,
+              "num_qo_heads": 32,
+              "tp": 4
+            },
+            "expression": "num_qo_heads/tp*head_dim",
+            "value": 1024
+          },
+          "n": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          }
+        },
+        "kind": "single_gemm",
+        "name": "unified.attn_block.o_proj"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "nccl",
+            "nvshmem"
+          ],
+          "fabric": "nvlink",
+          "gpu_name": "NVIDIA H200",
+          "num_gpus": 4
+        },
+        "kind": "all_reduce",
+        "name": "unified.attn_block.tp_allreduce"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "flashinfer"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "hidden": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          }
+        },
+        "kind": "rms_norm",
+        "name": "unified.mlp_block.post_norm"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "torch_linear"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "k": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          },
+          "n": {
+            "bindings": {
+              "intermediate": 14336,
+              "tp": 4
+            },
+            "expression": "2*intermediate/tp",
+            "value": 7168
+          }
+        },
+        "kind": "single_gemm",
+        "name": "unified.mlp_block.up_gate_proj"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "triton"
+          ],
+          "gpu_name": "NVIDIA H200",
+          "input_bytes_per_token": {
+            "bindings": {
+              "bytes": 2,
+              "intermediate": 14336,
+              "tp": 4
+            },
+            "expression": "2*intermediate/tp*bytes",
+            "value": 14336
+          },
+          "output_bytes_per_token": {
+            "bindings": {
+              "bytes": 2,
+              "intermediate": 14336,
+              "tp": 4
+            },
+            "expression": "intermediate/tp*bytes",
+            "value": 7168
+          }
+        },
+        "kind": "elementwise",
+        "name": "unified.mlp_block.activation"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "torch_linear"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "k": {
+            "bindings": {
+              "intermediate": 14336,
+              "tp": 4
+            },
+            "expression": "intermediate/tp",
+            "value": 3584
+          },
+          "n": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          }
+        },
+        "kind": "single_gemm",
+        "name": "unified.mlp_block.down_proj"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "nccl",
+            "nvshmem"
+          ],
+          "fabric": "nvlink",
+          "gpu_name": "NVIDIA H200",
+          "num_gpus": 4
+        },
+        "kind": "all_reduce",
+        "name": "unified.mlp_block.tp_allreduce"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "flashinfer"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "hidden": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          }
+        },
+        "kind": "rms_norm",
+        "name": "unified.final_norm"
+      },
+      {
+        "kernel_config": {
+          "backends": [
+            "torch_linear"
+          ],
+          "dtype": "bf16",
+          "gpu_name": "NVIDIA H200",
+          "k": {
+            "bindings": {
+              "hidden": 4096
+            },
+            "expression": "hidden",
+            "value": 4096
+          },
+          "n": {
+            "bindings": {
+              "vocab": 128256
+            },
+            "expression": "vocab",
+            "value": 128256
+          }
+        },
+        "kind": "single_gemm",
+        "name": "unified.lm_head"
+      }
+    ]
+  },
+  "slot_multiplicity": [
+    1,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    32,
+    1,
+    1
+  ]
+}
