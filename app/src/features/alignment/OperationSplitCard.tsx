@@ -59,6 +59,7 @@ export default function OperationSplitCard({
   breakdownError,
   selectedIterationId,
   onSelectIteration,
+  prediction,
 }: {
   report: AlignmentIterationReport;
   breakdown: AlignmentBreakdown | null;
@@ -66,6 +67,10 @@ export default function OperationSplitCard({
   breakdownError: unknown;
   selectedIterationId: number | null;
   onSelectIteration: (iterationId: number) => void;
+  /** Where the modelled stack came from, and how to get there. `null` when the
+   * bundle names no prediction this Analyzer serves; the way through is then
+   * left out rather than pointed somewhere else. */
+  prediction: { readonly href: string; readonly displayName: string } | null;
 }) {
   const cycles = useMemo(
     () => selectableCycles(report.iterations, CYCLE_SAMPLE_SIZE, selectedIterationId),
@@ -155,26 +160,32 @@ export default function OperationSplitCard({
             {fmtInt(cycles.length)} of {fmtInt(report.meta.iterations)} cycles selectable · modelled
             slot value = {MODELLED_SLOT_FIELD}
           </Typography>
-          <Box
-            component="a"
-            href="#/"
-            aria-label="Browse timing predictions"
-            sx={{
-              fontFamily: tokens.mono,
-              fontSize: 9.5,
-              letterSpacing: '.08em',
-              textTransform: 'uppercase',
-              textDecoration: 'none',
-              color: tokens.teal,
-              border: `1px solid ${tokens.hair}`,
-              borderRadius: 1.5,
-              p: '5px 10px',
-              whiteSpace: 'nowrap',
-              '&:hover': { borderColor: withAlpha(tokens.teal, 0.42) },
-            }}
-          >
-            the timing-predict page →
-          </Box>
+          {prediction === null ? null : (
+            <Box
+              component="a"
+              href={prediction.href}
+              // Named, because a bundle holds several timing-predict directories
+              // once its capture has been re-analysed and the stack drawn here
+              // came out of exactly one of them.
+              aria-label={`Open the timing prediction this comparison was made against: ${prediction.displayName}`}
+              title={prediction.displayName}
+              sx={{
+                fontFamily: tokens.mono,
+                fontSize: 9.5,
+                letterSpacing: '.08em',
+                textTransform: 'uppercase',
+                textDecoration: 'none',
+                color: tokens.teal,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 1.5,
+                p: '5px 10px',
+                whiteSpace: 'nowrap',
+                '&:hover': { borderColor: withAlpha(tokens.teal, 0.42) },
+              }}
+            >
+              the timing-predict page →
+            </Box>
+          )}
         </Stack>
       </Stack>
 

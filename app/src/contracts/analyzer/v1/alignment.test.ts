@@ -25,6 +25,10 @@ function descriptorWire(overrides: Record<string, unknown> = {}) {
     kind: 'alignment',
     display_name: 'tp4/rate32',
     lifecycle: { kernel_analysis: 'complete', e2e_analysis: 'not_started' },
+    prediction: {
+      prediction_id: 'p_45cdb1ba',
+      display_name: 'tp4/rate32/timing_predict',
+    },
     subjects: {
       iteration: subject(true, true),
       timeline: subject(true, true),
@@ -66,6 +70,30 @@ describe('alignment descriptor', () => {
     const wire = descriptorWire();
     delete (wire.subjects as Record<string, unknown>).workload;
     expect(() => parseAnalyzerV1AlignmentDescriptor(wire, ALIGNMENT_ID)).toThrow(/workload/);
+  });
+
+  it('carries the prediction the bundle was paired against', () => {
+    const descriptor = parseAnalyzerV1AlignmentDescriptor(descriptorWire(), ALIGNMENT_ID);
+    expect(descriptor.prediction).toEqual({
+      predictionId: 'p_45cdb1ba',
+      displayName: 'tp4/rate32/timing_predict',
+    });
+  });
+
+  it('accepts a bundle that names no servable prediction', () => {
+    const descriptor = parseAnalyzerV1AlignmentDescriptor(
+      descriptorWire({ prediction: null }),
+      ALIGNMENT_ID,
+    );
+    expect(descriptor.prediction).toBeNull();
+  });
+
+  it('rejects a descriptor that omits the prediction key entirely', () => {
+    const wire = descriptorWire();
+    delete (wire as Record<string, unknown>).prediction;
+    // Absent is not the same as null: an older service that cannot answer must
+    // not read as one that answered "no prediction".
+    expect(() => parseAnalyzerV1AlignmentDescriptor(wire, ALIGNMENT_ID)).toThrow();
   });
 });
 

@@ -167,6 +167,7 @@ const descriptorSchema = z
         e2e_analysis: z.enum(['not_started', 'pending', 'complete']),
       })
       .strict(),
+    prediction: z.object({ prediction_id: nonEmpty, display_name: nonEmpty }).strict().nullable(),
     subjects: z.record(subjectResourceSchema),
   })
   .strict();
@@ -197,6 +198,13 @@ export function parseAnalyzerV1AlignmentDescriptor(
       kernelAnalysis: descriptor.lifecycle.kernel_analysis,
       e2eAnalysis: descriptor.lifecycle.e2e_analysis,
     }),
+    prediction:
+      descriptor.prediction === null
+        ? null
+        : Object.freeze({
+            predictionId: descriptor.prediction.prediction_id,
+            displayName: descriptor.prediction.display_name,
+          }),
     subjects: Object.freeze(subjects),
   });
 }

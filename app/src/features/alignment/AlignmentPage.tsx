@@ -11,6 +11,7 @@ import {
   useAlignmentTimelineIterationQuery,
   useAlignmentWorkloadSeriesQuery,
 } from '../../application/queries';
+import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import { SurfaceAccentProvider } from '../../components/SurfaceCard';
 import type { AlignmentDescriptor, AlignmentSubjectName } from '../../domain/alignment';
 import { tokens } from '../../theme';
@@ -22,6 +23,7 @@ import WallClockCard from './WallClockCard';
 import WholeRunCard from './WholeRunCard';
 import { initialAlignmentIterationId } from './iterationPicker';
 import { defaultBoardExampleIterationId } from './mappingBoardModel';
+import { predictionHref } from './predictionLink';
 
 /**
  * An alignment bundle: how far the model is from the machine.
@@ -84,6 +86,7 @@ export default function AlignmentPage({ alignmentId }: { alignmentId: string }) 
     alignmentId,
     hasDetail('iteration') ? selectedIterationId : null,
   );
+  const workspaceId = workspaceIdFromLocation();
   if (!descriptor.supported) {
     return (
       <PageFrame title="Alignment">
@@ -186,6 +189,17 @@ export default function AlignmentPage({ alignmentId }: { alignmentId: string }) 
                   breakdownError={breakdown.error}
                   selectedIterationId={selectedIterationId}
                   onSelectIteration={setSelectedIterationId}
+                  prediction={
+                    descriptor.data.prediction === null
+                      ? null
+                      : {
+                          href: predictionHref(
+                            workspaceId,
+                            descriptor.data.prediction.predictionId,
+                          ),
+                          displayName: descriptor.data.prediction.displayName,
+                        }
+                  }
                 />
               ) : null}
             </SubjectBody>

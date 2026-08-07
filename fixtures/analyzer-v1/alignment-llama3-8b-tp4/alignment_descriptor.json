@@ -6,6 +6,7 @@
     "e2e_analysis": "complete",
     "kernel_analysis": "complete"
   },
+  "prediction": null,
   "schema_version": 1,
   "subjects": {
     "e2e": {

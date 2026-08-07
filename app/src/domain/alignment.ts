@@ -32,6 +32,15 @@ export interface AlignmentSubjectResource {
   readonly hasIterationDetail: boolean;
 }
 
+/** The timing prediction a bundle's modelled side came out of, as a resource
+ * this Analyzer serves. A bundle holds several `timing_predict*` directories
+ * once a capture has been re-analysed, so which one produced these numbers is
+ * the analyzer's answer to give, not a name the page can infer. */
+export interface AlignmentPairedPrediction {
+  readonly predictionId: string;
+  readonly displayName: string;
+}
+
 export interface AlignmentDescriptor {
   readonly alignmentId: string;
   readonly displayName: string;
@@ -39,6 +48,9 @@ export interface AlignmentDescriptor {
     readonly kernelAnalysis: 'not_started' | 'pending' | 'complete';
     readonly e2eAnalysis: 'not_started' | 'pending' | 'complete';
   };
+  /** `null` when the bundle names no prediction, or names one this Analyzer
+   * does not serve. Either way there is no route to offer. */
+  readonly prediction: AlignmentPairedPrediction | null;
   readonly subjects: Readonly<Record<AlignmentSubjectName, AlignmentSubjectResource>>;
 }
 
