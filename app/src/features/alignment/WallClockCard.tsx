@@ -289,6 +289,14 @@ export default function WallClockCard({
             <Multiplier
               value={dutyRatio === null ? null : fmtMultiplier(dutyRatio)}
               label="this iteration · gpu cycle ÷ kernel critical path"
+              // The two numbers in this panel are measured on different bases,
+              // and read together without that said they contradict each other:
+              // the lane's idle is one rank's bubbles, while the critical path
+              // charges every position to its slowest rank. A rank waiting on
+              // its peers is idle on the lane and inside the critical path at
+              // the same time, which is why a lock-step DP capture can show
+              // several percent idle and still divide out to ~1.
+              note="critical path charges each position to its slowest rank, so the idle above — waiting on a peer rank — is already counted inside it"
             />
           </Box>
         </Box>
@@ -751,7 +759,15 @@ function Swatch({ color }: { color: string }) {
   return <Box sx={{ width: 9, height: 9, borderRadius: '2px', background: color, flex: 'none' }} />;
 }
 
-function Multiplier({ value, label }: { value: string | null; label: string }) {
+function Multiplier({
+  value,
+  label,
+  note,
+}: {
+  value: string | null;
+  label: string;
+  note?: string;
+}) {
   return (
     <Box
       sx={{
@@ -784,6 +800,19 @@ function Multiplier({ value, label }: { value: string | null; label: string }) {
       >
         {label}
       </Typography>
+      {note === undefined ? null : (
+        <Typography
+          sx={{
+            fontFamily: tokens.mono,
+            fontSize: 9.5,
+            color: tokens.sub2,
+            mt: 0.75,
+            lineHeight: 1.5,
+          }}
+        >
+          {note}
+        </Typography>
+      )}
     </Box>
   );
 }

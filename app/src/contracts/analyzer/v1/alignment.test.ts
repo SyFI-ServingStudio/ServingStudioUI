@@ -210,6 +210,77 @@ describe('iteration series', () => {
   });
 });
 
+describe('data-parallel union catalog (schema 4)', () => {
+  const unionWire = {
+    schema_version: 1,
+    definitions: {},
+    meta: { recommended_gpu_time_multiplier: 1.0, measured_phases: ['forward'] },
+    iterations: [],
+    sequences: {
+      encoding: 'folded-v1',
+      folding_policy: { rank_policy: 'union across devices' },
+      // No rank stands for the replica when ranks diverge within a step.
+      representative_device_id: null,
+      device_ids: [0, 1],
+      phases: {
+        forward: {
+          unique_sequences: [
+            {
+              sequence_id: 'sequence_decode',
+              expanded_kernel_count: 2,
+              occurrences: [
+                { device_id: 0, iterations: [8, 9] },
+                { device_id: 1, iterations: [9] },
+              ],
+              program: [
+                {
+                  kernels: [
+                    {
+                      name: 'embed',
+                      suggested_category: 'other',
+                      label: { status: 'unmapped', cross_rank: 'independent' },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  };
+
+  it('accepts a null representative device and folds occurrences into one iteration list', () => {
+    const series = parseAnalyzerV1AlignmentIterationSeries(unionWire);
+    const sequences = series.sequences;
+    expect(sequences).not.toBeNull();
+    expect(sequences?.representativeDeviceId).toBeNull();
+    const sequence = sequences?.phases.forward[0];
+    // The union is sorted and de-duplicated, so `includes` and the median pick
+    // that the mapping board does stay device-agnostic.
+    expect(sequence?.iterations).toEqual([8, 9]);
+    expect(sequence?.occurrences).toEqual([
+      { deviceId: 0, iterations: [8, 9] },
+      { deviceId: 1, iterations: [9] },
+    ]);
+  });
+
+  it('rejects a sequence that carries both iterations and occurrences', () => {
+    const sequence = unionWire.sequences.phases.forward.unique_sequences[0];
+    expect(() =>
+      parseAnalyzerV1AlignmentIterationSeries({
+        ...unionWire,
+        sequences: {
+          ...unionWire.sequences,
+          phases: {
+            forward: { unique_sequences: [{ ...sequence, iterations: [8, 9] }] },
+          },
+        },
+      }),
+    ).toThrow(/either iterations or occurrences/);
+  });
+});
+
 describe('timeline index', () => {
   const wire = {
     schema_version: 1,

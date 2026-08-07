@@ -92,7 +92,7 @@ function measured(
 function slot(
   slotIndex: number,
   operation: string | null,
-  foldedMs: number,
+  criticalPathMs: number,
 ): OperationSplitCycle['simulatedSlots'][number] {
   return {
     slotIndex,
@@ -100,7 +100,7 @@ function slot(
     kind: 'single_gemm',
     operation,
     multiplicity: 32,
-    foldedMs,
+    criticalPathMs,
   };
 }
 

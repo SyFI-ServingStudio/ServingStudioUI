@@ -11,6 +11,7 @@ import type {
   AlignmentIterationReport,
   AlignmentIterationSeries,
   AlignmentSequence,
+  AlignmentSequenceOccurrence,
   AlignmentSequences,
   AlignmentSubjectName,
   AlignmentSubjectResource,
@@ -270,7 +271,10 @@ const iterationReportSchema = z.object({
   meta: z.object({
     iterations: count,
     recommended_gpu_time_multiplier: finite.positive(),
-    representative_device_id: count,
+    // A schema-4 union catalog has no representative device: data-parallel
+    // ranks may run different sequences in the same step, so no single rank
+    // stands for the replica.
+    representative_device_id: count.nullable(),
     measured_device_ids: z.array(count),
     measured_phases: z.array(z.string()),
   }),
@@ -447,17 +451,29 @@ const sequenceSegmentSchema = z.union([
 const sequencesSchema = z.object({
   encoding: z.string(),
   folding_policy: z.record(z.unknown()),
-  representative_device_id: count,
+  representative_device_id: count.nullable(),
   device_ids: z.array(count),
   phases: z.record(
     z.object({
       unique_sequences: z.array(
-        z.object({
-          sequence_id: nonEmpty,
-          expanded_kernel_count: count,
-          iterations: z.array(count),
-          program: z.array(sequenceSegmentSchema),
-        }),
+        z
+          .object({
+            sequence_id: nonEmpty,
+            expanded_kernel_count: count,
+            // Schema 2/3 record one device-agnostic iteration list; schema 4
+            // carries the device axis instead, because data-parallel ranks can
+            // run different sequences in the same step. Exactly one is present.
+            iterations: z.array(count).optional(),
+            occurrences: z
+              .array(z.object({ device_id: count, iterations: z.array(count) }))
+              .optional(),
+            program: z.array(sequenceSegmentSchema),
+          })
+          .refine(
+            (sequence) =>
+              (sequence.iterations === undefined) !== (sequence.occurrences === undefined),
+            { message: 'sequence must carry either iterations or occurrences, not both' },
+          ),
       ),
     }),
   ),
@@ -479,6 +495,32 @@ function decodeSequences(value: z.infer<typeof sequencesSchema>): AlignmentSeque
           : undefined,
       }),
     });
+  // Normalize both catalog shapes onto one iteration list so every consumer
+  // (counts, the representative iteration, `includes`) stays device-agnostic;
+  // the per-device breakdown stays available beside it.
+  const occurrencesOf = (sequence: {
+    iterations?: readonly number[];
+    occurrences?: readonly { device_id: number; iterations: readonly number[] }[];
+  }): readonly AlignmentSequenceOccurrence[] =>
+    Object.freeze(
+      (sequence.occurrences ?? []).map((occurrence) =>
+        Object.freeze({
+          deviceId: occurrence.device_id,
+          iterations: Object.freeze([...occurrence.iterations]),
+        }),
+      ),
+    );
+  const iterationsOf = (sequence: {
+    iterations?: readonly number[];
+    occurrences?: readonly { device_id: number; iterations: readonly number[] }[];
+  }): readonly number[] =>
+    sequence.iterations !== undefined
+      ? Object.freeze([...sequence.iterations])
+      : Object.freeze(
+          [
+            ...new Set((sequence.occurrences ?? []).flatMap((occurrence) => occurrence.iterations)),
+          ].sort((left, right) => left - right),
+        );
   const phases: Record<string, readonly AlignmentSequence[]> = {};
   for (const [phase, block] of Object.entries(value.phases)) {
     phases[phase] = Object.freeze(
@@ -486,7 +528,8 @@ function decodeSequences(value: z.infer<typeof sequencesSchema>): AlignmentSeque
         Object.freeze({
           sequenceId: sequence.sequence_id,
           expandedKernelCount: sequence.expanded_kernel_count,
-          iterations: Object.freeze(sequence.iterations),
+          iterations: iterationsOf(sequence),
+          occurrences: occurrencesOf(sequence),
           program: Object.freeze(
             sequence.program.map((segment) =>
               'repeat' in segment
@@ -544,6 +587,18 @@ const breakdownSchema = z.object({
   case_index: count,
   stage: z.string(),
   measured_kernel_sum_ms: nonNegative,
+  // The iteration's modelled cost. `simulated_leaf_workload_ms` is the sum over
+  // every fan-out child (one per EP rank / DP group), so under a Max fan-out it
+  // is several times the cost actually paid; only the critical path is
+  // comparable with the measured stack.
+  //
+  // Optional, and absent means absent — not zero. The analyzer began attributing
+  // leaves through the cost tree on 2026-08-04 without bumping the report's
+  // schema version, so a report produced before that carries the same version
+  // and no attribution at all. A consumer that cannot show the difference
+  // between the two stacks must say so rather than fall back to the folded sum,
+  // which is what made the modelled stack several times too tall.
+  simulated_critical_path_ms: nonNegative.optional(),
   simulated_leaf_workload_ms: nonNegative,
   unmapped_measured_ms: nonNegative,
   unmapped_simulated_ms: nonNegative,
@@ -568,6 +623,9 @@ const breakdownSchema = z.object({
       operation: z.string().nullish(),
       unit_ms: nonNegative,
       folded_ms: nonNegative,
+      // Optional for the same reason as `simulated_critical_path_ms`: the two
+      // arrive together or not at all.
+      critical_path_ms: nonNegative.optional(),
       multiplicity: count,
     }),
   ),
@@ -604,6 +662,7 @@ export function parseAnalyzerV1AlignmentBreakdown(
     caseIndex: record.case_index,
     stage: record.stage,
     measuredKernelSumMs: record.measured_kernel_sum_ms,
+    simulatedCriticalPathMs: record.simulated_critical_path_ms ?? null,
     simulatedLeafWorkloadMs: record.simulated_leaf_workload_ms,
     unmappedMeasuredMs: record.unmapped_measured_ms,
     unmappedSimulatedMs: record.unmapped_simulated_ms,
@@ -631,6 +690,7 @@ export function parseAnalyzerV1AlignmentBreakdown(
           operation: slot.operation ?? null,
           unitMs: slot.unit_ms,
           foldedMs: slot.folded_ms,
+          criticalPathMs: slot.critical_path_ms ?? null,
           multiplicity: slot.multiplicity,
         }),
       ),
@@ -715,6 +775,15 @@ const costNodeSchema = z.union([
   })),
 ]);
 
+/** The device the timeline's reference lane is drawn from. */
+function referenceDeviceOf(reported: number | null, measured: readonly number[]): number {
+  if (reported !== null) return reported;
+  if (measured.length === 0) {
+    throw new Error('Alignment timeline names no measured device to draw a reference lane from.');
+  }
+  return Math.min(...measured);
+}
+
 const timelineIndexSchema = z
   .object({
     schema_version: z.literal(1),
@@ -724,7 +793,11 @@ const timelineIndexSchema = z
       selection_rule: nonEmpty,
       time_base: nonEmpty,
       time_origin_ns: nanoseconds,
-      reference_device_id: count,
+      // Null on a report whose capture has no single representative device —
+      // eight DP ranks each running their own kernel sequence. The lane is
+      // still drawn from one of them, so the decoder falls back to the lowest
+      // measured device, which is the rule the analyzer applies per iteration.
+      reference_device_id: count.nullable(),
       measured_device_ids: z.array(count),
       recommended_gpu_time_multiplier: finite.positive(),
       iterations_available: count,
@@ -791,7 +864,10 @@ export function parseAnalyzerV1AlignmentTimelineIndex(input: unknown): Alignment
       selectionRule: payload.meta.selection_rule,
       timeBase: payload.meta.time_base,
       timeOriginNs: payload.meta.time_origin_ns,
-      referenceDeviceId: payload.meta.reference_device_id,
+      referenceDeviceId: referenceDeviceOf(
+        payload.meta.reference_device_id,
+        payload.meta.measured_device_ids,
+      ),
       measuredDeviceIds: Object.freeze(payload.meta.measured_device_ids),
       recommendedGpuTimeMultiplier: payload.meta.recommended_gpu_time_multiplier,
       iterationsAvailable: payload.meta.iterations_available,

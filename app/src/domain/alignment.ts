@@ -170,7 +170,9 @@ export interface AlignmentIterationReport {
   readonly meta: {
     readonly iterations: number;
     readonly recommendedGpuTimeMultiplier: number;
-    readonly representativeDeviceId: number;
+    /** `null` for a schema-4 union catalog: data-parallel ranks may diverge
+     * within a step, so no single rank stands for the replica. */
+    readonly representativeDeviceId: number | null;
     readonly measuredDeviceIds: readonly number[];
     readonly measuredPhases: readonly string[];
   };
@@ -207,14 +209,25 @@ export interface AlignmentSequenceSegment {
 export interface AlignmentSequence {
   readonly sequenceId: string;
   readonly expandedKernelCount: number;
+  /** Every iteration that ran this program, on any device. */
   readonly iterations: readonly number[];
+  /** Per-device breakdown of the above. Empty for a device-agnostic
+   * (schema 2/3) catalog, where one decision covers every rank. */
+  readonly occurrences: readonly AlignmentSequenceOccurrence[];
   readonly program: readonly AlignmentSequenceSegment[];
+}
+
+/** One device's iterations for a sequence, under a schema-4 union catalog. */
+export interface AlignmentSequenceOccurrence {
+  readonly deviceId: number;
+  readonly iterations: readonly number[];
 }
 
 export interface AlignmentSequences {
   readonly encoding: string;
   readonly foldingPolicy: Readonly<Record<string, unknown>>;
-  readonly representativeDeviceId: number;
+  /** `null` for a schema-4 union catalog — see the iteration report's field. */
+  readonly representativeDeviceId: number | null;
   readonly deviceIds: readonly number[];
   /** Phase name (`forward`, `preprocess`, …) to the distinct programs seen. */
   readonly phases: Readonly<Record<string, readonly AlignmentSequence[]>>;
@@ -260,7 +273,13 @@ export interface AlignmentBreakdownSimulatedKernel {
   readonly kind: string;
   readonly operation: string | null;
   readonly unitMs: number;
+  /** Sum over every fan-out child — NOT what the iteration paid. */
   readonly foldedMs: number;
+  /** This slot's share of the modelled iteration cost, after Sum/Scale/Max
+   * attribution. The only slot duration comparable with a measured kernel.
+   * Null on a report that predates the attribution, alongside the iteration's
+   * `simulatedCriticalPathMs`. */
+  readonly criticalPathMs: number | null;
   readonly multiplicity: number;
 }
 
@@ -286,6 +305,12 @@ export interface AlignmentBreakdown {
   readonly caseIndex: number;
   readonly stage: string;
   readonly measuredKernelSumMs: number;
+  /** The modelled iteration cost. Compare this with `measuredKernelSumMs`.
+   * Null for a report produced before the analyzer attributed leaves through
+   * the cost tree; there is no substitute, so a consumer degrades instead. */
+  readonly simulatedCriticalPathMs: number | null;
+  /** Sum over every fan-out child; larger than the cost paid whenever the
+   * CostTree has a Max (one child per EP rank / DP group). */
   readonly simulatedLeafWorkloadMs: number;
   readonly unmappedMeasuredMs: number;
   readonly unmappedSimulatedMs: number;

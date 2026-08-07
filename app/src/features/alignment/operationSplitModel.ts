@@ -204,7 +204,7 @@ export function simulatedSlotRows(
   // simulated_leaf_workload_ms total. Zero-work leaves carry structure but no
   // visible width, so omit only those.
   return slots
-    .filter((slot) => slot.foldedMs > 1e-12)
+    .filter((slot) => slot.criticalPathMs > 1e-12)
     .map((slot, index) => ({
       id: `S${index + 1}`,
       slotIndex: slot.slotIndex,
@@ -212,7 +212,7 @@ export function simulatedSlotRows(
       kind: slot.kind,
       operation: slot.operation,
       multiplicity: slot.multiplicity,
-      ms: slot.foldedMs,
+      ms: slot.criticalPathMs,
     }));
 }
 
