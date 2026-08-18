@@ -9,7 +9,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   usePredictionCasesQuery,
@@ -21,7 +21,7 @@ import {
 } from '../../application/queries';
 import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import SurfaceCard from '../../components/SurfaceCard';
-import { fmtMs, leafById, type CostNode, type JsonValue } from '../../domain/cost-tree';
+import { fmtMs, leafById, type JsonValue } from '../../domain/cost-tree';
 import type { PredictionAnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
@@ -102,15 +102,6 @@ function caseInputLabel(input: JsonValue): string {
     return label === null ? [] : [`${key} ${label}`];
   });
   return entries.slice(0, 3).join(' · ') || 'structured input';
-}
-
-function firstLeafId(node: CostNode): number | null {
-  if (node.kind === 'leaf') return node.id;
-  for (const child of node.children) {
-    const leafId = firstLeafId(child);
-    if (leafId !== null) return leafId;
-  }
-  return null;
 }
 
 function PredictionCasePicker({
@@ -294,9 +285,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
   const setPredictionSelection = useViz((state) => state.setPredictionSelection);
   const updatePredictionSelection = useCallback(
     (
-      patch: Partial<
-        Omit<PredictionAnalyzerSelectionV2, 'kind' | 'workspaceId' | 'predictionId'>
-      >,
+      patch: Partial<Omit<PredictionAnalyzerSelectionV2, 'kind' | 'workspaceId' | 'predictionId'>>,
     ) => {
       const current = useViz.getState().predictionSelection;
       setPredictionSelection({
@@ -315,7 +304,6 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     },
     [predictionId, setPredictionSelection, workspaceId],
   );
-  const autoSelectedCostTreeIdentity = useRef<string>();
   const descriptor = usePredictionDescriptorQuery(predictionId);
   const casePage = usePredictionCasesQuery(predictionId, caseOffset, CASE_PAGE_SIZE);
   const selectedCase = casePage.data?.cases.find(
@@ -386,31 +374,6 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     }
   }, [selectedCase, selectedOperationId, updatePredictionSelection]);
 
-  useEffect(() => {
-    if (
-      costTree.data === undefined ||
-      selectedCaseId === undefined ||
-      selectedOperationId === undefined
-    )
-      return;
-    const costTreeIdentity = `${selectedCaseId}/${selectedOperationId}`;
-    if (autoSelectedCostTreeIdentity.current === costTreeIdentity) return;
-    autoSelectedCostTreeIdentity.current = costTreeIdentity;
-    if (selectedLeafId === null && selectedParallelId === null) {
-      // The default inspector leaf is viewing state, not an implicit choice of
-      // the CostTree evidence panel. Do not overwrite a panel restored from an
-      // Agent citation (for example, Optimality Breakdown).
-      updatePredictionSelection({ leafId: firstLeafId(costTree.data.tree) });
-    }
-  }, [
-    costTree.data,
-    selectedCaseId,
-    selectedLeafId,
-    selectedOperationId,
-    selectedParallelId,
-    updatePredictionSelection,
-  ]);
-
   const selectedLeaf =
     costTree.data === undefined ? null : leafById(costTree.data.tree, selectedLeafId);
   const distributionSubject = useMemo<SubjectResult<'kernelInputDistribution'>>(() => {
@@ -455,11 +418,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
       };
 
   useEffect(() => {
-    if (
-      navigationTarget === null ||
-      descriptor.data === undefined ||
-      casePage.data === undefined
-    ) {
+    if (navigationTarget === null || descriptor.data === undefined || casePage.data === undefined) {
       return;
     }
     const requestedCaseExists =
@@ -475,9 +434,9 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     }
     const frame = window.requestAnimationFrame(() => {
       const panel = navigationTarget.panelId
-        ? Array.from(document.querySelectorAll<HTMLElement>('[data-evidence-id]')).find(
+        ? (Array.from(document.querySelectorAll<HTMLElement>('[data-evidence-id]')).find(
             (element) => element.dataset.evidenceId === `panel:${navigationTarget.panelId}`,
-          ) ?? null
+          ) ?? null)
         : null;
       if (panel !== null) {
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
