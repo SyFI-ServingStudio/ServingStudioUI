@@ -181,6 +181,15 @@ describe('optimality kernel ladder projection', () => {
       marker: 5,
       values: { necessaryCovered: 3, redundant: 0 },
     });
+
+    const selectedKernel = projectExactKernelLadder(exact, 'model.gemm');
+    expect(selectedKernel.status).toBe('ready');
+    if (selectedKernel.status !== 'ready') return;
+    expect(selectedKernel.rows.at(-1)).toMatchObject({
+      label: 'R6 Segmented necessary',
+      total: 5,
+    });
+    expect(selectedKernel.rows.some((row) => row.label === 'R7 Scope fused')).toBe(false);
   });
 
   it('derives scoped recoverable-source bars and collapses locations below the top 16', () => {

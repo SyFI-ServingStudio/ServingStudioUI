@@ -87,7 +87,14 @@ function ladderRows(
   if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
     rows.push(makeRow('R6 Segmented necessary', values('necessaryLimit', false, false)));
   }
-  if (data.rungs.scopeFusedNecessary !== null && data.rungs.scopeFusedNecessary !== undefined) {
+  // R7 is reconciled only at the whole scope. Once a CostTree leaf filters this
+  // projection, showing the scope total beside leaf-attributed R0-R6 would claim
+  // a nonexistent per-kernel attribution.
+  if (
+    kernelFilter === null &&
+    data.rungs.scopeFusedNecessary !== null &&
+    data.rungs.scopeFusedNecessary !== undefined
+  ) {
     rows.push(makeRow('R7 Scope fused', { __globalNecessary: data.rungs.scopeFusedNecessary }));
   }
   return {
