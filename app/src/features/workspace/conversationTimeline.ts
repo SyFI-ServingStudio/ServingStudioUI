@@ -41,6 +41,12 @@ export type ConversationCard =
   | { type: 'error'; text: string }
   | { type: 'response'; text: string; outcome: AgentTerminalOutcome };
 
+type JobEvent = Extract<ConversationTurnEvent, { kind: 'job' }>;
+
+function jobLifecycleKey(event: JobEvent): string {
+  return event.resourceId || event.experimentId || event.jobId;
+}
+
 function roleFrom(value: string): ConversationRole {
   return value === 'implementer' ? 'implementer' : 'orchestrator';
 }
@@ -69,13 +75,20 @@ export function conversationCards(
   events: readonly ConversationTurnEvent[],
 ): readonly ConversationCard[] {
   const cards: ConversationCard[] = [];
-  const lastJobEventByExperiment = new Map<string, number>();
+  const jobLifecycleByKey = new Map<string, { firstEventIndex: number; latestEvent: JobEvent }>();
   events.forEach((event, eventIndex) => {
     if (event.kind !== 'job') return;
     // One experiment can have several Launcher jobs when an agent extends a
-    // sweep. The chat surface owns one lifecycle card for that experiment.
-    const lifecycleKey = event.resourceId || event.experimentId || event.jobId;
-    lastJobEventByExperiment.set(lifecycleKey, eventIndex);
+    // sweep. Keep that lifecycle card where the experiment first appeared,
+    // while replacing its contents with the newest state. Rendering at the
+    // newest event would move every completed/interrupted experiment to the end
+    // of the turn and invalidate the progress rail's card-index anchors.
+    const lifecycleKey = jobLifecycleKey(event);
+    const lifecycle = jobLifecycleByKey.get(lifecycleKey);
+    jobLifecycleByKey.set(lifecycleKey, {
+      firstEventIndex: lifecycle?.firstEventIndex ?? eventIndex,
+      latestEvent: event,
+    });
   });
   const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
@@ -134,25 +147,26 @@ export function conversationCards(
       cards.push({ type: 'handoff', variant: 'conclusion', text: event.text });
       current = null;
     } else if (event.kind === 'job') {
-      const lifecycleKey = event.resourceId || event.experimentId || event.jobId;
-      if (lastJobEventByExperiment.get(lifecycleKey) === eventIndex) {
+      const lifecycle = jobLifecycleByKey.get(jobLifecycleKey(event));
+      if (lifecycle?.firstEventIndex === eventIndex) {
+        const latestEvent = lifecycle.latestEvent;
         cards.push({
           type: 'job',
-          workspaceId: event.workspaceId,
-          experimentId: event.experimentId,
-          experimentPath: event.experimentPath,
-          status: event.status,
-          ...(event.jobKind
+          workspaceId: latestEvent.workspaceId,
+          experimentId: latestEvent.experimentId,
+          experimentPath: latestEvent.experimentPath,
+          status: latestEvent.status,
+          ...(latestEvent.jobKind
             ? {
-                jobId: event.jobId,
-                jobKind: event.jobKind,
-                resourceId: event.resourceId,
-                ...(event.analyzerResourceId
-                  ? { analyzerResourceId: event.analyzerResourceId }
+                jobId: latestEvent.jobId,
+                jobKind: latestEvent.jobKind,
+                resourceId: latestEvent.resourceId,
+                ...(latestEvent.analyzerResourceId
+                  ? { analyzerResourceId: latestEvent.analyzerResourceId }
                   : {}),
-                artifactPath: event.artifactPath,
-                descriptor: event.descriptor,
-                summary: event.summary,
+                artifactPath: latestEvent.artifactPath,
+                descriptor: latestEvent.descriptor,
+                summary: latestEvent.summary,
               }
             : {}),
         });

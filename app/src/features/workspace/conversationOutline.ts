@@ -22,8 +22,13 @@ export type OutlineResultStatus = 'ready' | 'running' | 'failed';
 export interface OutlineEntry {
   /** Matches `data-outline-anchor` on the rendered card or milestone note. */
   anchorId: string;
-  /** Matches `data-outline-block` on the enclosing lazy block, which is always mounted. */
+  /** Matches the nearest lazy card block that must mount before the anchor exists. */
   blockId: string;
+  /**
+   * Persisted turns have an outer lazy message block which exists before the
+   * inner card block. Navigation uses it as the first mount waypoint.
+   */
+  fallbackBlockId?: string;
   kind: OutlineEntryKind;
   label: string;
   /** Second line, currently only used to name a managed result and its state. */
@@ -112,12 +117,14 @@ function resultEntry(
   card: Extract<ConversationCard, { type: 'job' }>,
   anchorId: string,
   blockId: string,
+  fallbackBlockId?: string,
 ): OutlineEntry {
   const kindLabel = managedResultLabel(card);
   const status = managedResultStatus(card.status);
   return {
     anchorId,
     blockId,
+    ...(fallbackBlockId ? { fallbackBlockId } : {}),
     kind: 'result',
     // An artifact path is not Markdown; run it through the plain truncator so
     // its punctuation survives intact.
@@ -133,11 +140,12 @@ function resultEntry(
  */
 function turnEntries(
   events: readonly ConversationTurnEvent[],
-  blockId: string,
+  turnBlockId: string,
 ): readonly OutlineEntry[] {
   const entries: OutlineEntry[] = [];
   conversationCards(events).forEach((card, cardIndex) => {
-    const anchorId = outlineCardAnchorId(blockId, cardIndex);
+    const anchorId = outlineCardAnchorId(turnBlockId, cardIndex);
+    const fallbackBlockId = turnBlockId === LIVE_OUTLINE_BLOCK_ID ? undefined : turnBlockId;
     if (card.type === 'role') {
       if (card.role !== 'orchestrator') return;
       card.notes.forEach((note, noteIndex) => {
@@ -147,6 +155,7 @@ function turnEntries(
         entries.push({
           anchorId: outlineNoteAnchorId(anchorId, noteIndex),
           blockId: anchorId,
+          ...(fallbackBlockId ? { fallbackBlockId } : {}),
           kind: 'milestone',
           label,
         });
@@ -154,13 +163,14 @@ function turnEntries(
       return;
     }
     if (card.type === 'job') {
-      entries.push(resultEntry(card, anchorId, anchorId));
+      entries.push(resultEntry(card, anchorId, anchorId, fallbackBlockId));
       return;
     }
     if (card.type === 'response') {
       entries.push({
         anchorId,
         blockId: anchorId,
+        ...(fallbackBlockId ? { fallbackBlockId } : {}),
         kind: card.outcome === 'request_user_input' ? 'input-needed' : 'answer',
         label: plainTextExcerpt(card.text),
       });

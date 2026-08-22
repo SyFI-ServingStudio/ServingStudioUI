@@ -68,12 +68,14 @@ describe('conversationOutline', () => {
       {
         anchorId: 't1-c0-n1',
         blockId: 't1-c0',
+        fallbackBlockId: 't1',
         kind: 'milestone',
         label: 'Scoped the sweep to TP=2 and TP=4.',
       },
       {
         anchorId: 't1-c3',
         blockId: 't1-c3',
+        fallbackBlockId: 't1',
         kind: 'result',
         label: 'logs/20260731_0_predict',
         detail: 'timing prediction · ready',
@@ -82,6 +84,7 @@ describe('conversationOutline', () => {
       {
         anchorId: 't1-c4',
         blockId: 't1-c4',
+        fallbackBlockId: 't1',
         kind: 'answer',
         label: 'TP=2 wins on throughput.',
       },
@@ -110,7 +113,7 @@ describe('conversationOutline', () => {
     ];
     expect(conversationOutline(messages, 4, [], false)[0]).toMatchObject({
       blockId: 't4',
-      entries: [{ anchorId: 't5-c0-n0', blockId: 't5-c0' }],
+      entries: [{ anchorId: 't5-c0-n0', blockId: 't5-c0', fallbackBlockId: 't5' }],
     });
   });
 

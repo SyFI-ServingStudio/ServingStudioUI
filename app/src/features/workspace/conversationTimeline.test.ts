@@ -100,6 +100,32 @@ describe('conversationCards managed-run lifecycle', () => {
     ]);
   });
 
+  it('updates experiments in place when stop events finalize several lifecycles', () => {
+    const cards = conversationCards([
+      job('running', 'j_one', 'e_one'),
+      { kind: 'intermediate_output', role: 'orchestrator', text: 'Watching experiment one.' },
+      job('running', 'j_two', 'e_two'),
+      { kind: 'intermediate_output', role: 'orchestrator', text: 'Watching experiment two.' },
+      job('interrupted', 'j_one', 'e_one'),
+      job('interrupted', 'j_two', 'e_two'),
+    ]);
+
+    expect(
+      cards.map((card) =>
+        card.type === 'job'
+          ? `job:${card.experimentId}:${card.status}`
+          : card.type === 'role'
+            ? `role:${card.notes[0]?.text}`
+            : card.type,
+      ),
+    ).toEqual([
+      'job:e_one:interrupted',
+      'role:Watching experiment one.',
+      'job:e_two:interrupted',
+      'role:Watching experiment two.',
+    ]);
+  });
+
   it('keeps independent experiments as independent lifecycle cards', () => {
     const cards = conversationCards([
       job('running', 'j_one', 'e_one'),

@@ -50,7 +50,7 @@ function flash(node: HTMLElement): () => void {
  */
 export function scrollToOutlineAnchor(
   container: HTMLElement,
-  entry: Pick<OutlineEntry, 'anchorId' | 'blockId'>,
+  entry: Pick<OutlineEntry, 'anchorId' | 'blockId' | 'fallbackBlockId'>,
 ): () => void {
   const smooth = prefersReducedMotion() ? 'auto' : 'smooth';
   let clearFlash: (() => void) | null = null;
@@ -76,7 +76,10 @@ export function scrollToOutlineAnchor(
   // Coarse jump first, so the deferred block enters its observer margin. It is
   // instant on purpose: animating to an estimated position and then again to
   // the settled one reads as a stutter.
-  findBlock(container, entry.blockId)?.scrollIntoView?.({ block: 'center', behavior: 'auto' });
+  let mountedWaypoint =
+    findBlock(container, entry.blockId) ??
+    (entry.fallbackBlockId ? findBlock(container, entry.fallbackBlockId) : null);
+  mountedWaypoint?.scrollIntoView?.({ block: 'center', behavior: 'auto' });
 
   let attempts = 0;
   const waitForMount = () => {
@@ -85,6 +88,15 @@ export function scrollToOutlineAnchor(
     if (mounted) {
       settle(mounted);
       return;
+    }
+    // A persisted message mounts in two layers: first its always-present turn
+    // placeholder, then the card placeholder inside it. Move to each newly
+    // available waypoint once so the exact milestone can enter the observer
+    // margin without an unstable smooth-scroll chain.
+    const nextWaypoint = findBlock(container, entry.blockId);
+    if (nextWaypoint && nextWaypoint !== mountedWaypoint) {
+      mountedWaypoint = nextWaypoint;
+      nextWaypoint.scrollIntoView?.({ block: 'center', behavior: 'auto' });
     }
     if ((attempts += 1) > MAX_MOUNT_FRAMES) return;
     frame = window.requestAnimationFrame(waitForMount);
