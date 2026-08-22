@@ -11,6 +11,7 @@ import ErrorOutlineRounded from '@mui/icons-material/ErrorOutlineRounded';
 import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import HistoryRounded from '@mui/icons-material/HistoryRounded';
 import HelpOutlineRounded from '@mui/icons-material/HelpOutlineRounded';
+import HexagonOutlined from '@mui/icons-material/HexagonOutlined';
 import HubOutlined from '@mui/icons-material/HubOutlined';
 import KeyboardDoubleArrowLeftRounded from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
 import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
@@ -50,6 +51,7 @@ import {
   resumeConversationTurn,
   sendConversationTurn,
   updateConversationRuntime,
+  type AgentSettings,
   type CodexModelOption,
   type CodexRoleRuntime,
   type CodexRuntimeSelection,
@@ -66,10 +68,21 @@ import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import MarkdownBody from '../../components/MarkdownBody';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
+import {
+  agentSettingsFromConversation,
+  rolesForAgentMode,
+  savedAgentSettings,
+  saveAgentSettings,
+} from './agentMode';
+import AgentModePicker, { WorkingStyleTag } from './AgentModePicker';
 import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import { conversationTimeLabel } from './conversationPresentation';
-import { conversationCards, type ConversationCard } from './conversationTimeline';
+import {
+  conversationCards,
+  type ConversationCard,
+  type ConversationRole,
+} from './conversationTimeline';
 import {
   LIVE_OUTLINE_BLOCK_ID,
   conversationOutline,
@@ -87,7 +100,7 @@ import {
   scrollToOutlineAnchor,
 } from './outlineNavigation';
 
-type RoleTone = 'orchestrator' | 'implementer' | 'answer' | 'error';
+type RoleTone = 'orchestrator' | 'implementer' | 'assistant' | 'answer' | 'error';
 
 const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }> = {
   orchestrator: {
@@ -100,6 +113,13 @@ const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }>
     line: 'rgba(31,111,107,.3)',
     wash: 'rgba(31,111,107,.055)',
   },
+  // Olive sits between the orchestrator's gold and the implementer's teal, and
+  // never appears beside either: a conversation runs one cast or the other.
+  assistant: {
+    color: tokens.olive,
+    line: 'rgba(86,106,46,.3)',
+    wash: 'rgba(86,106,46,.055)',
+  },
   answer: {
     color: tokens.terra,
     line: 'rgba(168,75,46,.3)',
@@ -111,6 +131,19 @@ const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }>
     wash: 'rgba(154,69,56,.065)',
   },
 };
+
+const roleTitles: Record<ConversationRole, string> = {
+  orchestrator: 'Orchestrator',
+  implementer: 'Implementer',
+  assistant: 'Assistant',
+};
+
+/** Hub for coordinating, wrench for building, and one solid for doing both. */
+function roleIcon(role: ConversationRole) {
+  if (role === 'implementer') return <BuildOutlined sx={{ fontSize: 15 }} />;
+  if (role === 'assistant') return <HexagonOutlined sx={{ fontSize: 15 }} />;
+  return <HubOutlined sx={{ fontSize: 15 }} />;
+}
 
 // Both margins of the full-page reading room. Declared once so the grid track
 // and the composer inset that keeps the reading column centred cannot drift.
@@ -535,6 +568,7 @@ function messageEstimatedHeight(message: ConversationMessage): number {
 const TimelineCardView = memo(function TimelineCardView({
   card,
   cardAnchorId,
+  drivingRole,
   message,
   streaming,
   toolCall,
@@ -543,6 +577,8 @@ const TimelineCardView = memo(function TimelineCardView({
   card: ConversationCard;
   /** Anchor of the enclosing block, used to address individual milestones. */
   cardAnchorId?: string;
+  /** Whose voice asks for input in this turn — the orchestrator, or the assistant. */
+  drivingRole: ConversationRole;
   message?: ConversationMessage;
   streaming: boolean;
   toolCall: string;
@@ -559,18 +595,11 @@ const TimelineCardView = memo(function TimelineCardView({
     );
   }
   if (card.type === 'role') {
-    const implementer = card.role === 'implementer';
     return (
       <RoleCard
         tone={card.role}
-        icon={
-          implementer ? (
-            <BuildOutlined sx={{ fontSize: 15 }} />
-          ) : (
-            <HubOutlined sx={{ fontSize: 15 }} />
-          )
-        }
-        title={implementer ? 'Implementer' : 'Orchestrator'}
+        icon={roleIcon(card.role)}
+        title={roleTitles[card.role]}
         round={card.round}
         runtime={card.runtime}
         status={!card.done && streaming ? 'working' : 'done'}
@@ -665,7 +694,7 @@ const TimelineCardView = memo(function TimelineCardView({
   }
   return (
     <RoleCard
-      tone={card.outcome === 'request_user_input' ? 'orchestrator' : 'answer'}
+      tone={card.outcome === 'request_user_input' ? drivingRole : 'answer'}
       icon={
         card.outcome === 'request_user_input' ? (
           <HelpOutlineRounded sx={{ fontSize: 15 }} />
@@ -692,6 +721,7 @@ function AssistantTimeline({
   toolCall,
   workspaceId,
   blockId,
+  expectedDrivingRole = 'orchestrator',
 }: {
   message?: ConversationMessage;
   events: readonly ConversationTurnEvent[];
@@ -700,17 +730,24 @@ function AssistantTimeline({
   workspaceId: string;
   /** Turn-level progress-rail handle; each card derives its own from it. */
   blockId: string;
+  /** Only consulted before the turn's first card arrives; then the turn tells us. */
+  expectedDrivingRole?: ConversationRole;
 }) {
   const cards = conversationCards(events);
+  // A stored turn carries its own cast, so an old orchestrated transcript keeps
+  // its colours no matter what the conversation runs today.
+  const drivingRole =
+    cards.find((card): card is Extract<ConversationCard, { type: 'role' }> => card.type === 'role')
+      ?.role ?? expectedDrivingRole;
   if (message?.failure) {
     return <FailureCard text={message.failure.message} workspaceId={workspaceId} />;
   }
   if (streaming && cards.length === 0) {
     return (
       <RoleCard
-        tone="orchestrator"
-        icon={<HubOutlined sx={{ fontSize: 15 }} />}
-        title="Orchestrator"
+        tone={expectedDrivingRole}
+        icon={roleIcon(expectedDrivingRole)}
+        title={roleTitles[expectedDrivingRole]}
         round={1}
         status="working"
       >
@@ -734,6 +771,7 @@ function AssistantTimeline({
         <TimelineCardView
           card={card}
           cardAnchorId={cardAnchorId}
+          drivingRole={drivingRole}
           message={message}
           streaming={streaming}
           toolCall={toolCall}
@@ -768,6 +806,49 @@ const PersistedConversationMessage = memo(function PersistedConversationMessage(
   );
 });
 
+/**
+ * What an empty conversation shows instead of a transcript.
+ *
+ * The working style is pinned by the first message, so this is the only moment
+ * it can be set — and the only moment the body is empty enough to hold it. It
+ * used to sit in the composer's header, where it was both oversized for a band
+ * above the input and present on every later turn that could no longer change
+ * it.
+ */
+function ConversationOpening({
+  agentSettings,
+  disabled,
+  onChange,
+}: {
+  agentSettings: AgentSettings;
+  disabled: boolean;
+  onChange: (settings: AgentSettings) => void;
+}) {
+  return (
+    <Stack alignItems="center" sx={{ gap: 1.6, py: 2 }}>
+      <Typography
+        sx={{
+          color: tokens.sub2,
+          fontFamily: tokens.mono,
+          fontSize: 9,
+          fontWeight: 500,
+          letterSpacing: '.15em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Working style
+      </Typography>
+      <AgentModePicker
+        settings={agentSettings}
+        locked={false}
+        disabled={disabled}
+        size="md"
+        onChange={onChange}
+      />
+    </Stack>
+  );
+}
+
 export const ConversationTranscript = memo(function ConversationTranscript({
   workspaceId,
   messages,
@@ -779,6 +860,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   canLoadEarlier,
   loadingEarlier,
   onLoadEarlier,
+  drivingRole,
 }: {
   workspaceId: string;
   messages: readonly ConversationMessage[];
@@ -790,6 +872,8 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   canLoadEarlier: boolean;
   loadingEarlier: boolean;
   onLoadEarlier: () => void;
+  /** The role this conversation's agent mode runs first, for the live turn. */
+  drivingRole: ConversationRole;
 }) {
   return (
     <Stack sx={{ gap: 1.1 }}>
@@ -836,6 +920,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
           toolCall={toolCall}
           workspaceId={workspaceId}
           blockId={LIVE_OUTLINE_BLOCK_ID}
+          expectedDrivingRole={drivingRole}
         />
       )}
       {error && (
@@ -1057,6 +1142,7 @@ const AgentComposer = memo(function AgentComposer({
   codexRuntime,
   lockedFamilies,
   compactRuntime,
+  agentSettings,
   onRuntimeChange,
   onClearSelectionContext,
   onSend,
@@ -1075,6 +1161,8 @@ const AgentComposer = memo(function AgentComposer({
   codexRuntime: CodexRuntimeSelection;
   lockedFamilies: Record<keyof CodexRuntimeSelection, string> | null;
   compactRuntime: boolean;
+  /** Only for which roles the model chips cover; the style itself is set elsewhere. */
+  agentSettings: AgentSettings;
   onRuntimeChange: (role: keyof CodexRuntimeSelection, runtime: CodexRoleRuntime) => void;
   onClearSelectionContext: () => void;
   onSend: (message: string) => void;
@@ -1167,16 +1255,28 @@ const AgentComposer = memo(function AgentComposer({
             }}
           >
             <Box sx={{ minHeight: 0, overflow: 'hidden' }}>
-              <Stack direction="row" justifyContent="center" sx={{ pt: compactRuntime ? 0.45 : 0 }}>
+              {/* The two style axes bracket the band, the runtime chips sit
+                  between them. The plates themselves live in the empty
+                  transcript body — this band reports the choice once it is
+                  settled, it is not where the choice is made. */}
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ width: '100%', gap: 0.85, pt: compactRuntime ? 0.45 : 0 }}
+              >
+                <WorkingStyleTag axis="cast" settings={agentSettings} />
                 <CodexRuntimePicker
                   models={modelOptions}
                   selection={codexRuntime}
+                  roles={rolesForAgentMode(agentSettings.agentMode)}
                   lockedFamilies={lockedFamilies}
                   compact={compactRuntime}
                   disabled={streaming}
                   unavailable={catalogUnavailable}
                   onChange={onRuntimeChange}
                 />
+                <WorkingStyleTag axis="autonomy" settings={agentSettings} />
               </Stack>
             </Box>
           </Box>
@@ -1688,6 +1788,9 @@ function useAgentConversation(
   // What the server last stored for this conversation, so a turn only PATCHes on a
   // real change instead of on every send.
   const persistedRuntime = useRef<CodexRuntimeSelection | null>(null);
+  // The durable preference until a conversation exists; then the server's own
+  // record wins, because it is what the running Codex sessions were built from.
+  const [agentSettings, setAgentSettings] = useState<AgentSettings>(savedAgentSettings);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<readonly ConversationMessage[]>([]);
   const [messagePage, setMessagePage] = useState<ConversationMessagePage | null>(null);
@@ -1702,8 +1805,12 @@ function useAgentConversation(
     return {
       orchestrator: familyOf(pinned.orchestrator),
       implementer: familyOf(pinned.implementer),
+      assistant: familyOf(pinned.assistant),
     };
   }, [messages.length, modelOptions]);
+  // The same judgement the backend makes: the first message pins the working
+  // style, because the Codex sessions a turn builds are per role.
+  const agentSettingsLocked = messages.length > 0;
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   const [liveEvents, setLiveEvents] = useState<readonly ConversationTurnEvent[]>([]);
   const [toolCall, setToolCall] = useState('');
@@ -1808,6 +1915,11 @@ function useAgentConversation(
         persistedRuntime.current = conversation.codex_runtime;
         setCodexRuntime(conversation.codex_runtime);
       }
+      // Opening an existing conversation must show that conversation's working
+      // style, not this browser's preference — the two can disagree.
+      setAgentSettings((current) =>
+        agentSettingsFromConversation(conversation.agent_mode, conversation.autonomous, current),
+      );
       if (markInitialPromptHandled) initialPromptStarted.current = true;
     },
     [workspaceId],
@@ -1882,7 +1994,9 @@ function useAgentConversation(
       // runtime is pushed whenever it drifts from what the server last stored.
       // An unresolved selection (no catalog yet) is never pushed: the server's
       // own default is better than a placeholder.
-      const runtimeResolved = Boolean(codexRuntime.orchestrator.model);
+      const runtimeResolved = Boolean(
+        codexRuntime[rolesForAgentMode(agentSettings.agentMode)[0]].model,
+      );
       if (
         runtimeResolved &&
         persistedRuntime.current !== null &&
@@ -1911,6 +2025,7 @@ function useAgentConversation(
           activeConversationId,
           trimmed,
           context,
+          agentSettings,
           {
             toolCall: (text) => {
               if (viewIsCurrent()) setToolCall(text);
@@ -1969,6 +2084,7 @@ function useAgentConversation(
       }
     },
     [
+      agentSettings,
       beginConversationView,
       codexRuntime,
       pollGeneratedNames,
@@ -2024,14 +2140,14 @@ function useAgentConversation(
   }, [beginConversationView, workspaceId]);
 
   const materializeConversation = useCallback(async (): Promise<Conversation> => {
-    const creation = createConversation(workspaceId, codexRuntime);
+    const creation = createConversation(workspaceId, codexRuntime, agentSettings);
     initializationPromise.current = creation;
     const conversation = await creation;
     installConversation(conversation, true);
     forgetPendingCodexRuntime();
     await refreshHistory();
     return conversation;
-  }, [codexRuntime, installConversation, refreshHistory, workspaceId]);
+  }, [agentSettings, codexRuntime, installConversation, refreshHistory, workspaceId]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -2059,6 +2175,7 @@ function useAgentConversation(
           return {
             orchestrator: resolve(current.orchestrator, catalog.defaults.orchestrator),
             implementer: resolve(current.implementer, catalog.defaults.implementer),
+            assistant: resolve(current.assistant, catalog.defaults.assistant),
           };
         });
       })
@@ -2282,6 +2399,9 @@ function useAgentConversation(
     codexRuntime,
     setCodexRuntime,
     lockedFamilies,
+    agentSettings,
+    agentSettingsLocked,
+    setAgentSettings,
     composerFocusRequest,
   };
 }
@@ -2714,6 +2834,19 @@ export default function AgentPane({
           scrollbarColor: `${tokens.hair} transparent`,
         }}
       >
+        {!conversation.agentSettingsLocked && !conversation.historyLoading && (
+          <ConversationOpening
+            agentSettings={conversation.agentSettings}
+            disabled={conversation.streaming}
+            onChange={(settings) => {
+              // Persist as the durable preference too: this choice is only
+              // editable before a conversation starts, so the next start should
+              // remember it.
+              saveAgentSettings(settings);
+              conversation.setAgentSettings(settings);
+            }}
+          />
+        )}
         <ConversationTranscript
           workspaceId={workspaceId}
           messages={conversation.messages}
@@ -2725,6 +2858,7 @@ export default function AgentPane({
           canLoadEarlier={conversation.canLoadEarlier}
           loadingEarlier={conversation.loadingEarlier}
           onLoadEarlier={loadEarlierMessages}
+          drivingRole={rolesForAgentMode(conversation.agentSettings.agentMode)[0]}
         />
       </Box>
       {progressRailVisible && (
@@ -2751,6 +2885,7 @@ export default function AgentPane({
         codexRuntime={conversation.codexRuntime}
         lockedFamilies={conversation.lockedFamilies}
         compactRuntime={!roomy}
+        agentSettings={conversation.agentSettings}
         onRuntimeChange={(role, runtime) =>
           conversation.setCodexRuntime((current) => ({ ...current, [role]: runtime }))
         }

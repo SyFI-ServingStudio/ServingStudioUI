@@ -4,4 +4,5 @@ import type { CodexRuntimeSelection } from '../../application/conversationReposi
 export const EMPTY_RUNTIME_SELECTION: CodexRuntimeSelection = {
   orchestrator: { model: '', effort: '', serviceTier: 'default' },
   implementer: { model: '', effort: '', serviceTier: 'default' },
+  assistant: { model: '', effort: '', serviceTier: 'default' },
 };

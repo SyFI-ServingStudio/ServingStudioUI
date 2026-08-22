@@ -1,6 +1,8 @@
 import {
+  WORKING_STYLES,
   expectKernelShareGeometry,
   expectNoHorizontalOverflow,
+  openAgentStart,
   openAlignmentFixture,
   openRealRun,
   scopeToPool,
@@ -72,4 +74,27 @@ test('aggregate metric sections stay inside the viewport', async ({ page }) => {
 test('the alignment page keeps its lanes and boards inside the viewport', async ({ page }) => {
   await openAlignmentFixture(page);
   await expectNoHorizontalOverflow(page);
+});
+
+test('the three setup steps reveal and fold in order', async ({ page }) => {
+  // Picking is the confirmation: each answer folds its own step and opens the
+  // next, and the composer does not exist until both earlier steps are answered.
+  await openAgentStart(page);
+  const grid = page.getByRole('radiogroup', { name: 'Agent working style' });
+
+  await grid.getByRole('radio', { name: WORKING_STYLES[3], exact: true }).click();
+  await expect(page.getByRole('button', { name: /Change step 1/ })).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Workspace for new conversation' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Ask VibeSim Agent' })).toHaveCount(0);
+
+  await page.getByRole('option', { name: 'Create a new workspace' }).click();
+  await expect(page.getByRole('button', { name: /Change step 2/ })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Ask VibeSim Agent' })).toBeVisible();
+
+  // Reopening an earlier step returns to the composer, not back through a
+  // workspace choice already made.
+  await page.getByRole('button', { name: /Change step 1/ }).click();
+  await expect(grid.getByRole('radio', { checked: true })).toHaveCount(1);
+  await grid.getByRole('radio', { name: WORKING_STYLES[0], exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Ask VibeSim Agent' })).toBeVisible();
 });

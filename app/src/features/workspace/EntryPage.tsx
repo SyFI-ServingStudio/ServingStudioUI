@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   listCodexBackends,
+  type AgentSettings,
   type CodexModelOption,
   type CodexRoleRuntime,
   type CodexRuntimeSelection,
@@ -27,10 +28,18 @@ import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import { tokens } from '../../theme';
+import {
+  agentSettingsSentence,
+  rolesForAgentMode,
+  savedAgentSettings,
+  saveAgentSettings,
+} from './agentMode';
+import AgentModePicker from './AgentModePicker';
 import CodexRuntimePicker from './CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from './codexRuntime';
 import ConversationCatalog from './ConversationCatalog';
 import ExperimentCatalog from './ExperimentCatalog';
+import SetupStep from './SetupStep';
 import WorkspacePicker from './WorkspacePicker';
 
 type EntryMode = 'experiments' | 'new-conversation' | 'resume-conversation';
@@ -154,17 +163,45 @@ function workspaceNameFromPrompt(prompt: string): string {
   return normalized.length <= 56 ? normalized : `${normalized.slice(0, 53).trimEnd()}…`;
 }
 
+/**
+ * Page 0 asks three things, in order, folding each as it is answered.
+ *
+ * `null` is a legitimate workspace answer — it means "create a new one" — so
+ * whether a step has been answered cannot be read off its value. Hence the two
+ * explicit `answered` flags rather than a null check.
+ */
+type SetupStepIndex = 1 | 2 | 3;
+
 export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSummary[] }) {
   const [prompt, setPrompt] = useState('');
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [openStep, setOpenStep] = useState<SetupStepIndex>(1);
+  const [styleAnswered, setStyleAnswered] = useState(false);
+  const [workspaceAnswered, setWorkspaceAnswered] = useState(false);
   const [creating, setCreating] = useState(false);
   const [creationError, setCreationError] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<readonly CodexModelOption[]>([]);
   const [catalogUnavailable, setCatalogUnavailable] = useState(false);
   const [codexRuntime, setCodexRuntime] = useState<CodexRuntimeSelection>(EMPTY_RUNTIME_SELECTION);
+  const [agentSettings, setAgentSettings] = useState<AgentSettings>(savedAgentSettings);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const selectedWorkspace =
     workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? null;
+  const styleSentence = agentSettingsSentence(agentSettings);
+  // Answering a step advances to the next unanswered one, so a reader who
+  // reopens step 1 late is returned to the composer rather than marched back
+  // through a workspace choice they already made.
+  const answerStyle = (settings: AgentSettings) => {
+    saveAgentSettings(settings);
+    setAgentSettings(settings);
+    setStyleAnswered(true);
+    setOpenStep(workspaceAnswered ? 3 : 2);
+  };
+  const answerWorkspace = (workspaceId: string | null) => {
+    setSelectedWorkspaceId(workspaceId);
+    setWorkspaceAnswered(true);
+    setOpenStep(3);
+  };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = prompt.trim();
@@ -205,6 +242,7 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
         setCodexRuntime({
           orchestrator: resolve(catalog.defaults.orchestrator),
           implementer: resolve(catalog.defaults.implementer),
+          assistant: resolve(catalog.defaults.assistant),
         });
       })
       .catch(() => {
@@ -237,95 +275,129 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
           Analyzer.
         </Typography>
       </Box>
-      <Box sx={{ mt: 3.6 }}>
-        <WorkspacePicker
-          workspaces={workspaces}
-          selectedWorkspaceId={selectedWorkspaceId}
-          onSelect={setSelectedWorkspaceId}
-        />
-      </Box>
-      {/* Centred on the page axis and spaced to read as the composer's own header. */}
-      <Stack
-        direction="row"
-        justifyContent="center"
-        sx={{ maxWidth: 760, mx: 'auto', mt: 2.6, mb: 1.4 }}
-      >
-        <CodexRuntimePicker
-          models={modelOptions}
-          selection={codexRuntime}
-          size="md"
-          unavailable={catalogUnavailable}
-          onChange={(role, runtime) =>
-            setCodexRuntime((current) => ({ ...current, [role]: runtime }))
-          }
-        />
-      </Stack>
-      <Box
-        component="form"
-        onSubmit={submit}
-        sx={{
-          maxWidth: 760,
-          mx: 'auto',
-          p: 1.4,
-          border: `1px solid ${tokens.hair}`,
-          borderRadius: 1.4,
-          background: tokens.tile,
-          boxShadow: '0 22px 70px -42px rgba(42,38,34,.55)',
-        }}
-      >
-        <Box
-          component="textarea"
-          ref={inputRef}
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          aria-label="Ask VibeSim Agent"
-          placeholder="What would you like to learn or optimize?"
-          sx={{
-            width: '100%',
-            minHeight: 92,
-            p: 1,
-            resize: 'none',
-            border: 0,
-            outline: 0,
-            boxSizing: 'border-box',
-            background: 'transparent',
-            color: tokens.ink,
-            fontFamily: tokens.serif,
-            fontSize: 18,
-            lineHeight: 1.45,
-            '&::placeholder': { color: tokens.sub2, opacity: 0.75 },
-          }}
-        />
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ gap: 1 }}>
-          <Typography sx={{ color: tokens.sub2, fontSize: 10.5 }}>
-            {selectedWorkspace
-              ? `New conversation in ${selectedWorkspace.displayName}`
-              : 'A new workspace will be created'}
-          </Typography>
-          <ButtonBase
-            type="submit"
-            disabled={!prompt.trim() || creating}
-            aria-label="Send"
-            sx={{
-              width: 36,
-              height: 34,
-              borderRadius: 0.85,
-              background: tokens.ink,
-              color: tokens.paper,
-              '&.Mui-disabled': { background: tokens.hair, color: tokens.sub2 },
-              '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
-            }}
+      <Stack sx={{ maxWidth: 760, mx: 'auto', mt: 3.6, gap: 1.5 }}>
+        <SetupStep
+          index={1}
+          label="Working style"
+          summary={`${styleSentence.cast} · ${styleSentence.autonomy}`}
+          open={openStep === 1}
+          onReopen={() => setOpenStep(1)}
+        >
+          <AgentModePicker
+            settings={agentSettings}
+            locked={false}
+            size="md"
+            onChange={answerStyle}
+          />
+        </SetupStep>
+        {styleAnswered && (
+          <SetupStep
+            index={2}
+            label="Workspace"
+            summary={selectedWorkspace?.displayName ?? 'A new workspace'}
+            open={openStep === 2}
+            onReopen={() => setOpenStep(2)}
           >
-            <ArrowUpwardRounded sx={{ fontSize: 17 }} />
-          </ButtonBase>
-        </Stack>
-      </Box>
+            <WorkspacePicker
+              workspaces={workspaces}
+              selectedWorkspaceId={selectedWorkspaceId}
+              onSelect={answerWorkspace}
+            />
+          </SetupStep>
+        )}
+        {workspaceAnswered && (
+          <SetupStep
+            index={3}
+            label="Your question"
+            open={openStep === 3}
+            onReopen={() => setOpenStep(3)}
+          >
+            <Box
+              component="form"
+              onSubmit={submit}
+              sx={{
+                width: '100%',
+                p: 1.4,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 1.4,
+                background: tokens.tile,
+              }}
+            >
+              <Box
+                component="textarea"
+                ref={inputRef}
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                aria-label="Ask VibeSim Agent"
+                placeholder="What would you like to learn or optimize?"
+                sx={{
+                  width: '100%',
+                  minHeight: 92,
+                  p: 1,
+                  resize: 'none',
+                  border: 0,
+                  outline: 0,
+                  boxSizing: 'border-box',
+                  background: 'transparent',
+                  color: tokens.ink,
+                  fontFamily: tokens.serif,
+                  fontSize: 18,
+                  lineHeight: 1.45,
+                  '&::placeholder': { color: tokens.sub2, opacity: 0.75 },
+                }}
+              />
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ gap: 1 }}
+              >
+                <CodexRuntimePicker
+                  models={modelOptions}
+                  selection={codexRuntime}
+                  roles={rolesForAgentMode(agentSettings.agentMode)}
+                  size="sm"
+                  compact
+                  unavailable={catalogUnavailable}
+                  onChange={(role, runtime) =>
+                    setCodexRuntime((current) => ({ ...current, [role]: runtime }))
+                  }
+                />
+                <ButtonBase
+                  type="submit"
+                  disabled={!prompt.trim() || creating}
+                  aria-label="Send"
+                  sx={{
+                    flex: 'none',
+                    width: 36,
+                    height: 34,
+                    borderRadius: 0.85,
+                    background: tokens.ink,
+                    color: tokens.paper,
+                    '&.Mui-disabled': { background: tokens.hair, color: tokens.sub2 },
+                    '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                  }}
+                >
+                  <ArrowUpwardRounded sx={{ fontSize: 17 }} />
+                </ButtonBase>
+              </Stack>
+            </Box>
+          </SetupStep>
+        )}
+      </Stack>
+      {/* Starters fill the composer, so they only mean anything once it exists. */}
       <Stack
         direction="row"
         justifyContent="center"
         useFlexGap
         flexWrap="wrap"
-        sx={{ maxWidth: 760, mx: 'auto', mt: 1.3, gap: 0.65 }}
+        sx={{
+          maxWidth: 760,
+          mx: 'auto',
+          mt: 1.3,
+          gap: 0.65,
+          visibility: openStep === 3 ? 'visible' : 'hidden',
+        }}
       >
         {PROMPT_STARTERS.map((starter) => (
           <ButtonBase

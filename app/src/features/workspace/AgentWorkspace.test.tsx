@@ -119,6 +119,7 @@ describe('AgentPane', () => {
         canLoadEarlier={false}
         loadingEarlier={false}
         onLoadEarlier={() => undefined}
+        drivingRole="orchestrator"
       />,
     );
 
@@ -159,6 +160,7 @@ describe('AgentPane', () => {
         canLoadEarlier={false}
         loadingEarlier={false}
         onLoadEarlier={() => undefined}
+        drivingRole="orchestrator"
       />,
     );
 
@@ -200,6 +202,7 @@ describe('AgentPane', () => {
             canLoadEarlier={false}
             loadingEarlier={false}
             onLoadEarlier={loadEarlier}
+            drivingRole="orchestrator"
           />
           <input
             aria-label="Draft performance probe"
@@ -1112,6 +1115,7 @@ describe('file references in Agent output', () => {
         canLoadEarlier={false}
         loadingEarlier={false}
         onLoadEarlier={() => undefined}
+        drivingRole="orchestrator"
       />,
     );
   }

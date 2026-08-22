@@ -32,7 +32,9 @@ export function forgetActiveConversation(workspaceId: string): void {
   }
 }
 
-function roleRuntimeFrom(value: unknown): { model: string; effort: string; serviceTier: 'default' | 'fast' } | null {
+function roleRuntimeFrom(
+  value: unknown,
+): { model: string; effort: string; serviceTier: 'default' | 'fast' } | null {
   if (typeof value !== 'object' || value === null) return null;
   const { model, effort, serviceTier } = value as {
     model?: unknown;
@@ -52,9 +54,14 @@ export function pendingCodexRuntime(): CodexRuntimeSelection | null {
     const selection = JSON.parse(rawSelection) as Record<string, unknown>;
     const orchestrator = roleRuntimeFrom(selection.orchestrator);
     const implementer = roleRuntimeFrom(selection.implementer);
+    const assistant = roleRuntimeFrom(selection.assistant);
     // The server re-validates against its live catalog, so this only has to
-    // reject shapes the picker cannot render.
-    return orchestrator && implementer ? { orchestrator, implementer } : null;
+    // reject shapes the picker cannot render. A payload left by an older tab
+    // has no `assistant` and is rejected whole; the Agent surface then falls
+    // back to the backend catalog defaults, which is self-healing.
+    return orchestrator && implementer && assistant
+      ? { orchestrator, implementer, assistant }
+      : null;
   } catch {
     return null;
   }

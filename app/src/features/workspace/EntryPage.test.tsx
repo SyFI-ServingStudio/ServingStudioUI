@@ -78,6 +78,11 @@ describe('Page 0 conversation entry', () => {
           effort: 'xhigh',
           serviceTier: 'default',
         },
+        assistant: {
+          model: 'gpt-5.6-sol',
+          effort: 'xhigh',
+          serviceTier: 'default',
+        },
       },
     });
   });

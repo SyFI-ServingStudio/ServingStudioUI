@@ -7,6 +7,7 @@ import type {
   CodexModelOption,
   CodexRuntimeSelection,
 } from '../../application/conversationRepository';
+import type { CodexRoleName } from './agentMode';
 import CodexRuntimePicker from './CodexRuntimePicker';
 
 const MODELS: readonly CodexModelOption[] = [
@@ -45,16 +46,24 @@ const MODELS: readonly CodexModelOption[] = [
   },
 ];
 
-function Harness({ locked = false }: { locked?: boolean }) {
+function Harness({
+  locked = false,
+  roles,
+}: {
+  locked?: boolean;
+  roles?: readonly CodexRoleName[];
+}) {
   const [selection, setSelection] = useState<CodexRuntimeSelection>({
     orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
     implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+    assistant: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
   });
   return (
     <CodexRuntimePicker
       models={MODELS}
       selection={selection}
-      lockedFamilies={locked ? { orchestrator: 'gpt', implementer: 'gpt' } : null}
+      roles={roles}
+      lockedFamilies={locked ? { orchestrator: 'gpt', implementer: 'gpt', assistant: 'gpt' } : null}
       onChange={(role, runtime) => setSelection((current) => ({ ...current, [role]: runtime }))}
     />
   );
@@ -117,5 +126,13 @@ describe('Codex runtime picker', () => {
 
     await user.click(screen.getByRole('radio', { name: 'GPT-5.6-Sol at medium' }));
     expect(screen.getByLabelText('Implementer Codex runtime')).toHaveTextContent('medium');
+  });
+
+  it('shows one chip for the single-agent cast and none of the delegating pair', () => {
+    render(<Harness roles={['assistant']} />);
+
+    expect(screen.getByLabelText('Assistant Codex runtime')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Orchestrator Codex runtime')).toBeNull();
+    expect(screen.queryByLabelText('Implementer Codex runtime')).toBeNull();
   });
 });

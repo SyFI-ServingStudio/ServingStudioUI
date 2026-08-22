@@ -60,6 +60,11 @@ describe('conversation repository', () => {
                 effort: 'xhigh',
                 serviceTier: 'default',
               },
+              assistant: {
+                model: 'gpt-5.6-sol',
+                effort: 'xhigh',
+                serviceTier: 'fast',
+              },
             },
             messages: [],
           }),
@@ -70,14 +75,22 @@ describe('conversation repository', () => {
     const selection = {
       orchestrator: { model: 'gpt-5.6-terra', effort: 'high', serviceTier: 'fast' },
       implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+      assistant: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'fast' },
     } as const;
 
-    await createConversation('w_main', selection);
+    await createConversation('w_main', selection, {
+      agentMode: 'single',
+      autonomous: false,
+    });
     await updateConversationRuntime('w_main', 'c_new', selection);
 
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/workspaces/w_main/conversations');
+    // Both agent axes ride the create body: the backend pins them there, and a
+    // conversation started from this UI must not silently inherit a default.
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       codex_runtime: selection,
+      agent_mode: 'single',
+      autonomous: false,
     });
     expect(fetchMock.mock.calls[1]).toEqual([
       '/api/workspaces/w_main/conversations/c_new/runtime',
@@ -204,6 +217,7 @@ describe('conversation repository', () => {
       'c_test',
       'Compare throughput.',
       context,
+      { agentMode: 'single', autonomous: false },
       {
         event: (event) => events.push(event),
         done: (completion) => completions.push(completion),
@@ -214,6 +228,11 @@ describe('conversation repository', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       text: 'Compare throughput.',
       analyzerContext: context,
+      // Sent every turn, not just the first: the backend ignores it once the
+      // conversation has history, and the caller should not have to know which
+      // turn is the first one.
+      agent_mode: 'single',
+      autonomous_mode: false,
     });
     expect(events).toContainEqual({
       kind: 'intermediate_output',
@@ -272,6 +291,7 @@ describe('conversation repository', () => {
       'c_test',
       'Explain this graph.',
       null,
+      { agentMode: 'orchestrated', autonomous: true },
       {
         event: (event) => events.push(event),
         done: (completion) => completions.push(completion),
@@ -377,6 +397,7 @@ describe('conversation repository', () => {
       'c_test',
       'Run a prediction.',
       null,
+      { agentMode: 'orchestrated', autonomous: true },
       {
         event: (event) => events.push(event),
         done: (completion) => completions.push(completion),

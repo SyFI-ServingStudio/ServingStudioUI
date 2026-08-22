@@ -9,16 +9,23 @@ import type {
   CodexRuntimeSelection,
 } from '../../application/conversationRepository';
 import { tokens } from '../../theme';
+import { rolesForAgentMode, type CodexRoleName } from './agentMode';
 
-const ROLES = ['orchestrator', 'implementer'] as const;
+/**
+ * Which roles get a chip is the caller's business: it depends on the
+ * conversation's agent mode, and this picker deliberately knows nothing about
+ * that concept. `rolesForAgentMode` is the one place that mapping lives.
+ */
+const DEFAULT_ROLES = rolesForAgentMode('orchestrated');
 
-type CodexRole = (typeof ROLES)[number];
+type CodexRole = CodexRoleName;
 
 type PickerSize = 'sm' | 'md';
 
 const roleLabels: Record<CodexRole, string> = {
   orchestrator: 'Orchestrator',
   implementer: 'Implementer',
+  assistant: 'Assistant',
 };
 
 const sizeStyles: Record<
@@ -533,6 +540,7 @@ function RuntimeChip({
 export default function CodexRuntimePicker({
   models,
   selection,
+  roles = DEFAULT_ROLES,
   lockedFamilies = null,
   size = 'sm',
   compact = false,
@@ -542,6 +550,8 @@ export default function CodexRuntimePicker({
 }: {
   models: readonly CodexModelOption[];
   selection: CodexRuntimeSelection;
+  /** The roles this conversation's agent mode actually runs. */
+  roles?: readonly CodexRole[];
   lockedFamilies?: Record<CodexRole, string> | null;
   size?: PickerSize;
   /** Keep the role pair visually grouped inside the narrow docked Agent pane. */
@@ -555,7 +565,7 @@ export default function CodexRuntimePicker({
   // An empty catalog must say so rather than silently removing the control —
   // most often it means the conversation backend predates the model registry.
   if (models.length === 0)
-    return unavailable ? <UnavailableChips size={size} compact={compact} /> : null;
+    return unavailable ? <UnavailableChips roles={roles} size={size} compact={compact} /> : null;
   return (
     <Stack
       direction="row"
@@ -565,7 +575,7 @@ export default function CodexRuntimePicker({
       flexWrap="wrap"
       sx={{ gap: compact ? 0.9 : 2.8 }}
     >
-      {ROLES.map((role) => (
+      {roles.map((role) => (
         <RuntimeChip
           key={role}
           role={role}
@@ -581,7 +591,15 @@ export default function CodexRuntimePicker({
   );
 }
 
-function UnavailableChips({ size, compact }: { size: PickerSize; compact: boolean }) {
+function UnavailableChips({
+  roles,
+  size,
+  compact,
+}: {
+  roles: readonly CodexRole[];
+  size: PickerSize;
+  compact: boolean;
+}) {
   const style = sizeStyles[size];
   return (
     <Stack
@@ -592,7 +610,7 @@ function UnavailableChips({ size, compact }: { size: PickerSize; compact: boolea
       flexWrap="wrap"
       sx={{ gap: compact ? 0.9 : 2.8 }}
     >
-      {ROLES.map((role) => (
+      {roles.map((role) => (
         <Stack key={role} direction="row" alignItems="center" sx={{ gap: style.gap }}>
           <Typography
             component="span"

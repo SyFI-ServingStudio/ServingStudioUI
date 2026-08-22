@@ -23,6 +23,26 @@ export interface CodexRoleRuntime {
 export interface CodexRuntimeSelection {
   orchestrator: CodexRoleRuntime;
   implementer: CodexRoleRuntime;
+  assistant: CodexRoleRuntime;
+}
+
+/**
+ * Which cast a turn runs: `orchestrated` delegates from an orchestrator to an
+ * implementer, `single` gives one `assistant` role both jobs.
+ *
+ * The `assistant` Codex role is not the same thing as
+ * `ConversationMessage.role === 'assistant'`. That one says who authored a
+ * stored message (the user, or the agent); this one says which Codex session
+ * ran the turn. Both names come from the backend wire, so neither is renamed
+ * here.
+ */
+export type AgentMode = 'orchestrated' | 'single';
+
+/** The conversation-level agent contract, pinned by the first message. */
+export interface AgentSettings {
+  agentMode: AgentMode;
+  /** False makes the agent stop and ask when a decision is genuinely ambiguous. */
+  autonomous: boolean;
 }
 
 export interface CodexModelOption {
@@ -117,6 +137,9 @@ export interface Conversation {
   title: string;
   naming_state: NamingState;
   codex_runtime?: CodexRuntimeSelection;
+  /** Both are pinned server-side once the conversation has a message. */
+  agent_mode?: AgentMode;
+  autonomous?: boolean;
   messages: readonly ConversationMessage[];
   message_page?: ConversationMessagePage;
 }
@@ -295,6 +318,7 @@ export async function listCodexBackends(): Promise<CodexRuntimeCatalog> {
     defaults: {
       orchestrator: normalizeRuntime(payload.defaults?.orchestrator),
       implementer: normalizeRuntime(payload.defaults?.implementer),
+      assistant: normalizeRuntime(payload.defaults?.assistant),
     },
   };
 }
@@ -302,6 +326,7 @@ export async function listCodexBackends(): Promise<CodexRuntimeCatalog> {
 export async function createConversation(
   workspaceId: string,
   codexRuntime: CodexRuntimeSelection,
+  agentSettings: AgentSettings,
 ): Promise<Conversation> {
   const response = await requireResponse(
     await fetch(conversationApi(workspaceId), {
@@ -309,7 +334,8 @@ export async function createConversation(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sandbox: 'workspace-write',
-        autonomous: true,
+        autonomous: agentSettings.autonomous,
+        agent_mode: agentSettings.agentMode,
         codex_runtime: codexRuntime,
       }),
     }),
@@ -408,16 +434,22 @@ export async function sendConversationTurn(
   conversationId: string,
   text: string,
   analyzerContext: AnalyzerTurnContextV2 | null,
+  agentSettings: AgentSettings,
   handlers: ConversationStreamHandlers,
   signal: AbortSignal,
 ): Promise<void> {
   const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}/messages`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    // `autonomous_mode` here, `autonomous` on create: the asymmetry is the
+    // backend's, not a slip. `agent_mode` is honored only on the first turn —
+    // sending it every turn keeps the "changed my mind before sending" path
+    // correct without the caller having to know which turn is the first.
     body: JSON.stringify({
       text,
       sandbox_mode: 'workspace-write',
-      autonomous_mode: true,
+      autonomous_mode: agentSettings.autonomous,
+      agent_mode: agentSettings.agentMode,
       ...(analyzerContext ? { analyzerContext } : {}),
     }),
     signal,

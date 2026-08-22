@@ -6,7 +6,8 @@ import type {
   ConversationTurnEvent,
 } from '../../application/conversationRepository';
 
-export type ConversationRole = 'orchestrator' | 'implementer';
+/** `assistant` is the single-agent mode's one role: it orchestrates and edits. */
+export type ConversationRole = 'orchestrator' | 'implementer' | 'assistant';
 export interface ConversationNote {
   level: CommentaryLevel;
   text: string;
@@ -48,7 +49,12 @@ function jobLifecycleKey(event: JobEvent): string {
 }
 
 function roleFrom(value: string): ConversationRole {
-  return value === 'implementer' ? 'implementer' : 'orchestrator';
+  if (value === 'implementer') return 'implementer';
+  // Named explicitly rather than left to the fallback: a single-agent turn
+  // labelled `orchestrator` would render under the wrong name and colour, and
+  // would share a round counter with a role it never runs beside.
+  if (value === 'assistant') return 'assistant';
+  return 'orchestrator';
 }
 
 function cleanNote(text: string, level?: CommentaryLevel): ConversationNote | null {
@@ -90,12 +96,14 @@ export function conversationCards(
       latestEvent: event,
     });
   });
-  const rounds: Record<ConversationRole, number> = { orchestrator: 0, implementer: 0 };
+  const rounds: Record<ConversationRole, number> = {
+    orchestrator: 0,
+    implementer: 0,
+    assistant: 0,
+  };
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
   const runtimeFrom = (event: { model?: string; effort?: string }): CodexRoleRuntime | null =>
-    event.model
-      ? { model: event.model, effort: event.effort ?? '', serviceTier: 'default' }
-      : null;
+    event.model ? { model: event.model, effort: event.effort ?? '', serviceTier: 'default' } : null;
   const openRole = (role: ConversationRole, runtime?: CodexRoleRuntime | null) => {
     rounds[role] += 1;
     const card: Extract<ConversationCard, { type: 'role' }> = {

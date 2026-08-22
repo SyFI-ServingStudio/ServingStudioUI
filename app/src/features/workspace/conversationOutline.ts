@@ -147,7 +147,10 @@ function turnEntries(
     const anchorId = outlineCardAnchorId(turnBlockId, cardIndex);
     const fallbackBlockId = turnBlockId === LIVE_OUTLINE_BLOCK_ID ? undefined : turnBlockId;
     if (card.type === 'role') {
-      if (card.role !== 'orchestrator') return;
+      // Milestones come from whichever role drives the turn — the orchestrator
+      // in the two-agent cast, the assistant in the single-agent one. Only the
+      // implementer's commentary is a handoff detail rather than a milestone.
+      if (card.role === 'implementer') return;
       card.notes.forEach((note, noteIndex) => {
         if (note.level !== 'milestone') return;
         const label = plainTextExcerpt(note.text);

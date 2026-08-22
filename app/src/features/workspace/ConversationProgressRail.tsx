@@ -232,7 +232,7 @@ export default function ConversationProgressRail({
               No progress yet
             </Typography>
             <Typography sx={{ mt: 0.35, color: tokens.sub2, fontSize: 10.5, lineHeight: 1.45 }}>
-              Milestones, results and answers collect here as the orchestrator works.
+              Milestones, results and answers collect here as the agent works.
             </Typography>
           </Box>
         ) : (

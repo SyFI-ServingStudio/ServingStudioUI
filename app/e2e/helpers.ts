@@ -202,3 +202,55 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
     expect(geometry.overflow, JSON.stringify(geometry, null, 2)).toBeLessThanOrEqual(1);
   }).toPass({ timeout: 3_000 });
 }
+
+/**
+ * One model, all three Codex roles. The `assistant` default is what the
+ * single-agent cast runs on, so a catalog that omits it would let the picker
+ * offer a mode with no runtime behind it.
+ */
+export const CODEX_CATALOG = {
+  models: [
+    {
+      id: 'gpt-5.6-sol',
+      label: 'GPT-5.6-Sol',
+      family: 'gpt',
+      familyLabel: 'GPT-5.6',
+      efforts: ['low', 'medium', 'high', 'xhigh'],
+      defaultEffort: 'xhigh',
+      serviceTiers: ['default', 'fast'],
+      defaultServiceTier: 'default',
+      available: true,
+    },
+  ],
+  families: [{ id: 'gpt', label: 'GPT-5.6', available: true, requiredEnvironment: [] }],
+  defaults: {
+    orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+    implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+    assistant: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+  },
+};
+
+/** The four plates, by accessible name. */
+export const WORKING_STYLES = [
+  '2 Agents, Autonomous',
+  '2 Agents, Human-in-the-loop',
+  'Single Agent, Autonomous',
+  'Single Agent, Human-in-the-loop',
+];
+
+/**
+ * Opens the new-conversation tab with the agent stack stubbed.
+ *
+ * Page 0 also lists managed jobs and saved conversations; both are stubbed
+ * empty so the only thing that can move or fail is the control under test.
+ */
+export async function openAgentStart(page: Page): Promise<void> {
+  await page.route('**/api/codex-backends', (route) => route.fulfill({ json: CODEX_CATALOG }));
+  await page.route('**/api/jobs', (route) => route.fulfill({ json: { jobs: [] } }));
+  await page.route('**/api/conversations', (route) =>
+    route.fulfill({ json: { conversations: [] } }),
+  );
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'New conversation' }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Agent working style' })).toBeVisible();
+}

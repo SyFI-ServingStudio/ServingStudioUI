@@ -168,4 +168,34 @@ describe('conversationCards managed-run lifecycle', () => {
       },
     ]);
   });
+
+  it('keeps a single-agent turn under its own role and round counter', () => {
+    // Before `assistant` was a role of its own, `roleFrom` folded it into the
+    // orchestrator: the card rendered under the wrong name and colour, and the
+    // two shared a round counter even though they never run together.
+    expect(
+      conversationCards([
+        { kind: 'intermediate_output', role: 'assistant', level: 'progress', text: 'Reading.' },
+        {
+          kind: 'usage',
+          role: 'assistant',
+          duration_ms: 10,
+          tokens: { read: 1, prefill: 1, output: 1 },
+        },
+        { kind: 'intermediate_output', role: 'assistant', level: 'milestone', text: 'Built it.' },
+      ]),
+    ).toMatchObject([
+      { type: 'role', role: 'assistant', round: 1 },
+      { type: 'role', role: 'assistant', round: 2 },
+    ]);
+  });
+
+  it('emits no handoff cards when one agent does both jobs', () => {
+    const cards = conversationCards([
+      { kind: 'intermediate_output', role: 'assistant', level: 'progress', text: 'Editing.' },
+      { kind: 'final', text: 'Done.', outcome: 'final_answer' },
+    ]);
+
+    expect(cards.some((card) => card.type === 'handoff')).toBe(false);
+  });
 });

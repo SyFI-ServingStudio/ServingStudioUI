@@ -159,4 +159,33 @@ describe('conversationOutline', () => {
     );
     expect(outlineEntryCounts(outline)).toEqual({ milestones: 2, results: 0, answers: 1 });
   });
+
+  it('indexes milestones from the single-agent cast too', () => {
+    // The gate used to be `role !== 'orchestrator'`, which only kept working
+    // because `assistant` was folded into `orchestrator` upstream. Once that
+    // fold went away it would have silently emptied every single-agent rail.
+    const outline = conversationOutline(
+      [
+        { role: 'user', content: 'Build it.' },
+        assistant([
+          { kind: 'intermediate_output', role: 'assistant', text: 'Reading the preset.' },
+          {
+            kind: 'intermediate_output',
+            role: 'assistant',
+            level: 'milestone',
+            text: 'Landed the change.',
+          },
+          { kind: 'final', text: 'Done.', outcome: 'final_answer' },
+        ]),
+      ],
+      0,
+      [],
+      false,
+    );
+
+    expect(outlineEntryCounts(outline).milestones).toBe(1);
+    expect(outline.flatMap((group) => group.entries)).toContainEqual(
+      expect.objectContaining({ kind: 'milestone', label: 'Landed the change.' }),
+    );
+  });
 });
