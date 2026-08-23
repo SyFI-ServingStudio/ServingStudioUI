@@ -87,34 +87,49 @@ describe('Page 0 conversation entry', () => {
     });
   });
 
-  it('places a compact workspace picker above the new-conversation composer', async () => {
+  it('asks working style, then workspace, then the question', async () => {
     const user = userEvent.setup();
     render(<AgentStart workspaces={workspaces} />);
 
-    const picker = screen.getByRole('listbox', { name: 'Workspace for new conversation' });
-    const composer = screen.getByRole('textbox', { name: 'Ask VibeSim Agent' });
+    // Each step is mounted only once the one above it is answered, so the
+    // workspace picker cannot appear before the working style is pinned.
     expect(
-      picker.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      screen.queryByRole('listbox', { name: 'Workspace for new conversation' }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: '2 Agents, Autonomous' }));
+
+    const picker = await screen.findByRole('listbox', { name: 'Workspace for new conversation' });
+    expect(screen.queryByRole('textbox', { name: 'Ask VibeSim Agent' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /context/i })).not.toBeInTheDocument();
 
     const workspace = screen.getByRole('option', { name: 'Select Kernel exploration' });
     await user.click(workspace);
 
+    const composer = await screen.findByRole('textbox', { name: 'Ask VibeSim Agent' });
+    expect(
+      picker.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(window.location.hash).toBe('#/');
     expect(workspace).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText('New conversation in Kernel exploration')).toBeInTheDocument();
   });
 
   it('offers a pinned clean-workspace choice', async () => {
     const user = userEvent.setup();
     render(<AgentStart workspaces={workspaces} />);
 
-    const existingWorkspace = screen.getByRole('option', { name: 'Select Main development' });
-    await user.click(existingWorkspace);
-    await user.click(screen.getByRole('option', { name: 'Create a new workspace' }));
+    await user.click(screen.getByRole('radio', { name: '2 Agents, Autonomous' }));
+    await user.click(await screen.findByRole('option', { name: 'Select Main development' }));
+    // A folded step reopens from its own summary line, so the choice can be
+    // revised without losing the steps answered after it.
+    await user.click(screen.getByRole('button', { name: 'Change step 2, Workspace' }));
+    const cleanWorkspace = screen.getByRole('option', { name: 'Create a new workspace' });
+    await user.click(cleanWorkspace);
 
-    expect(screen.getByText('A new workspace will be created')).toBeInTheDocument();
+    expect(cleanWorkspace).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'Select Main development' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
   });
 
   it('ranks resumable conversations globally and shows their workspace', async () => {

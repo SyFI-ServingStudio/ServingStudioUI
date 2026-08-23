@@ -16,6 +16,7 @@ import HubOutlined from '@mui/icons-material/HubOutlined';
 import KeyboardDoubleArrowLeftRounded from '@mui/icons-material/KeyboardDoubleArrowLeftRounded';
 import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
 import OpenInFullRounded from '@mui/icons-material/OpenInFullRounded';
+import PendingActionsRounded from '@mui/icons-material/PendingActionsRounded';
 import PushPinRounded from '@mui/icons-material/PushPinRounded';
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import StopRounded from '@mui/icons-material/StopRounded';
@@ -137,6 +138,11 @@ const roleTitles: Record<ConversationRole, string> = {
   implementer: 'Implementer',
   assistant: 'Assistant',
 };
+
+/** Narrow a role name off the wire; the backend labels its own Codex calls. */
+function isConversationRole(role: string): role is ConversationRole {
+  return role in roleTitles;
+}
 
 /** Hub for coordinating, wrench for building, and one solid for doing both. */
 function roleIcon(role: ConversationRole) {
@@ -467,6 +473,135 @@ function UserMessage({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * A message typed while a turn was running, waiting for its own turn.
+ *
+ * It is deliberately client-only: nothing is sent until the queue actually
+ * reaches it, so discarding one leaves no trace in the conversation. `context`
+ * is snapshotted at enqueue time because the user wrote the message while
+ * looking at that selection — by the time it is sent they may be somewhere
+ * else, and re-reading the current selection would attach the wrong evidence.
+ */
+interface QueuedMessage {
+  id: string;
+  text: string;
+  context: AnalyzerTurnContextV2 | null;
+  /** Set by an interrupt: the queue stops draining until the user acts. */
+  suspended: boolean;
+}
+
+/** Above this the strip crowds out the live timeline it is queued behind. */
+const MAX_QUEUED_MESSAGES = 5;
+
+/**
+ * Ids for queued messages, from a counter rather than `crypto.randomUUID`.
+ *
+ * `randomUUID` exists only in a secure context, and this UI is routinely served
+ * over plain http on a LAN address, where reaching for it throws on render.
+ * The id never leaves the browser — it only tells two cards in one list apart —
+ * so uniqueness within a page load is the whole requirement.
+ */
+let queuedMessageSequence = 0;
+
+function nextQueuedMessageId(): string {
+  queuedMessageSequence += 1;
+  return `queued-${queuedMessageSequence}`;
+}
+
+function QueuedMessages({
+  messages,
+  onDiscard,
+  onReturnToComposer,
+}: {
+  messages: readonly QueuedMessage[];
+  onDiscard: (id: string) => void;
+  onReturnToComposer: (id: string) => void;
+}) {
+  if (messages.length === 0) return null;
+  return (
+    <Stack role="list" aria-label="Queued messages" sx={{ gap: 0.75 }}>
+      {messages.map((message, index) => (
+        <Stack
+          key={message.id}
+          role="listitem"
+          aria-label={`Queued message ${index + 1} of ${messages.length}`}
+          sx={{ alignSelf: 'flex-end', maxWidth: '82%', alignItems: 'flex-end', gap: 0.4 }}
+        >
+          <Stack direction="row" alignItems="center" sx={{ gap: 0.7 }}>
+            <Typography
+              sx={{
+                color: message.suspended ? tokens.terra : tokens.sub2,
+                fontFamily: tokens.mono,
+                fontSize: 7.5,
+                letterSpacing: '.12em',
+                textTransform: 'uppercase',
+              }}
+            >
+              {message.suspended ? 'Suspended' : 'Queued'}
+            </Typography>
+            {message.context !== null && (
+              <Typography
+                sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 7.5 }}
+                title="Carries the Analyzer selection from when it was queued"
+              >
+                · with selection
+              </Typography>
+            )}
+            {message.suspended && (
+              <ButtonBase
+                onClick={() => onReturnToComposer(message.id)}
+                sx={{
+                  px: 0.5,
+                  color: tokens.teal,
+                  fontFamily: tokens.mono,
+                  fontSize: 7.5,
+                  letterSpacing: '.06em',
+                  textTransform: 'uppercase',
+                  '&:hover': { textDecoration: 'underline' },
+                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                }}
+              >
+                Return to composer
+              </ButtonBase>
+            )}
+            <ButtonBase
+              onClick={() => onDiscard(message.id)}
+              aria-label={`Discard queued message ${index + 1}`}
+              sx={{
+                width: 14,
+                height: 14,
+                borderRadius: 0.4,
+                color: tokens.sub2,
+                '&:hover': { color: tokens.terra },
+                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+              }}
+            >
+              <CloseRounded sx={{ fontSize: 11 }} />
+            </ButtonBase>
+          </Stack>
+          {/* Same geometry as a sent message, drawn unsent: dashed edge, paper
+              rather than tile, dimmed ink. */}
+          <Box
+            sx={{
+              px: 1.3,
+              py: 1,
+              border: `1px dashed ${message.suspended ? 'rgba(153,68,45,.4)' : tokens.hair}`,
+              borderRadius: '10px 10px 3px 10px',
+              background: tokens.leafbg,
+              color: tokens.sub,
+              fontSize: 11.5,
+              lineHeight: 1.45,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {message.text}
+          </Box>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
 const EAGER_TRANSCRIPT_MESSAGES = 4;
 const EAGER_TIMELINE_CARDS = 3;
 
@@ -569,6 +704,7 @@ const TimelineCardView = memo(function TimelineCardView({
   card,
   cardAnchorId,
   drivingRole,
+  latest = false,
   message,
   streaming,
   toolCall,
@@ -579,6 +715,8 @@ const TimelineCardView = memo(function TimelineCardView({
   cardAnchorId?: string;
   /** Whose voice asks for input in this turn — the orchestrator, or the assistant. */
   drivingRole: ConversationRole;
+  /** Last card of the turn: the one the live activity line belongs to. */
+  latest?: boolean;
   message?: ConversationMessage;
   streaming: boolean;
   toolCall: string;
@@ -619,7 +757,10 @@ const TimelineCardView = memo(function TimelineCardView({
               {note.text}
             </Note>
           ))}
-          {!card.done && streaming && toolCall && <ActivityLine text={toolCall} />}
+          {/* One line, on the newest card only: `toolCall` is a single live
+              value, so drawing it in every open card repeats one action as
+              several. */}
+          {latest && !card.done && streaming && toolCall && <ActivityLine text={toolCall} />}
         </Stack>
       </RoleCard>
     );
@@ -772,6 +913,7 @@ function AssistantTimeline({
           card={card}
           cardAnchorId={cardAnchorId}
           drivingRole={drivingRole}
+          latest={index === cards.length - 1}
           message={message}
           streaming={streaming}
           toolCall={toolCall}
@@ -861,6 +1003,9 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   loadingEarlier,
   onLoadEarlier,
   drivingRole,
+  queued = [],
+  onDiscardQueued = () => {},
+  onReturnQueuedToComposer = () => {},
 }: {
   workspaceId: string;
   messages: readonly ConversationMessage[];
@@ -874,6 +1019,10 @@ export const ConversationTranscript = memo(function ConversationTranscript({
   onLoadEarlier: () => void;
   /** The role this conversation's agent mode runs first, for the live turn. */
   drivingRole: ConversationRole;
+  /** Optional so a transcript can be rendered without a live composer behind it. */
+  queued?: readonly QueuedMessage[];
+  onDiscardQueued?: (id: string) => void;
+  onReturnQueuedToComposer?: (id: string) => void;
 }) {
   return (
     <Stack sx={{ gap: 1.1 }}>
@@ -923,6 +1072,13 @@ export const ConversationTranscript = memo(function ConversationTranscript({
           expectedDrivingRole={drivingRole}
         />
       )}
+      {/* Below the live turn, because that is where they are in line. They stay
+          after streaming ends only when an interrupt suspended them. */}
+      <QueuedMessages
+        messages={queued}
+        onDiscard={onDiscardQueued}
+        onReturnToComposer={onReturnQueuedToComposer}
+      />
       {error && (
         <Typography
           role="alert"
@@ -1129,14 +1285,85 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
   );
 }
 
+/**
+ * Says where the next message goes after an interrupt.
+ *
+ * Read-only on purpose: the target is not a preference, it is wherever the
+ * interrupt landed. Offering a switch would imply you can address a role whose
+ * session has nothing to continue.
+ */
+/**
+ * Who the next message reaches, while that is not the driving role.
+ *
+ * It stays up for as long as the side conversation lasts — the implementer
+ * keeps answering, so a second question needs no second interrupt — which is
+ * exactly why it needs a way out: without one, returning to the orchestrator
+ * would mean saying something the implementer chooses to hand back.
+ */
+function ResumeTargetStrip({ role, onRelease }: { role: string; onRelease: () => void }) {
+  return (
+    <Stack
+      direction="row"
+      alignItems="center"
+      sx={{
+        gap: 0.6,
+        mb: 0.75,
+        px: 0.9,
+        py: 0.5,
+        border: '1px solid rgba(31,111,107,.26)',
+        borderRadius: 0.7,
+        background: 'rgba(31,111,107,.045)',
+      }}
+    >
+      <Box aria-hidden sx={{ width: 4, height: 4, borderRadius: '50%', background: tokens.teal }} />
+      <Typography sx={{ color: tokens.teal, fontFamily: tokens.mono, fontSize: 8 }}>
+        Next message continues with the {role}
+      </Typography>
+      <ButtonBase
+        onClick={onRelease}
+        aria-label="Send the next message to the orchestrator instead"
+        sx={{
+          ml: 'auto',
+          px: 0.6,
+          py: 0.15,
+          borderRadius: 0.5,
+          color: tokens.sub2,
+          fontFamily: tokens.mono,
+          fontSize: 8,
+          '&:hover': { color: tokens.teal, background: 'rgba(31,111,107,.08)' },
+        }}
+      >
+        Back to orchestrator
+      </ButtonBase>
+    </Stack>
+  );
+}
+
+/** One sentence covering the Stop button's three states. */
+function interruptStopLabel(interrupting: boolean, armed: boolean, pendingRole: string): string {
+  if (interrupting) return 'Interrupting turn';
+  if (armed) {
+    return pendingRole
+      ? `Stopping as soon as the ${pendingRole} starts — click to keep going`
+      : 'Stopping as soon as this step starts — click to keep going';
+  }
+  if (pendingRole) return `Stop after the ${pendingRole} starts`;
+  return 'Interrupt turn';
+}
+
 const AgentComposer = memo(function AgentComposer({
   insetLeft,
   insetRight,
   readingColumnWidth,
   showSelectionContext,
   focusRequest,
+  draftInsertion,
   streaming,
   interrupting,
+  interruptArmed,
+  pendingRole,
+  resumeRole,
+  queueFull,
   modelOptions,
   catalogUnavailable,
   codexRuntime,
@@ -1146,7 +1373,9 @@ const AgentComposer = memo(function AgentComposer({
   onRuntimeChange,
   onClearSelectionContext,
   onSend,
+  onQueue,
   onCancel,
+  onReleaseResumeRole,
 }: {
   /** Rail widths to reserve, so the reading column lands where the transcript is. */
   insetLeft: string;
@@ -1154,8 +1383,17 @@ const AgentComposer = memo(function AgentComposer({
   readingColumnWidth: string;
   showSelectionContext: boolean;
   focusRequest: number;
+  /** A returned queued message; the counter is what makes a repeat land. */
+  draftInsertion: { text: string; version: number };
   streaming: boolean;
   interrupting: boolean;
+  /** An interrupt is waiting for `pendingRole` to produce its first output. */
+  interruptArmed: boolean;
+  /** The role currently inside its blind window, empty once it has spoken. */
+  pendingRole: string;
+  /** Set after an interrupt: the role the next message continues with. */
+  resumeRole: string;
+  queueFull: boolean;
   modelOptions: readonly CodexModelOption[];
   catalogUnavailable: boolean;
   codexRuntime: CodexRuntimeSelection;
@@ -1166,7 +1404,10 @@ const AgentComposer = memo(function AgentComposer({
   onRuntimeChange: (role: keyof CodexRuntimeSelection, runtime: CodexRoleRuntime) => void;
   onClearSelectionContext: () => void;
   onSend: (message: string) => void;
+  onQueue: (message: string) => void;
   onCancel: () => void;
+  /** Send the next message to the driver instead of the role holding the thread. */
+  onReleaseResumeRole: () => void;
 }) {
   const [draft, setDraft] = useState('');
   const [runtimeExpanded, setRuntimeExpanded] = useState(!compactRuntime);
@@ -1174,13 +1415,29 @@ const AgentComposer = memo(function AgentComposer({
   useEffect(() => {
     if (focusRequest > 0) inputElement.current?.focus();
   }, [focusRequest]);
+  // The draft stays local: lifting it to the hook would re-render the whole
+  // Agent page on every keystroke. A returned queued message therefore arrives
+  // as a versioned prop rather than as a value.
+  useEffect(() => {
+    if (draftInsertion.version === 0) return;
+    setDraft(draftInsertion.text);
+    inputElement.current?.focus();
+  }, [draftInsertion]);
   useEffect(() => {
     setRuntimeExpanded(!compactRuntime);
   }, [compactRuntime]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || streaming) return;
+    if (!message) return;
+    // Enter does the same thing the visible button does: send when idle, queue
+    // when a turn is running.
+    if (streaming) {
+      if (queueFull) return;
+      setDraft('');
+      onQueue(message);
+      return;
+    }
     setDraft('');
     onSend(message);
   };
@@ -1272,7 +1529,13 @@ const AgentComposer = memo(function AgentComposer({
                   roles={rolesForAgentMode(agentSettings.agentMode)}
                   lockedFamilies={lockedFamilies}
                   compact={compactRuntime}
-                  disabled={streaming}
+                  // Deliberately editable mid-turn. Every turn pushes the
+                  // runtime it is about to use, so a change made now lands on
+                  // the next call — including a queued message, which runs with
+                  // whatever is selected when it is finally sent. `lockedFamilies`
+                  // still forbids the one change that cannot work: a rollout is
+                  // only resumable by the family that recorded it.
+                  disabled={false}
                   unavailable={catalogUnavailable}
                   onChange={onRuntimeChange}
                 />
@@ -1282,6 +1545,11 @@ const AgentComposer = memo(function AgentComposer({
           </Box>
         </Box>
         {showSelectionContext && <AnalyzerSelectionStrip onClear={onClearSelectionContext} />}
+        {/* Only the implementer: interrupting the driver has always resumed the
+            driver, so saying so adds a line without adding information. */}
+        {resumeRole === 'implementer' && (
+          <ResumeTargetStrip role={resumeRole} onRelease={onReleaseResumeRole} />
+        )}
         <Stack
           direction="row"
           alignItems="center"
@@ -1320,32 +1588,65 @@ const AgentComposer = memo(function AgentComposer({
             }}
           />
           {streaming ? (
-            <ButtonBase
-              type="button"
-              onClick={onCancel}
-              disabled={interrupting}
-              aria-label={interrupting ? 'Interrupting turn' : 'Interrupt turn'}
-              title={interrupting ? 'Interrupting' : 'Interrupt'}
-              sx={{
-                width: 34,
-                height: 34,
-                flex: '0 0 auto',
-                border: `1px solid ${tokens.terra}`,
-                borderRadius: 0.85,
-                background: tokens.leafbg,
-                color: tokens.terra,
-                transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
-                '&:hover': { background: 'rgba(153,68,45,.08)' },
-                '&:active': { transform: 'translateY(1px)' },
-                '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
-                '&:focus-visible': {
-                  outline: `2px solid ${tokens.terra}`,
-                  outlineOffset: 1,
-                },
-              }}
-            >
-              <StopRounded sx={{ fontSize: 16 }} />
-            </ButtonBase>
+            <>
+              {draft.trim() !== '' && (
+                <ButtonBase
+                  type="submit"
+                  disabled={queueFull}
+                  aria-label={queueFull ? 'Queue is full' : 'Queue message'}
+                  title={
+                    queueFull
+                      ? `At most ${MAX_QUEUED_MESSAGES} messages can wait`
+                      : 'Send after this turn finishes'
+                  }
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    flex: '0 0 auto',
+                    border: `1px solid ${tokens.teal}`,
+                    borderRadius: 0.85,
+                    background: tokens.leafbg,
+                    color: tokens.teal,
+                    transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
+                    '&:hover': { background: 'rgba(31,111,107,.08)' },
+                    '&:active': { transform: 'translateY(1px)' },
+                    '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
+                    '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                  }}
+                >
+                  <PendingActionsRounded sx={{ fontSize: 16 }} />
+                </ButtonBase>
+              )}
+              <ButtonBase
+                type="button"
+                onClick={onCancel}
+                disabled={interrupting}
+                aria-label={interruptStopLabel(interrupting, interruptArmed, pendingRole)}
+                title={interruptStopLabel(interrupting, interruptArmed, pendingRole)}
+                sx={{
+                  width: 34,
+                  height: 34,
+                  flex: '0 0 auto',
+                  // Armed reads as pending rather than active: the same stop
+                  // mark, drawn as an outline that has not closed yet.
+                  border: `1px ${interruptArmed ? 'dashed' : 'solid'} ${tokens.terra}`,
+                  borderRadius: 0.85,
+                  background: interruptArmed ? 'rgba(153,68,45,.08)' : tokens.leafbg,
+                  color: tokens.terra,
+                  opacity: interruptArmed ? 0.75 : 1,
+                  transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}, opacity 120ms ${tokens.ease}`,
+                  '&:hover': { background: 'rgba(153,68,45,.08)' },
+                  '&:active': { transform: 'translateY(1px)' },
+                  '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
+                  '&:focus-visible': {
+                    outline: `2px solid ${tokens.terra}`,
+                    outlineOffset: 1,
+                  },
+                }}
+              >
+                <StopRounded sx={{ fontSize: 16 }} />
+              </ButtonBase>
+            </>
           ) : (
             <ButtonBase
               type="submit"
@@ -1816,7 +2117,33 @@ function useAgentConversation(
   const [toolCall, setToolCall] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [interrupting, setInterrupting] = useState(false);
+  const [queued, setQueued] = useState<readonly QueuedMessage[]>([]);
+  const [draftInsertion, setDraftInsertion] = useState({ text: '', version: 0 });
+  // The role inside its interrupt blind window, and whether an interrupt is
+  // waiting for it to speak. Empty role means nothing is blind right now:
+  // either no role has started this turn (workspace and container setup, where
+  // there is no handoff to lose) or the running one has already produced
+  // output.
+  const [pendingRole, setPendingRole] = useState('');
+  // Whoever is running right now, blind or not. `pendingRole` cannot stand in:
+  // it clears the moment the role speaks, and this outlives that. A turn that
+  // opens at the implementer — the user answering one they interrupted — would
+  // otherwise show an Orchestrator placeholder until the first output arrived.
+  const [activeRole, setActiveRole] = useState<ConversationRole | null>(null);
+  const [interruptArmed, setInterruptArmed] = useState(false);
+  const [interruptedRole, setInterruptedRole] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Read at the top of `runTurn`, which clears the state in the same breath.
+  const interruptedRoleRef = useRef('');
+  interruptedRoleRef.current = interruptedRole;
+  // Set only when the user redirects the conversation, and spent by the next
+  // turn: the server carries the target across turns on its own, so overriding
+  // it is a one-off, not a second copy of the same state.
+  const resumeOverride = useRef<string | null>(null);
+  const releaseResumeTarget = useCallback(() => {
+    resumeOverride.current = '';
+    setInterruptedRole('');
+  }, []);
   const [composerFocusRequest, setComposerFocusRequest] = useState(0);
   const [conversations, setConversations] = useState<readonly ConversationSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -1834,6 +2161,23 @@ function useAgentConversation(
   const initialPromptStarted = useRef(false);
   const abortController = useRef<AbortController | null>(null);
   const namingPollGeneration = useRef(0);
+  const queuedRef = useRef<readonly QueuedMessage[]>(queued);
+  queuedRef.current = queued;
+  // How the last turn ended, read by the queue when `streaming` falls. It
+  // cannot be inferred from `streaming` alone, which also drops on a
+  // conversation switch, an interrupt, and a failure.
+  const turnOutcome = useRef<'completed' | 'interrupted' | 'failed'>('completed');
+  /**
+   * Claim a normal completion, unless `cancel` already claimed an interrupt.
+   *
+   * A cancelled turn still unwinds through its own success path, so the two
+   * race; the interrupt wins because the user's stop is the later intent.
+   */
+  const markTurnCompleted = useCallback(() => {
+    if (turnOutcome.current !== 'interrupted') turnOutcome.current = 'completed';
+  }, []);
+  const interruptArmedRef = useRef(false);
+  interruptArmedRef.current = interruptArmed;
   const setStreamingState = useCallback((nextStreaming: boolean) => {
     streamingRef.current = nextStreaming;
     setStreaming(nextStreaming);
@@ -1847,8 +2191,33 @@ function useAgentConversation(
     setInterrupting(false);
     setLiveEvents([]);
     setToolCall('');
+    // A new turn opens a new blind window; the previous one's arming is spent.
+    // The queue deliberately survives — this also runs at the start of every
+    // turn, including the one draining the queue.
+    setPendingRole('');
+    setActiveRole(null);
+    setInterruptArmed(false);
     return nextVersion;
   }, [setStreamingState]);
+  // `cancel` is defined below and closes over state this runs before; a ref
+  // keeps the blind-window bookkeeping out of its dependency cycle.
+  const cancelRef = useRef<() => Promise<void>>(async () => {});
+  /**
+   * Track one role's interrupt blind window, and spend an armed interrupt.
+   *
+   * A role that has started but produced nothing cannot be interrupted without
+   * losing whatever handoff its prompt carried, so the Stop button arms instead
+   * of firing. `role_ready` is the moment that becomes safe, so it is also the
+   * moment the deferred interrupt runs.
+   */
+  const noteRole = useCallback((role: string, ready: boolean) => {
+    setPendingRole(ready ? '' : role);
+    if (isConversationRole(role)) setActiveRole(role);
+    if (!ready || !interruptArmedRef.current) return;
+    interruptArmedRef.current = false;
+    setInterruptArmed(false);
+    void cancelRef.current();
+  }, []);
   const refreshHistory = useCallback(async (): Promise<readonly ConversationSummary[] | null> => {
     setHistoryLoading(true);
     setHistoryError(null);
@@ -1911,6 +2280,11 @@ function useAgentConversation(
       setLiveEvents([]);
       setToolCall('');
       setError(null);
+      // The queue is this conversation's wait, not a durable outbox: carrying
+      // it across would fire messages into a conversation they were not
+      // written for.
+      setQueued([]);
+      setInterruptedRole(conversation.interrupted_role ?? '');
       if (conversation.codex_runtime) {
         persistedRuntime.current = conversation.codex_runtime;
         setCodexRuntime(conversation.codex_runtime);
@@ -1932,6 +2306,7 @@ function useAgentConversation(
         conversationIdRef.current === activeConversationId;
       if (!viewIsCurrent()) return;
 
+      turnOutcome.current = 'failed';
       const controller = new AbortController();
       abortController.current = controller;
       setStreamingState(true);
@@ -1947,8 +2322,12 @@ function useAgentConversation(
             event: (event) => {
               if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
             },
+            role: (role, ready) => {
+              if (viewIsCurrent()) noteRole(role, ready);
+            },
             done: (completion) => {
               namingScheduled = completion.namingScheduled;
+              setInterruptedRole(completion.interruptedRole);
               if (completion.outcome === 'request_user_input') {
                 setComposerFocusRequest((current) => current + 1);
               }
@@ -1966,7 +2345,11 @@ function useAgentConversation(
           }
           if (namingScheduled) void pollGeneratedNames(activeConversationId);
         }
+        // A rejoined turn that ends on its own is a normal completion: anything
+        // queued while watching it should go out.
+        markTurnCompleted();
       } catch (caught) {
+        turnOutcome.current = 'failed';
         if (viewIsCurrent() && !controller.signal.aborted) {
           setError(caught instanceof Error ? caught.message : 'Resume conversation failed');
         }
@@ -1979,14 +2362,26 @@ function useAgentConversation(
         }
       }
     },
-    [pollGeneratedNames, setStreamingState, workspaceId],
+    [markTurnCompleted, noteRole, pollGeneratedNames, setStreamingState, workspaceId],
   );
 
   const runTurn = useCallback(
     async (activeConversationId: string, text: string, context: AnalyzerTurnContextV2 | null) => {
       const trimmed = text.trim();
       if (!trimmed || streamingRef.current) return;
+      // Pessimistic until the turn reaches its own end, so a turn that dies
+      // somewhere unexpected never releases the queue behind it. The server
+      // consumes `interrupted_role` with this same message.
+      turnOutcome.current = 'failed';
+      const resumeRedirect = resumeOverride.current;
+      resumeOverride.current = null;
+      const resumeTarget = resumeRedirect ?? interruptedRoleRef.current;
+      setInterruptedRole('');
       const viewVersion = beginConversationView();
+      // This turn opens at the role the user was talking to, and we know that
+      // before any event arrives. Saying so from the first frame is what keeps
+      // the placeholder card from naming the driving role and then flipping.
+      if (isConversationRole(resumeTarget)) setActiveRole(resumeTarget);
       const viewIsCurrent = () =>
         conversationViewVersion.current === viewVersion &&
         conversationIdRef.current === activeConversationId;
@@ -2033,6 +2428,9 @@ function useAgentConversation(
             event: (event) => {
               if (viewIsCurrent()) setLiveEvents((current) => [...current, event]);
             },
+            role: (role, ready) => {
+              if (viewIsCurrent()) noteRole(role, ready);
+            },
             done: (completion) => {
               if (!viewIsCurrent()) return;
               namingScheduled = completion.namingScheduled;
@@ -2053,12 +2451,16 @@ function useAgentConversation(
                 citation_dsl_version: completion.citationDslVersion,
                 failure: completion.failure,
               };
+              // Whoever answered keeps the conversation until a turn ends
+              // through the driving role, which reports `''` here.
+              setInterruptedRole(completion.interruptedRole);
               if (completion.outcome === 'request_user_input') {
                 setComposerFocusRequest((current) => current + 1);
               }
             },
           },
           controller.signal,
+          resumeRedirect ?? undefined,
         );
         const refreshed = await getConversation(workspaceId, activeConversationId);
         if (!viewIsCurrent()) return;
@@ -2070,7 +2472,11 @@ function useAgentConversation(
         }
         void refreshHistory();
         if (namingScheduled) void pollGeneratedNames(activeConversationId);
+        // Only a turn that reached its own end releases the next queued
+        // message; `cancel` has already claimed this ref if it was interrupted.
+        markTurnCompleted();
       } catch (caught) {
+        turnOutcome.current = 'failed';
         if (viewIsCurrent() && !controller.signal.aborted) {
           setError(caught instanceof Error ? caught.message : 'Conversation turn failed');
         }
@@ -2087,6 +2493,8 @@ function useAgentConversation(
       agentSettings,
       beginConversationView,
       codexRuntime,
+      markTurnCompleted,
+      noteRole,
       pollGeneratedNames,
       refreshHistory,
       setStreamingState,
@@ -2137,6 +2545,8 @@ function useAgentConversation(
     setLiveEvents([]);
     setToolCall('');
     setError(null);
+    setQueued([]);
+    setInterruptedRole('');
   }, [beginConversationView, workspaceId]);
 
   const materializeConversation = useCallback(async (): Promise<Conversation> => {
@@ -2346,8 +2756,19 @@ function useAgentConversation(
     if (conversationId === null || !streamingRef.current || interrupting) return;
     setInterrupting(true);
     setError(null);
+    turnOutcome.current = 'interrupted';
+    // An interrupt is the user taking the wheel back, so nothing they lined up
+    // behind the stopped turn goes out on its own. Suspension is one-way: a
+    // later turn finishing normally must not release a message they stopped.
+    setQueued((current) =>
+      current.map((message) => (message.suspended ? message : { ...message, suspended: true })),
+    );
     try {
-      await cancelConversationTurn(workspaceId, conversationId);
+      const { interruptedRole: stoppedRole } = await cancelConversationTurn(
+        workspaceId,
+        conversationId,
+      );
+      setInterruptedRole(stoppedRole);
       abortController.current?.abort();
       const refreshed = await getConversation(workspaceId, conversationId);
       if (refreshed) {
@@ -2362,8 +2783,25 @@ function useAgentConversation(
       setStreamingState(false);
       setLiveEvents([]);
       setToolCall('');
+      setPendingRole('');
+      setInterruptArmed(false);
     }
   }, [conversationId, interrupting, refreshHistory, setStreamingState, workspaceId]);
+  cancelRef.current = cancel;
+
+  /**
+   * The Stop button. Inside a role's blind window it arms instead of firing,
+   * and a second press disarms — an interrupt there would drop the handoff the
+   * starting role has not yet recorded, so there is no way to force one.
+   */
+  const requestCancel = useCallback(() => {
+    if (!streamingRef.current || interrupting) return;
+    if (pendingRole !== '') {
+      setInterruptArmed((armed) => !armed);
+      return;
+    }
+    void cancel();
+  }, [cancel, interrupting, pendingRole]);
   const send = useCallback(
     (text: string) =>
       conversationId
@@ -2373,6 +2811,59 @@ function useAgentConversation(
           ),
     [analyzerContext, conversationId, materializeConversation, runTurn],
   );
+
+  const queueMessage = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      setQueued((current) =>
+        current.length >= MAX_QUEUED_MESSAGES
+          ? current
+          : [
+              ...current,
+              {
+                id: nextQueuedMessageId(),
+                text: trimmed,
+                // Snapshot, not a live read: the message was written about this
+                // selection, and the user may be elsewhere by the time it goes.
+                context: analyzerContext,
+                suspended: false,
+              },
+            ],
+      );
+    },
+    [analyzerContext],
+  );
+  const discardQueued = useCallback((id: string) => {
+    setQueued((current) => current.filter((message) => message.id !== id));
+  }, []);
+  const returnQueuedToComposer = useCallback((id: string) => {
+    const message = queuedRef.current.find((queuedMessage) => queuedMessage.id === id);
+    if (!message) return;
+    setQueued((current) => current.filter((queuedMessage) => queuedMessage.id !== id));
+    setDraftInsertion((current) => ({ text: message.text, version: current.version + 1 }));
+  }, []);
+
+  const runTurnRef = useRef(runTurn);
+  runTurnRef.current = runTurn;
+  /**
+   * Release one queued message per turn boundary.
+   *
+   * `streaming` is the only dependency on purpose. `runTurn` awaits a runtime
+   * PATCH before it flips `streaming` back on, so with `queued` in the
+   * dependency list the removal below would re-enter this effect inside that
+   * gap and flush the whole queue into a single turn. Reading the queue through
+   * a ref makes the false-edge of `streaming` the one and only trigger.
+   */
+  useEffect(() => {
+    if (streaming || turnOutcome.current !== 'completed') return;
+    const conversationIdForTurn = conversationIdRef.current;
+    if (conversationIdForTurn === null) return;
+    const next = queuedRef.current.find((message) => !message.suspended);
+    if (!next) return;
+    setQueued((current) => current.filter((message) => message.id !== next.id));
+    void runTurnRef.current(conversationIdForTurn, next.text, next.context);
+  }, [streaming]);
 
   return {
     conversationId,
@@ -2390,7 +2881,17 @@ function useAgentConversation(
     loadingEarlier,
     loadEarlier,
     send,
-    cancel,
+    cancel: requestCancel,
+    queued,
+    queueMessage,
+    discardQueued,
+    returnQueuedToComposer,
+    draftInsertion,
+    pendingRole,
+    activeRole,
+    interruptArmed,
+    interruptedRole,
+    releaseResumeTarget,
     selectConversation,
     startConversation,
     removeConversation,
@@ -2858,7 +3359,12 @@ export default function AgentPane({
           canLoadEarlier={conversation.canLoadEarlier}
           loadingEarlier={conversation.loadingEarlier}
           onLoadEarlier={loadEarlierMessages}
-          drivingRole={rolesForAgentMode(conversation.agentSettings.agentMode)[0]}
+          drivingRole={
+            conversation.activeRole ?? rolesForAgentMode(conversation.agentSettings.agentMode)[0]
+          }
+          queued={conversation.queued}
+          onDiscardQueued={conversation.discardQueued}
+          onReturnQueuedToComposer={conversation.returnQueuedToComposer}
         />
       </Box>
       {progressRailVisible && (
@@ -2878,8 +3384,14 @@ export default function AgentPane({
         readingColumnWidth={readingColumnWidth}
         showSelectionContext={showSelectionContext && activeAnalyzerContext !== null}
         focusRequest={conversation.composerFocusRequest}
+        draftInsertion={conversation.draftInsertion}
         streaming={conversation.streaming}
         interrupting={conversation.interrupting}
+        interruptArmed={conversation.interruptArmed}
+        pendingRole={conversation.pendingRole}
+        resumeRole={conversation.interruptedRole}
+        onReleaseResumeRole={conversation.releaseResumeTarget}
+        queueFull={conversation.queued.length >= MAX_QUEUED_MESSAGES}
         modelOptions={conversation.modelOptions}
         catalogUnavailable={conversation.catalogUnavailable}
         codexRuntime={conversation.codexRuntime}
@@ -2891,6 +3403,7 @@ export default function AgentPane({
         }
         onClearSelectionContext={() => setClearedAnalyzerContextIdentity(analyzerContextIdentity)}
         onSend={sendMessage}
+        onQueue={conversation.queueMessage}
         onCancel={cancelTurn}
       />
     </Box>

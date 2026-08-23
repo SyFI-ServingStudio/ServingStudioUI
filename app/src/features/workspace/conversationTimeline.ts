@@ -104,8 +104,16 @@ export function conversationCards(
   let current: Extract<ConversationCard, { type: 'role' }> | null = null;
   const runtimeFrom = (event: { model?: string; effort?: string }): CodexRoleRuntime | null =>
     event.model ? { model: event.model, effort: event.effort ?? '', serviceTier: 'default' } : null;
+  const openCardsFor = (role: ConversationRole) =>
+    cards.filter(
+      (card): card is Extract<ConversationCard, { type: 'role' }> =>
+        card.type === 'role' && card.role === role && !card.done,
+    );
   const openRole = (role: ConversationRole, runtime?: CodexRoleRuntime | null) => {
-    rounds[role] += 1;
+    // A card that reopens while this role's call is still running — a job card
+    // landed mid-call, say — continues that call rather than starting another.
+    // Counting it as a new round would report two rounds for one Codex call.
+    if (openCardsFor(role).length === 0) rounds[role] += 1;
     const card: Extract<ConversationCard, { type: 'role' }> = {
       type: 'role',
       role,
@@ -133,21 +141,18 @@ export function conversationCards(
       current = target;
     } else if (event.kind === 'usage') {
       const role = roleFrom(event.role);
-      const target =
-        current?.role === role && !current.done
-          ? current
-          : ([...cards]
-              .reverse()
-              .find(
-                (card): card is Extract<ConversationCard, { type: 'role' }> =>
-                  card.type === 'role' && card.role === role && !card.done,
-              ) ?? openRole(role, runtimeFrom(event)));
+      // Usage ends the call, so *every* card that call left open closes here.
+      // Closing only the last one stranded the earlier segments as permanently
+      // "working", and a stranded card keeps rendering the live activity line.
+      const open = openCardsFor(role);
+      const target = open.at(-1) ?? openRole(role, runtimeFrom(event));
+      for (const card of open) card.done = true;
       const usageRuntime = runtimeFrom(event);
       if (usageRuntime) target.runtime = usageRuntime;
       target.durationMs = event.duration_ms;
       target.tokens = event.tokens;
       target.done = true;
-      if (current === target) current = null;
+      current = null;
     } else if (event.kind === 'decision') {
       cards.push({ type: 'handoff', variant: 'delegated-task', text: event.task });
       current = null;

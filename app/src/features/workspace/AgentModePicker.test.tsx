@@ -42,7 +42,7 @@ describe('agent mode picker', () => {
     // Never a whole row: on a two-column grid that would read as "both columns
     // hold", which is the one thing that is never true here.
     expect(checkedCells()).toHaveLength(1);
-    expect(checkedCells()[0]).toHaveAccessibleName('Two agents, decides and reports');
+    expect(checkedCells()[0]).toHaveAccessibleName('2 Agents, Autonomous');
   });
 
   it('reports both axes from one click and moves the mark', async () => {
@@ -50,18 +50,24 @@ describe('agent mode picker', () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
 
-    await user.click(screen.getByRole('radio', { name: 'One agent, stops to ask you' }));
+    await user.click(screen.getByRole('radio', { name: 'Single Agent, Human-in-the-loop' }));
 
     expect(onChange).toHaveBeenCalledWith({ agentMode: 'single', autonomous: false });
     expect(checkedCells()).toHaveLength(1);
-    expect(checkedCells()[0]).toHaveAccessibleName('One agent, stops to ask you');
+    expect(checkedCells()[0]).toHaveAccessibleName('Single Agent, Human-in-the-loop');
   });
 
   it('restates the choice in the same words the grid uses', () => {
-    render(<Harness initial={{ agentMode: 'single', autonomous: false }} />);
+    const settings = { agentMode: 'single', autonomous: false } as AgentSettings;
+    const grid = render(<Harness initial={settings} />);
 
-    expect(screen.getByText(/asking you when unsure/)).toHaveTextContent(
-      'One agent, asking you when unsure.',
+    expect(checkedCells()[0]).toHaveAccessibleName('Single Agent, Human-in-the-loop');
+    grid.unmount();
+
+    // Same two words, joined — the locked line is a restatement, not a paraphrase.
+    render(<Harness initial={settings} locked />);
+    expect(screen.getByText(/Human-in-the-loop/)).toHaveTextContent(
+      'Single Agent · Human-in-the-loop',
     );
   });
 
@@ -71,9 +77,7 @@ describe('agent mode picker', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
     // The sentence stays, so a started conversation still says what it is.
-    expect(screen.getByText(/deciding without asking you/)).toHaveTextContent(
-      'One agent, deciding without asking you.',
-    );
+    expect(screen.getByText(/Autonomous/)).toHaveTextContent('Single Agent · Autonomous');
   });
 
   it('stays readable but unusable while a turn is streaming', () => {

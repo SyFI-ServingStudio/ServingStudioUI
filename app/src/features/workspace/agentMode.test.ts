@@ -56,12 +56,12 @@ describe('agent mode', () => {
 
   it('restates the choice as one sentence for both the grid and its locked form', () => {
     expect(agentSettingsSentence({ agentMode: 'single', autonomous: true })).toEqual({
-      cast: 'One agent',
-      autonomy: 'deciding without asking you',
+      cast: 'Single Agent',
+      autonomy: 'Autonomous',
     });
     expect(agentSettingsSentence({ agentMode: 'orchestrated', autonomous: false })).toEqual({
-      cast: 'Two agents',
-      autonomy: 'asking you when unsure',
+      cast: '2 Agents',
+      autonomy: 'Human-in-the-loop',
     });
   });
 });

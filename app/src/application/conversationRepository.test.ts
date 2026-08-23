@@ -253,6 +253,7 @@ describe('conversation repository', () => {
       citationDslVersion: 'v2',
       failure: null,
       namingScheduled: false,
+      interruptedRole: '',
     });
   });
 
@@ -308,6 +309,7 @@ describe('conversation repository', () => {
       citationDslVersion: null,
       failure,
       namingScheduled: false,
+      interruptedRole: '',
     });
   });
 

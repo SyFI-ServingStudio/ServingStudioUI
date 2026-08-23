@@ -140,6 +140,13 @@ export interface Conversation {
   /** Both are pinned server-side once the conversation has a message. */
   agent_mode?: AgentMode;
   autonomous?: boolean;
+  /**
+   * The Codex role a stopped turn was inside, or absent when nothing is
+   * pending. The next message continues with that role, and the server clears
+   * it as it consumes it — so this is durable across a reload but lasts exactly
+   * one turn.
+   */
+  interrupted_role?: string;
   messages: readonly ConversationMessage[];
   message_page?: ConversationMessagePage;
 }
@@ -181,12 +188,29 @@ export interface TurnCompletion {
   citationDslVersion: string | null;
   failure: ConversationFailure | null;
   namingScheduled: boolean;
+  /**
+   * The role the next message continues with, or `''` for the driving role.
+   *
+   * Non-empty only when a role answered the user itself, which is also the only
+   * ending that does not hand the conversation back to the driver.
+   */
+  interruptedRole: string;
 }
 
 export interface ConversationStreamHandlers {
   toolCall?: (text: string) => void;
   event?: (event: ConversationTurnEvent) => void;
   done?: (completion: TurnCompletion) => void;
+  /**
+   * A Codex role started (`ready: false`) or produced its first output
+   * (`ready: true`).
+   *
+   * Between the two, the prompt carrying a handoff — a delegated task on its
+   * way out, or an implementer summary on its way back — is not yet durable in
+   * that role's rollout, so an interrupt there would drop it. The caller uses
+   * this to defer an interrupt rather than to render anything.
+   */
+  role?: (role: string, ready: boolean) => void;
 }
 
 function conversationApi(workspaceId: string): string {
@@ -437,6 +461,13 @@ export async function sendConversationTurn(
   agentSettings: AgentSettings,
   handlers: ConversationStreamHandlers,
   signal: AbortSignal,
+  /**
+   * Overrides the role this turn opens at, which the server otherwise carries
+   * across turns itself. Sent only when the user redirected the conversation —
+   * the "back to orchestrator" way out of a side conversation — because the
+   * server's own value is right in every other case.
+   */
+  resumeRole?: string,
 ): Promise<void> {
   const response = await fetch(`${conversationApi(workspaceId)}/${conversationId}/messages`, {
     method: 'POST',
@@ -451,6 +482,7 @@ export async function sendConversationTurn(
       autonomous_mode: agentSettings.autonomous,
       agent_mode: agentSettings.agentMode,
       ...(analyzerContext ? { analyzerContext } : {}),
+      ...(resumeRole === undefined ? {} : { resume_role: resumeRole }),
     }),
     signal,
   });
@@ -473,15 +505,26 @@ export async function resumeConversationTurn(
   return true;
 }
 
+/**
+ * Stop the running turn, and report which Codex role it stopped inside.
+ *
+ * The role is empty when nothing resumable was interrupted — no turn was
+ * running, or the one that was had not produced output yet. An empty role means
+ * the next message starts an ordinary turn at the driving role.
+ */
 export async function cancelConversationTurn(
   workspaceId: string,
   conversationId: string,
-): Promise<boolean> {
+): Promise<{ cancelled: boolean; interruptedRole: string }> {
   const response = await requireResponse(
     await fetch(`${conversationApi(workspaceId)}/${conversationId}/cancel`, { method: 'POST' }),
     'Cancel turn',
   );
-  return Boolean(((await response.json()) as { cancelled?: boolean }).cancelled);
+  const payload = (await response.json()) as { cancelled?: boolean; interrupted_role?: string };
+  return {
+    cancelled: Boolean(payload.cancelled),
+    interruptedRole: typeof payload.interrupted_role === 'string' ? payload.interrupted_role : '',
+  };
 }
 
 function numberOrZero(value: unknown): number {
@@ -516,6 +559,8 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
   const { event, data } = eventData(chunk);
   if (event === 'tool_call') {
     handlers.toolCall?.(String(data.text ?? ''));
+  } else if (event === 'role_start' || event === 'role_ready') {
+    handlers.role?.(String(data.role ?? ''), event === 'role_ready');
   } else if (event === 'intermediate_output') {
     handlers.event?.({
       kind: 'intermediate_output',
@@ -587,6 +632,7 @@ function dispatchChunk(chunk: string, handlers: ConversationStreamHandlers): voi
         typeof data.citation_dsl_version === 'string' ? data.citation_dsl_version : null,
       failure,
       namingScheduled: data.naming_scheduled === true,
+      interruptedRole: typeof data.interrupted_role === 'string' ? data.interrupted_role : '',
     });
   }
 }

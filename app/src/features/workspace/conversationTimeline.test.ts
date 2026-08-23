@@ -199,3 +199,65 @@ describe('conversationCards managed-run lifecycle', () => {
     expect(cards.some((card) => card.type === 'handoff')).toBe(false);
   });
 });
+
+describe('conversationCards round boundaries', () => {
+  const note = (text: string): ConversationTurnEvent => ({
+    kind: 'intermediate_output',
+    role: 'assistant',
+    level: 'progress',
+    text,
+  });
+  const usage: ConversationTurnEvent = {
+    kind: 'usage',
+    role: 'assistant',
+    duration_ms: 1,
+    tokens: { read: 0, prefill: 0, output: 0 },
+  };
+
+  it('counts one round per call when an experiment lands mid-call', () => {
+    // The live stream interleaves job events where they happen, on purpose: the
+    // experiment card is what gives the surrounding narration its context. The
+    // card it splits is still one call, so both halves carry that call's round
+    // and both close when the call reports its usage — a half left open would
+    // sit at "working" for the rest of the turn and keep drawing the live
+    // activity line.
+    const cards = conversationCards([
+      note('launching the sweep'),
+      job('running', 'j1'),
+      note('still monitoring'),
+      usage,
+      note('verifying the runs'),
+      usage,
+    ]);
+
+    expect(cards.map((card) => (card.type === 'role' ? card.round : card.type))).toEqual([
+      1,
+      'job',
+      1,
+      2,
+    ]);
+    expect(cards.every((card) => card.type !== 'role' || card.done)).toBe(true);
+  });
+
+  it('keeps a checkpoint message inside the call that produced it', () => {
+    // `run_turn` emits a checkpoint decision's message before that call's usage
+    // event for exactly this reason; if it ever went out after, the message
+    // would open the next round's card instead of closing its own.
+    const cards = conversationCards([
+      note('reading the docs'),
+      note('the launch completed'),
+      usage,
+      note('verifying every run'),
+      usage,
+    ]);
+
+    expect(cards).toMatchObject([
+      {
+        type: 'role',
+        round: 1,
+        notes: [{ text: 'reading the docs' }, { text: 'the launch completed' }],
+      },
+      { type: 'role', round: 2, notes: [{ text: 'verifying every run' }] },
+    ]);
+  });
+});

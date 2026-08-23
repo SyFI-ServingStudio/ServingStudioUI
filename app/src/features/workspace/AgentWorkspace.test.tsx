@@ -1177,3 +1177,375 @@ describe('file references in Agent output', () => {
     );
   });
 });
+
+/**
+ * A turn whose SSE stream this test drives event by event.
+ *
+ * Everything here hangs off one open stream: the queue drains on a turn
+ * boundary, and the interrupt gate opens on `role_ready`, so both need the
+ * turn to stay running until the test says otherwise.
+ */
+function streamingTurnHarness(
+  conversationPayload: Record<string, unknown> = {},
+  interruptedRole = 'implementer',
+) {
+  const encoder = new TextEncoder();
+  const messageBodies: string[] = [];
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === '/api/codex-backends') {
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              id: 'gpt-5.6-sol',
+              label: 'GPT-5.6-Sol',
+              family: 'gpt',
+              familyLabel: 'GPT-5.6',
+              efforts: ['low', 'medium', 'high', 'xhigh'],
+              defaultEffort: 'xhigh',
+              serviceTiers: ['default', 'fast'],
+              defaultServiceTier: 'default',
+              available: true,
+            },
+          ],
+          families: [{ id: 'gpt', label: 'GPT-5.6', available: true, requiredEnvironment: [] }],
+          defaults: {
+            orchestrator: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+            implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+            assistant: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+    if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+    if (url.endsWith('/conversations')) {
+      return new Response(JSON.stringify({ conversations: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/messages') && init?.method === 'POST') {
+      messageBodies.push(String(init.body ?? ''));
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            streamController = controller;
+          },
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.endsWith('/cancel') && init?.method === 'POST') {
+      return new Response(JSON.stringify({ cancelled: true, interrupted_role: interruptedRole }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(
+      JSON.stringify({ id: 'c_test', title: 'Test', messages: [], ...conversationPayload }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const emit = async (event: string, data: Record<string, unknown>) => {
+    await act(async () => {
+      streamController?.enqueue(
+        encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+      );
+      await Promise.resolve();
+    });
+  };
+  const endTurn = async () => {
+    await act(async () => {
+      streamController?.close();
+      streamController = null;
+      await Promise.resolve();
+    });
+  };
+  const cancelCalls = () =>
+    fetchMock.mock.calls.filter(([input]) => String(input).endsWith('/cancel'));
+  return { fetchMock, messageBodies, emit, endTurn, cancelCalls };
+}
+
+describe('AgentPane live activity line', () => {
+  it('draws the running tool call on the newest card only', async () => {
+    const { emit } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Run the sweep.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('intermediate_output', {
+      role: 'orchestrator',
+      level: 'progress',
+      text: 'launching the sweep',
+    });
+    // An experiment card lands mid-call, splitting the round card in two.
+    await emit('job', {
+      workspaceId: 'w_main',
+      status: 'running',
+      experimentId: 'e_sweep',
+      experimentPath: '20260731_0_sweep',
+      jobId: 'j1',
+    });
+    await emit('intermediate_output', {
+      role: 'orchestrator',
+      level: 'progress',
+      text: 'still monitoring',
+    });
+    await emit('tool_call', { text: 'reading the sweep' });
+
+    // `toolCall` is one live value; repeating it per open card would read as
+    // several concurrent actions.
+    expect(
+      await screen.findAllByRole('status', { name: 'tool call: reading the sweep' }),
+    ).toHaveLength(1);
+    expect(screen.getByText('launching the sweep')).toBeInTheDocument();
+    expect(screen.getByText('still monitoring')).toBeInTheDocument();
+  });
+
+  it('names the role that is actually running before its first output', async () => {
+    // A turn that opens at the implementer — the user answering one they
+    // interrupted — used to show an Orchestrator card until the first output
+    // arrived, because the placeholder guessed the mode's driving role.
+    const { emit } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Why did you use pip?');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('role_start', { role: 'implementer' });
+    await emit('tool_call', { text: 'implementer: starting Codex' });
+
+    // Read off the card's own header rather than the page: both role names also
+    // label the runtime pickers above the composer.
+    const header = (await screen.findByText('round 1')).parentElement;
+    expect(header?.textContent).toContain('Implementer');
+    expect(header?.textContent).not.toContain('Orchestrator');
+  });
+
+  it('opens a resumed turn at the implementer before any event arrives', async () => {
+    // Container checks and workspace setup run before the first `role_start`,
+    // and the turn's target is already known there — waiting for the event
+    // showed an Orchestrator card that flipped a few seconds later.
+    streamingTurnHarness({ interrupted_role: 'implementer' });
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Why did you use pip?');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+
+    const header = (await screen.findByText('round 1')).parentElement;
+    expect(header?.textContent).toContain('Implementer');
+    expect(header?.textContent).not.toContain('Orchestrator');
+  });
+
+  it('keeps talking to the role that answered directly', async () => {
+    // A second question to the implementer is as natural as the first, so the
+    // target survives the turn that answered the first one.
+    const { messageBodies, emit, endTurn } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'Why did you use pip?');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('done', { text: 'Because uv was missing.', interrupted_role: 'implementer' });
+    await endTurn();
+
+    expect(await screen.findByText('Next message continues with the implementer')).toBeVisible();
+    await user.type(composer, 'Install it then.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+
+    // No override on the wire: the server holds the target, and sending one
+    // back would give the same fact two owners that can disagree.
+    expect('resume_role' in JSON.parse(messageBodies[1])).toBe(false);
+  });
+
+  it('hands the thread back to the orchestrator on request', async () => {
+    const { messageBodies, emit, endTurn } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'Why did you use pip?');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('done', { text: 'Because uv was missing.', interrupted_role: 'implementer' });
+    await endTurn();
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Send the next message to the orchestrator instead',
+      }),
+    );
+    expect(screen.queryByText('Next message continues with the implementer')).toBeNull();
+    await user.type(composer, 'Wrap it up.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+
+    // Explicitly empty, not absent: the server still holds the implementer and
+    // only an override moves the conversation off it.
+    expect(JSON.parse(messageBodies[1]).resume_role).toBe('');
+  });
+});
+
+describe('AgentPane message queue', () => {
+  /**
+   * jsdom hands out `crypto.randomUUID` unconditionally; a browser only does so
+   * in a secure context. This UI is served over plain http on a LAN address
+   * often enough that reaching for it there is a render-time crash, not a
+   * degraded path — so the queue must not depend on it at all.
+   */
+  it('runs where crypto.randomUUID does not exist', async () => {
+    const { emit } = streamingTurnHarness();
+    const randomUUID = vi.spyOn(globalThis.crypto, 'randomUUID').mockImplementation((() => {
+      throw new TypeError('crypto.randomUUID is not a function');
+    }) as unknown as () => `${string}-${string}-${string}-${string}-${string}`);
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'First.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('tool_call', { text: 'working' });
+    await user.type(composer, 'Second.');
+    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+
+    expect(screen.getByRole('list', { name: 'Queued messages' })).toBeInTheDocument();
+    expect(randomUUID).not.toHaveBeenCalled();
+    randomUUID.mockRestore();
+  });
+
+  it('queues while a turn runs and releases exactly one per turn boundary', async () => {
+    const { messageBodies, emit, endTurn } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'First.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('tool_call', { text: 'working' });
+
+    await user.type(composer, 'Second.');
+    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+    await user.type(composer, 'Third.');
+    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+
+    const queue = screen.getByRole('list', { name: 'Queued messages' });
+    expect(within(queue).getAllByRole('listitem')).toHaveLength(2);
+    expect(messageBodies).toHaveLength(1);
+
+    await emit('final', { text: 'done' });
+    await endTurn();
+
+    // One per boundary: the effect watches `streaming` alone, so removing the
+    // head cannot re-enter it and flush the rest into the same turn.
+    await waitFor(() => expect(messageBodies).toHaveLength(2));
+    expect(messageBodies[1]).toContain('Second.');
+    expect(
+      within(screen.getByRole('list', { name: 'Queued messages' })).getAllByRole('listitem'),
+    ).toHaveLength(1);
+    expect(screen.getByText('Third.')).toBeInTheDocument();
+  });
+
+  it('suspends the queue on an interrupt and hands a message back to the composer', async () => {
+    const { emit, messageBodies } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    const composer = await screen.findByRole('textbox');
+    await user.type(composer, 'First.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('role_start', { role: 'implementer' });
+    await emit('role_ready', { role: 'implementer' });
+
+    await user.type(composer, 'Second.');
+    await user.click(screen.getByRole('button', { name: 'Queue message' }));
+    await user.click(screen.getByRole('button', { name: 'Interrupt turn' }));
+
+    expect(await screen.findByText('Suspended')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Next message continues with the implementer'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Return to composer' }));
+
+    expect(await screen.findByDisplayValue('Second.')).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Queued messages' })).not.toBeInTheDocument();
+    expect(messageBodies).toHaveLength(1);
+  });
+});
+
+describe('AgentPane interrupt gate', () => {
+  it('says nothing about the target when the interrupt landed on the driver', async () => {
+    // Interrupting the driver has always resumed the driver, so a strip saying
+    // so would be a line that carries no news.
+    const { emit } = streamingTurnHarness({}, 'orchestrator');
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'First.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('role_start', { role: 'orchestrator' });
+    await emit('role_ready', { role: 'orchestrator' });
+    await user.click(screen.getByRole('button', { name: 'Interrupt turn' }));
+
+    await screen.findByRole('button', { name: 'Send follow-up' });
+    expect(screen.queryByText(/Next message continues with/)).not.toBeInTheDocument();
+  });
+  it('arms an interrupt inside the blind window and fires it on first output', async () => {
+    const { emit, cancelCalls } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Delegate this.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('role_start', { role: 'implementer' });
+
+    // The handoff prompt is not durable in the role's rollout yet, so Stop
+    // books the interrupt rather than dropping the task.
+    await user.click(screen.getByRole('button', { name: 'Stop after the implementer starts' }));
+    expect(cancelCalls()).toHaveLength(0);
+    expect(
+      screen.getByRole('button', { name: /Stopping as soon as the implementer starts/ }),
+    ).toBeInTheDocument();
+
+    await emit('role_ready', { role: 'implementer' });
+    await waitFor(() => expect(cancelCalls()).toHaveLength(1));
+  });
+
+  it('lets a second click take the interrupt back', async () => {
+    const { emit, cancelCalls } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Delegate this.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('role_start', { role: 'implementer' });
+    await user.click(screen.getByRole('button', { name: 'Stop after the implementer starts' }));
+    await user.click(
+      screen.getByRole('button', { name: /Stopping as soon as the implementer starts/ }),
+    );
+    await emit('role_ready', { role: 'implementer' });
+
+    expect(cancelCalls()).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Interrupt turn' })).toBeInTheDocument();
+  });
+
+  it('keeps the runtime chips editable while a turn is streaming', async () => {
+    const { emit } = streamingTurnHarness();
+    const user = userEvent.setup();
+    render(<AgentPane full prompt="" />);
+
+    await user.type(await screen.findByRole('textbox'), 'Run it.');
+    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    await emit('tool_call', { text: 'working' });
+
+    // A mid-turn change applies to the next call, which is why the picker must
+    // not lock: the running turn already snapshotted its own runtime.
+    await user.click(screen.getByRole('button', { name: 'Orchestrator Codex runtime' }));
+    expect(await screen.findByRole('radio', { name: 'GPT-5.6-Sol at high' })).toBeEnabled();
+  });
+});
