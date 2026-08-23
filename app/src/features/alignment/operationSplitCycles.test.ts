@@ -7,7 +7,8 @@ const breakdown: AlignmentBreakdown = {
   iterationId: 9,
   caseIndex: 3,
   stage: 'mixed',
-  measuredKernelSumMs: 6.4541,
+  measuredKernelSumMs: 0.5939,
+  measuredConcurrentHiddenMs: 0,
   // Folded and critical path deliberately differ: the folded sum counts every
   // fan-out child, so a stack drawn from it is a multiple of the modelled cost.
   simulatedLeafWorkloadMs: 6.0489,
@@ -22,6 +23,7 @@ const breakdown: AlignmentBreakdown = {
       phase: 'forward',
       operation: 'layer.qkv_projection',
       durationMs: 0.4475,
+      concurrentHiddenMs: 0,
       calls: 128,
       firstStartNs: 12,
       deviceIds: [0, 1],
@@ -43,6 +45,7 @@ const breakdown: AlignmentBreakdown = {
     {
       operation: 'layer.qkv_projection',
       measuredMs: 0.4475,
+      measuredConcurrentHiddenMs: 0,
       simulatedMs: 0.4352,
       deltaMs: -0.0123,
       relativeDiffPct: -2.75,
@@ -57,7 +60,9 @@ describe('cycleFromBreakdown', () => {
     expect(cycle).toMatchObject({
       iterationId: 9,
       stage: 'mixed',
-      measuredMs: 6.4541,
+      measuredMs: 0.5939,
+      additiveMeasuredMs: 0.5939,
+      concurrentHiddenMs: 0,
       simulatedMs: 0.7561,
     });
     expect(cycle?.measuredKernels[0]).toEqual({
@@ -65,10 +70,49 @@ describe('cycleFromBreakdown', () => {
       operation: 'layer.qkv_projection',
       name: 'void gemm_kernel<float>(int)',
       durationMs: 0.4475,
+      concurrentHiddenMs: 0,
       calls: 128,
     });
     expect(cycle?.simulatedSlots[0]).toMatchObject({ criticalPathMs: 0.0544 });
-    expect(cycle?.operationSummary[0].relativeDiffPct).toBeCloseTo(-2.75, 9);
+    expect(cycle?.operationSummary[0].relativeDiffPct).toBeCloseTo(
+      ((0.4352 - 0.4475) / 0.4475) * 100,
+      9,
+    );
+  });
+
+  it('removes one shared overlap budget instead of serializing CUDA streams', () => {
+    const cycle = cycleFromBreakdown({
+      ...breakdown,
+      measuredKernelSumMs: 25,
+      measuredConcurrentHiddenMs: 3,
+      unmappedMeasuredMs: 5,
+      operationSummary: [
+        {
+          operation: 'op.a',
+          measuredMs: 10,
+          measuredConcurrentHiddenMs: 2,
+          simulatedMs: 9,
+          deltaMs: -1,
+          relativeDiffPct: -10,
+        },
+        {
+          operation: 'op.b',
+          measuredMs: 10,
+          measuredConcurrentHiddenMs: 0,
+          simulatedMs: 10,
+          deltaMs: 0,
+          relativeDiffPct: 0,
+        },
+      ],
+    });
+
+    expect(cycle?.measuredMs).toBe(22);
+    expect(cycle?.unmappedMeasuredMs).toBe(4);
+    expect(cycle?.operationSummary.map((row) => row.measuredMs)).toEqual([8, 10]);
+    expect(
+      (cycle?.operationSummary.reduce((sum, row) => sum + row.measuredMs, 0) ?? 0) +
+        (cycle?.unmappedMeasuredMs ?? 0),
+    ).toBe(22);
   });
 
   it('projects nothing when the report carries no critical-path attribution', () => {

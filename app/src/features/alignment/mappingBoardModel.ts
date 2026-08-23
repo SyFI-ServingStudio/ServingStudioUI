@@ -182,21 +182,23 @@ function programCost(
   const positions: { runMs: number }[] = [];
   let ordinal = 1;
   let runMs = 0;
-  for (const segment of sequence.program) {
-    const bodyLength = segment.kernels.length;
-    segment.kernels.forEach((_kernel, offset) => {
-      const cost = positionRunMs(
-        sequence,
-        costByRowId,
-        ordinal,
-        bodyLength,
-        segment.repeat,
-        offset,
-      );
-      positions.push({ runMs: cost });
-      runMs += cost;
-    });
-    ordinal += bodyLength * segment.repeat;
+  for (const track of sequence.tracks) {
+    for (const segment of track.program ?? []) {
+      const bodyLength = segment.kernels.length;
+      segment.kernels.forEach((_kernel, offset) => {
+        const cost = positionRunMs(
+          sequence,
+          costByRowId,
+          ordinal,
+          bodyLength,
+          segment.repeat,
+          offset,
+        );
+        positions.push({ runMs: cost });
+        runMs += cost;
+      });
+      ordinal += bodyLength * segment.repeat;
+    }
   }
   return { positions, runMs };
 }
@@ -236,7 +238,7 @@ export function boardSequenceCatalog(
         representativeIterationId:
           sequence.iterations[Math.floor(sequence.iterations.length / 2)] ?? null,
         expandedKernelCount: sequence.expandedKernelCount,
-        runMs: programCost(sequence, costByRowId).runMs,
+        runMs: sequence.totalMs ?? programCost(sequence, costByRowId).runMs,
       }))
       .sort((left, right) => right.runMs - left.runMs);
     phaseMs[phase] = ranked.reduce((total, entry) => total + entry.runMs, 0);
@@ -402,6 +404,7 @@ export function boardLanes(
   /** Null keeps iteration-specific values empty; it never substitutes a
    * whole-capture average. */
   exampleBreakdown: AlignmentBreakdown | null,
+  sequenceDetails: Readonly<Record<string, AlignmentSequence>> = {},
 ): BoardLanes {
   const operationColors = rotatingOperationColors(report.mapping.operations);
   const durationByRowId = new Map<string, number>();
@@ -423,54 +426,62 @@ export function boardLanes(
     const chosenKey = chosenByPhase[phase];
     const option = catalog.all.find((entry) => entry.key === chosenKey);
     if (option === undefined) continue;
-    const sequence = findSequence(sequences, phase, option.sequenceId);
+    const sequence =
+      sequenceDetails[option.key] ?? findSequence(sequences, phase, option.sequenceId);
     if (sequence === undefined) continue;
-    const from = measured.length;
     let ordinal = 1;
-    for (const segment of sequence.program) {
-      segment.kernels.forEach((kernel, offset) => {
-        const label = kernel.label;
-        const mapped = label.status === 'mapped' && label.operation !== undefined;
-        const timing =
-          exampleBreakdown === null
-            ? null
-            : exampleMeasuredUnitMs(
-                sequence,
-                durationByRowId,
-                ordinal,
-                segment.kernels.length,
-                segment.repeat,
-                offset,
-              );
-        measured.push({
-          id: `m${measured.length}`,
-          name: kernel.name,
-          operationLabel: mapped ? (label.operation ?? '') : UNMAPPED_KERNEL_LABEL,
-          mapped,
-          color:
-            mapped && label.operation !== undefined
-              ? operationColors[label.operation]
-              : familyColor(kernel.suggestedCategory, label.type ?? null),
-          ms: timing?.ms ?? null,
-          timingNote:
-            timing === null
-              ? 'selected iteration has no matching measured occurrence'
-              : timing.samples === 1
-                ? 'one rank-combined occurrence in the selected iteration'
-                : `mean of ${timing.samples.toLocaleString()} rank-combined occurrences in the selected iteration`,
-          repeat: segment.repeat,
-          simulatedSlots: label.simulatedSlots ?? [],
-          phase,
+    for (const track of sequence.tracks) {
+      const from = measured.length;
+      for (const segment of track.program ?? []) {
+        segment.kernels.forEach((kernel, offset) => {
+          const label = kernel.label;
+          const mapped = label.status === 'mapped' && label.operation !== undefined;
+          const timing =
+            exampleBreakdown === null
+              ? null
+              : exampleMeasuredUnitMs(
+                  sequence,
+                  durationByRowId,
+                  ordinal,
+                  segment.kernels.length,
+                  segment.repeat,
+                  offset,
+                );
+          measured.push({
+            id: `m${measured.length}`,
+            name: kernel.name,
+            operationLabel: mapped ? (label.operation ?? '') : UNMAPPED_KERNEL_LABEL,
+            mapped,
+            color:
+              mapped && label.operation !== undefined
+                ? operationColors[label.operation]
+                : familyColor(kernel.suggestedCategory, label.type ?? null),
+            ms: timing?.ms ?? null,
+            timingNote:
+              timing === null
+                ? 'selected iteration has no matching measured occurrence'
+                : timing.samples === 1
+                  ? 'one rank-combined occurrence in the selected iteration'
+                  : `mean of ${timing.samples.toLocaleString()} rank-combined occurrences in the selected iteration`,
+            repeat: segment.repeat,
+            simulatedSlots: label.simulatedSlots ?? [],
+            phase,
+          });
         });
-      });
-      ordinal += segment.kernels.length * segment.repeat;
+        ordinal += segment.kernels.length * segment.repeat;
+      }
+      if (measured.length > from) {
+        measuredGroups.push({
+          label: sequence.tracks.length === 1 ? phase : `${phase} · stream ${track.trackIndex}`,
+          note:
+            sequence.tracks.length === 1
+              ? `${option.shortId} ×${option.iterations.toLocaleString()}`
+              : `${track.streamRole} · ${option.shortId} ×${option.iterations.toLocaleString()}`,
+          from,
+          to: measured.length,
+        });
+      }
     }
-    measuredGroups.push({
-      label: phase,
-      note: `${option.shortId} ×${option.iterations.toLocaleString()}`,
-      from,
-      to: measured.length,
-    });
   }
 
   const owners = slotOwners(report);
@@ -503,14 +514,30 @@ export function boardLanes(
             : `multiplicity-weighted mean of ${prediction.samples.toLocaleString()} timing-predict leaves in the selected iteration`,
     });
   };
-  // Execution order, taken from the measured program: the reader's eye enters
-  // the right lane where the left lane already put it, and the ribbons cross
-  // as little as the label file allows.
-  for (const kernel of measured) for (const slot of kernel.simulatedSlots) addSlot(slot);
-  for (const operation of report.mapping.operations) {
-    for (const slot of operation.simulatedSlots) addSlot(slot);
+  if (exampleBreakdown === null) {
+    // Before one iteration is selected, show the static mapping inventory.
+    for (const kernel of measured) for (const slot of kernel.simulatedSlots) addSlot(slot);
+    for (const operation of report.mapping.operations) {
+      for (const slot of operation.simulatedSlots) addSlot(slot);
+    }
+    for (const row of report.mapping.unmappedSimulatedSlots) addSlot(row.slot);
+  } else {
+    // The board explains one selected iteration, so its right lane must be that
+    // iteration's executed workload rather than the union of every phase and
+    // every static label. Zero-valued typed slots remain in the manifest for
+    // stable logging but are not modelled work in this cycle.
+    const activeSlots = new Set(
+      exampleBreakdown.simulatedKernels
+        .filter((kernel) => kernel.foldedMs > 0)
+        .map((kernel) => kernel.name),
+    );
+    for (const kernel of measured) {
+      for (const slot of kernel.simulatedSlots) if (activeSlots.has(slot)) addSlot(slot);
+    }
+    for (const kernel of exampleBreakdown.simulatedKernels) {
+      if (kernel.foldedMs > 0) addSlot(kernel.name);
+    }
   }
-  for (const row of report.mapping.unmappedSimulatedSlots) addSlot(row.slot);
 
   // Once a real iteration prediction is available, its slot_index is the
   // model's canonical order. The measured-first order above is only the
@@ -583,7 +610,7 @@ export function boardCoverage(report: AlignmentIterationReport): BoardCoverage {
   return {
     measuredDurationPct: coverage.measuredDurationFraction * 100,
     simulatedWorkloadPct: coverage.simulatedWorkloadFraction * 100,
-    unmappedKernelRows: report.mapping.unmappedMeasuredKernels.length,
+    unmappedKernelRows: report.mapping.unmappedMeasuredKernelCount,
     unmappedSlots: report.mapping.unmappedSimulatedSlots.length,
   };
 }

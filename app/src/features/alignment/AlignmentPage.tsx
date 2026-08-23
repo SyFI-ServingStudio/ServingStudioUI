@@ -158,6 +158,7 @@ export default function AlignmentPage({ alignmentId }: { alignmentId: string }) 
                 <SubjectError error={breakdown.error} />
               ) : report.data && series.data ? (
                 <MappingBoardCard
+                  alignmentId={alignmentId}
                   report={report.data}
                   series={series.data}
                   breakdown={breakdown.data ?? null}

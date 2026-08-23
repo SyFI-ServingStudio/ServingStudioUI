@@ -13,8 +13,8 @@ import {
 } from './operationSplitCycles';
 import {
   cycleOperationRows,
+  criticalPathMeasuredGroups,
   divergingBars,
-  foldMeasuredGroups,
   plotGeometry,
   runOperationRows,
   selectableCycles,
@@ -98,10 +98,7 @@ export default function OperationSplitCard({
     () => operationPalette(report.mapping.operations),
     [report.mapping.operations],
   );
-  const groups = useMemo(
-    () => (cycle === null ? [] : foldMeasuredGroups(cycle.measuredKernels)),
-    [cycle],
-  );
+  const groups = useMemo(() => (cycle === null ? [] : criticalPathMeasuredGroups(cycle)), [cycle]);
   const slots = useMemo(
     () => (cycle === null ? [] : simulatedSlotRows(cycle.simulatedSlots)),
     [cycle],
@@ -210,7 +207,9 @@ export default function OperationSplitCard({
                   {fmtInt(activeCycle.iterationId)}
                 </Box>{' '}
                 · {activeCycle.stage} · {fmtSignedPct(activeCycle.relativeDiffPct)}
-                {cycle === null ? null : ` · unmapped measured ${fmtMs(cycle.unmappedMeasuredMs)}`}
+                {cycle === null
+                  ? null
+                  : ` · overlap removed ${fmtMs(cycle.concurrentHiddenMs)} · unmapped path ${fmtMs(cycle.unmappedMeasuredMs)}`}
               </>
             )}
           </Box>

@@ -127,7 +127,11 @@ export interface MeasuredGroup {
   readonly kernelName: string;
   readonly launches: number;
   readonly foldedRows: number;
+  /** Width drawn in the stack. Raw folding uses additive work; the card uses
+   * `criticalPathMeasuredGroups`, where this is the attributed path share. */
   readonly ms: number;
+  readonly additiveMs: number;
+  readonly concurrentHiddenMs: number;
 }
 
 export interface SimulatedSlotRow {
@@ -182,6 +186,8 @@ export function foldMeasuredGroups(
         launches: kernel.calls,
         foldedRows: 1,
         ms: kernel.durationMs,
+        additiveMs: kernel.durationMs,
+        concurrentHiddenMs: kernel.concurrentHiddenMs,
       });
       continue;
     }
@@ -190,9 +196,58 @@ export function foldMeasuredGroups(
       launches: seen.launches + kernel.calls,
       foldedRows: seen.foldedRows + 1,
       ms: seen.ms + kernel.durationMs,
+      additiveMs: seen.additiveMs + kernel.durationMs,
+      concurrentHiddenMs: seen.concurrentHiddenMs + kernel.concurrentHiddenMs,
     });
   }
   return order.map((key) => byKey.get(key) as MeasuredGroup);
+}
+
+/**
+ * Fold measured rows, then project them onto the exact replica critical path.
+ *
+ * The Analyzer's logical kernel rows still contain every rank-specific branch,
+ * and their durations are additive across CUDA streams. Operation summary rows
+ * carry the critical-path budgets resolved by `cycleFromBreakdown`. Within one
+ * operation (or the unmapped bucket), distribute that budget in proportion to
+ * each group's visible, non-overlapped work. This preserves phase/order/detail
+ * while making the stack end at `cycle.measuredMs` exactly.
+ */
+export function criticalPathMeasuredGroups(cycle: OperationSplitCycle): readonly MeasuredGroup[] {
+  const groups = foldMeasuredGroups(cycle.measuredKernels);
+  const targets = new Map<string | null, number>(
+    cycle.operationSummary.map((row) => [row.operation, row.measuredMs]),
+  );
+  targets.set(null, cycle.unmappedMeasuredMs);
+
+  const visibleWeights = groups.map((group) =>
+    Math.max(0, group.additiveMs - group.concurrentHiddenMs),
+  );
+  const additiveWeights = groups.map((group) => Math.max(0, group.additiveMs));
+  const visibleByOperation = new Map<string | null, number>();
+  const additiveByOperation = new Map<string | null, number>();
+  groups.forEach((group, index) => {
+    visibleByOperation.set(
+      group.operation,
+      (visibleByOperation.get(group.operation) ?? 0) + visibleWeights[index],
+    );
+    additiveByOperation.set(
+      group.operation,
+      (additiveByOperation.get(group.operation) ?? 0) + additiveWeights[index],
+    );
+  });
+
+  return groups.map((group, index) => {
+    const target = targets.get(group.operation) ?? 0;
+    const visibleTotal = visibleByOperation.get(group.operation) ?? 0;
+    const additiveTotal = additiveByOperation.get(group.operation) ?? 0;
+    const weight = visibleTotal > 0 ? visibleWeights[index] : additiveWeights[index];
+    const denominator = visibleTotal > 0 ? visibleTotal : additiveTotal;
+    return {
+      ...group,
+      ms: denominator > 0 ? (target * weight) / denominator : 0,
+    };
+  });
 }
 
 /** The modelled leaves in slot order, which is the order the cost tree

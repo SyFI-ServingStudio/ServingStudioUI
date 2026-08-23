@@ -60,6 +60,7 @@ const series: AlignmentIterationSeries = {
   meta: { recommendedGpuTimeMultiplier: 1.3, measuredPhases: ['forward'] },
   iterations,
   sequences: null,
+  sequenceDetail: null,
   breakdownDetail: null,
 };
 

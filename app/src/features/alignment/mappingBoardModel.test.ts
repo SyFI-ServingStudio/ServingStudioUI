@@ -62,7 +62,15 @@ const sequences: AlignmentSequences = {
         expandedKernelCount: 1,
         iterations: [1, 2, 3, 4],
         occurrences: [],
-        program: [{ repeat: 1, kernels: [EMBED] }],
+        totalMs: null,
+        tracks: [
+          {
+            trackIndex: 0,
+            streamRole: 'primary',
+            kernelCount: 1,
+            program: [{ repeat: 1, kernels: [EMBED] }],
+          },
+        ],
       },
     ],
     forward: [
@@ -71,16 +79,32 @@ const sequences: AlignmentSequences = {
         expandedKernelCount: 1,
         iterations: [4],
         occurrences: [],
-        program: [{ repeat: 1, kernels: [QKV] }],
+        totalMs: null,
+        tracks: [
+          {
+            trackIndex: 0,
+            streamRole: 'primary',
+            kernelCount: 1,
+            program: [{ repeat: 1, kernels: [QKV] }],
+          },
+        ],
       },
       {
         sequenceId: 'sequence_big',
         expandedKernelCount: 7,
         iterations: [1, 2, 3],
         occurrences: [],
-        program: [
-          { repeat: 1, kernels: [EMBED] },
-          { repeat: 3, kernels: [QKV, FUSED] },
+        totalMs: null,
+        tracks: [
+          {
+            trackIndex: 0,
+            streamRole: 'primary',
+            kernelCount: 7,
+            program: [
+              { repeat: 1, kernels: [EMBED] },
+              { repeat: 3, kernels: [QKV, FUSED] },
+            ],
+          },
         ],
       },
     ],
@@ -93,6 +117,7 @@ const exampleBreakdown: AlignmentBreakdown = {
   caseIndex: 0,
   stage: 'mixed',
   measuredKernelSumMs: 10,
+  measuredConcurrentHiddenMs: 0,
   simulatedLeafWorkloadMs: 11,
   simulatedCriticalPathMs: 11,
   unmappedMeasuredMs: 0,
@@ -129,6 +154,16 @@ const exampleBreakdown: AlignmentBreakdown = {
       criticalPathMs: 0.5,
       multiplicity: 1,
     },
+    {
+      slotIndex: 4,
+      name: 'unified.final_norm',
+      kind: 'rms_norm',
+      operation: 'model.mlp_allreduce_and_norm_boundaries',
+      unitMs: 0,
+      foldedMs: 0,
+      criticalPathMs: 0,
+      multiplicity: 1,
+    },
   ],
   operationSummary: [],
   phaseSummary: [],
@@ -144,6 +179,7 @@ const exampleMeasuredBreakdown: AlignmentBreakdown = {
       phase: 'forward',
       operation: 'layer.qkv_projection',
       durationMs: 0.2,
+      concurrentHiddenMs: 0,
       calls: 2,
       firstStartNs: 0,
       deviceIds: [0, 1],
@@ -155,6 +191,7 @@ const exampleMeasuredBreakdown: AlignmentBreakdown = {
       phase: 'forward',
       operation: 'layer.qkv_projection',
       durationMs: 0.4,
+      concurrentHiddenMs: 0,
       calls: 4,
       firstStartNs: 0,
       deviceIds: [0, 1],
@@ -166,6 +203,7 @@ const exampleMeasuredBreakdown: AlignmentBreakdown = {
       phase: 'forward',
       operation: 'layer.qkv_projection',
       durationMs: 0.6,
+      concurrentHiddenMs: 0,
       calls: 8,
       firstStartNs: 0,
       deviceIds: [0, 1],
@@ -272,6 +310,7 @@ const report: AlignmentIterationReport = {
         measuredRows: 3,
       },
     ],
+    unmappedMeasuredKernelCount: 1,
     unmappedMeasuredKernels: [
       {
         rowId: 'sequence_big:1',
@@ -326,7 +365,15 @@ describe('boardSequenceCatalog', () => {
           expandedKernelCount: 1,
           iterations: [index],
           occurrences: [],
-          program: [{ repeat: 1, kernels: [QKV] }],
+          totalMs: null,
+          tracks: [
+            {
+              trackIndex: 0,
+              streamRole: 'primary',
+              kernelCount: 1,
+              program: [{ repeat: 1, kernels: [QKV] }],
+            },
+          ],
         })),
       },
     };
@@ -394,6 +441,36 @@ describe('boardLanes measured side', () => {
     expect(lanes.measuredGroups[0].note).toBe('pre ×4');
     expect(lanes.measuredGroups[1]).toMatchObject({ from: 1, to: 4 });
   });
+
+  it('keeps concurrent sequence tracks as separate measured groups', () => {
+    const detail = {
+      ...(sequences.phases.forward[1] ?? sequences.phases.forward[0]),
+      sequenceId: 'sequence_big',
+      expandedKernelCount: 2,
+      tracks: [
+        {
+          trackIndex: 0,
+          streamRole: 'primary',
+          kernelCount: 1,
+          program: [{ repeat: 1, kernels: [EMBED] }],
+        },
+        {
+          trackIndex: 1,
+          streamRole: 'concurrent',
+          kernelCount: 1,
+          program: [{ repeat: 1, kernels: [QKV] }],
+        },
+      ],
+    };
+    const tracked = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null, {
+      'forward/sequence_big': detail,
+    });
+    expect(tracked.measuredGroups.map((group) => group.label)).toEqual([
+      'preprocess',
+      'forward · stream 0',
+      'forward · stream 1',
+    ]);
+  });
 });
 
 describe('boardLanes modelled side', () => {
@@ -441,15 +518,12 @@ describe('boardLanes modelled side', () => {
     expect(predicted.modelled.map((card) => card.slot)).toEqual([
       'unified.mlp_block.tp_allreduce',
       'unified.attn_block.qkv_proj',
-      'unified.final_norm',
-      'unified.embedding',
     ]);
     // The real payload can repeat one structural slot at several slot indexes;
     // the board card reports their multiplicity-weighted per-occurrence mean.
     expect(predicted.modelled[0].ms).toBeCloseTo(0.5, 9);
     expect(predicted.modelled[0].repeat).toBe(1);
     expect(predicted.modelled[1].ms).toBeCloseTo(0.5, 9);
-    expect(predicted.modelled[2].ms).toBeNull();
     expect(predicted.modelled[0].timingNote).toContain('2 timing-predict leaves');
     expect(predicted.maximumMs).toBeCloseTo(0.5, 9);
   });

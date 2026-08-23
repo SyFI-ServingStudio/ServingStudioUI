@@ -27,6 +27,7 @@ import {
   parseAnalyzerV1AlignmentE2eSeries,
   parseAnalyzerV1AlignmentIterationReport,
   parseAnalyzerV1AlignmentIterationSeries,
+  parseAnalyzerV1AlignmentSequence,
   parseAnalyzerV1AlignmentTimelineIndex,
   parseAnalyzerV1AlignmentTimelineIteration,
   parseAnalyzerV1AlignmentWorkloadReport,
@@ -582,6 +583,18 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
       'reference-lane',
     );
     return parseAnalyzerV1AlignmentTimelineIteration(input, iterationId);
+  }
+
+  async getAlignmentSequence(alignmentId: string, phase: string, sequenceId: string) {
+    const selectedPhase = routeSegment(phase, 'Alignment phase');
+    const selectedSequenceId = routeSegment(sequenceId, 'Alignment sequence id');
+    const input = await this.client.readJson(
+      this.alignmentEndpoint(
+        alignmentId,
+        `subjects/iteration/sequences/${selectedPhase}/${selectedSequenceId}`,
+      ),
+    );
+    return parseAnalyzerV1AlignmentSequence(input);
   }
 
   private alignmentEndpoint(alignmentId: string, path: string): URL {

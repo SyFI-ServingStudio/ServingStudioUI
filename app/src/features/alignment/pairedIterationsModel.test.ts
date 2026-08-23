@@ -64,6 +64,7 @@ const series: AlignmentIterationSeries = {
     iteration(9, 'mixed', 8, 8),
   ],
   sequences: null,
+  sequenceDetail: null,
   breakdownDetail: null,
 };
 

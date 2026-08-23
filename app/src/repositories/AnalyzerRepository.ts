@@ -36,6 +36,7 @@ import type {
   AlignmentE2eSeries,
   AlignmentIterationReport,
   AlignmentIterationSeries,
+  AlignmentSequence,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
   AlignmentWorkloadReport,
@@ -187,6 +188,13 @@ export interface AnalyzerRepository {
     alignmentId: string,
     iterationId: number,
   ): Promise<AlignmentTimelineIteration>;
+
+  /** One folded program from the v2 sequence shard. */
+  getAlignmentSequence?(
+    alignmentId: string,
+    phase: string,
+    sequenceId: string,
+  ): Promise<AlignmentSequence>;
 
   /** Offline results are discovered from Analyzer; conversation state is only
    * an ownership overlay and never supplies these payloads. */

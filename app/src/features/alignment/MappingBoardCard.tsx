@@ -1,10 +1,12 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { useAlignmentSequenceQueries } from '../../application/queries';
 import SurfaceCard from '../../components/SurfaceCard';
 import type {
   AlignmentBreakdown,
   AlignmentIterationReport,
+  AlignmentSequence,
   AlignmentIterationSeries,
 } from '../../domain/alignment';
 import { tokens } from '../../theme';
@@ -51,12 +53,14 @@ const EMPTY_GEOMETRY: BoardGeometry = { measuredCenterY: [], modelledCenterY: []
 const NO_SELECTION = new Set<string>();
 
 export default function MappingBoardCard({
+  alignmentId,
   report,
   series,
   breakdown,
   selectedIterationId,
   onSelectIteration,
 }: {
+  alignmentId: string;
   report: AlignmentIterationReport;
   series: AlignmentIterationSeries;
   /** Timing-predict detail for the real example iteration selected on the
@@ -92,12 +96,40 @@ export default function MappingBoardCard({
           },
     [catalog, selectedIterationId, sequences],
   );
+  const sequenceRequests = useMemo(
+    () =>
+      catalog === null || sequences === null
+        ? []
+        : Object.entries(chosenByPhase).flatMap(([phase, key]) => {
+            const option = catalog.all.find((entry) => entry.key === key);
+            if (option === undefined) return [];
+            const summary = (sequences.phases[phase] ?? []).find(
+              (sequence) => sequence.sequenceId === option.sequenceId,
+            );
+            const hasProgram = summary?.tracks.every((track) => track.program !== null) === true;
+            return hasProgram ? [] : [{ phase, sequenceId: option.sequenceId, key }];
+          }),
+    [catalog, chosenByPhase, sequences],
+  );
+  const sequenceQueries = useAlignmentSequenceQueries(
+    alignmentId,
+    sequenceRequests,
+    series.sequenceDetail !== null,
+  );
+  const sequenceDetails = useMemo(() => {
+    const details: Record<string, AlignmentSequence> = {};
+    sequenceRequests.forEach((request, index) => {
+      const detail = sequenceQueries[index]?.data;
+      if (detail !== undefined) details[request.key] = detail;
+    });
+    return details;
+  }, [sequenceQueries, sequenceRequests]);
   const lanes = useMemo(
     () =>
       sequences === null || catalog === null
         ? null
-        : boardLanes(sequences, report, chosenByPhase, catalog, breakdown),
-    [sequences, report, chosenByPhase, catalog, breakdown],
+        : boardLanes(sequences, report, chosenByPhase, catalog, breakdown, sequenceDetails),
+    [sequences, report, chosenByPhase, catalog, breakdown, sequenceDetails],
   );
   const joins = useMemo(() => (lanes === null ? [] : boardJoins(lanes)), [lanes]);
   const highlight = useMemo(

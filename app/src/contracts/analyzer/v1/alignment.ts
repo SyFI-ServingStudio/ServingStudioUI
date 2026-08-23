@@ -273,7 +273,7 @@ const decodeMappedOperation = (row: z.infer<typeof mappedOperationSchema>) =>
   });
 
 const iterationReportSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.union([z.literal(1), z.literal(2)]),
   available: z.boolean(),
   definitions,
   meta: z.object({
@@ -287,24 +287,26 @@ const iterationReportSchema = z.object({
     measured_phases: z.array(z.string()),
   }),
   iterations: z.array(pairedIterationSchema),
-  kernels: z.array(
-    z.object({
-      row_id: nonEmpty,
-      name: z.string(),
-      category: z.string(),
-      phase: z.string(),
-      operation: z.string().nullable(),
-      total_ms: nonNegative,
-      mean_call_us: nonNegative,
-      calls: count,
-      calls_per_iteration: nonNegative,
-      replica_calls: nonNegative,
-      replica_calls_per_iteration: nonNegative,
-      rank_launches: count,
-      iterations: count,
-      device_ids: z.array(count),
-    }),
-  ),
+  kernels: z
+    .array(
+      z.object({
+        row_id: nonEmpty,
+        name: z.string(),
+        category: z.string(),
+        phase: z.string(),
+        operation: z.string().nullable(),
+        total_ms: nonNegative,
+        mean_call_us: nonNegative,
+        calls: count,
+        calls_per_iteration: nonNegative,
+        replica_calls: nonNegative,
+        replica_calls_per_iteration: nonNegative,
+        rank_launches: count,
+        iterations: count,
+        device_ids: z.array(count),
+      }),
+    )
+    .default([]),
   mapping: z.object({
     configured: z.boolean(),
     coverage: z.object({
@@ -316,17 +318,22 @@ const iterationReportSchema = z.object({
       simulated_total_leaf_workload_ms: nonNegative,
     }),
     operations: z.array(mappedOperationSchema),
-    unmapped_measured_kernels: z.array(
-      z.object({
-        row_id: nonEmpty,
-        name: z.string(),
-        phase: z.string(),
-        total_ms: nonNegative,
-        calls: count,
-        device_ids: z.array(count),
-      }),
+    unmapped_measured_kernel_count: count.optional(),
+    unmapped_measured_kernels: z
+      .array(
+        z.object({
+          row_id: nonEmpty,
+          name: z.string(),
+          phase: z.string(),
+          total_ms: nonNegative,
+          calls: count,
+          device_ids: z.array(count),
+        }),
+      )
+      .default([]),
+    unmapped_simulated_slots: z.array(
+      z.object({ slot: z.string(), kind: z.string().optional(), total_ms: nonNegative }),
     ),
-    unmapped_simulated_slots: z.array(z.object({ slot: z.string(), total_ms: nonNegative })),
   }),
   operations: z.array(
     z.object({
@@ -392,6 +399,9 @@ export function parseAnalyzerV1AlignmentIterationReport(input: unknown): Alignme
         simulatedTotalLeafWorkloadMs: report.mapping.coverage.simulated_total_leaf_workload_ms,
       }),
       operations: Object.freeze(report.mapping.operations.map(decodeMappedOperation)),
+      unmappedMeasuredKernelCount:
+        report.mapping.unmapped_measured_kernel_count ??
+        report.mapping.unmapped_measured_kernels.length,
       unmappedMeasuredKernels: Object.freeze(
         report.mapping.unmapped_measured_kernels.map((row) =>
           Object.freeze({
@@ -406,7 +416,7 @@ export function parseAnalyzerV1AlignmentIterationReport(input: unknown): Alignme
       ),
       unmappedSimulatedSlots: Object.freeze(
         report.mapping.unmapped_simulated_slots.map((row) =>
-          Object.freeze({ slot: row.slot, totalMs: row.total_ms }),
+          Object.freeze({ slot: row.slot, kind: row.kind ?? null, totalMs: row.total_ms }),
         ),
       ),
     }),
@@ -456,6 +466,41 @@ const sequenceSegmentSchema = z.union([
   }),
 ]);
 
+const sequenceProgramSchema = z.array(sequenceSegmentSchema);
+const sequenceTrackSchema = z.object({
+  track_index: count,
+  stream_role: z.string(),
+  kernel_count: count,
+  program: sequenceProgramSchema.optional(),
+});
+
+const sequenceObjectSchema = z.object({
+  sequence_id: nonEmpty,
+  expanded_kernel_count: count,
+  // Schema 2/3 record one device-agnostic iteration list; schema 4+
+  // carries the device axis instead. Exactly one is present.
+  iterations: z.array(count).optional(),
+  occurrences: z.array(z.object({ device_id: count, iterations: z.array(count) })).optional(),
+  total_ms: nonNegative.optional(),
+  // Schema <=4 used one implicit stream. Schema 5 and the compact v2
+  // catalog carry explicit tracks; catalog tracks omit their programs.
+  program: sequenceProgramSchema.optional(),
+  tracks: z.array(sequenceTrackSchema).optional(),
+});
+
+const validateSequenceAssignment = (sequence: z.infer<typeof sequenceObjectSchema>) =>
+  (sequence.iterations === undefined) !== (sequence.occurrences === undefined);
+const validateSequenceProgram = (sequence: z.infer<typeof sequenceObjectSchema>) =>
+  (sequence.program === undefined) !== (sequence.tracks === undefined);
+
+const sequenceSchema = sequenceObjectSchema
+  .refine(validateSequenceAssignment, {
+    message: 'sequence must carry either iterations or occurrences, not both',
+  })
+  .refine(validateSequenceProgram, {
+    message: 'sequence must carry either a legacy program or explicit tracks, not both',
+  });
+
 const sequencesSchema = z.object({
   encoding: z.string(),
   folding_policy: z.record(z.unknown()),
@@ -463,46 +508,44 @@ const sequencesSchema = z.object({
   device_ids: z.array(count),
   phases: z.record(
     z.object({
-      unique_sequences: z.array(
-        z
-          .object({
-            sequence_id: nonEmpty,
-            expanded_kernel_count: count,
-            // Schema 2/3 record one device-agnostic iteration list; schema 4
-            // carries the device axis instead, because data-parallel ranks can
-            // run different sequences in the same step. Exactly one is present.
-            iterations: z.array(count).optional(),
-            occurrences: z
-              .array(z.object({ device_id: count, iterations: z.array(count) }))
-              .optional(),
-            program: z.array(sequenceSegmentSchema),
-          })
-          .refine(
-            (sequence) =>
-              (sequence.iterations === undefined) !== (sequence.occurrences === undefined),
-            { message: 'sequence must carry either iterations or occurrences, not both' },
-          ),
-      ),
+      unique_sequences: z.array(sequenceSchema),
     }),
   ),
 });
 
+const decodeProgram = (program: z.infer<typeof sequenceProgramSchema>) =>
+  Object.freeze(
+    program.map((segment) =>
+      'repeat' in segment
+        ? Object.freeze({
+            repeat: segment.repeat.count,
+            kernels: Object.freeze(segment.repeat.body.kernels.map(decodeSequenceKernel)),
+          })
+        : Object.freeze({
+            repeat: 1,
+            kernels: Object.freeze(segment.kernels.map(decodeSequenceKernel)),
+          }),
+    ),
+  );
+
+function decodeSequenceKernel(kernel: z.infer<typeof sequenceKernelSchema>) {
+  return Object.freeze({
+    name: kernel.name,
+    suggestedCategory: kernel.suggested_category,
+    label: Object.freeze({
+      status: kernel.label.status,
+      crossRank: kernel.label.cross_rank,
+      operation: kernel.label.operation,
+      role: kernel.label.role,
+      type: kernel.label.type,
+      simulatedSlots: kernel.label.simulated_slots
+        ? Object.freeze(kernel.label.simulated_slots)
+        : undefined,
+    }),
+  });
+}
+
 function decodeSequences(value: z.infer<typeof sequencesSchema>): AlignmentSequences {
-  const decodeKernel = (kernel: z.infer<typeof sequenceKernelSchema>) =>
-    Object.freeze({
-      name: kernel.name,
-      suggestedCategory: kernel.suggested_category,
-      label: Object.freeze({
-        status: kernel.label.status,
-        crossRank: kernel.label.cross_rank,
-        operation: kernel.label.operation,
-        role: kernel.label.role,
-        type: kernel.label.type,
-        simulatedSlots: kernel.label.simulated_slots
-          ? Object.freeze(kernel.label.simulated_slots)
-          : undefined,
-      }),
-    });
   // Normalize both catalog shapes onto one iteration list so every consumer
   // (counts, the representative iteration, `includes`) stays device-agnostic;
   // the per-device breakdown stays available beside it.
@@ -538,18 +581,25 @@ function decodeSequences(value: z.infer<typeof sequencesSchema>): AlignmentSeque
           expandedKernelCount: sequence.expanded_kernel_count,
           iterations: iterationsOf(sequence),
           occurrences: occurrencesOf(sequence),
-          program: Object.freeze(
-            sequence.program.map((segment) =>
-              'repeat' in segment
-                ? Object.freeze({
-                    repeat: segment.repeat.count,
-                    kernels: Object.freeze(segment.repeat.body.kernels.map(decodeKernel)),
-                  })
-                : Object.freeze({
-                    repeat: 1,
-                    kernels: Object.freeze(segment.kernels.map(decodeKernel)),
+          totalMs: sequence.total_ms ?? null,
+          tracks: Object.freeze(
+            sequence.tracks !== undefined
+              ? sequence.tracks.map((track) =>
+                  Object.freeze({
+                    trackIndex: track.track_index,
+                    streamRole: track.stream_role,
+                    kernelCount: track.kernel_count,
+                    program: track.program === undefined ? null : decodeProgram(track.program),
                   }),
-            ),
+                )
+              : [
+                  Object.freeze({
+                    trackIndex: 0,
+                    streamRole: 'primary',
+                    kernelCount: sequence.expanded_kernel_count,
+                    program: decodeProgram(sequence.program ?? []),
+                  }),
+                ],
           ),
         }),
       ),
@@ -564,8 +614,35 @@ function decodeSequences(value: z.infer<typeof sequencesSchema>): AlignmentSeque
   });
 }
 
+const sequenceDetailSchema = sequenceObjectSchema
+  .extend({ phase: z.string() })
+  .refine(validateSequenceAssignment, {
+    message: 'sequence must carry either iterations or occurrences, not both',
+  })
+  .refine(validateSequenceProgram, {
+    message: 'sequence must carry either a legacy program or explicit tracks, not both',
+  });
+
+export function parseAnalyzerV1AlignmentSequence(input: unknown): AlignmentSequence {
+  const wire = sequenceDetailSchema.parse(input);
+  const container = sequencesSchema.parse({
+    encoding: 'selected-sequence',
+    folding_policy: {},
+    representative_device_id: null,
+    device_ids: [],
+    phases: { [wire.phase]: { unique_sequences: [wire] } },
+  });
+  return decodeSequences(container).phases[wire.phase][0];
+}
+
+const sequenceDetailIndexSchema = z.object({
+  file: z.string(),
+  encoding: z.string(),
+  byte_ranges: z.record(z.record(z.tuple([count, count]))),
+});
+
 const iterationSeriesSchema = z.object({
-  schema_version: z.literal(1),
+  schema_version: z.union([z.literal(1), z.literal(2)]),
   definitions,
   meta: z.object({
     recommended_gpu_time_multiplier: finite.positive(),
@@ -573,6 +650,7 @@ const iterationSeriesSchema = z.object({
   }),
   iterations: z.array(pairedIterationSchema),
   sequences: sequencesSchema.nullish(),
+  sequence_detail: sequenceDetailIndexSchema.nullish(),
   breakdown_detail: detailIndexSchema.nullish(),
 });
 
@@ -586,6 +664,12 @@ export function parseAnalyzerV1AlignmentIterationSeries(input: unknown): Alignme
     }),
     iterations: Object.freeze(payload.iterations.map(decodePairedIteration)),
     sequences: payload.sequences ? decodeSequences(payload.sequences) : null,
+    sequenceDetail: payload.sequence_detail
+      ? Object.freeze({
+          file: payload.sequence_detail.file,
+          encoding: payload.sequence_detail.encoding,
+        })
+      : null,
     breakdownDetail: payload.breakdown_detail ? decodeDetailIndex(payload.breakdown_detail) : null,
   });
 }
@@ -595,6 +679,9 @@ const breakdownSchema = z.object({
   case_index: count,
   stage: z.string(),
   measured_kernel_sum_ms: nonNegative,
+  // Added without a schema bump. Old single-stream artifacts are equivalent
+  // to zero hidden work, so absence has an exact backwards-compatible value.
+  measured_concurrent_hidden_ms: nonNegative.optional(),
   // The iteration's modelled cost. `simulated_leaf_workload_ms` is the sum over
   // every fan-out child (one per EP rank / DP group), so under a Max fan-out it
   // is several times the cost actually paid; only the critical path is
@@ -618,6 +705,7 @@ const breakdownSchema = z.object({
       phase: z.string().nullish(),
       operation: z.string().nullish(),
       duration_ms: nonNegative,
+      concurrent_hidden_ms: nonNegative.optional(),
       calls: count,
       first_start_ns: nanoseconds,
       device_ids: z.array(count),
@@ -641,6 +729,7 @@ const breakdownSchema = z.object({
     z.object({
       operation: nonEmpty,
       measured_ms: finite,
+      measured_concurrent_hidden_ms: nonNegative.optional(),
       simulated_ms: finite,
       delta_ms: finite,
       relative_diff_pct: finite,
@@ -670,6 +759,7 @@ export function parseAnalyzerV1AlignmentBreakdown(
     caseIndex: record.case_index,
     stage: record.stage,
     measuredKernelSumMs: record.measured_kernel_sum_ms,
+    measuredConcurrentHiddenMs: record.measured_concurrent_hidden_ms ?? 0,
     simulatedCriticalPathMs: record.simulated_critical_path_ms ?? null,
     simulatedLeafWorkloadMs: record.simulated_leaf_workload_ms,
     unmappedMeasuredMs: record.unmapped_measured_ms,
@@ -683,6 +773,7 @@ export function parseAnalyzerV1AlignmentBreakdown(
           phase: kernel.phase ?? null,
           operation: kernel.operation ?? null,
           durationMs: kernel.duration_ms,
+          concurrentHiddenMs: kernel.concurrent_hidden_ms ?? 0,
           calls: kernel.calls,
           firstStartNs: kernel.first_start_ns,
           deviceIds: Object.freeze(kernel.device_ids),
@@ -708,6 +799,7 @@ export function parseAnalyzerV1AlignmentBreakdown(
         Object.freeze({
           operation: row.operation,
           measuredMs: row.measured_ms,
+          measuredConcurrentHiddenMs: row.measured_concurrent_hidden_ms ?? 0,
           simulatedMs: row.simulated_ms,
           deltaMs: row.delta_ms,
           relativeDiffPct: row.relative_diff_pct,
@@ -964,10 +1056,14 @@ const timelineIterationSchema = z
           op: z.string().nullish(),
           sync: z.boolean(),
           occ_ns: nanoseconds,
+          // `[device, start, end, correlation, track]`. The trailing elements
+          // arrived one analyzer version at a time, so every prefix stays
+          // valid: an older payload simply has no track and reads as track 0.
           iv: z.array(
             z.union([
               z.tuple([count, nanoseconds, nanoseconds]),
               z.tuple([count, nanoseconds, nanoseconds, count.nullable()]),
+              z.tuple([count, nanoseconds, nanoseconds, count.nullable(), count]),
             ]),
           ),
         }),

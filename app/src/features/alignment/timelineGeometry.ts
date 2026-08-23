@@ -38,9 +38,10 @@ export interface LaneBar {
   readonly rowId: string | null;
   readonly slotIndex: number | null;
   readonly slotKind: string | null;
-  /** Which sub-row of its lane this bar belongs on. Non-zero only for the
-   * concurrent branches of a Max node, which share a span and would otherwise
-   * be drawn on top of each other. */
+  /** Which sub-row of its lane this bar belongs on. Non-zero for work that
+   * genuinely shares a span and would otherwise be drawn on top of itself: the
+   * concurrent branches of a Max node on the modelled lane, and each extra CUDA
+   * stream on the measured one. */
   readonly row: number;
 }
 
@@ -67,12 +68,15 @@ export function measuredLane(
 ): readonly LaneBar[] {
   const bars: LaneBar[] = [];
   for (const kernel of iteration.measured.kernels) {
-    for (const [deviceId, startNs, endNs, correlationId] of kernel.intervals) {
+    for (const [deviceId, startNs, endNs, correlationId, trackIndex] of kernel.intervals) {
       if (deviceId !== referenceDeviceId) continue;
       bars.push({
         id: `kernel:${iteration.iterationId}:${kernel.rowId}:${deviceId}:${startNs}:${endNs}`,
         iterationId: iteration.iterationId,
-        row: 0,
+        // One sub-row per CUDA stream. Kernels on different streams overlap in
+        // wall time, so drawing them on one row would either hide one of them
+        // or read as a serialization that never happened.
+        row: trackIndex ?? 0,
         startMs: (startNs - originNs) / NS_PER_MS,
         endMs: (endNs - originNs) / NS_PER_MS,
         correlationId: correlationId ?? null,

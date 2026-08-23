@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useQueries, useQuery } from '@tanstack/react-query';
 
 import { AnalyzerV1OverviewResourceError } from '../contracts/analyzer/v1/overviewResources';
 import type { AlignmentSubjectName } from '../domain/alignment';
@@ -212,6 +212,16 @@ export const analyzerQueryKeys = {
       subject,
       'iteration',
       iterationId,
+    ] as const,
+  alignmentSequence: (alignmentId: string, phase: string, sequenceId: string) =>
+    [
+      ...analyzerQueryKeys.alignments(),
+      alignmentId,
+      'subject',
+      'iteration',
+      'sequence',
+      phase,
+      sequenceId,
     ] as const,
   workerOperations: (
     runId: string,
@@ -1038,6 +1048,29 @@ export function useAlignmentBreakdownQuery(alignmentId: string, iterationId: num
     staleTime: Infinity,
   });
   return Object.assign(query, { supported });
+}
+
+export function useAlignmentSequenceQueries(
+  alignmentId: string,
+  selections: readonly { readonly phase: string; readonly sequenceId: string }[],
+  enabled = true,
+) {
+  const repository = useAnalyzerRepository();
+  const supported = repository.getAlignmentSequence !== undefined;
+  const queries = useQueries({
+    queries: selections.map(({ phase, sequenceId }) => ({
+      queryKey: analyzerQueryKeys.alignmentSequence(alignmentId, phase, sequenceId),
+      queryFn: () => {
+        if (repository.getAlignmentSequence === undefined) {
+          throw new Error('This Analyzer repository does not serve alignment sequences.');
+        }
+        return repository.getAlignmentSequence(alignmentId, phase, sequenceId);
+      },
+      enabled: supported && enabled && alignmentId.length > 0,
+      staleTime: Infinity,
+    })),
+  });
+  return Object.assign(queries, { supported });
 }
 
 export function useWorkerOperationsQuery(

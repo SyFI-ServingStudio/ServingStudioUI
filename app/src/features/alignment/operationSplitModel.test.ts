@@ -11,6 +11,7 @@ import {
   CYCLE_PICKER,
   SPLIT_PLOT,
   cumulativeErrorSteps,
+  criticalPathMeasuredGroups,
   cycleOperationRows,
   divergingBars,
   foldMeasuredGroups,
@@ -86,7 +87,7 @@ function measured(
   calls = 4,
   name = `${operation ?? 'anonymous'}_kernel`,
 ): OperationSplitCycle['measuredKernels'][number] {
-  return { phase, operation, name, durationMs, calls };
+  return { phase, operation, name, durationMs, concurrentHiddenMs: 0, calls };
 }
 
 function slot(
@@ -195,6 +196,50 @@ describe('the measured lane', () => {
     expect(spans.map((span) => span.phase)).toEqual(['preprocess', 'forward']);
     expect(spans[0].endMs).toBeCloseTo(0.0028, 12);
     expect(spans[1].startMs).toBeCloseTo(0.0028, 12);
+  });
+
+  it('ends exactly at the critical path under rank divergence and stream overlap', () => {
+    const cycle: OperationSplitCycle = {
+      iterationId: 54,
+      stage: 'decode',
+      measuredMs: 22,
+      additiveMeasuredMs: 25,
+      concurrentHiddenMs: 3,
+      simulatedMs: 21,
+      unmappedMeasuredMs: 4,
+      additiveUnmappedMeasuredMs: 5,
+      unmappedSimulatedMs: 0,
+      measuredKernels: [
+        { ...measured('forward', 'op.a', 12), concurrentHiddenMs: 3 },
+        measured('forward', 'op.b', 11),
+        { ...measured('forward', null, 6, 1, 'unmapped'), concurrentHiddenMs: 1 },
+      ],
+      simulatedSlots: [],
+      operationSummary: [
+        {
+          operation: 'op.a',
+          additiveMeasuredMs: 10,
+          measuredMs: 8,
+          concurrentHiddenMs: 2,
+          simulatedMs: 8,
+          deltaMs: 0,
+          relativeDiffPct: 0,
+        },
+        {
+          operation: 'op.b',
+          additiveMeasuredMs: 10,
+          measuredMs: 10,
+          concurrentHiddenMs: 0,
+          simulatedMs: 10,
+          deltaMs: 0,
+          relativeDiffPct: 0,
+        },
+      ],
+    };
+
+    const groups = criticalPathMeasuredGroups(cycle);
+    expect(groups.map((group) => group.ms)).toEqual([8, 10, 4]);
+    expect(groups.reduce((sum, group) => sum + group.ms, 0)).toBe(22);
   });
 });
 
@@ -336,29 +381,38 @@ describe('the operation rail', () => {
     iterationId: 9,
     stage: 'mixed',
     measuredMs: 2,
+    additiveMeasuredMs: 2,
+    concurrentHiddenMs: 0,
     simulatedMs: 2.2,
     unmappedMeasuredMs: 0.1,
+    additiveUnmappedMeasuredMs: 0.1,
     unmappedSimulatedMs: 0,
     measuredKernels: [],
     simulatedSlots: [],
     operationSummary: [
       {
         operation: 'layer.qkv_projection',
+        additiveMeasuredMs: 0.5,
         measuredMs: 0.5,
+        concurrentHiddenMs: 0,
         simulatedMs: 0.4,
         deltaMs: -0.1,
         relativeDiffPct: -20,
       },
       {
         operation: 'layer.attention',
+        additiveMeasuredMs: 1,
         measuredMs: 1,
+        concurrentHiddenMs: 0,
         simulatedMs: 1.3,
         deltaMs: 0.3,
         relativeDiffPct: 30,
       },
       {
         operation: 'layer.mlp_allreduce',
+        additiveMeasuredMs: 0.05,
         measuredMs: 0.05,
+        concurrentHiddenMs: 0,
         simulatedMs: 0.14,
         deltaMs: 0.09,
         relativeDiffPct: 180,

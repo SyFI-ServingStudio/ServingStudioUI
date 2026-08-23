@@ -176,7 +176,7 @@ function paint(context: CanvasRenderingContext2D, props: OperationSplitCanvasPro
   context.fillStyle = tokens.sub2;
   context.font = monoFont(LANE_SUB_SIZE);
   context.fillText(
-    `${fmtMs(props.measuredTotalMs)} · ${fmtInt(props.groups.length)} groups`,
+    `${fmtMs(props.measuredTotalMs)} critical path · ${fmtInt(props.groups.length)} groups`,
     8,
     SPLIT_PLOT.measuredY + 28,
   );
@@ -349,7 +349,9 @@ export default function OperationSplitCanvas(props: OperationSplitCanvasProps) {
           ...(group.phase.length > 0 ? [['phase', group.phase] as const] : []),
           ['launches', fmtInt(group.launches)] as const,
           ['kernel rows folded', fmtInt(group.foldedRows)] as const,
-          ['duration', fmtMs(group.ms)] as const,
+          ['critical-path share', fmtMs(group.ms)] as const,
+          ['additive stream work', fmtMs(group.additiveMs)] as const,
+          ['direct overlap evidence', fmtMs(group.concurrentHiddenMs)] as const,
           ['operation', group.operation ?? 'unmapped'] as const,
         ],
       };

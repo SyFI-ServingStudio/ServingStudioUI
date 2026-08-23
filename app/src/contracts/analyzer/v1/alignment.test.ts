@@ -5,6 +5,7 @@ import {
   parseAnalyzerV1AlignmentDescriptor,
   parseAnalyzerV1AlignmentE2eSeries,
   parseAnalyzerV1AlignmentIterationSeries,
+  parseAnalyzerV1AlignmentSequence,
   parseAnalyzerV1AlignmentTimelineIndex,
   parseAnalyzerV1AlignmentTimelineIteration,
   parseAnalyzerV1AlignmentWorkloadSeries,
@@ -181,7 +182,7 @@ describe('iteration series', () => {
 
   it('normalizes both segment shapes into one `{repeat, kernels}` form', () => {
     const series = parseAnalyzerV1AlignmentIterationSeries(wire);
-    const program = series.sequences?.phases.forward[0].program;
+    const program = series.sequences?.phases.forward[0].tracks[0]?.program;
     expect(program?.map((segment) => segment.repeat)).toEqual([1, 32]);
     expect(program?.[1].kernels[0].label.operation).toBe('layer.qkv_projection');
   });
@@ -306,6 +307,67 @@ describe('data-parallel union catalog (schema 4)', () => {
         },
       }),
     ).toThrow(/either iterations or occurrences/);
+  });
+});
+
+describe('compact multi-stream sequence catalog', () => {
+  const sequenceSummary = {
+    sequence_id: 'sequence_tracks',
+    expanded_kernel_count: 2,
+    occurrences: [{ device_id: 0, iterations: [9] }],
+    total_ms: 4.5,
+    tracks: [
+      { track_index: 0, stream_role: 'primary', kernel_count: 1 },
+      { track_index: 1, stream_role: 'concurrent', kernel_count: 1 },
+    ],
+  };
+
+  it('keeps the v2 bootstrap catalog small and track-aware', () => {
+    const series = parseAnalyzerV1AlignmentIterationSeries({
+      schema_version: 2,
+      definitions: {},
+      meta: { recommended_gpu_time_multiplier: 1, measured_phases: ['forward'] },
+      iterations: [],
+      sequences: {
+        encoding: 'folded-v2',
+        folding_policy: {},
+        representative_device_id: null,
+        device_ids: [0],
+        phases: { forward: { unique_sequences: [sequenceSummary] } },
+      },
+      sequence_detail: {
+        file: 'alignment_sequence_programs.jsonl',
+        encoding: 'one JSON object per line',
+        byte_ranges: { forward: { sequence_tracks: [0, 42] } },
+      },
+    });
+    const sequence = series.sequences?.phases.forward[0];
+    expect(sequence?.totalMs).toBe(4.5);
+    expect(sequence?.tracks.map((track) => track.program)).toEqual([null, null]);
+    expect(series.sequenceDetail?.file).toBe('alignment_sequence_programs.jsonl');
+  });
+
+  it('decodes only the selected sequence programs into separate stream tracks', () => {
+    const sequence = parseAnalyzerV1AlignmentSequence({
+      ...sequenceSummary,
+      phase: 'forward',
+      tracks: sequenceSummary.tracks.map((track) => ({
+        ...track,
+        program: [
+          {
+            kernels: [
+              {
+                name: `kernel_${track.track_index}`,
+                suggested_category: 'other',
+                label: { status: 'unmapped', cross_rank: 'independent' },
+              },
+            ],
+          },
+        ],
+      })),
+    });
+    expect(sequence.tracks).toHaveLength(2);
+    expect(sequence.tracks[1]?.program?.[0]?.kernels[0]?.name).toBe('kernel_1');
   });
 });
 

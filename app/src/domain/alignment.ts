@@ -146,6 +146,8 @@ export interface AlignmentUnmappedKernel {
 
 export interface AlignmentUnmappedSlot {
   readonly slot: string;
+  /** Kernel kind is audit metadata, not part of the manifest slot identity. */
+  readonly kind?: string | null;
   readonly totalMs: number;
 }
 
@@ -153,6 +155,8 @@ export interface AlignmentMapping {
   readonly configured: boolean;
   readonly coverage: AlignmentMappingCoverage;
   readonly operations: readonly AlignmentMappedOperation[];
+  /** Exact count even when v2 moved the rows into the audit JSONL shard. */
+  readonly unmappedMeasuredKernelCount: number;
   readonly unmappedMeasuredKernels: readonly AlignmentUnmappedKernel[];
   readonly unmappedSimulatedSlots: readonly AlignmentUnmappedSlot[];
 }
@@ -218,6 +222,14 @@ export interface AlignmentSequenceSegment {
   readonly kernels: readonly AlignmentSequenceKernel[];
 }
 
+export interface AlignmentSequenceTrack {
+  readonly trackIndex: number;
+  readonly streamRole: string;
+  readonly kernelCount: number;
+  /** Null in the compact catalog; populated by the selected-sequence shard. */
+  readonly program: readonly AlignmentSequenceSegment[] | null;
+}
+
 export interface AlignmentSequence {
   readonly sequenceId: string;
   readonly expandedKernelCount: number;
@@ -226,7 +238,10 @@ export interface AlignmentSequence {
   /** Per-device breakdown of the above. Empty for a device-agnostic
    * (schema 2/3) catalog, where one decision covers every rank. */
   readonly occurrences: readonly AlignmentSequenceOccurrence[];
-  readonly program: readonly AlignmentSequenceSegment[];
+  /** Whole-capture cost, pre-aggregated by Analyzer v2. Null on legacy v1. */
+  readonly totalMs: number | null;
+  /** One entry per real CUDA stream. Legacy bare programs normalize to track 0. */
+  readonly tracks: readonly AlignmentSequenceTrack[];
 }
 
 /** One device's iterations for a sequence, under a schema-4 union catalog. */
@@ -252,6 +267,11 @@ export interface AlignmentDetailIndex {
   readonly iterationIds: readonly number[];
 }
 
+export interface AlignmentSequenceDetailIndex {
+  readonly file: string;
+  readonly encoding: string;
+}
+
 export interface AlignmentIterationSeries {
   readonly definitions: AlignmentDefinitions;
   readonly meta: {
@@ -260,6 +280,7 @@ export interface AlignmentIterationSeries {
   };
   readonly iterations: readonly AlignmentPairedIteration[];
   readonly sequences: AlignmentSequences | null;
+  readonly sequenceDetail: AlignmentSequenceDetailIndex | null;
   readonly breakdownDetail: AlignmentDetailIndex | null;
 }
 
@@ -274,6 +295,9 @@ export interface AlignmentBreakdownMeasuredKernel {
   readonly phase: string | null;
   readonly operation: string | null;
   readonly durationMs: number;
+  /** Portion of this reduced occurrence that overlapped an earlier CUDA
+   * stream. Zero for artifacts produced before multi-stream attribution. */
+  readonly concurrentHiddenMs: number;
   readonly calls: number;
   readonly firstStartNs: number;
   readonly deviceIds: readonly number[];
@@ -298,6 +322,9 @@ export interface AlignmentBreakdownSimulatedKernel {
 export interface AlignmentBreakdownOperation {
   readonly operation: string;
   readonly measuredMs: number;
+  /** Measured work hidden by another CUDA stream before the operation stack is
+   * reduced onto the replica critical path. */
+  readonly measuredConcurrentHiddenMs: number;
   readonly simulatedMs: number;
   readonly deltaMs: number;
   readonly relativeDiffPct: number;
@@ -317,6 +344,9 @@ export interface AlignmentBreakdown {
   readonly caseIndex: number;
   readonly stage: string;
   readonly measuredKernelSumMs: number;
+  /** Additive stream work counted twice where CUDA streams overlap. The
+   * comparable measured critical path is `measuredKernelSumMs - this`. */
+  readonly measuredConcurrentHiddenMs: number;
   /** The modelled iteration cost. Compare this with `measuredKernelSumMs`.
    * Null for a report produced before the analyzer attributed leaves through
    * the cost tree; there is no substitute, so a consumer degrades instead. */
@@ -455,11 +485,16 @@ export interface AlignmentSimSlot {
 
 /**
  * One rank's launch of a kernel position. The optional fourth value is the
- * NSYS correlation id shared with the CUDA runtime launch; the three-value form
- * is retained for older timeline shards that predate launch links.
+ * NSYS correlation id shared with the CUDA runtime launch; the optional fifth
+ * is the concurrent CUDA stream (track) it ran on, 0 being the stream that
+ * opened the range. The shorter forms are retained for older timeline shards
+ * that predate launch links and tracks; a shard with no track is single-stream
+ * and reads as track 0.
  */
 export type AlignmentKernelInterval =
-  readonly [number, number, number] | readonly [number, number, number, number | null];
+  | readonly [number, number, number]
+  | readonly [number, number, number, number | null]
+  | readonly [number, number, number, number | null, number];
 
 export interface AlignmentTimelineKernel {
   readonly nameId: number;
