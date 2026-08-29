@@ -40,6 +40,10 @@ export type ActiveWorkerTreeState =
       status: 'ready';
       worker: WorkerRow;
       operation: OperationRef;
+      /** CostTree section this operation executed in (e.g. `iter`); the
+       * scoped-optimality selector addresses manifest nodes as
+       * `section/<child ordinals>`. */
+      section: string;
       tree: CostTree;
       error: null;
       retry: null;
@@ -385,6 +389,7 @@ export function ActiveWorkerTreeProvider({
         batchId: treeQuery.data.batchId,
         operationId: treeQuery.data.operationId,
       },
+      section: treeQuery.data.section,
       tree: treeQuery.data.tree,
       error: null,
       retry: null,

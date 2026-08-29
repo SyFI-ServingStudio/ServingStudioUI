@@ -14,6 +14,9 @@ export interface SweepListItem {
   deployments: readonly string[];
   traces: readonly string[];
   updatedAt: string;
+  /** Singleton entries name their one run so the catalog can open the run
+   * analyzer (optimality, worker timeline) directly. */
+  runId?: string;
 }
 
 export interface SweepMetric {

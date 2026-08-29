@@ -38,6 +38,11 @@ interface NodeProps<Node extends CostNode = CostNode> {
   onRoot?: () => void;
   parSel?: number | null;
   onPar?: (id: number) => void;
+  /** Scoped-analysis selection for sequential containers (e.g. an operator
+   * like qk_norm). Distinct from `parSel`, which drives the parallel
+   * critical-path inspector on max nodes. */
+  scopeSel?: number | null;
+  onScope?: (id: number) => void;
   density?: 'default' | 'compact';
 }
 
@@ -525,6 +530,8 @@ export default function CostTreeNode({
   onRoot,
   parSel,
   onPar,
+  scopeSel,
+  onScope,
   density = 'default',
 }: NodeProps) {
   const compact = density === 'compact';
@@ -544,6 +551,8 @@ export default function CostTreeNode({
     const kids = node.children;
     const isRoot = node.depth === 0 && !!onRoot;
     const subSel = selId != null || parSel != null;
+    const scoped = scopeSel != null && scopeSel === node.id;
+    const scopeClickable = !isRoot && !!onScope;
     // Depth-based alpha makes sequential-in-sequential boundaries readable
     // without turning a large root container into an opaque white panel.
     const sequentialFillAlpha = Math.min(0.035 + node.depth * 0.035, 0.105);
@@ -560,18 +569,27 @@ export default function CostTreeNode({
           gap: compact ? 0.4 : 1,
           // Max keeps violet hatching and Scale keeps gold dashes; these calm,
           // translucent steel levels leave the selected leaf rail dominant.
-          border: `1px solid ${
-            isRoot && subSel
-              ? `rgb(${SEQUENTIAL_RGB})`
-              : `rgba(${SEQUENTIAL_RGB},${sequentialBorderAlpha.toFixed(3)})`
-          }`,
+          border: scoped
+            ? `1.5px solid rgb(${SEQUENTIAL_RGB})`
+            : `1px solid ${
+                isRoot && subSel
+                  ? `rgb(${SEQUENTIAL_RGB})`
+                  : `rgba(${SEQUENTIAL_RGB},${sequentialBorderAlpha.toFixed(3)})`
+              }`,
+          boxShadow: scoped ? tokens.shadowLift : 'none',
           background: `rgba(${SEQUENTIAL_RGB},${sequentialFillAlpha.toFixed(3)})`,
         }}
       >
         <NodeControl
-          ariaLabel="Scope to worker CostTree root"
-          pressed={isRoot && !subSel}
-          onActivate={isRoot ? onRoot : undefined}
+          ariaLabel={
+            isRoot
+              ? 'Scope to worker CostTree root'
+              : `Scope analysis to ${costTreeDisplayLabel(node.label ?? 'sequential group')}`
+          }
+          pressed={isRoot ? isRoot && !subSel : scoped}
+          onActivate={
+            isRoot ? onRoot : scopeClickable ? () => onScope?.(node.id) : undefined
+          }
           sx={{
             display: 'block',
             textAlign: 'left',
@@ -579,9 +597,11 @@ export default function CostTreeNode({
             px: 0.5,
             py: compact ? 0 : 0.25,
             borderRadius: 1,
-            cursor: isRoot ? 'pointer' : 'default',
+            cursor: isRoot || scopeClickable ? 'pointer' : 'default',
             transition: `background .2s ${tokens.ease}`,
-            ...(isRoot ? { '&:hover': { background: `rgba(${SEQUENTIAL_RGB},.07)` } } : {}),
+            ...(isRoot || scopeClickable
+              ? { '&:hover': { background: `rgba(${SEQUENTIAL_RGB},.07)` } }
+              : {}),
           }}
         >
           <WrapLabel
@@ -609,6 +629,8 @@ export default function CostTreeNode({
                 onSelect={onSelect}
                 parSel={parSel}
                 onPar={onPar}
+                scopeSel={scopeSel}
+                onScope={onScope}
                 density={density}
               />
               {i < kids.length - 1 && (
@@ -706,6 +728,8 @@ export default function CostTreeNode({
               onSelect={onSelect}
               parSel={parSel}
               onPar={onPar}
+              scopeSel={scopeSel}
+              onScope={onScope}
               density={density}
             />
           ))}
@@ -769,6 +793,8 @@ export default function CostTreeNode({
         onSelect={onSelect}
         parSel={parSel}
         onPar={onPar}
+        scopeSel={scopeSel}
+        onScope={onScope}
         density={density}
       />
     </Box>

@@ -602,6 +602,27 @@ export function nodeById(root: CostNode, id: number | null): CostNode | null {
   return found;
 }
 
+/** Ordinal trail from the tree root to the node with `id`, formatted the way
+ * the analyzer's scoped-optimality `path` selector expects: child indexes
+ * joined by `/`, excluding the root itself. Returns `''` for the root node
+ * (callers address the root as the bare section name) and null when the id is
+ * absent from the tree. */
+export function nodeOrdinalPath(root: CostNode, id: number | null): string | null {
+  if (id == null) return null;
+  let found: string | null = null;
+  function walk(node: CostNode, trail: readonly number[]): void {
+    if (found !== null) return;
+    if (node.id === id) {
+      found = trail.join('/');
+      return;
+    }
+    if (node.kind === 'leaf') return;
+    node.children.forEach((child, index) => walk(child, [...trail, index]));
+  }
+  walk(root, []);
+  return found;
+}
+
 export function leafByName(root: CostNode, name: string): LeafNode | null {
   let found: LeafNode | null = null;
   function walk(node: CostNode): void {

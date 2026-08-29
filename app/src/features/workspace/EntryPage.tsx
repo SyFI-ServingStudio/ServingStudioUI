@@ -53,12 +53,33 @@ const PROMPT_STARTERS = [
 function navigateToExperiment(entry: SweepListItem): void {
   const destination = new URL(window.location.href);
   destination.search = '';
-  destination.hash = analyzerEvidenceHref({
-    protocol: 'vibesim.analyzer/v2',
-    kind: 'aggregate',
-    workspaceId: entry.workspaceId,
-    experimentId: entry.sweepId,
-  });
+  // A singleton's aggregate page is a one-row metrics table; the analysis a
+  // reader wants (optimality ladder, worker timeline) lives on the run
+  // analyzer, so open the run directly when the catalog names it.
+  destination.hash =
+    entry.kind === 'singleton' && entry.runId !== undefined
+      ? analyzerEvidenceHref({
+          protocol: 'vibesim.analyzer/v2',
+          kind: 'run',
+          workspaceId: entry.workspaceId,
+          runId: entry.runId,
+          panelId: null,
+          scope: 'cluster',
+          poolRole: null,
+          workerKey: null,
+          leafId: null,
+          parId: null,
+          cursorMs: null,
+          cursorNeedsSeek: false,
+          operation: null,
+          workerAnalysisLevel: 'worker',
+        })
+      : analyzerEvidenceHref({
+          protocol: 'vibesim.analyzer/v2',
+          kind: 'aggregate',
+          workspaceId: entry.workspaceId,
+          experimentId: entry.sweepId,
+        });
   window.location.assign(destination);
 }
 

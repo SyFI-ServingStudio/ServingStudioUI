@@ -26,6 +26,9 @@ const sweepCatalogEntry = z
     deployments: z.array(nonEmptyString),
     traces: z.array(nonEmptyString),
     updated_at: timestamp,
+    // Singletons carry their run id so catalog consumers can open the run
+    // analyzer directly instead of the one-run aggregate page.
+    run_id: nonEmptyString.optional(),
   })
   .strict();
 
@@ -157,6 +160,7 @@ function toCatalog(wire: WireSweepCatalog): AnalyzerV1SweepCatalog {
       deployments: sweep.deployments,
       traces: sweep.traces,
       updatedAt: sweep.updated_at,
+      ...(sweep.run_id === undefined ? {} : { runId: sweep.run_id }),
     })),
   };
 }
