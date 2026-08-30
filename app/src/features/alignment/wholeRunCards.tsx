@@ -1,6 +1,7 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { EChartsOption } from 'echarts';
+import type { ReactNode } from 'react';
 
 import EChart from '../../components/EChart';
 import SurfaceCard from '../../components/SurfaceCard';
@@ -80,10 +81,12 @@ export function SectionHeading({
   title,
   caption,
   first = false,
+  action,
 }: {
   title: string;
   caption: string;
   first?: boolean;
+  action?: ReactNode;
 }) {
   return (
     <Box
@@ -97,25 +100,42 @@ export function SectionHeading({
     >
       <Stack
         direction="row"
-        sx={{ alignItems: 'baseline', gap: '13px', flexWrap: 'wrap', rowGap: '4px' }}
+        sx={{
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          flexWrap: 'wrap',
+        }}
       >
-        <Typography
-          component="h4"
-          sx={{
-            fontFamily: tokens.serif,
-            fontSize: 16,
-            fontWeight: 600,
-            letterSpacing: '-.012em',
-            m: 0,
-          }}
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'baseline', gap: '13px', flexWrap: 'wrap', rowGap: '4px', minWidth: 0 }}
         >
-          {title}
-        </Typography>
-        <Typography
-          sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2, flex: 1, minWidth: 0 }}
-        >
-          {caption}
-        </Typography>
+          <Typography
+            component="h4"
+            sx={{
+              fontFamily: tokens.serif,
+              fontSize: 16,
+              fontWeight: 600,
+              letterSpacing: '-.012em',
+              m: 0,
+            }}
+          >
+            {title}
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: tokens.mono,
+              fontSize: 9.5,
+              color: tokens.sub2,
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {caption}
+          </Typography>
+        </Stack>
+        {action}
       </Stack>
     </Box>
   );

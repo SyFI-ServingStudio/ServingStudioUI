@@ -257,11 +257,7 @@ export const WORKLOAD_METRICS: readonly WorkloadMetricSpec[] = [
   },
 ];
 
-/** How many time columns a scheduler figure folds its iterations into. Both
- * sides run thousands of iterations over a span of seconds, so a column is a
- * few tens of milliseconds — fine enough to keep every excursion, coarse
- * enough that the two envelopes stay readable on one card. */
-export const WORKLOAD_COLUMNS = 240;
+export type WorkloadAxisMode = 'elapsedTime' | 'iterationId';
 
 export interface WorkloadStats {
   readonly n: number;
@@ -271,15 +267,14 @@ export interface WorkloadStats {
   readonly max: number | null;
 }
 
-export interface WorkloadColumns {
-  readonly low: readonly (number | null)[];
-  readonly mean: readonly (number | null)[];
-  readonly high: readonly (number | null)[];
+export interface WorkloadPoints {
+  readonly x: readonly number[];
+  readonly values: readonly number[];
 }
 
 export interface WorkloadSideModel {
   readonly stats: WorkloadStats;
-  readonly columns: WorkloadColumns;
+  readonly points: WorkloadPoints;
 }
 
 export interface WorkloadCardModel {
@@ -293,7 +288,9 @@ export interface WorkloadCardModel {
   readonly deltaP50Pct: number | null;
   readonly deltaP90Pct: number | null;
   readonly deltaP99Pct: number | null;
-  readonly columnMs: number;
+  readonly axisMode: WorkloadAxisMode;
+  readonly axisMin: number;
+  readonly axisMax: number;
   readonly spanMs: number;
 }
 
@@ -304,16 +301,18 @@ export interface WorkloadCardModel {
 function observedSamples(
   side: AlignmentWorkloadSide,
   key: WorkloadMetricKey,
-): { readonly timeMs: readonly number[]; readonly values: readonly number[] } {
+  axisMode: WorkloadAxisMode,
+): WorkloadPoints {
   const values: number[] = [];
-  const timeMs: number[] = [];
+  const x: number[] = [];
   side[key].forEach((value, index) => {
-    const time = side.timeMs[index];
-    if (value === null || value === undefined || time === undefined) return;
+    const coordinate =
+      axisMode === 'elapsedTime' ? side.timeMs[index] / 1000 : side.iterationId[index];
+    if (value === null || value === undefined || coordinate === undefined) return;
     values.push(value);
-    timeMs.push(time);
+    x.push(coordinate);
   });
-  return { timeMs, values };
+  return { x, values };
 }
 
 function workloadStats(values: readonly number[]): WorkloadStats {
@@ -326,55 +325,6 @@ function workloadStats(values: readonly number[]): WorkloadStats {
   };
 }
 
-/** Fold iterations into fixed time columns: the min, mean and max of the
- * iterations that landed in each. An empty column is null on all three, so a
- * gap in the schedule breaks the envelope instead of being bridged. */
-export function foldColumns(
-  timeMs: readonly number[],
-  values: readonly number[],
-  columnMs: number,
-  columnCount: number,
-): WorkloadColumns {
-  const low: (number | null)[] = new Array(columnCount).fill(null);
-  const high: (number | null)[] = new Array(columnCount).fill(null);
-  const mean: (number | null)[] = new Array(columnCount).fill(null);
-  const totals = new Array<number>(columnCount).fill(0);
-  const counts = new Array<number>(columnCount).fill(0);
-  values.forEach((value, index) => {
-    const time = timeMs[index];
-    if (time === undefined || !(columnMs > 0)) return;
-    const column = Math.min(columnCount - 1, Math.max(0, Math.floor(time / columnMs)));
-    const currentLow = low[column];
-    const currentHigh = high[column];
-    low[column] = currentLow === null ? value : Math.min(currentLow, value);
-    high[column] = currentHigh === null ? value : Math.max(currentHigh, value);
-    totals[column] += value;
-    counts[column] += 1;
-  });
-  for (let column = 0; column < columnCount; column += 1) {
-    if (counts[column] > 0) mean[column] = totals[column] / counts[column];
-  }
-  return { low, mean, high };
-}
-
-/** The index runs a folded series is continuous over. A gap in the schedule
- * breaks the envelope into separate shapes instead of being bridged by one
- * that spans a stretch neither side ran. */
-export function contiguousRuns(values: readonly (number | null)[]): readonly (readonly number[])[] {
-  const runs: number[][] = [];
-  let current: number[] = [];
-  values.forEach((value, index) => {
-    if (value === null) {
-      if (current.length > 0) runs.push(current);
-      current = [];
-      return;
-    }
-    current.push(index);
-  });
-  if (current.length > 0) runs.push(current);
-  return runs;
-}
-
 const sideSpanMs = (side: AlignmentWorkloadSide | null): number =>
   side === null || side.timeMs.length === 0 ? 0 : Math.max(...side.timeMs);
 
@@ -384,16 +334,24 @@ export function workloadSpanMs(series: AlignmentWorkloadSeries): number {
 
 export function workloadCards(
   series: AlignmentWorkloadSeries,
-  columnCount: number = WORKLOAD_COLUMNS,
+  axisMode: WorkloadAxisMode = 'elapsedTime',
 ): readonly WorkloadCardModel[] {
   const spanMs = workloadSpanMs(series);
-  const columnMs = spanMs / columnCount;
+  const coordinates = [series.measured, series.simulated].flatMap((side) => {
+    if (side === null) return [];
+    return axisMode === 'elapsedTime'
+      ? side.timeMs.map((timeMs) => timeMs / 1000)
+      : [...side.iterationId];
+  });
+  const rawAxisMin = coordinates.length === 0 ? 0 : Math.min(...coordinates);
+  const rawAxisMax = coordinates.length === 0 ? 1 : Math.max(...coordinates);
+  const axisMax = rawAxisMax === rawAxisMin ? rawAxisMin + 1 : rawAxisMax;
   const sideModel = (side: AlignmentWorkloadSide | null, key: WorkloadMetricKey) => {
     if (side === null) return null;
-    const { timeMs, values } = observedSamples(side, key);
+    const points = observedSamples(side, key, axisMode);
     return {
-      stats: workloadStats(values),
-      columns: foldColumns(timeMs, values, columnMs, columnCount),
+      stats: workloadStats(points.values),
+      points,
     };
   };
   return WORKLOAD_METRICS.map((metric) => {
@@ -416,7 +374,9 @@ export function workloadCards(
       deltaP50Pct: delta('p50'),
       deltaP90Pct: delta('p90'),
       deltaP99Pct: delta('p99'),
-      columnMs,
+      axisMode,
+      axisMin: rawAxisMin,
+      axisMax,
       spanMs,
     };
   });

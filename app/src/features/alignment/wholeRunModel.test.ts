@@ -6,8 +6,6 @@ import type {
   AlignmentWorkloadSeries,
 } from '../../domain/alignment';
 import {
-  contiguousRuns,
-  foldColumns,
   latencyCards,
   niceStep,
   niceTicks,
@@ -156,29 +154,6 @@ describe('throughputCard', () => {
   });
 });
 
-describe('foldColumns', () => {
-  it('reduces the iterations in a column to their min, mean and max', () => {
-    const folded = foldColumns([0, 10, 250], [2, 6, 4], 100, 3);
-    expect(folded.low).toEqual([2, null, 4]);
-    expect(folded.high).toEqual([6, null, 4]);
-    expect(folded.mean).toEqual([4, null, 4]);
-  });
-
-  it('keeps the last iteration inside the final column', () => {
-    expect(foldColumns([1000], [7], 100, 4).mean).toEqual([null, null, null, 7]);
-  });
-});
-
-describe('contiguousRuns', () => {
-  it('breaks a folded series wherever no iteration landed', () => {
-    expect(contiguousRuns([1, 2, null, 4, null])).toEqual([[0, 1], [3]]);
-  });
-
-  it('has no runs at all when nothing was recorded', () => {
-    expect(contiguousRuns([null, null])).toEqual([]);
-  });
-});
-
 describe('workloadCards', () => {
   const workload: AlignmentWorkloadSeries = {
     available: true,
@@ -200,7 +175,7 @@ describe('workloadCards', () => {
       scheduledKvTokens: [12, 24],
     },
   };
-  const cards = workloadCards(workload, 2);
+  const cards = workloadCards(workload);
 
   it('drops the iterations the analyzer recorded no cycle for', () => {
     const cycle = cards.find((card) => card.key === 'iterationCycleMs');
@@ -208,10 +183,20 @@ describe('workloadCards', () => {
     expect(cycle?.simulated?.stats.n).toBe(2);
   });
 
-  it('folds both sides onto the longer of the two spans', () => {
+  it('keeps every iteration at its exact elapsed-time coordinate', () => {
     expect(cards[0].spanMs).toBe(200);
-    expect(cards[0].columnMs).toBe(100);
-    expect(cards[0].measured?.columns.high).toEqual([2, 6]);
+    expect(cards[0].axisMode).toBe('elapsedTime');
+    expect(cards[0].axisMax).toBe(0.2);
+    expect(cards[0].measured?.points).toEqual({ x: [0, 0.1, 0.2], values: [2, 4, 6] });
+  });
+
+  it('switches to each side`s original iteration ids without pairing them', () => {
+    const iterationCards = workloadCards(workload, 'iterationId');
+    expect(iterationCards[0].axisMode).toBe('iterationId');
+    expect(iterationCards[0].axisMin).toBe(1);
+    expect(iterationCards[0].axisMax).toBe(3);
+    expect(iterationCards[0].measured?.points.x).toEqual([1, 2, 3]);
+    expect(iterationCards[0].simulated?.points.x).toEqual([1, 2]);
   });
 
   it('has no percentile ratio where the measured side is zero', () => {

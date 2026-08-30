@@ -1,5 +1,4 @@
 import type {
-  CustomSeriesOption,
   EChartsOption,
   LineSeriesOption,
   ScatterSeriesOption,
@@ -12,13 +11,7 @@ import type { AlignmentCdfComparison, AlignmentThroughputSeries } from '../../do
 import { GROUP } from '../../domain/cost-tree';
 import { tokens } from '../../theme';
 import { fmtFigureTick, fmtPct, fmtQuantity } from './format';
-import {
-  contiguousRuns,
-  niceStep,
-  niceTicks,
-  type WorkloadCardModel,
-  type WorkloadColumns,
-} from './wholeRunModel';
+import { niceStep, niceTicks, type WorkloadCardModel } from './wholeRunModel';
 
 /**
  * §05's three figures.
@@ -345,83 +338,38 @@ export function throughputRateOption(
   };
 }
 
-// ---- what each side scheduled, over its own clock -------------------------
+// ---- what each side scheduled, over its own clock or iteration ids --------
 
 /**
- * The min…max envelope of one side, as one filled shape per continuous run of
- * columns.
- *
- * A band between two curves is not a stacked area: stacking would tie the
- * shape to a shared baseline the other lane also uses, and the two sides here
- * are independent. The shape is therefore placed directly, in data
- * coordinates, and the renderer converts it — which also keeps a gap in the
- * schedule as a gap rather than a chord across it.
- */
-function envelopeSeries(
-  name: string,
-  color: string,
-  columns: WorkloadColumns,
-  centreSeconds: (index: number) => number,
-): CustomSeriesOption {
-  const runs = contiguousRuns(columns.mean);
-  return {
-    name,
-    type: 'custom',
-    silent: true,
-    animation: false,
-    clip: true,
-    data: [0],
-    renderItem: (_parameters, api) => ({
-      type: 'group',
-      children: runs.map((run) => ({
-        type: 'polygon' as const,
-        shape: {
-          points: [
-            ...run.map((index) => api.coord([centreSeconds(index), columns.high[index]])),
-            ...[...run]
-              .reverse()
-              .map((index) => api.coord([centreSeconds(index), columns.low[index]])),
-          ],
-        },
-        style: { fill: color, opacity: 0.15 },
-      })),
-    }),
-  };
-}
-
-/**
- * One metric of the schedule over elapsed time. Each time column is drawn as
- * the min…max envelope of the iterations that landed in it with the mean
- * through, because a per-iteration line over thousands of iterations is ink,
- * not a reading. Measured and simulated iteration ids are never paired: each
- * side is folded on its own clock and the two envelopes are overlaid.
+ * One metric of the schedule with every recorded iteration preserved. In
+ * elapsed-time mode, a step holds an iteration's value until the next
+ * iteration starts, so a long iteration remains visible instead of becoming
+ * an artificial gap. Iteration-id mode uses each side's original ids. The two
+ * sides are overlaid but never paired.
  */
 export function workloadShapeOption(card: WorkloadCardModel): EChartsOption | null {
   if (card.measured === null && card.simulated === null) return null;
-  const columnSeconds = card.columnMs / 1000;
-  const spanSeconds = card.spanMs / 1000;
   const highest = [card.measured, card.simulated].flatMap((side) =>
-    side === null ? [] : side.columns.high.filter((value): value is number => value !== null),
+    side === null ? [] : [...side.points.values],
   );
   const peak = (highest.length === 0 ? 0 : Math.max(...highest)) * 1.08 || 1;
-  const centreSeconds = (index: number) => (index + 0.5) * columnSeconds;
 
   const lane = (
     name: string,
     color: string,
     side: WorkloadCardModel['measured'],
-  ): (CustomSeriesOption | LineSeriesOption)[] => {
+  ): LineSeriesOption[] => {
     if (side === null) return [];
     return [
-      envelopeSeries(`${name} envelope`, color, side.columns, centreSeconds),
       {
         name,
         type: 'line',
+        step: 'end',
         showSymbol: false,
         animation: false,
         lineStyle: { width: 1.3, color, join: 'round' },
         itemStyle: { color },
-        data: side.columns.mean.map((value, index) => [centreSeconds(index), value]),
+        data: side.points.x.map((coordinate, index) => [coordinate, side.points.values[index]]),
       },
     ];
   };
@@ -446,7 +394,11 @@ export function workloadShapeOption(card: WorkloadCardModel): EChartsOption | nu
         );
       },
     }),
-    xAxis: figureXAxis({ min: 0, max: spanSeconds, caption: 'elapsed time (s)' }),
+    xAxis: figureXAxis({
+      min: card.axisMin,
+      max: card.axisMax,
+      caption: card.axisMode === 'elapsedTime' ? 'elapsed time (s)' : 'iteration ID',
+    }),
     yAxis: zeroBasedYAxis(peak, card.unit),
     series: [
       ruleSeries([{ yAxis: peak, dashed: false, color: tokens.hair }]),

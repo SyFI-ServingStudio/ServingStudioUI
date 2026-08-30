@@ -1,5 +1,5 @@
-import { Box, Typography } from '@mui/material';
-import { useMemo } from 'react';
+import { Box, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { useMemo, useState } from 'react';
 
 import SurfaceCard from '../../components/SurfaceCard';
 import type {
@@ -30,6 +30,7 @@ import {
   workloadNote,
   workloadSummaryRows,
   type LatencyCardModel,
+  type WorkloadAxisMode,
   type WorkloadCardModel,
 } from './wholeRunModel';
 import {
@@ -107,12 +108,16 @@ export default function WholeRunCard({
   e2e: AlignmentE2eSeries | null;
   workload: AlignmentWorkloadSeries | null;
 }) {
+  const [workloadAxisMode, setWorkloadAxisMode] = useState<WorkloadAxisMode>('elapsedTime');
   const latency = useMemo(
     () => (e2e === null ? [] : latencyCards(e2e.latencyCdfComparisons)),
     [e2e],
   );
   const throughput = useMemo(() => (e2e === null ? null : throughputCard(e2e)), [e2e]);
-  const shape = useMemo(() => (workload === null ? [] : workloadCards(workload)), [workload]);
+  const shape = useMemo(
+    () => (workload === null ? [] : workloadCards(workload, workloadAxisMode)),
+    [workload, workloadAxisMode],
+  );
   const summary = useMemo(
     () => (workload === null ? [] : workloadSummaryRows(workload, shape)),
     [workload, shape],
@@ -235,7 +240,43 @@ export default function WholeRunCard({
         <>
           <SectionHeading
             title="Scheduler shape"
-            caption="what each side actually ran, over its own elapsed clock: each column is the min…max of the iterations that fell in it, mean drawn through"
+            caption={
+              workloadAxisMode === 'elapsedTime'
+                ? 'every iteration on its own elapsed clock; each value holds until the next iteration starts'
+                : 'every iteration at its original ID; measured and modelled sequences remain independent'
+            }
+            action={
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={workloadAxisMode}
+                onChange={(_event, nextMode: WorkloadAxisMode | null) => {
+                  if (nextMode !== null) setWorkloadAxisMode(nextMode);
+                }}
+                aria-label="Scheduler shape x-axis"
+                sx={{
+                  flexShrink: 0,
+                  '& .MuiToggleButton-root': {
+                    px: 1.25,
+                    py: 0.35,
+                    borderColor: tokens.hair,
+                    color: tokens.sub,
+                    fontFamily: tokens.mono,
+                    fontSize: 9,
+                    lineHeight: 1.4,
+                    textTransform: 'none',
+                    whiteSpace: 'nowrap',
+                    '&.Mui-selected': {
+                      color: tokens.ink,
+                      backgroundColor: tokens.tile,
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="elapsedTime">Elapsed time</ToggleButton>
+                <ToggleButton value="iterationId">Iteration ID</ToggleButton>
+              </ToggleButtonGroup>
+            }
           />
           {shape.map((card) => (
             <WorkloadMetricCard key={card.key} card={card} definitions={workload.definitions} />
@@ -362,7 +403,9 @@ function WorkloadMetricCard({
         },
       ]}
       option={workloadShapeOption(card)}
-      figureLabel={`${card.label} over elapsed time: measured against modelled, each column the min to max of the iterations in that time window with the mean drawn through`}
+      figureLabel={`${card.label} by ${
+        card.axisMode === 'elapsedTime' ? 'elapsed time' : 'iteration ID'
+      }: every measured and modelled iteration is shown on its own sequence`}
       figureKey={[
         { label: 'measured', color: LANE_COLORS.measured, cells: statsCells(card.measured) },
         { label: 'modelled', color: LANE_COLORS.modelled, cells: statsCells(card.simulated) },

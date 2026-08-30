@@ -146,34 +146,31 @@ describe('workloadShapeOption', () => {
     quantityUnit: '',
     measured: {
       stats: { n: 3, p50: 4, p90: 6, p99: 6, max: 6 },
-      columns: { low: [2, null], mean: [4, null], high: [6, null] },
+      points: { x: [0, 3.5, 4], values: [2, 6, 4] },
     },
     simulated: null,
     deltaP50Pct: null,
     deltaP90Pct: null,
     deltaP99Pct: null,
-    columnMs: 1000,
-    spanMs: 2000,
+    axisMode: 'elapsedTime',
+    axisMin: 0,
+    axisMax: 4,
+    spanMs: 4000,
   };
 
-  it('draws the mean through the centre of every column it has iterations for', () => {
+  it('draws every iteration and holds its value until the next start', () => {
     const series = seriesOf(workloadShapeOption(card));
-    const mean = series.find((entry) => entry.name === 'measured');
-    expect(mean?.type).toBe('line');
-    expect(mean?.data).toEqual([
-      [0.5, 4],
-      [1.5, null],
+    const measured = series.find((entry) => entry.name === 'measured');
+    expect(measured?.type).toBe('line');
+    expect(measured?.step).toBe('end');
+    expect(measured?.data).toEqual([
+      [0, 2],
+      [3.5, 6],
+      [4, 4],
     ]);
   });
 
-  it('places the min…max envelope as its own shape rather than a stacked area', () => {
-    const series = seriesOf(workloadShapeOption(card));
-    const envelope = series.find((entry) => entry.name === 'measured envelope');
-    expect(envelope?.type).toBe('custom');
-    expect(envelope?.stack).toBeUndefined();
-  });
-
-  it('draws no envelope for the side the analyzer did not record', () => {
+  it('draws no series for the side the analyzer did not record', () => {
     const series = seriesOf(workloadShapeOption(card));
     expect(series.some((entry) => entry.name?.startsWith('modelled'))).toBe(false);
   });
@@ -181,7 +178,12 @@ describe('workloadShapeOption', () => {
   it('labels the y axis with the metric`s own unit and the x axis with elapsed time', () => {
     const option = workloadShapeOption(card);
     expect(option?.yAxis).toMatchObject({ name: 'decode requests' });
-    expect(option?.xAxis).toMatchObject({ name: 'elapsed time (s)', max: 2 });
+    expect(option?.xAxis).toMatchObject({ name: 'elapsed time (s)', min: 0, max: 4 });
+  });
+
+  it('labels the alternate x axis as iteration ID', () => {
+    const option = workloadShapeOption({ ...card, axisMode: 'iterationId' });
+    expect(option?.xAxis).toMatchObject({ name: 'iteration ID' });
   });
 
   it('is null when neither side recorded a series', () => {
