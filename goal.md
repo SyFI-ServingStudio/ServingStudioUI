@@ -1,5 +1,3 @@
-# 2026-09-07
+# UI 主分支整合
 
-检查现有 Agent UI 接入 Claude 所需的改动。
-
-按用户要求提交并推送全部现有 UI 改动和配套 Claude Agent 改动。
+整合 alignment 指标、图表和 Analyzer 契约改动，以及 Claude 模型选择、推理档位和运行状态提示；验证后推送 main。
