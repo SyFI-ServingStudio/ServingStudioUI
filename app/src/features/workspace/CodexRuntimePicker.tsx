@@ -309,7 +309,14 @@ function RuntimePanel({
                 const pickedIndex = onRow ? efforts.indexOf(runtime.effort) : -1;
                 return (
                   <Fragment key={model.id}>
-                    <Tooltip title={model.id} placement="left">
+                    <Tooltip
+                      title={
+                        model.available
+                          ? model.id
+                          : `${model.familyLabel} is not configured on this server.`
+                      }
+                      placement="left"
+                    >
                       <Typography
                         noWrap
                         sx={{
@@ -360,7 +367,7 @@ function RuntimePanel({
         // Kept to one short line: a wrapping paragraph would widen the panel,
         // and the locked family already carries its own padlock above.
         <Tooltip
-          title="A Codex session can only be resumed by the family that recorded it. Sibling models and every effort level stay open."
+          title="An Agent session can only be resumed by the family that recorded it. Start a new conversation to use another family."
           placement="bottom"
         >
           <Stack
@@ -430,7 +437,7 @@ function RuntimeChip({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={Boolean(anchor)}
-        aria-label={`${roleLabels[role]} Codex runtime`}
+        aria-label={`${roleLabels[role]} Agent runtime`}
         onClick={(event) => setAnchor(event.currentTarget)}
         sx={{
           height: style.height,
@@ -656,7 +663,15 @@ function UnavailableChips({
 export function CodexRuntimeTag({ model, effort }: { model: string; effort?: string }) {
   const deepseek = model.includes('DeepSeek');
   const color = deepseek ? tokens.violet : tokens.sub;
-  const label = deepseek ? 'DeepSeek' : model.replace(/^gpt-/i, '').replace(/^5\.6-/, '');
+  const claudeAlias =
+    model === 'sonnet' ? 'Claude Sonnet' : model === 'opus' ? 'Claude Opus' : null;
+  const claudeVersion = /^claude-(opus|sonnet|haiku)-(\d+(?:-\d+)?)(?:-\d{8})?$/i.exec(model);
+  const claudeLabel = claudeVersion
+    ? `Claude ${claudeVersion[1][0].toUpperCase()}${claudeVersion[1].slice(1)} ${claudeVersion[2].replace('-', '.')}`
+    : claudeAlias;
+  const label = deepseek
+    ? 'DeepSeek'
+    : (claudeLabel ?? model.replace(/^gpt-/i, '').replace(/^5\.6-/, ''));
   return (
     <Stack
       component="span"

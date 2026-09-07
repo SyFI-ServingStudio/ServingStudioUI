@@ -1545,7 +1545,7 @@ describe('AgentPane interrupt gate', () => {
 
     // A mid-turn change applies to the next call, which is why the picker must
     // not lock: the running turn already snapshotted its own runtime.
-    await user.click(screen.getByRole('button', { name: 'Orchestrator Codex runtime' }));
+    await user.click(screen.getByRole('button', { name: 'Orchestrator Agent runtime' }));
     expect(await screen.findByRole('radio', { name: 'GPT-5.6-Sol at high' })).toBeEnabled();
   });
 });
