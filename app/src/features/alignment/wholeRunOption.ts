@@ -36,6 +36,9 @@ const TICK_FONT_SIZE = 9;
 const CAPTION_FONT_SIZE = 9;
 const CURVE_WIDTH = 1.5;
 
+const maxValue = (values: readonly number[], initial = 0): number =>
+  values.reduce((highest, value) => Math.max(highest, value), initial);
+
 const tickLabel = (value: number): string => fmtFigureTick(value);
 
 /** The plot frame every figure shares: hairline ticks along the bottom, a
@@ -284,13 +287,11 @@ export function throughputRateOption(
   if (bins.tStartMs.length === 0) return null;
   const spanMs = bins.tEndMs[bins.tEndMs.length - 1];
   if (spanMs === undefined) return null;
-  const peak =
-    Math.max(
-      ...bins.measuredOutputTps,
-      ...bins.simulatedOutputTps,
-      ...(means.measured === null ? [] : [means.measured]),
-      ...(means.simulated === null ? [] : [means.simulated]),
-    ) * 1.08 || 1;
+  let highest = maxValue(bins.measuredOutputTps);
+  highest = maxValue(bins.simulatedOutputTps, highest);
+  if (means.measured !== null) highest = Math.max(highest, means.measured);
+  if (means.simulated !== null) highest = Math.max(highest, means.simulated);
+  const peak = highest * 1.08 || 1;
 
   // One horizontal segment per bin, joined at the bin boundary: the rate is a
   // property of the whole bin, not of a point inside it.
@@ -349,10 +350,10 @@ export function throughputRateOption(
  */
 export function workloadShapeOption(card: WorkloadCardModel): EChartsOption | null {
   if (card.measured === null && card.simulated === null) return null;
-  const highest = [card.measured, card.simulated].flatMap((side) =>
-    side === null ? [] : [...side.points.values],
-  );
-  const peak = (highest.length === 0 ? 0 : Math.max(...highest)) * 1.08 || 1;
+  let highest = 0;
+  if (card.measured !== null) highest = maxValue(card.measured.points.values, highest);
+  if (card.simulated !== null) highest = maxValue(card.simulated.points.values, highest);
+  const peak = highest * 1.08 || 1;
 
   const lane = (
     name: string,
@@ -404,6 +405,47 @@ export function workloadShapeOption(card: WorkloadCardModel): EChartsOption | nu
       ruleSeries([{ yAxis: peak, dashed: false, color: tokens.hair }]),
       ...lane('measured', MEASURED_COLOR, card.measured),
       ...lane('modelled', MODELLED_COLOR, card.simulated),
+    ],
+  };
+}
+
+/** A full-screen copy of a whole-run figure with navigation controls.
+ * The compact card remains an unencumbered overview; the expanded chart can
+ * be zoomed with the wheel, panned by dragging, or scrubbed with the slider. */
+export function expandedWholeRunOption(option: EChartsOption): EChartsOption {
+  return {
+    ...option,
+    grid: { ...(option.grid as object), bottom: 72 },
+    dataZoom: [
+      {
+        type: 'inside',
+        xAxisIndex: 0,
+        filterMode: 'none',
+        zoomOnMouseWheel: true,
+        moveOnMouseMove: true,
+        moveOnMouseWheel: false,
+        preventDefaultMouseMove: true,
+      },
+      {
+        type: 'slider',
+        xAxisIndex: 0,
+        filterMode: 'none',
+        height: 20,
+        bottom: 16,
+        borderColor: tokens.hair,
+        fillerColor: `${tokens.teal}24`,
+        handleStyle: { color: tokens.teal, borderColor: tokens.teal },
+        moveHandleStyle: { color: tokens.teal },
+        dataBackground: {
+          lineStyle: { color: tokens.sub2 },
+          areaStyle: { color: `${tokens.sub2}18` },
+        },
+        selectedDataBackground: {
+          lineStyle: { color: tokens.teal },
+          areaStyle: { color: `${tokens.teal}20` },
+        },
+        textStyle: { color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 },
+      },
     ],
   };
 }

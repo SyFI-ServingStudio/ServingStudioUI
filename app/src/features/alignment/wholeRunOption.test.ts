@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AlignmentCdfComparison, AlignmentThroughputSeries } from '../../domain/alignment';
-import { latencyCdfOption, throughputRateOption, workloadShapeOption } from './wholeRunOption';
+import {
+  expandedWholeRunOption,
+  latencyCdfOption,
+  throughputRateOption,
+  workloadShapeOption,
+} from './wholeRunOption';
 import type { WorkloadCardModel } from './wholeRunModel';
 
 const comparison: AlignmentCdfComparison = {
@@ -135,6 +140,21 @@ describe('throughputRateOption', () => {
       ),
     ).toBeNull();
   });
+
+  it('handles more bins than can be spread into a function call', () => {
+    const values = Array.from({ length: 150_000 }, (_value, index) => index % 1_000);
+    const option = throughputRateOption(
+      {
+        tStartMs: values,
+        tEndMs: values.map((value) => value + 1),
+        measuredOutputTps: values,
+        simulatedOutputTps: values,
+      },
+      { measured: null, simulated: null },
+    );
+
+    expect(option?.yAxis).toMatchObject({ max: 999 * 1.08 });
+  });
 });
 
 describe('workloadShapeOption', () => {
@@ -188,5 +208,31 @@ describe('workloadShapeOption', () => {
 
   it('is null when neither side recorded a series', () => {
     expect(workloadShapeOption({ ...card, measured: null })).toBeNull();
+  });
+
+  it('handles more scheduler points than can be spread into a function call', () => {
+    const values = Array.from({ length: 150_000 }, (_value, index) => index % 1_000);
+    const option = workloadShapeOption({
+      ...card,
+      measured: {
+        stats: { n: values.length, p50: 500, p90: 900, p99: 990, max: 999 },
+        points: { x: values, values },
+      },
+    });
+
+    expect(option?.yAxis).toMatchObject({ max: 999 * 1.08 });
+  });
+});
+
+describe('expandedWholeRunOption', () => {
+  it('adds wheel/drag zoom and a scrolling slider without mutating the card option', () => {
+    const compact = { grid: { left: 40, bottom: 30 }, series: [] };
+    const expanded = expandedWholeRunOption(compact);
+    const zoom = expanded.dataZoom as { type: string; zoomOnMouseWheel?: boolean }[];
+
+    expect(compact.grid.bottom).toBe(30);
+    expect(expanded.grid).toMatchObject({ left: 40, bottom: 72 });
+    expect(zoom.map((control) => control.type)).toEqual(['inside', 'slider']);
+    expect(zoom[0].zoomOnMouseWheel).toBe(true);
   });
 });

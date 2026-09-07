@@ -28,7 +28,7 @@ const descriptorSchema = z
     prediction_id: predictionId,
     kind: z.literal('timing_predict'),
     display_name: z.string().min(1),
-    selector: z.enum(['iter', 'attn', 'ffn']),
+    selector: z.enum(['iter', 'speculative_iter', 'attn', 'ffn']),
     arch: z.object({ type: z.string().min(1) }).strict(),
     gpu: z.object({ name: z.string().min(1), count: nonNegativeInteger.min(1) }).strict(),
     case_count: nonNegativeInteger,

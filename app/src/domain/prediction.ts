@@ -6,7 +6,7 @@ import type { WorkerCostTreeInput } from './workerOperation';
 export interface PredictionDescriptor {
   readonly predictionId: string;
   readonly displayName: string;
-  readonly selector: 'iter' | 'attn' | 'ffn';
+  readonly selector: 'iter' | 'speculative_iter' | 'attn' | 'ffn';
   readonly archType: string;
   readonly gpu: { readonly name: string; readonly count: number };
   readonly caseCount: number;

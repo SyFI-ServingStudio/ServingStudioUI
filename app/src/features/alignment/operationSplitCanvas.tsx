@@ -350,7 +350,7 @@ export default function OperationSplitCanvas(props: OperationSplitCanvasProps) {
           ['launches', fmtInt(group.launches)] as const,
           ['kernel rows folded', fmtInt(group.foldedRows)] as const,
           ['critical-path share', fmtMs(group.ms)] as const,
-          ['additive stream work', fmtMs(group.additiveMs)] as const,
+          ['kernel critical contribution', fmtMs(group.additiveMs)] as const,
           ['direct overlap evidence', fmtMs(group.concurrentHiddenMs)] as const,
           ['operation', group.operation ?? 'unmapped'] as const,
         ],

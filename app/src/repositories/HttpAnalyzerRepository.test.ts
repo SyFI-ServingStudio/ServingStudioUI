@@ -126,7 +126,7 @@ function fakeAnalyzerFetch(overrides: Readonly<Record<string, Route>> = {}) {
         prediction_id: PREDICTION_ID,
         kind: 'timing_predict',
         display_name: '20260731_3_ui_timing_prediction',
-        selector: 'iter',
+        selector: 'speculative_iter',
         arch: { type: 'llama3_dense' },
         gpu: { name: 'NVIDIA H200', count: 1 },
         case_count: 2,
@@ -226,6 +226,7 @@ describe('HttpAnalyzerRepository', () => {
 
     await expect(repository.getPredictionDescriptor(PREDICTION_ID)).resolves.toMatchObject({
       predictionId: PREDICTION_ID,
+      selector: 'speculative_iter',
       archType: 'llama3_dense',
       gpu: { name: 'NVIDIA H200', count: 1 },
     });

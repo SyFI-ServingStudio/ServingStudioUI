@@ -204,14 +204,12 @@ export function foldMeasuredGroups(
 }
 
 /**
- * Fold measured rows, then project them onto the exact replica critical path.
+ * Fold measured rows, preserving the analyzer's exact replica critical path.
  *
- * The Analyzer's logical kernel rows still contain every rank-specific branch,
- * and their durations are additive across CUDA streams. Operation summary rows
- * carry the critical-path budgets resolved by `cycleFromBreakdown`. Within one
- * operation (or the unmapped bucket), distribute that budget in proportion to
- * each group's visible, non-overlapped work. This preserves phase/order/detail
- * while making the stack end at `cycle.measuredMs` exactly.
+ * Kernel `durationMs` and operation totals are already post-overlap,
+ * post-collective critical-path contributions. The operation budgets keep the
+ * stack pinned to the producer's totals while grouping repeated kernel rows;
+ * overlap evidence remains tooltip metadata and is never subtracted again.
  */
 export function criticalPathMeasuredGroups(cycle: OperationSplitCycle): readonly MeasuredGroup[] {
   const groups = foldMeasuredGroups(cycle.measuredKernels);
@@ -220,17 +218,9 @@ export function criticalPathMeasuredGroups(cycle: OperationSplitCycle): readonly
   );
   targets.set(null, cycle.unmappedMeasuredMs);
 
-  const visibleWeights = groups.map((group) =>
-    Math.max(0, group.additiveMs - group.concurrentHiddenMs),
-  );
   const additiveWeights = groups.map((group) => Math.max(0, group.additiveMs));
-  const visibleByOperation = new Map<string | null, number>();
   const additiveByOperation = new Map<string | null, number>();
   groups.forEach((group, index) => {
-    visibleByOperation.set(
-      group.operation,
-      (visibleByOperation.get(group.operation) ?? 0) + visibleWeights[index],
-    );
     additiveByOperation.set(
       group.operation,
       (additiveByOperation.get(group.operation) ?? 0) + additiveWeights[index],
@@ -239,13 +229,10 @@ export function criticalPathMeasuredGroups(cycle: OperationSplitCycle): readonly
 
   return groups.map((group, index) => {
     const target = targets.get(group.operation) ?? 0;
-    const visibleTotal = visibleByOperation.get(group.operation) ?? 0;
     const additiveTotal = additiveByOperation.get(group.operation) ?? 0;
-    const weight = visibleTotal > 0 ? visibleWeights[index] : additiveWeights[index];
-    const denominator = visibleTotal > 0 ? visibleTotal : additiveTotal;
     return {
       ...group,
-      ms: denominator > 0 ? (target * weight) / denominator : 0,
+      ms: additiveTotal > 0 ? (target * additiveWeights[index]) / additiveTotal : 0,
     };
   });
 }
@@ -695,7 +682,7 @@ export interface OperationRow {
    * difference summed across every pairing, which is what the run's total
    * error is actually made of. */
   readonly deltaMs: number;
-  readonly relativeDiffPct: number;
+  readonly relativeDiffPct: number | null;
   /** How many pairings the row stands for, or null for a single cycle. */
   readonly pairings: number | null;
 }
@@ -746,7 +733,8 @@ export function sortOperationRows(
   key: OperationSortKey,
 ): readonly OperationRow[] {
   const weight = (row: OperationRow): number => {
-    if (key === 'relative') return Math.abs(row.relativeDiffPct);
+    if (key === 'relative')
+      return row.relativeDiffPct === null ? -1 : Math.abs(row.relativeDiffPct);
     if (key === 'measured') return row.measuredMs;
     return Math.abs(row.deltaMs);
   };

@@ -1,13 +1,15 @@
-import { Box, Stack, Tooltip, Typography } from '@mui/material';
+import OpenInFullIcon from '@mui/icons-material/OpenInFull';
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 
 import EChart from '../../components/EChart';
+import { useOpenChartFocus } from '../../components/ChartFocusContext';
 import SurfaceCard from '../../components/SurfaceCard';
 import { tokens } from '../../theme';
 import type { NoteSegment } from './wholeRunModel';
-import { LANE_COLORS } from './wholeRunOption';
+import { expandedWholeRunOption, LANE_COLORS } from './wholeRunOption';
 
 /**
  * The card §05 repeats.
@@ -223,6 +225,7 @@ export function MetricCard({
   wide?: boolean;
   emphasised?: boolean;
 }) {
+  const openFocus = useOpenChartFocus();
   return (
     <SurfaceCard
       sx={{
@@ -257,25 +260,58 @@ export function MetricCard({
               {title}
             </Typography>
           </Tooltip>
-          {badge !== undefined && (
-            <Box
-              component="span"
-              sx={{
-                fontFamily: tokens.mono,
-                fontSize: 8.5,
-                letterSpacing: '.12em',
-                textTransform: 'uppercase',
-                color: tokens.gold,
-                border: `1px solid ${alpha(tokens.gold, 0.3)}`,
-                background: alpha(tokens.gold, 0.07),
-                borderRadius: '5px',
-                p: '2px 7px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {badge}
-            </Box>
-          )}
+          <Stack direction="row" sx={{ alignItems: 'center', gap: '6px' }}>
+            {badge !== undefined && (
+              <Box
+                component="span"
+                sx={{
+                  fontFamily: tokens.mono,
+                  fontSize: 8.5,
+                  letterSpacing: '.12em',
+                  textTransform: 'uppercase',
+                  color: tokens.gold,
+                  border: `1px solid ${alpha(tokens.gold, 0.3)}`,
+                  background: alpha(tokens.gold, 0.07),
+                  borderRadius: '5px',
+                  p: '2px 7px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {badge}
+              </Box>
+            )}
+            {option !== null && (
+              <Tooltip title="Expand to full screen">
+                <IconButton
+                  aria-label={`Expand ${title}`}
+                  size="small"
+                  onClick={() =>
+                    openFocus({
+                      title,
+                      caption: figureLabel,
+                      option: expandedWholeRunOption(option),
+                      fullScreen: true,
+                      interactionHint:
+                        'Wheel to zoom · drag the plot to pan · drag the slider to scroll',
+                    })
+                  }
+                  sx={{
+                    color: tokens.sub,
+                    border: `1px solid ${tokens.hair}`,
+                    borderRadius: 1.25,
+                    '&:hover': { color: '#fff', background: tokens.teal },
+                    '&:focus-visible': {
+                      color: tokens.teal,
+                      outline: `2px solid ${tokens.teal}`,
+                      outlineOffset: 2,
+                    },
+                  }}
+                >
+                  <OpenInFullIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
         </Stack>
         <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}>
           {meta}

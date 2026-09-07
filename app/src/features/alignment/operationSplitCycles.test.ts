@@ -7,6 +7,7 @@ const breakdown: AlignmentBreakdown = {
   iterationId: 9,
   caseIndex: 3,
   stage: 'mixed',
+  measuredCriticalPathMs: 0.5939,
   measuredKernelSumMs: 0.5939,
   measuredConcurrentHiddenMs: 0,
   // Folded and critical path deliberately differ: the folded sum counts every
@@ -80,39 +81,42 @@ describe('cycleFromBreakdown', () => {
     );
   });
 
-  it('removes one shared overlap budget instead of serializing CUDA streams', () => {
+  it('uses the analyzer headline instead of reconstructing it from one overlap subset', () => {
     const cycle = cycleFromBreakdown({
       ...breakdown,
+      // 25 raw - 3 cross-track - 4 same-track/PDL = 18 critical. The UI must
+      // not invent 22 by subtracting only the cross-track field.
+      measuredCriticalPathMs: 18,
       measuredKernelSumMs: 25,
       measuredConcurrentHiddenMs: 3,
-      unmappedMeasuredMs: 5,
+      unmappedMeasuredMs: 4,
       operationSummary: [
         {
           operation: 'op.a',
-          measuredMs: 10,
+          measuredMs: 7,
           measuredConcurrentHiddenMs: 2,
           simulatedMs: 9,
-          deltaMs: -1,
-          relativeDiffPct: -10,
+          deltaMs: 2,
+          relativeDiffPct: 28.57,
         },
         {
           operation: 'op.b',
-          measuredMs: 10,
+          measuredMs: 7,
           measuredConcurrentHiddenMs: 0,
           simulatedMs: 10,
-          deltaMs: 0,
-          relativeDiffPct: 0,
+          deltaMs: 3,
+          relativeDiffPct: 42.86,
         },
       ],
     });
 
-    expect(cycle?.measuredMs).toBe(22);
+    expect(cycle?.measuredMs).toBe(18);
     expect(cycle?.unmappedMeasuredMs).toBe(4);
-    expect(cycle?.operationSummary.map((row) => row.measuredMs)).toEqual([8, 10]);
+    expect(cycle?.operationSummary.map((row) => row.measuredMs)).toEqual([7, 7]);
     expect(
       (cycle?.operationSummary.reduce((sum, row) => sum + row.measuredMs, 0) ?? 0) +
         (cycle?.unmappedMeasuredMs ?? 0),
-    ).toBe(22);
+    ).toBe(18);
   });
 
   it('projects nothing when the report carries no critical-path attribution', () => {

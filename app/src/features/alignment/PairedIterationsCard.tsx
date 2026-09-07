@@ -35,7 +35,7 @@ import { iterationTypeColor } from './iterationPalette';
  * the plot answers where, the rail answers how much.
  */
 export default function PairedIterationsCard({ series }: { series: AlignmentIterationSeries }) {
-  const [familyKey, setFamilyKey] = useState<string>('kernel');
+  const [familyKey, setFamilyKey] = useState<string>('critical_path');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const paired = useMemo(() => pairedSeries(series), [series]);
   const family = paired.families.find((entry) => entry.key === familyKey) ?? paired.families[0];
@@ -320,9 +320,14 @@ function Rail({
       </RailGroup>
       <RailGroup heading="relative diff" definition={family.definition}>
         <KeyValueList>
+          <KeyValue
+            term="run weighted"
+            value={fmtPctPrecise(cumulativeStats.last)}
+            sign={cumulativeStats.last}
+          />
           <KeyValue term="paired" value={fmtInt(relativeStats.n)} />
           <KeyValue
-            term="mean"
+            term="unweighted mean"
             value={fmtPctPrecise(relativeStats.mean)}
             sign={relativeStats.mean}
           />

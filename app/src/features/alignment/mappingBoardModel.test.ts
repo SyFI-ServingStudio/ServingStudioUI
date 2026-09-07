@@ -116,6 +116,7 @@ const exampleBreakdown: AlignmentBreakdown = {
   iterationId: 8,
   caseIndex: 0,
   stage: 'mixed',
+  measuredCriticalPathMs: 10,
   measuredKernelSumMs: 10,
   measuredConcurrentHiddenMs: 0,
   simulatedLeafWorkloadMs: 11,

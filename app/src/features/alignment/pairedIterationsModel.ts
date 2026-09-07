@@ -53,7 +53,7 @@ export const PLOT_AXIS_NAME_COLOR = tokens.sub;
  * predicts; GPU cycle is that time scaled by the duty multiplier, next to the
  * measured boundary-to-boundary wall clock. They answer different questions
  * and must never be mixed inside one panel. */
-export type PairedFamilyKey = 'kernel' | 'gpu_cycle';
+export type PairedFamilyKey = 'critical_path' | 'busy_union' | 'raw_kernel_sum' | 'gpu_cycle';
 
 export interface PairedFamily {
   readonly key: PairedFamilyKey;
@@ -81,6 +81,29 @@ export interface PairedSeries {
   readonly families: readonly PairedFamily[];
 }
 
+function comparisonSeries(
+  measured: readonly number[],
+  simulated: readonly number[],
+): {
+  readonly relative: readonly (number | null)[];
+  readonly cumulative: readonly (number | null)[];
+} {
+  let measuredTotal = 0;
+  let simulatedTotal = 0;
+  const relative: (number | null)[] = [];
+  const cumulative: (number | null)[] = [];
+  measured.forEach((measuredMs, index) => {
+    const simulatedMs = simulated[index];
+    measuredTotal += measuredMs;
+    simulatedTotal += simulatedMs;
+    relative.push(measuredMs > 0 ? ((simulatedMs - measuredMs) / measuredMs) * 100 : null);
+    cumulative.push(
+      measuredTotal > 0 ? ((simulatedTotal - measuredTotal) / measuredTotal) * 100 : null,
+    );
+  });
+  return { relative, cumulative };
+}
+
 /** Iteration types in a stable order. Sorted rather than first-seen so the
  * legend, the strip and the rail agree no matter which iteration the capture
  * happens to start on. */
@@ -93,14 +116,23 @@ function iterationTypeNames(iterations: readonly AlignmentPairedIteration[]): re
 export function pairedSeries(series: AlignmentIterationSeries): PairedSeries {
   const { iterations, definitions } = series;
   const typeNames = iterationTypeNames(iterations);
+  const simulatedKernelMs = iterations.map((iteration) => iteration.simulatedMs);
+  const busyUnion = comparisonSeries(
+    iterations.map((iteration) => iteration.measuredBusyUnionMs),
+    simulatedKernelMs,
+  );
+  const rawKernelSum = comparisonSeries(
+    iterations.map((iteration) => iteration.measuredKernelSumMs),
+    simulatedKernelMs,
+  );
   return {
     iterationId: iterations.map((iteration) => iteration.iterationId),
     iterationType: iterations.map((iteration) => typeNames.indexOf(iteration.iterationType)),
     typeNames,
     families: [
       {
-        key: 'kernel',
-        label: 'Kernel critical path',
+        key: 'critical_path',
+        label: 'Replica critical path',
         measuredLabel: 'Measured replica critical path',
         simulatedLabel: 'Timing-predict',
         unit: 'kernel time (ms)',
@@ -110,6 +142,32 @@ export function pairedSeries(series: AlignmentIterationSeries): PairedSeries {
         simulated: iterations.map((iteration) => iteration.simulatedMs),
         relative: iterations.map((iteration) => iteration.relativeDiffPct),
         cumulative: iterations.map((iteration) => iteration.cumulativeRelativeDiffPct),
+      },
+      {
+        key: 'busy_union',
+        label: 'GPU busy union',
+        measuredLabel: 'Measured GPU busy union',
+        simulatedLabel: 'Timing-predict',
+        unit: 'kernel time (ms)',
+        definition: '(timing-predict - measured GPU busy union) / measured GPU busy union * 100',
+        measuredDefinition: definitions.measured_busy_union_ms,
+        measured: iterations.map((iteration) => iteration.measuredBusyUnionMs),
+        simulated: simulatedKernelMs,
+        relative: busyUnion.relative,
+        cumulative: busyUnion.cumulative,
+      },
+      {
+        key: 'raw_kernel_sum',
+        label: 'Raw kernel sum',
+        measuredLabel: 'Measured raw kernel sum',
+        simulatedLabel: 'Timing-predict',
+        unit: 'kernel time (ms)',
+        definition: '(timing-predict - raw kernel sum) / raw kernel sum * 100',
+        measuredDefinition: definitions.measured_kernel_sum_ms,
+        measured: iterations.map((iteration) => iteration.measuredKernelSumMs),
+        simulated: simulatedKernelMs,
+        relative: rawKernelSum.relative,
+        cumulative: rawKernelSum.cumulative,
       },
       {
         key: 'gpu_cycle',

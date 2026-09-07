@@ -35,7 +35,7 @@ export interface OperationSplitOperationSummary {
   readonly concurrentHiddenMs: number;
   readonly simulatedMs: number;
   readonly deltaMs: number;
-  readonly relativeDiffPct: number;
+  readonly relativeDiffPct: number | null;
 }
 
 export interface OperationSplitCycle {
@@ -68,74 +68,21 @@ interface MeasuredAttribution {
 }
 
 /**
- * Attribute the one measured critical-path total back to operation buckets.
+ * Read the analyzer's critical-path attribution without recomputing it.
  *
- * Per-operation rows are reduced across ranks independently, while the
- * iteration owns one cross-operation overlap discount. Their hidden-time
- * evidence can therefore sum above or below that one discount when different
- * ranks are critical for different operations. First cap/renormalize the
- * operation evidence to the iteration budget, then charge any remainder to
- * unmapped work and finally to the still-visible mapped work. The result is
- * non-negative and adds back to the exact headline instead of serializing
- * concurrent CUDA streams in the UI.
+ * `measured_ms`, per-kernel `duration_ms`, operation `measured_ms`, and
+ * `unmapped_measured_ms` are produced by the same selected-device reduction.
+ * `measured_concurrent_hidden_ms` is audit evidence for only cross-track
+ * overlap; subtracting it here misses same-track PDL overlap and collective
+ * arrival wait, creating a second, incompatible definition of critical time.
  */
 function measuredAttribution(breakdown: AlignmentBreakdown): MeasuredAttribution {
-  const hiddenBudget = Math.min(
-    breakdown.measuredConcurrentHiddenMs,
-    breakdown.measuredKernelSumMs,
-  );
-  const mappedBudget = Math.max(0, breakdown.measuredKernelSumMs - breakdown.unmappedMeasuredMs);
-  const operationAdditiveSum = breakdown.operationSummary.reduce(
-    (sum, row) => sum + row.measuredMs,
-    0,
-  );
-  const mappedScale = operationAdditiveSum > 0 ? mappedBudget / operationAdditiveSum : 0;
-  const operationBase = new Map<string, number>();
-  const operationHidden = new Map<string, number>();
-  for (const row of breakdown.operationSummary) {
-    const base = Math.max(0, row.measuredMs * mappedScale);
-    operationBase.set(row.operation, base);
-    operationHidden.set(
-      row.operation,
-      Math.min(base, Math.max(0, row.measuredConcurrentHiddenMs * mappedScale)),
-    );
-  }
-
-  let attributedHidden = [...operationHidden.values()].reduce((sum, value) => sum + value, 0);
-  if (attributedHidden > hiddenBudget && attributedHidden > 0) {
-    const scale = hiddenBudget / attributedHidden;
-    for (const [operation, value] of operationHidden) {
-      operationHidden.set(operation, value * scale);
-    }
-    attributedHidden = hiddenBudget;
-  }
-
-  let remainingHidden = Math.max(0, hiddenBudget - attributedHidden);
-  const unmappedHidden = Math.min(breakdown.unmappedMeasuredMs, remainingHidden);
-  remainingHidden -= unmappedHidden;
-  if (remainingHidden > 0) {
-    const available = [...operationBase].reduce(
-      (sum, [operation, base]) => sum + Math.max(0, base - (operationHidden.get(operation) ?? 0)),
-      0,
-    );
-    if (available > 0) {
-      const share = Math.min(1, remainingHidden / available);
-      for (const [operation, base] of operationBase) {
-        const hidden = operationHidden.get(operation) ?? 0;
-        operationHidden.set(operation, hidden + Math.max(0, base - hidden) * share);
-      }
-    }
-  }
-
   return {
-    operationMs: new Map(
-      [...operationBase].map(([operation, base]) => [
-        operation,
-        Math.max(0, base - (operationHidden.get(operation) ?? 0)),
-      ]),
+    operationMs: new Map(breakdown.operationSummary.map((row) => [row.operation, row.measuredMs])),
+    operationHiddenMs: new Map(
+      breakdown.operationSummary.map((row) => [row.operation, row.measuredConcurrentHiddenMs]),
     ),
-    operationHiddenMs: operationHidden,
-    unmappedMs: Math.max(0, breakdown.unmappedMeasuredMs - unmappedHidden),
+    unmappedMs: breakdown.unmappedMeasuredMs,
   };
 }
 
@@ -153,7 +100,7 @@ export function cycleFromBreakdown(breakdown: AlignmentBreakdown): OperationSpli
   return {
     iterationId: breakdown.iterationId,
     stage: breakdown.stage,
-    measuredMs: Math.max(0, breakdown.measuredKernelSumMs - breakdown.measuredConcurrentHiddenMs),
+    measuredMs: breakdown.measuredCriticalPathMs,
     additiveMeasuredMs: breakdown.measuredKernelSumMs,
     concurrentHiddenMs: breakdown.measuredConcurrentHiddenMs,
     simulatedMs: breakdown.simulatedCriticalPathMs,
@@ -191,7 +138,7 @@ export function cycleFromBreakdown(breakdown: AlignmentBreakdown): OperationSpli
           ? ((row.simulatedMs - (attribution.operationMs.get(row.operation) ?? 0)) /
               (attribution.operationMs.get(row.operation) ?? 0)) *
             100
-          : 0,
+          : null,
     })),
   };
 }

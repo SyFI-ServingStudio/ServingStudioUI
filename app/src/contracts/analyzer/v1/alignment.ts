@@ -217,6 +217,7 @@ const pairedIterationSchema = z.object({
   iteration_type: z.string(),
   stage: z.string(),
   measured_ms: finite,
+  measured_kernel_sum_ms: finite.optional(),
   simulated_ms: finite,
   delta_ms: finite,
   relative_diff_pct: finite,
@@ -240,6 +241,7 @@ function decodePairedIteration(row: PairedIterationInput) {
     iterationType: row.iteration_type,
     stage: row.stage,
     measuredMs: row.measured_ms,
+    measuredKernelSumMs: row.measured_kernel_sum_ms ?? row.measured_ms,
     simulatedMs: row.simulated_ms,
     deltaMs: row.delta_ms,
     relativeDiffPct: row.relative_diff_pct,
@@ -678,6 +680,10 @@ const breakdownSchema = z.object({
   iteration_id: count,
   case_index: count,
   stage: z.string(),
+  // Current analyzer payloads carry the canonical headline directly. Older
+  // shards predate the field but their per-kernel duration_ms values already
+  // sum to the then-current measured headline, so that is the exact fallback.
+  measured_ms: nonNegative.optional(),
   measured_kernel_sum_ms: nonNegative,
   // Added without a schema bump. Old single-stream artifacts are equivalent
   // to zero hidden work, so absence has an exact backwards-compatible value.
@@ -728,11 +734,14 @@ const breakdownSchema = z.object({
   operation_summary: z.array(
     z.object({
       operation: nonEmpty,
-      measured_ms: finite,
-      measured_concurrent_hidden_ms: nonNegative.optional(),
-      simulated_ms: finite,
-      delta_ms: finite,
-      relative_diff_pct: finite,
+      // An operation may exist on only one side of the mapping. The analyzer
+      // preserves that distinction as null; the decoded stack normalizes the
+      // missing side to zero time while keeping an undefined ratio as null.
+      measured_ms: finite.nullable(),
+      measured_concurrent_hidden_ms: nonNegative.nullish(),
+      simulated_ms: finite.nullable(),
+      delta_ms: finite.nullable(),
+      relative_diff_pct: finite.nullable(),
     }),
   ),
   phase_summary: z.array(
@@ -754,10 +763,14 @@ export function parseAnalyzerV1AlignmentBreakdown(
   if (record.iteration_id !== expectedIterationId) {
     throw new Error('Alignment breakdown identity does not match the request.');
   }
+  const measuredCriticalPathMs =
+    record.measured_ms ??
+    record.measured_kernels.reduce((sum, kernel) => sum + kernel.duration_ms, 0);
   return Object.freeze({
     iterationId: record.iteration_id,
     caseIndex: record.case_index,
     stage: record.stage,
+    measuredCriticalPathMs,
     measuredKernelSumMs: record.measured_kernel_sum_ms,
     measuredConcurrentHiddenMs: record.measured_concurrent_hidden_ms ?? 0,
     simulatedCriticalPathMs: record.simulated_critical_path_ms ?? null,
@@ -795,16 +808,18 @@ export function parseAnalyzerV1AlignmentBreakdown(
       ),
     ),
     operationSummary: Object.freeze(
-      record.operation_summary.map((row) =>
-        Object.freeze({
+      record.operation_summary.map((row) => {
+        const measuredMs = row.measured_ms ?? 0;
+        const simulatedMs = row.simulated_ms ?? 0;
+        return Object.freeze({
           operation: row.operation,
-          measuredMs: row.measured_ms,
+          measuredMs,
           measuredConcurrentHiddenMs: row.measured_concurrent_hidden_ms ?? 0,
-          simulatedMs: row.simulated_ms,
-          deltaMs: row.delta_ms,
+          simulatedMs,
+          deltaMs: row.delta_ms ?? simulatedMs - measuredMs,
           relativeDiffPct: row.relative_diff_pct,
-        }),
-      ),
+        });
+      }),
     ),
     phaseSummary: Object.freeze(
       record.phase_summary.map((row) =>

@@ -321,12 +321,12 @@ function workloadStats(values: readonly number[]): WorkloadStats {
     p50: quantile(values, 0.5),
     p90: quantile(values, 0.9),
     p99: quantile(values, 0.99),
-    max: values.length === 0 ? null : Math.max(...values),
+    max: values.length === 0 ? null : maxOf(values),
   };
 }
 
 const sideSpanMs = (side: AlignmentWorkloadSide | null): number =>
-  side === null || side.timeMs.length === 0 ? 0 : Math.max(...side.timeMs);
+  side === null || side.timeMs.length === 0 ? 0 : maxOf(side.timeMs);
 
 export function workloadSpanMs(series: AlignmentWorkloadSeries): number {
   return Math.max(sideSpanMs(series.measured), sideSpanMs(series.simulated));
@@ -337,14 +337,21 @@ export function workloadCards(
   axisMode: WorkloadAxisMode = 'elapsedTime',
 ): readonly WorkloadCardModel[] {
   const spanMs = workloadSpanMs(series);
-  const coordinates = [series.measured, series.simulated].flatMap((side) => {
-    if (side === null) return [];
-    return axisMode === 'elapsedTime'
-      ? side.timeMs.map((timeMs) => timeMs / 1000)
-      : [...side.iterationId];
-  });
-  const rawAxisMin = coordinates.length === 0 ? 0 : Math.min(...coordinates);
-  const rawAxisMax = coordinates.length === 0 ? 1 : Math.max(...coordinates);
+  let rawAxisMin = Number.POSITIVE_INFINITY;
+  let rawAxisMax = Number.NEGATIVE_INFINITY;
+  for (const side of [series.measured, series.simulated]) {
+    if (side === null) continue;
+    const coordinates = axisMode === 'elapsedTime' ? side.timeMs : side.iterationId;
+    for (const rawCoordinate of coordinates) {
+      const coordinate = axisMode === 'elapsedTime' ? rawCoordinate / 1000 : rawCoordinate;
+      rawAxisMin = Math.min(rawAxisMin, coordinate);
+      rawAxisMax = Math.max(rawAxisMax, coordinate);
+    }
+  }
+  if (!Number.isFinite(rawAxisMin) || !Number.isFinite(rawAxisMax)) {
+    rawAxisMin = 0;
+    rawAxisMax = 1;
+  }
   const axisMax = rawAxisMax === rawAxisMin ? rawAxisMin + 1 : rawAxisMax;
   const sideModel = (side: AlignmentWorkloadSide | null, key: WorkloadMetricKey) => {
     if (side === null) return null;

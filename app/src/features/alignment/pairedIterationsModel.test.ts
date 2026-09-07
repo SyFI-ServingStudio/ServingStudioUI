@@ -34,6 +34,7 @@ function iteration(
     iterationType,
     stage: iterationType,
     measuredMs,
+    measuredKernelSumMs: measuredMs,
     simulatedMs,
     deltaMs: simulatedMs - measuredMs,
     relativeDiffPct,
@@ -52,6 +53,7 @@ function iteration(
 const series: AlignmentIterationSeries = {
   definitions: {
     measured_ms: 'replica critical-path sum',
+    measured_busy_union_ms: 'physical GPU busy union',
     relative_diff_pct: '(simulated - measured) / measured * 100',
     measured_gpu_cycle_ms: 'next iteration first-kernel start minus this one',
     gpu_cycle_relative_diff_pct: 'scaled prediction against the measured cycle',
@@ -76,24 +78,44 @@ describe('pairedSeries', () => {
     expect(paired.iterationType).toEqual([2, 0, 0, 1]);
   });
 
-  it('carries both time bases without mixing them', () => {
-    const [kernel, cycle] = paired.families;
-    expect(kernel.key).toBe('kernel');
-    expect(kernel.measured).toEqual([10, 2, 4, 8]);
+  it('carries all measured time bases without mixing them', () => {
+    const [criticalPath, busyUnion, rawKernelSum, cycle] = paired.families;
+    expect(criticalPath.key).toBe('critical_path');
+    expect(criticalPath.measured).toEqual([10, 2, 4, 8]);
+    expect(busyUnion.key).toBe('busy_union');
+    expect(busyUnion.measured).toEqual([10, 2, 4, 8]);
+    expect(rawKernelSum.key).toBe('raw_kernel_sum');
+    expect(rawKernelSum.measured).toEqual([10, 2, 4, 8]);
     expect(cycle.key).toBe('gpu_cycle');
     expect(cycle.measured).toEqual([20, 4, 8, 16]);
   });
 
   it('quotes the analyzer for both sides of each family and never paraphrases', () => {
-    const [kernel, cycle] = paired.families;
-    expect(kernel.definition).toBe(series.definitions.relative_diff_pct);
-    expect(kernel.measuredDefinition).toBe(series.definitions.measured_ms);
+    const [criticalPath, busyUnion, _rawKernelSum, cycle] = paired.families;
+    expect(criticalPath.definition).toBe(series.definitions.relative_diff_pct);
+    expect(criticalPath.measuredDefinition).toBe(series.definitions.measured_ms);
+    expect(busyUnion.measuredDefinition).toBe(series.definitions.measured_busy_union_ms);
     expect(cycle.definition).toBe(series.definitions.gpu_cycle_relative_diff_pct);
     expect(cycle.measuredDefinition).toBe(series.definitions.measured_gpu_cycle_ms);
   });
 
   it('keeps the scaled lane label clean for the card-level correction badge', () => {
-    expect(paired.families[1].simulatedLabel).toBe('Timing-predict');
+    expect(paired.families[3].simulatedLabel).toBe('Timing-predict');
+  });
+
+  it('recomputes error against the selected busy-union baseline', () => {
+    const withDifferentUnion = pairedSeries({
+      ...series,
+      iterations: series.iterations.slice(0, 2).map((row) => ({
+        ...row,
+        measuredBusyUnionMs: row.measuredMs * 2,
+      })),
+    });
+    const busyUnion = withDifferentUnion.families[1];
+    expect(busyUnion.relative[0]).toBeCloseTo(-45, 12);
+    expect(busyUnion.relative[1]).toBeCloseTo(-45, 12);
+    expect(busyUnion.cumulative[0]).toBeCloseTo(-45, 12);
+    expect(busyUnion.cumulative[1]).toBeCloseTo(-45, 12);
   });
 });
 

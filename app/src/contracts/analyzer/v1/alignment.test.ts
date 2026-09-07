@@ -527,17 +527,64 @@ describe('per-iteration detail', () => {
       iteration_id: 7,
       case_index: 1,
       stage: 'decode',
+      measured_ms: 0.75,
       measured_kernel_sum_ms: 1,
       simulated_leaf_workload_ms: 1,
       unmapped_measured_ms: 0,
       unmapped_simulated_ms: 0,
       measured_kernels: [],
       simulated_kernels: [],
-      operation_summary: [],
+      operation_summary: [
+        {
+          operation: 'sim.only',
+          measured_ms: 0,
+          measured_concurrent_hidden_ms: null,
+          simulated_ms: 1,
+          delta_ms: 1,
+          relative_diff_pct: null,
+        },
+      ],
       phase_summary: [],
     };
     expect(() => parseAnalyzerV1AlignmentBreakdown(record, 6)).toThrow(/identity/);
-    expect(parseAnalyzerV1AlignmentBreakdown(record, 7).iterationId).toBe(7);
+    const parsed = parseAnalyzerV1AlignmentBreakdown(record, 7);
+    expect(parsed.iterationId).toBe(7);
+    expect(parsed.measuredCriticalPathMs).toBe(0.75);
+    expect(parsed.operationSummary[0]).toMatchObject({
+      measuredMs: 0,
+      simulatedMs: 1,
+      deltaMs: 1,
+      relativeDiffPct: null,
+    });
+  });
+
+  it('falls back to summed kernel contributions for an older detail shard', () => {
+    const parsed = parseAnalyzerV1AlignmentBreakdown(
+      {
+        iteration_id: 7,
+        case_index: 1,
+        stage: 'decode',
+        measured_kernel_sum_ms: 1,
+        simulated_leaf_workload_ms: 1,
+        unmapped_measured_ms: 0,
+        unmapped_simulated_ms: 0,
+        measured_kernels: [
+          {
+            name: 'kernel',
+            category: 'other',
+            duration_ms: 0.625,
+            calls: 1,
+            first_start_ns: 0,
+            device_ids: [0],
+          },
+        ],
+        simulated_kernels: [],
+        operation_summary: [],
+        phase_summary: [],
+      },
+      7,
+    );
+    expect(parsed.measuredCriticalPathMs).toBe(0.625);
   });
 });
 

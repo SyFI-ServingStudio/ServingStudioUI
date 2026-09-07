@@ -65,6 +65,7 @@ function iteration(
     iterationType: stage,
     stage,
     measuredMs,
+    measuredKernelSumMs: measuredMs,
     simulatedMs,
     deltaMs: simulatedMs - measuredMs,
     relativeDiffPct: ((simulatedMs - measuredMs) / measuredMs) * 100,

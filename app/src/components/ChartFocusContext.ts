@@ -5,6 +5,10 @@ export interface ChartFocusPayload {
   title: string;
   caption: string;
   option: EChartsOption;
+  /** Let dense charts use the whole viewport instead of the standard dialog. */
+  fullScreen?: boolean;
+  /** Short, chart-specific interaction guidance shown beside the caption. */
+  interactionHint?: string;
 }
 
 export interface ChartFocusActions {

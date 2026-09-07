@@ -84,6 +84,8 @@ export interface AlignmentPairedIteration {
   readonly iterationType: string;
   readonly stage: string;
   readonly measuredMs: number;
+  /** Literal selected-device kernel durations before overlap removal. */
+  readonly measuredKernelSumMs: number;
   readonly simulatedMs: number;
   readonly deltaMs: number;
   readonly relativeDiffPct: number;
@@ -327,7 +329,8 @@ export interface AlignmentBreakdownOperation {
   readonly measuredConcurrentHiddenMs: number;
   readonly simulatedMs: number;
   readonly deltaMs: number;
-  readonly relativeDiffPct: number;
+  /** Null when measured time is zero, so a percentage is undefined. */
+  readonly relativeDiffPct: number | null;
 }
 
 export interface AlignmentBreakdownPhase {
@@ -343,11 +346,14 @@ export interface AlignmentBreakdown {
   readonly iterationId: number;
   readonly caseIndex: number;
   readonly stage: string;
+  /** Canonical measured replica critical path emitted by the analyzer. */
+  readonly measuredCriticalPathMs: number;
   readonly measuredKernelSumMs: number;
-  /** Additive stream work counted twice where CUDA streams overlap. The
-   * comparable measured critical path is `measuredKernelSumMs - this`. */
+  /** Cross-stream overlap evidence. This is only one subset of the overlap
+   * already removed from `measuredCriticalPathMs`; it must not be used to
+   * reconstruct that total. */
   readonly measuredConcurrentHiddenMs: number;
-  /** The modelled iteration cost. Compare this with `measuredKernelSumMs`.
+  /** The modelled iteration cost. Compare this with `measuredCriticalPathMs`.
    * Null for a report produced before the analyzer attributed leaves through
    * the cost tree; there is no substitute, so a consumer degrades instead. */
   readonly simulatedCriticalPathMs: number | null;

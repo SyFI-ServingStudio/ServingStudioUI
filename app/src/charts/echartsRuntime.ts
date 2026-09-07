@@ -1,5 +1,6 @@
 import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts';
 import {
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,
@@ -21,6 +22,7 @@ echarts.use([
   HeatmapChart,
   LineChart,
   ScatterChart,
+  DataZoomComponent,
   GridComponent,
   LegendComponent,
   MarkLineComponent,

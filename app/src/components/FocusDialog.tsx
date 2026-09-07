@@ -14,7 +14,15 @@ export default function FocusDialog() {
       onClose={closeFocus}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { borderRadius: 3, p: '24px 26px 22px', background: tokens.tile } }}
+      fullScreen={focus?.fullScreen === true}
+      PaperProps={{
+        sx: {
+          borderRadius: focus?.fullScreen === true ? 0 : 3,
+          p: '24px 26px 22px',
+          background: tokens.tile,
+          ...(focus?.fullScreen === true ? { display: 'flex', flexDirection: 'column' } : {}),
+        },
+      }}
     >
       {focus && (
         <>
@@ -42,6 +50,13 @@ export default function FocusDialog() {
                   {focus.caption}
                 </Typography>
               )}
+              {focus.interactionHint && (
+                <Typography
+                  sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.teal, mt: 0.75 }}
+                >
+                  {focus.interactionHint}
+                </Typography>
+              )}
             </Box>
             <IconButton
               aria-label="Close expanded chart"
@@ -56,7 +71,11 @@ export default function FocusDialog() {
               <CloseIcon />
             </IconButton>
           </Stack>
-          <Box sx={{ height: 'min(60vh,540px)' }}>
+          <Box
+            sx={
+              focus.fullScreen === true ? { flex: 1, minHeight: 0 } : { height: 'min(60vh,540px)' }
+            }
+          >
             <EChart option={focus.option} ariaLabel={`${focus.title}. ${focus.caption}`} />
           </Box>
         </>

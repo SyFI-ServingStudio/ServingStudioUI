@@ -214,6 +214,29 @@ describe('workloadCards', () => {
     ]);
   });
 
+  it('summarises captures larger than the JavaScript argument limit', () => {
+    const count = 150_000;
+    const values = Array.from({ length: count }, (_value, index) => index);
+    const largeSide = {
+      iterationId: values,
+      timeMs: values,
+      iterationCycleMs: values,
+      prefillTokens: values,
+      decodeBatchSize: values,
+      scheduledKvTokens: values,
+    };
+    const [decode] = workloadCards({
+      available: true,
+      definitions: {},
+      measured: largeSide,
+      simulated: null,
+    });
+
+    expect(decode.measured?.stats.max).toBe(count - 1);
+    expect(decode.axisMax).toBe((count - 1) / 1000);
+    expect(decode.spanMs).toBe(count - 1);
+  });
+
   it('quotes the same statistics in the summary table as on the cards', () => {
     const rows = workloadSummaryRows(workload, cards);
     expect(rows.map((row) => row.label)).toEqual([

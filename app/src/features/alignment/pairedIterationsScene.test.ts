@@ -30,6 +30,7 @@ function iteration(
     iterationType,
     stage: iterationType,
     measuredMs,
+    measuredKernelSumMs: measuredMs,
     simulatedMs,
     deltaMs: simulatedMs - measuredMs,
     relativeDiffPct,

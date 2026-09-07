@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ChartFocusProvider } from '../../components/ChartFocusProvider';
 import type { AlignmentWorkloadSeries } from '../../domain/alignment';
 import WholeRunCard from './WholeRunCard';
 
@@ -35,7 +36,11 @@ const workload: AlignmentWorkloadSeries = {
 describe('WholeRunCard scheduler axis', () => {
   it('switches every scheduler figure from elapsed time to original iteration IDs', async () => {
     const user = userEvent.setup();
-    render(<WholeRunCard e2e={null} workload={workload} />);
+    render(
+      <ChartFocusProvider>
+        <WholeRunCard e2e={null} workload={workload} />
+      </ChartFocusProvider>,
+    );
 
     expect(screen.getByRole('button', { name: 'Elapsed time' })).toHaveAttribute(
       'aria-pressed',

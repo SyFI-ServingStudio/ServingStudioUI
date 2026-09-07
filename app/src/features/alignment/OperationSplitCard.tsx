@@ -209,7 +209,7 @@ export default function OperationSplitCard({
                 · {activeCycle.stage} · {fmtSignedPct(activeCycle.relativeDiffPct)}
                 {cycle === null
                   ? null
-                  : ` · overlap removed ${fmtMs(cycle.concurrentHiddenMs)} · unmapped path ${fmtMs(cycle.unmappedMeasuredMs)}`}
+                  : ` · cross-stream overlap evidence ${fmtMs(cycle.concurrentHiddenMs)} · unmapped path ${fmtMs(cycle.unmappedMeasuredMs)}`}
               </>
             )}
           </Box>
@@ -407,7 +407,7 @@ export default function OperationSplitCard({
                       color: row.deltaMs >= 0 ? tokens.terra : tokens.teal,
                     }}
                   >
-                    {fmtSignedPct(row.relativeDiffPct)}
+                    {row.relativeDiffPct === null ? '—' : fmtSignedPct(row.relativeDiffPct)}
                   </Box>
                   <Box
                     sx={{
