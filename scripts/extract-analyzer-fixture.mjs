@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const FIXTURE_ID = "afd-qwen3-duration-reached";
 const DEFAULT_RUN_ID = "fixture-afd-qwen3-v1";
-const DEFAULT_SOURCE_RUN = "main/logs/20260715_1_afd_ui_reanalysis";
+const DEFAULT_SOURCE_RUN = "VibeSim/logs/20260715_1_afd_ui_reanalysis";
 const SLO_TARGET_POINTS = 64;
 const BATCH_TARGET_POINTS = 128;
 const DESCRIPTOR_FILE = "run_descriptor.json";

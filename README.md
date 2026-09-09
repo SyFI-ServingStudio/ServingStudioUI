@@ -39,18 +39,18 @@ views share the same workspace shell and selectable evidence protocol.
 ## Local development
 
 Requirements: Node.js 22, npm, a built/runnable Analyzer, and the Agent backend.
-From the common parent containing `main/`, `user-facing-ui/`, and `viz-ui/`, run:
+From the common parent containing `VibeSim/`, `VibeSimAgent/`, and `VibeSimUI/`, run:
 
 ```bash
 # Terminal 1: conversation backend
-cd user-facing-ui
+cd VibeSimAgent
 UV_CACHE_DIR="$TMPDIR/uv-cache-user-facing-ui" \
   uv run uvicorn backend.app:app --host 127.0.0.1 --port 8765
 ```
 
 ```bash
 # Terminal 2: read-only result service
-cd main
+cd VibeSim
 cargo run -p analyzer --release -- serve \
   --bind 127.0.0.1:8787 \
   --workspace-registry ../agent-workspaces/registry.json
@@ -58,7 +58,7 @@ cargo run -p analyzer --release -- serve \
 
 ```bash
 # Terminal 3: browser entry
-cd viz-ui/app
+cd VibeSimUI/app
 npm ci
 npm run dev:live
 ```
@@ -106,7 +106,7 @@ descriptor/catalog revisions; `size:check` checks an existing `dist/`, while
 ## Repository map
 
 ```text
-viz-ui/
+VibeSimUI/
 ├── app/                    React + TypeScript + Vite application
 ├── docs/                   data, citation, and frontend architecture contracts
 ├── fixtures/analyzer-v1/   bounded deterministic Analyzer test fixture

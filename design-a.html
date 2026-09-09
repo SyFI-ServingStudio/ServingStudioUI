@@ -1191,7 +1191,7 @@ footer.bot code{ color:var(--sub); font-family:var(--mono); }
     // sanity: globals present
     if(!window.Tree || !window.VIZ || !window.Charts){
       document.body.innerHTML = '<div style="padding:40px;font-family:monospace;color:#e0508a">'
-        + 'Failed to load shared globals (Tree/VIZ/Charts). Serve viz-ui/ via <code>python -m http.server</code> and open design-a.html.</div>';
+        + 'Failed to load shared globals (Tree/VIZ/Charts). Serve VibeSimUI/ via <code>python -m http.server</code> and open design-a.html.</div>';
       return;
     }
     renderRunSwitch();

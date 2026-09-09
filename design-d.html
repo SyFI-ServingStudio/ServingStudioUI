@@ -335,7 +335,7 @@ body{
   var elc=function(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;};
 
   if(!window.VIZ||!window.VIZ.runs||!window.Tree){
-    document.querySelector('.board').innerHTML='<div style="padding:40px;font-family:monospace;color:#c25c3a">Failed to load shared globals (Tree/VIZ/Charts). Serve viz-ui/ via <code>python -m http.server</code> and open design-d.html.</div>';return;
+    document.querySelector('.board').innerHTML='<div style="padding:40px;font-family:monospace;color:#c25c3a">Failed to load shared globals (Tree/VIZ/Charts). Serve VibeSimUI/ via <code>python -m http.server</code> and open design-d.html.</div>';return;
   }
   var runs=VIZ.runs, T=window.Tree;
 

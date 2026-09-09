@@ -1,6 +1,6 @@
 # 前端架构与 feature 边界
 
-本文定义 `viz-ui/app/src` 为后续扩展必须遵守的依赖方向和 feature
+本文定义 `VibeSimUI/app/src` 为后续扩展必须遵守的依赖方向和 feature
 所有权。它补充 `data-protocol.md`：后者规定 Analyzer → UI 合同，本文规定
 合同进入浏览器后由谁读取、适配和渲染。
 
