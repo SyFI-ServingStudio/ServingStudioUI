@@ -1,3 +1,4 @@
+import { colors } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
 import {
@@ -19,34 +20,34 @@ export interface OptimalityFamily {
 // Stack order left→right: the irreducible optimal floor first, recoverable waste
 // accumulating rightward to the Real bar length — a waterfall anchored to optimal.
 export const OPTIMALITY_FAMILIES: readonly OptimalityFamily[] = [
-  { key: 'hardwareOptimal', label: 'hardware-optimal', color: '#54A24B' },
-  { key: 'hardwareGap', label: 'hardware gap', color: '#4C78A8' },
-  { key: 'communication', label: 'communication', color: '#E45756' },
-  { key: 'batching', label: 'batching', color: '#F58518' },
-  { key: 'imbalance', label: 'imbalance', color: '#B279A2' },
-  { key: 'idle', label: 'idle', color: '#98A2B3' },
+  { key: 'hardwareOptimal', label: 'hardware-optimal', color: colors.hardwareOptimal },
+  { key: 'hardwareGap', label: 'hardware gap', color: colors.hardwareGap },
+  { key: 'communication', label: 'communication', color: colors.communication },
+  { key: 'batching', label: 'batching', color: colors.batching },
+  { key: 'imbalance', label: 'imbalance', color: colors.imbalance },
+  { key: 'idle', label: 'idle', color: colors.idle },
 ];
 
 /** Unlocked level bars replace the plain R5 green band with two counterfactual
  * opportunities and the irreducible global necessary-work floor. */
 export const OPTIMALITY_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
-  { key: 'scopeFusedNecessary', label: 'scope-fused necessary', color: '#2E7D32' },
-  { key: 'fusion', label: 'fusion', color: '#7CBF66' },
-  { key: 'excessOverNecessary', label: 'excess over necessary', color: '#B7D99C' },
+  { key: 'scopeFusedNecessary', label: 'scope-fused necessary', color: colors.necessary },
+  { key: 'fusion', label: 'fusion', color: colors.fusion },
+  { key: 'excessOverNecessary', label: 'excess over necessary', color: colors.excess },
   ...OPTIMALITY_FAMILIES.slice(1),
 ];
 
 /** Kernel bars only carry the four leaf-attributable buckets (no idle/imbalance). */
 export const OPTIMALITY_KERNEL_FAMILIES: readonly OptimalityFamily[] = [
-  { key: 'hardwareOptimal', label: 'hardware-optimal', color: '#54A24B' },
-  { key: 'hardwareGap', label: 'hardware gap', color: '#4C78A8' },
-  { key: 'communication', label: 'communication', color: '#E45756' },
-  { key: 'batching', label: 'batching', color: '#F58518' },
+  { key: 'hardwareOptimal', label: 'hardware-optimal', color: colors.hardwareOptimal },
+  { key: 'hardwareGap', label: 'hardware gap', color: colors.hardwareGap },
+  { key: 'communication', label: 'communication', color: colors.communication },
+  { key: 'batching', label: 'batching', color: colors.batching },
 ];
 
 export const OPTIMALITY_KERNEL_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
-  { key: 'necessaryCovered', label: 'necessary work', color: '#2E7D32' },
-  { key: 'redundant', label: 'redundant work', color: '#A8D08D' },
+  { key: 'necessaryCovered', label: 'necessary work', color: colors.necessary },
+  { key: 'redundant', label: 'redundant work', color: colors.redundant },
   ...OPTIMALITY_KERNEL_FAMILIES.slice(1),
 ];
 
@@ -178,7 +179,7 @@ export function optimalityStackOption(
                       index,
                     ],
               ),
-              itemStyle: { color: '#C62828' },
+              itemStyle: { color: colors.violation },
             },
           ]
         : []),

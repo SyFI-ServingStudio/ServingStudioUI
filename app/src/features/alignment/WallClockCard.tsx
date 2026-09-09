@@ -7,7 +7,7 @@ import type {
   AlignmentTimelineIteration,
   AlignmentTimelineIterationSummary,
 } from '../../domain/alignment';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { spanOf, type AxisSpan } from './axisZoom';
 import {
   dutyBreakdown,
@@ -200,8 +200,8 @@ export default function WallClockCard({
           >
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 9,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.1em',
                 textTransform: 'uppercase',
                 color: tokens.sub,
@@ -217,7 +217,7 @@ export default function WallClockCard({
                 onClick={() => setOrderKey(entry.key)}
               />
             ))}
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+            <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
               {order?.note}
             </Typography>
           </Stack>
@@ -232,7 +232,7 @@ export default function WallClockCard({
           />
 
           <Typography
-            sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2, p: '2px 0 6px' }}
+            sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2, p: '2px 0 6px' }}
           >
             scroll or <Key>ctrl</Key>+scroll to zoom · zoom in until names fit · click a kernel,{' '}
             simulation slot, or CUDA API to inspect · <Key>←</Key> <Key>→</Key> step ·{' '}
@@ -325,7 +325,7 @@ export default function WallClockCard({
         ) : loading && iteration === null ? (
           <Skeleton variant="rounded" height={420} sx={{ m: 2 }} />
         ) : scene === null ? (
-          <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 11, p: 2 }}>
+          <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12, p: 2 }}>
             Select an iteration to draw its lanes.
           </Typography>
         ) : (
@@ -415,7 +415,7 @@ function TimelineTraceReadout({
         mb: 1.25,
         border: `1px solid ${tokens.teal}`,
         borderRadius: '9px',
-        background: 'rgba(31,111,107,.045)',
+        background: withAlpha(tokens.teal, 0.045),
         overflow: 'hidden',
       }}
     >
@@ -424,8 +424,8 @@ function TimelineTraceReadout({
           <Typography
             sx={{
               color: tokens.teal,
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               letterSpacing: '.12em',
               textTransform: 'uppercase',
             }}
@@ -435,7 +435,7 @@ function TimelineTraceReadout({
           <Typography
             sx={{
               color: tokens.ink,
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: 13.5,
               fontWeight: 600,
               lineHeight: 1.35,
@@ -444,7 +444,7 @@ function TimelineTraceReadout({
           >
             {trace.label}
           </Typography>
-          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9.5 }}>
+          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
             {trace.kind === 'api'
               ? 'NSYS host-side runtime event'
               : launchTrace === null
@@ -479,8 +479,8 @@ function TimelineTraceReadout({
             alignItems: { sm: 'baseline' },
             borderTop: `1px solid ${tokens.hair}`,
             p: '9px 15px 10px',
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
           }}
         >
           <Box component="span" sx={{ color: tokens.teal, textTransform: 'uppercase' }}>
@@ -507,8 +507,8 @@ function TimelineTraceReadout({
             alignItems: { sm: 'baseline' },
             borderTop: `1px solid ${tokens.hair}`,
             p: '9px 15px 10px',
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
           }}
         >
           <Box component="span" sx={{ color: tokens.teal, textTransform: 'uppercase' }}>
@@ -537,8 +537,8 @@ function TraceDetail({ label, value }: { label: string; value: string }) {
       <Typography
         sx={{
           color: tokens.sub2,
-          fontFamily: tokens.mono,
-          fontSize: 8.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.08em',
           textTransform: 'uppercase',
         }}
@@ -548,8 +548,8 @@ function TraceDetail({ label, value }: { label: string; value: string }) {
       <Typography
         sx={{
           color: tokens.ink,
-          fontFamily: tokens.mono,
-          fontSize: 10,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontVariantNumeric: 'tabular-nums',
           overflowWrap: 'anywhere',
         }}
@@ -595,7 +595,7 @@ function CardHead({ title, meta }: { title: string; meta: string }) {
       <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
         {title}
       </Typography>
-      <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+      <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
         {meta}
       </Typography>
     </Stack>
@@ -607,8 +607,8 @@ function Key({ children }: { children: React.ReactNode }) {
     <Box
       component="kbd"
       sx={{
-        fontFamily: tokens.mono,
-        fontSize: 8.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         border: `1px solid ${tokens.hair}`,
         borderRadius: '4px',
         px: '4px',
@@ -639,13 +639,13 @@ function Chip({
         appearance: 'none',
         cursor: 'pointer',
         font: 'inherit',
-        fontFamily: tokens.mono,
-        fontSize: 10,
+        fontFamily: tokens.body,
+        fontSize: 12,
         padding: '3px 9px',
         borderRadius: '7px',
         border: `1px solid ${pressed ? tokens.teal : tokens.hair}`,
         color: pressed ? tokens.teal : tokens.sub,
-        background: pressed ? 'rgba(31,111,107,.08)' : tokens.leafbg,
+        background: pressed ? withAlpha(tokens.teal, 0.08) : tokens.leafbg,
       }}
     >
       {label}
@@ -677,10 +677,10 @@ function DutyDecomposition({
         direction={{ xs: 'column', md: 'row' }}
         sx={{ alignItems: { md: 'baseline' }, justifyContent: 'space-between', gap: 1, mb: 1 }}
       >
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 11, color: tokens.ink }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.ink }}>
           iteration {summary.iterationId} · {summary.iterationType}
         </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           rank-{referenceDeviceId}
           {breakdown !== null &&
             ` · ${
@@ -692,7 +692,7 @@ function DutyDecomposition({
       </Stack>
       <Stack
         direction="row"
-        sx={{ flexWrap: 'wrap', gap: '4px 14px', mb: 1.25, fontFamily: tokens.mono, fontSize: 9.5 }}
+        sx={{ flexWrap: 'wrap', gap: '4px 14px', mb: 1.25, fontFamily: tokens.body, fontSize: 12 }}
       >
         <Cell label="span" value={fmtMs(summary.spanMs)} />
         <Cell label="idle" value={fmtPct(summary.idleFraction * 100)} />
@@ -742,7 +742,7 @@ function DutyDecomposition({
         {segments.map((segment) => (
           <Stack key={segment.key} direction="row" alignItems="center" sx={{ gap: 0.75 }}>
             <Swatch color={DUTY_SEGMENT_COLORS[segment.key]} />
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub }}>
+            <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
               {segment.label}{' '}
               <Box component="span" sx={{ color: tokens.ink, fontWeight: 600 }}>
                 {fmtMs(segment.ms)}
@@ -789,8 +789,8 @@ function Multiplier({
       </Typography>
       <Typography
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.1em',
           textTransform: 'uppercase',
           color: tokens.sub2,
@@ -803,8 +803,8 @@ function Multiplier({
       {note === undefined ? null : (
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub2,
             mt: 0.75,
             lineHeight: 1.5,
@@ -851,7 +851,7 @@ function HostLegend({ host }: { host: HostLaneCensus }) {
     >
       <Stack direction="row" alignItems="center" sx={{ gap: 0.75 }}>
         <Swatch color={nvtxDepthColor(0)} />
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           nvtx range <Strong>{fmtInt(host.nvtxMarks)}</Strong> marks · nesting shown to{' '}
           <Strong>{fmtInt(HOST_NVTX_DEPTHS)}</Strong> levels
           {host.deeperMarks > 0 && (
@@ -872,7 +872,7 @@ function HostLegend({ host }: { host: HostLaneCensus }) {
         <Stack key={entry.class} direction="row" alignItems="center" sx={{ gap: 0.75 }}>
           <Swatch color={apiClassColor(entry.classIndex)} />
           <Typography
-            sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub, whiteSpace: 'nowrap' }}
+            sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub, whiteSpace: 'nowrap' }}
           >
             {entry.class} <Strong>{fmtInt(entry.calls)}</Strong> calls ·{' '}
             <Strong>{fmtMs(entry.ms)}</Strong>
@@ -889,7 +889,7 @@ function HostLegend({ host }: { host: HostLaneCensus }) {
           <Typography
             sx={{
               flex: '1 1 100%',
-              fontSize: 10.5,
+              fontSize: 12,
               color: tokens.sub2,
               lineHeight: 1.5,
               pt: 0.25,

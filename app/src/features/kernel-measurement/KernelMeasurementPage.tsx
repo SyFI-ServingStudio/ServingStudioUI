@@ -1,22 +1,18 @@
+import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import { Stack, Typography } from '@mui/material';
 import { useEffect } from 'react';
 
-import {
-  useHardwareGpuQuery,
-  useKernelMeasurementQueries,
-} from '../../application/queries';
+import { useHardwareGpuQuery, useKernelMeasurementQueries } from '../../application/queries';
 import { replaceAnalyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import { useViz } from '../../store';
 import { tokens } from '../../theme';
-import {
-  MeasurementSummary,
-  MetadataTags,
-  PlotGallery,
-} from '../offline/OfflineResultComponents';
+import { MeasurementSummary, MetadataTags, PlotGallery } from '../offline/OfflineResultComponents';
 import { useOfflineEvidenceNavigation } from '../offline/useOfflineEvidenceNavigation';
 
 export function KernelMeasurementPage({ measurementId }: { readonly measurementId: string }) {
-  const workspaceId = new URLSearchParams(window.location.hash.split('?', 2)[1] ?? '').get('workspace');
+  const workspaceId = new URLSearchParams(window.location.hash.split('?', 2)[1] ?? '').get(
+    'workspace',
+  );
   const queries = useKernelMeasurementQueries(measurementId);
   const gpuName =
     queries.descriptor.data?.gpu.observedName ?? queries.descriptor.data?.gpu.cacheKey ?? null;
@@ -85,7 +81,8 @@ export function KernelMeasurementPage({ measurementId }: { readonly measurementI
     replaceAnalyzerEvidenceHref({ protocol: 'vibesim.analyzer/v2', ...next });
   };
   return (
-    <Stack sx={{ gap: 1.4, p: { xs: 1.2, md: 2 } }}>
+    <Stack sx={{ gap: 2.5, p: { xs: 2, md: 4 }, maxWidth: 1440, mx: 'auto' }}>
+      <AnalysisPageHeader title="Kernel measurement" detail={descriptor.kernel.kind} />
       <MetadataTags
         values={{
           kernel: descriptor.kernel.kind,

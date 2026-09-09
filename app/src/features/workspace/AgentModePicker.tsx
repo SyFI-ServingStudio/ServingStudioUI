@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 
 import type { AgentMode, AgentSettings } from '../../application/conversationRepository';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { AUTONOMY_CAPTIONS, CAST_CAPTIONS, agentSettingsSentence } from './agentMode';
 
 /**
@@ -131,9 +131,9 @@ export function WorkingStyleTag({
         height: 14,
         px: 0.5,
         gap: 0.4,
-        border: '1px solid rgba(31,111,107,.28)',
+        border: `1px solid ${tokens.hair}`,
         borderRadius: 999,
-        background: 'rgba(31,111,107,.055)',
+        background: tokens.tile,
       }}
     >
       <Box
@@ -142,19 +142,18 @@ export function WorkingStyleTag({
           width: 4,
           height: 4,
           borderRadius: '50%',
-          background: tokens.teal,
+          background: tokens.sub2,
           flex: '0 0 auto',
         }}
       />
       <Typography
         component="span"
         sx={{
-          color: tokens.teal,
-          fontFamily: tokens.mono,
-          fontSize: 7.5,
-          letterSpacing: '.06em',
+          color: tokens.sub,
+          fontFamily: tokens.body,
+          fontSize: 10,
+          letterSpacing: 0,
           lineHeight: 1,
-          textTransform: 'uppercase',
         }}
       >
         {label}
@@ -262,9 +261,9 @@ function Plate({
         pt: size === 'md' ? 1.95 : 1.6,
         pb: size === 'md' ? 1.7 : 1.4,
         borderRadius: '11px',
-        border: `1px solid ${selected ? 'rgba(31,111,107,.35)' : tokens.hair}`,
-        background: selected ? 'rgba(31,111,107,.075)' : tokens.leafbg,
-        boxShadow: selected ? '0 8px 22px -14px rgba(31,111,107,.65)' : 'none',
+        border: `1px solid ${selected ? withAlpha(tokens.teal, 0.35) : tokens.hair}`,
+        background: selected ? withAlpha(tokens.teal, 0.075) : tokens.leafbg,
+        boxShadow: selected ? `0 8px 22px -14px ${withAlpha(tokens.teal, 0.65)}` : 'none',
         textAlign: 'left',
         transition: `border-color 200ms ${tokens.ease}, background 200ms ${tokens.ease}, box-shadow 200ms ${tokens.ease}`,
         // The lit edge: a rule down the left, so a chosen plate still reads as
@@ -279,7 +278,7 @@ function Plate({
           background: selected ? tokens.teal : 'transparent',
           transition: `background 200ms ${tokens.ease}`,
         },
-        '&:hover': { borderColor: selected ? 'rgba(31,111,107,.35)' : tokens.sub2 },
+        '&:hover': { borderColor: selected ? withAlpha(tokens.teal, 0.35) : tokens.sub2 },
         '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
       }}
     >
@@ -310,7 +309,7 @@ function Plate({
       >
         {cast}
       </Typography>
-      <Typography sx={{ mt: 0.5, color: tokens.sub, fontSize: 11.5, lineHeight: 1.35 }}>
+      <Typography sx={{ mt: 0.5, color: tokens.sub, fontSize: 12, lineHeight: 1.35 }}>
         {autonomy}
       </Typography>
     </ButtonBase>

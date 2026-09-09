@@ -22,7 +22,7 @@ export interface WorkloadOverviewResource {
   requestCount: number;
   averageInputTokens: number;
   averageOutputTokens: number;
-  arrivalBasis: 'effective_open_loop' | 'source_trace';
+  arrivalBasis: 'effective_open_loop' | 'effective_trace_timed' | 'source_trace';
   requestRate: number;
   tokenLengths: readonly number[];
   inputDensity: readonly number[];

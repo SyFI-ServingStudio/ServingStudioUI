@@ -76,7 +76,7 @@ describe('shadeOf', () => {
     expect(shadeOf(GROUP.comm.color, 0)).toBe(GROUP.comm.color);
   });
 
-  it('climbs towards paper and drops towards ink', () => {
+  it('moves positive steps towards the background and negative steps towards text', () => {
     const channels = (color: string): number[] =>
       color
         .replace(/[a-z()]/g, '')
@@ -85,14 +85,16 @@ describe('shadeOf', () => {
     const base = channels(shadeOf(GROUP.gemm.color, 1));
     const lighter = channels(shadeOf(GROUP.gemm.color, 3));
     const darker = channels(shadeOf(GROUP.gemm.color, -1));
-    expect(lighter[0]).toBeGreaterThan(base[0]);
-    expect(darker[0]).toBeLessThan(base[0]);
+    const backgroundRed = Number.parseInt(tokens.paper.slice(1, 3), 16);
+    const textRed = Number.parseInt(tokens.ink.slice(1, 3), 16);
+    expect(Math.abs(lighter[0] - backgroundRed)).toBeLessThan(Math.abs(base[0] - backgroundRed));
+    expect(Math.abs(darker[0] - textRed)).toBeLessThan(Math.abs(base[0] - textRed));
   });
 });
 
 describe('withAlpha', () => {
   it('carries a shared colour through at partial opacity', () => {
-    expect(withAlpha(tokens.teal, 0.5)).toBe('rgba(31, 111, 107, 0.5)');
+    expect(withAlpha('#1f6f6b', 0.5)).toBe('rgba(31, 111, 107, 0.5)');
   });
 });
 

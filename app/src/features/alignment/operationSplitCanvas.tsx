@@ -424,15 +424,15 @@ export default function OperationSplitCanvas(props: OperationSplitCanvasProps) {
             border: `1px solid ${tokens.hair}`,
             background: tokens.leafbg,
             boxShadow: tokens.shadow,
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
           }}
         >
           <Typography
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 10,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.ink,
               mb: 0.4,
               wordBreak: 'break-all',

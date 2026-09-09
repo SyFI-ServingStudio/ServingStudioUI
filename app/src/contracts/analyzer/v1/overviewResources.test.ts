@@ -88,6 +88,25 @@ describe('analyzer-v1 overview resources', () => {
     ).toEqual(['logs/experiment/trace/workload.csv']);
   });
 
+  it('accepts current Analyzer trace-timed experiment CSVs without allowing traversal', () => {
+    expect(
+      parseAnalyzerV1WorkloadResource({
+        ...workload,
+        source_paths: ['logs/experiment/trace.csv'],
+        arrival_basis: 'effective_trace_timed',
+      }),
+    ).toMatchObject({
+      sourcePaths: ['logs/experiment/trace.csv'],
+      arrivalBasis: 'effective_trace_timed',
+    });
+    expect(() =>
+      parseAnalyzerV1WorkloadResource({
+        ...workload,
+        source_paths: ['logs/../secret.csv'],
+      }),
+    ).toThrow(/normalized repository-relative path/);
+  });
+
   it('rejects mismatched, non-finite and oversized workload series', () => {
     expect(() => parseAnalyzerV1WorkloadResource({ ...workload, input_density: [0.5] })).toThrow(
       /must have equal lengths/,

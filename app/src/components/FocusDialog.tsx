@@ -1,6 +1,6 @@
 import { Box, Dialog, IconButton, Stack, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { tokens } from '../theme';
+import { tokens, colors } from '../theme';
 import { useChartFocusDialog } from './ChartFocusContext';
 import EChart from './EChart';
 
@@ -52,7 +52,7 @@ export default function FocusDialog() {
               )}
               {focus.interactionHint && (
                 <Typography
-                  sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.teal, mt: 0.75 }}
+                  sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.teal, mt: 0.75 }}
                 >
                   {focus.interactionHint}
                 </Typography>
@@ -65,7 +65,7 @@ export default function FocusDialog() {
                 border: `1px solid ${tokens.hair}`,
                 background: tokens.tile2,
                 borderRadius: 1.5,
-                '&:hover': { background: tokens.terra, color: '#fff' },
+                '&:hover': { background: tokens.terra, color: colors.foregroundOnAccent },
               }}
             >
               <CloseIcon />

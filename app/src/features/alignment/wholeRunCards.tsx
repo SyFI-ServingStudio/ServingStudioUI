@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import EChart from '../../components/EChart';
 import { useOpenChartFocus } from '../../components/ChartFocusContext';
 import SurfaceCard from '../../components/SurfaceCard';
-import { tokens } from '../../theme';
+import { tokens, colors } from '../../theme';
 import type { NoteSegment } from './wholeRunModel';
 import { expandedWholeRunOption, LANE_COLORS } from './wholeRunOption';
 
@@ -127,8 +127,8 @@ export function SectionHeading({
           </Typography>
           <Typography
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 9.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.sub2,
               flex: 1,
               minWidth: 0,
@@ -175,8 +175,8 @@ function FigureKey({ rows }: { rows: readonly FigureKeyRow[] }) {
         justifyContent: 'space-between',
         gap: '3px 10px',
         p: '2px 16px 11px',
-        fontFamily: tokens.mono,
-        fontSize: 9,
+        fontFamily: tokens.body,
+        fontSize: 12,
         color: tokens.sub,
         fontVariantNumeric: 'tabular-nums',
         alignItems: 'baseline',
@@ -265,8 +265,8 @@ export function MetricCard({
               <Box
                 component="span"
                 sx={{
-                  fontFamily: tokens.mono,
-                  fontSize: 8.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   letterSpacing: '.12em',
                   textTransform: 'uppercase',
                   color: tokens.gold,
@@ -299,7 +299,7 @@ export function MetricCard({
                     color: tokens.sub,
                     border: `1px solid ${tokens.hair}`,
                     borderRadius: 1.25,
-                    '&:hover': { color: '#fff', background: tokens.teal },
+                    '&:hover': { color: colors.foregroundOnAccent, background: tokens.teal },
                     '&:focus-visible': {
                       color: tokens.teal,
                       outline: `2px solid ${tokens.teal}`,
@@ -313,7 +313,7 @@ export function MetricCard({
             )}
           </Stack>
         </Stack>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           {meta}
         </Typography>
       </Stack>
@@ -352,8 +352,8 @@ export function MetricCard({
             </Typography>
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 9,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.14em',
                 textTransform: 'uppercase',
                 color: tokens.sub,
@@ -370,8 +370,8 @@ export function MetricCard({
         {option === null ? (
           <Typography
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 11,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.sub,
               textAlign: 'center',
               p: '40px 0',
@@ -397,8 +397,8 @@ export function MetricCard({
             mt: 'auto',
             p: '9px 16px 13px',
             borderTop: `1px solid ${tokens.hair}`,
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             lineHeight: 1.7,
             color: tokens.sub,
           }}
@@ -444,8 +444,8 @@ function SummaryPair({
       <Box
         component="span"
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color: tokens.ink,
           fontVariantNumeric: 'tabular-nums',
           width: 70,
@@ -486,7 +486,7 @@ export function SummaryCard({
         >
           {title}
         </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           {meta}
         </Typography>
       </Stack>
@@ -508,10 +508,7 @@ export function SummaryCard({
               alignItems: 'center',
             }}
           >
-            <Box
-              component="span"
-              sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}
-            >
+            <Box component="span" sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
               {row.label}
             </Box>
             <SummaryPair
@@ -532,8 +529,8 @@ export function SummaryCard({
           mt: 'auto',
           p: '9px 16px 13px',
           borderTop: `1px solid ${tokens.hair}`,
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           lineHeight: 1.7,
           color: tokens.sub,
         }}

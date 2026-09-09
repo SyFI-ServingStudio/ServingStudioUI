@@ -11,7 +11,7 @@ import type {
 import EChart from '../../components/EChart';
 import { EvidenceSurfaceCard } from '../../components/EvidenceSurfaceCard';
 import { useOpenChartFocus, type ChartFocusPayload } from '../../components/ChartFocusContext';
-import { tokens } from '../../theme';
+import { tokens, colors } from '../../theme';
 
 function valueLabel(value: unknown): string {
   if (typeof value === 'number')
@@ -46,8 +46,8 @@ export function MetadataTags({ values }: { values: Record<string, unknown> }) {
               borderRadius: 0.9,
               color: tokens.ink,
               background: tokens.tile2,
-              fontFamily: tokens.mono,
-              fontSize: 10.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               lineHeight: 1.3,
             }}
           >
@@ -127,7 +127,7 @@ function chartOption(
       legend: {
         right: 6,
         top: 0,
-        textStyle: { color: tokens.sub, fontSize: 9, fontFamily: tokens.mono },
+        textStyle: { color: tokens.sub, fontSize: 12, fontFamily: tokens.body },
       },
       tooltip: { trigger: 'axis', confine: true },
       xAxis: {
@@ -136,7 +136,7 @@ function chartOption(
         nameLocation: 'middle',
         nameGap: 34,
         data: xAxis.values.map(valueLabel),
-        axisLabel: { color: tokens.sub, fontSize: 11 },
+        axisLabel: { color: tokens.sub, fontSize: 12 },
         nameTextStyle: { color: tokens.ink, fontSize: 12, fontWeight: 600 },
       },
       yAxis: {
@@ -144,8 +144,8 @@ function chartOption(
         name: unit,
         nameLocation: 'middle',
         nameGap: 50,
-        axisLabel: { color: tokens.sub, fontSize: 11 },
-        nameTextStyle: { color: tokens.sub2, fontSize: 10 },
+        axisLabel: { color: tokens.sub, fontSize: 12 },
+        nameTextStyle: { color: tokens.sub2, fontSize: 12 },
         splitLine: { lineStyle: { color: tokens.hair } },
       },
       series: [
@@ -188,7 +188,7 @@ function chartOption(
       nameLocation: 'middle',
       nameGap: 36,
       data: xAxis.values.map(valueLabel),
-      axisLabel: { color: tokens.sub, fontSize: 11 },
+      axisLabel: { color: tokens.sub, fontSize: 12 },
       nameTextStyle: { color: tokens.ink, fontSize: 12, fontWeight: 600 },
     },
     yAxis: {
@@ -197,7 +197,7 @@ function chartOption(
       nameLocation: 'middle',
       nameGap: 52,
       data: yAxis.values.map(valueLabel),
-      axisLabel: { color: tokens.sub, fontSize: 11 },
+      axisLabel: { color: tokens.sub, fontSize: 12 },
       nameTextStyle: { color: tokens.ink, fontSize: 12, fontWeight: 600 },
     },
     visualMap: {
@@ -207,10 +207,10 @@ function chartOption(
       orient: 'vertical',
       right: 4,
       top: 'middle',
-      textStyle: { color: tokens.sub, fontSize: 9 },
-      inRange: { color: ['#e6eee9', '#9dbfb4', '#1f6f6b'] },
+      textStyle: { color: tokens.sub, fontSize: 12 },
+      inRange: { color: [colors.heatLow, colors.heatMiddle, tokens.teal] },
     },
-    series: [{ type: 'heatmap', data, itemStyle: { borderColor: '#f5f0e7', borderWidth: 2 } }],
+    series: [{ type: 'heatmap', data, itemStyle: { borderColor: tokens.tile, borderWidth: 2 } }],
   };
 }
 
@@ -252,7 +252,7 @@ const MetricTileCharts = memo(function MetricTileCharts({
         <Box key={facet || 'main'} data-testid={`${metric}-facet${facet ? `-${facet}` : ''}`}>
           {facet && (
             <Typography
-              sx={{ pt: 0.9, pb: 0.3, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}
+              sx={{ pt: 0.9, pb: 0.3, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}
             >
               {facet}
             </Typography>
@@ -294,8 +294,8 @@ function ParamStatline({ values }: { values: Record<string, unknown> }) {
         >
           <Typography
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               letterSpacing: '.18em',
               textTransform: 'uppercase' as const,
               color: tokens.sub,
@@ -308,7 +308,7 @@ function ParamStatline({ values }: { values: Record<string, unknown> }) {
           <Typography
             component="div"
             sx={{
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: 14,
               fontWeight: 600,
               lineHeight: 1.2,
@@ -359,7 +359,7 @@ export function MetricTile({
         p: '14px 16px 12px',
         position: 'relative',
         transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`,
-        '&:hover': { borderColor: '#d8cfb8', boxShadow: tokens.shadowLift },
+        '&:hover': { borderColor: tokens.hair, boxShadow: tokens.shadowLift },
       }}
     >
       <IconButton
@@ -374,7 +374,7 @@ export function MetricTile({
           opacity: 0,
           color: tokens.sub,
           transition: `all .28s ${tokens.ease}`,
-          '&:hover': { color: '#fff', background: accent },
+          '&:hover': { color: colors.foregroundOnAccent, background: accent },
           '&:focus-visible': {
             opacity: 1,
             color: accent,
@@ -405,7 +405,7 @@ export function MetricTile({
           {metricLabel(metric)}
         </Typography>
         <Typography
-          sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub, whiteSpace: 'nowrap' }}
+          sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub, whiteSpace: 'nowrap' }}
         >
           {subtitle}
         </Typography>
@@ -460,7 +460,7 @@ export function KernelCurve({
         >
           {curve.table}
         </Typography>
-        <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9.5 }}>
+        <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
           {curve.backend} / {curve.metricFamily}
           {xAxis ? ` · over ${xAxis.key}` : ' · scalar'}
           {curve.axes.length > 1 ? ` × ${curve.axes[1].key}` : ''}
@@ -526,11 +526,11 @@ export function PlotGallery({
               src={url}
               alt={plotName}
               loading="lazy"
-              sx={{ display: 'block', width: '100%', background: '#faf7f0' }}
+              sx={{ display: 'block', width: '100%', background: tokens.tile }}
             />
             <Typography
               component="figcaption"
-              sx={{ px: 1, py: 0.7, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+              sx={{ px: 1, py: 0.7, color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}
             >
               {plotName}
             </Typography>
@@ -553,7 +553,11 @@ export function MeasurementSummary({
   const runtimeEntries = Object.entries(summary.runtimeMs);
   return (
     <Box
-      sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 1 }}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2, minmax(0,1fr))', md: 'repeat(5, minmax(0,1fr))' },
+        gap: 1.5,
+      }}
     >
       {runtimeEntries.map(([label, value]) => (
         <EvidenceSurfaceCard
@@ -564,11 +568,17 @@ export function MeasurementSummary({
           accent={label === 'median' ? tokens.teal : tokens.gold}
           sx={{ p: 1.4 }}
         >
-          <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}>
+          <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
             {label}
           </Typography>
           <Typography
-            sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 25, fontWeight: 650 }}
+            sx={{
+              color: tokens.ink,
+              fontFamily: tokens.serif,
+              fontSize: 26,
+              fontWeight: 500,
+              letterSpacing: '-.025em',
+            }}
           >
             {value.toPrecision(4)} ms
           </Typography>

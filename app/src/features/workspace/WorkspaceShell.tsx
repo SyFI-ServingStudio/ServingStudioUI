@@ -25,7 +25,7 @@ import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import { evidenceRefFromHash } from '../../domain/analyzerNavigation';
 import { fileName, fileRefFromHash } from '../../domain/workspaceFile';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 import AgentPane from './AgentWorkspace';
 import { analyzerTurnContext } from './citationDictionary';
 import CatalogTag from './CatalogTag';
@@ -70,30 +70,30 @@ function AgentEdgeToggle({
         placeItems: 'center',
         clipPath: 'polygon(0 0, 100% 11%, 100% 89%, 0 100%)',
         transform: 'translateY(-50%)',
-        background: '#d5cbbb',
+        background: tokens.chrome,
         color: tokens.teal,
-        filter: 'drop-shadow(0 3px 7px rgba(42,38,34,.13))',
+        filter: `drop-shadow(0 3px 7px ${withAlpha(tokens.ink, 0.13)})`,
         transition: `width 180ms ${tokens.ease}, background 180ms ${tokens.ease}, filter 180ms ${tokens.ease}`,
         '&::before': {
           content: '""',
           position: 'absolute',
           inset: '1px 1px 1px 0',
           clipPath: 'polygon(0 0, 100% 11%, 100% 89%, 0 100%)',
-          background: '#f2ece1',
+          background: tokens.tile2,
           transition: `background 180ms ${tokens.ease}`,
         },
         '&:hover': {
           width: 22,
-          background: 'rgba(31,111,107,.34)',
-          filter: 'drop-shadow(0 4px 8px rgba(31,111,107,.18))',
-          '&::before': { background: '#e9efea' },
+          background: withAlpha(tokens.teal, 0.34),
+          filter: `drop-shadow(0 4px 8px ${withAlpha(tokens.teal, 0.18)})`,
+          '&::before': { background: colors.blueWash },
         },
         '&:focus-visible': {
           width: 22,
           background: tokens.teal,
           outline: `2px solid ${tokens.teal}`,
           outlineOffset: 2,
-          '&::before': { background: '#e9efea' },
+          '&::before': { background: colors.blueWash },
         },
         '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
       }}
@@ -355,7 +355,9 @@ export default function WorkspaceShell({
             cursor: agentPanelMode === 'docked' ? 'col-resize' : 'default',
             color: resizeOrigin ? tokens.teal : tokens.sub2,
             background:
-              agentPanelMode === 'docked' && resizeOrigin ? 'rgba(31,111,107,.08)' : 'transparent',
+              agentPanelMode === 'docked' && resizeOrigin
+                ? withAlpha(tokens.teal, 0.08)
+                : 'transparent',
             transition: `background 140ms ${tokens.ease}, color 140ms ${tokens.ease}`,
             '&::before': {
               content: '""',
@@ -365,12 +367,12 @@ export default function WorkspaceShell({
               left: 0,
               width: '1px',
               opacity: agentPanelMode === 'docked' ? 1 : 0,
-              background: resizeOrigin ? 'rgba(31,111,107,.38)' : tokens.hair,
+              background: resizeOrigin ? withAlpha(tokens.teal, 0.38) : tokens.hair,
               transition: `opacity 160ms ${tokens.ease}, background 140ms ${tokens.ease}`,
             },
             '&:hover':
               agentPanelMode === 'docked'
-                ? { color: tokens.teal, background: 'rgba(31,111,107,.055)' }
+                ? { color: tokens.teal, background: withAlpha(tokens.teal, 0.055) }
                 : undefined,
             '&:focus-visible': {
               outline: `2px solid ${tokens.teal}`,
@@ -405,7 +407,7 @@ export default function WorkspaceShell({
             alignItems: 'center',
             gap: 1.25,
             borderBottom: `1px solid ${tokens.hair}`,
-            background: 'rgba(244,240,232,.94)',
+            background: withAlpha(tokens.tile, 0.94),
             backdropFilter: 'blur(14px)',
             zIndex: 5,
           }}
@@ -449,7 +451,7 @@ export default function WorkspaceShell({
               {fileRef && (
                 <Typography
                   noWrap
-                  sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+                  sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}
                 >
                   {fileRef.path}
                 </Typography>
@@ -457,7 +459,7 @@ export default function WorkspaceShell({
               {!fileRef && experiment && (
                 <Typography
                   noWrap
-                  sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+                  sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}
                 >
                   {experiment.numRuns} {experiment.numRuns === 1 ? 'run' : 'runs'}
                 </Typography>
@@ -499,7 +501,7 @@ export default function WorkspaceShell({
                 borderRadius: 0.85,
                 background: tokens.tile,
                 color: tokens.ink,
-                fontSize: 10.5,
+                fontSize: 12,
                 fontWeight: 650,
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}

@@ -50,12 +50,12 @@ function Item({
     >
       <Typography
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 650,
           lineHeight: 1.35,
-          letterSpacing: '.055em',
-          textTransform: 'uppercase',
+          letterSpacing: 0,
+          textTransform: 'none',
           color: tokens.ink,
           pt: 0.15,
         }}
@@ -66,8 +66,8 @@ function Item({
         component="div"
         title={valueTitle}
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 11.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 500,
           lineHeight: 1.45,
           color: teal ? tokens.teal : tokens.ink,
@@ -121,8 +121,9 @@ function FieldList({ fields }: { fields: readonly DisplayField[] }) {
       component="dl"
       sx={{
         display: 'grid',
-        gridTemplateColumns: 'max-content minmax(0,1fr)',
+        gridTemplateColumns: 'minmax(0,1fr)',
         gap: '3px 8px',
+        '& dd': { mb: 0.75 },
         m: 0,
       }}
     >
@@ -131,8 +132,8 @@ function FieldList({ fields }: { fields: readonly DisplayField[] }) {
           <Typography
             component="dt"
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               color: tokens.sub,
             }}
@@ -143,8 +144,8 @@ function FieldList({ fields }: { fields: readonly DisplayField[] }) {
             component="dd"
             sx={{
               m: 0,
-              fontFamily: tokens.mono,
-              fontSize: 10.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 500,
               color: tokens.ink,
             }}
@@ -284,12 +285,12 @@ export function KernelEvidenceView({
             >
               Kernel throughput analysis
             </Typography>
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+            <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
               Rust cache · {analysis.data.points.length.toLocaleString()} grid points
             </Typography>
           </Stack>
           <KernelThroughputAnalysis analysis={analysis.data} node={node} />
-          <Typography sx={{ mt: 0.6, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+          <Typography sx={{ mt: 0.6, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
             current operation is plotted as a separate marker
           </Typography>
         </SurfaceCard>
@@ -302,7 +303,7 @@ export function KernelEvidenceView({
           <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
             Kernel throughput analysis
           </Typography>
-          <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+          <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             {!analysis.supported
               ? 'Available through the live Analyzer service.'
               : analysis.isError
@@ -311,7 +312,7 @@ export function KernelEvidenceView({
                   : 'Kernel throughput analysis failed.'
                 : 'Evaluating the Rust kernel cache across its declared grid…'}
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
             evidence status ·{' '}
             {!analysis.supported ? 'unavailable' : analysis.isError ? 'failed' : 'loading'}
           </Typography>
@@ -402,8 +403,8 @@ export function KernelInspectorView({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 0.75,
-            fontFamily: tokens.mono,
-            fontSize: 10.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             px: 1.1,
             py: 0.4,
             borderRadius: 0.75,

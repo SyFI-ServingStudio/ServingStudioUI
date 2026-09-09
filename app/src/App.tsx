@@ -3,7 +3,7 @@ import { lazy, Suspense, type ReactNode, useEffect } from 'react';
 import { useViz, type Scope } from './store';
 import { useActiveRunState } from './application/ActiveRunProvider';
 import { ActiveWorkerTreeProvider } from './application/WorkerTreeProvider';
-import { tokens } from './theme';
+import { tokens, withAlpha } from './theme';
 import type { Deployment } from './domain/deployment';
 import { KpiStatline, RunOverviewRow } from './features/run-overview';
 import { ScopeBreadcrumbs, SystemMapBand } from './features/system-map';
@@ -52,7 +52,7 @@ function SectionHead({
     >
       <Box
         component="span"
-        sx={{ fontFamily: tokens.mono, fontSize: 10, color: accent, letterSpacing: '.1em' }}
+        sx={{ fontFamily: tokens.body, fontSize: 12, color: accent, letterSpacing: '.1em' }}
       >
         {idx}
       </Box>
@@ -75,8 +75,8 @@ function SectionHead({
           {sub && (
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 10.5,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 color: tokens.sub,
                 textAlign: 'right',
               }}
@@ -141,7 +141,7 @@ function WorkerStageFallback() {
         boxShadow: tokens.shadow,
       }}
     >
-      <Typography sx={{ fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+      <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
         Loading worker analysis…
       </Typography>
     </Box>
@@ -168,15 +168,15 @@ function deploymentMapLabel(deployment: Deployment): string {
 
 function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
   return (
-    <Box sx={{ borderBottom: `1.5px solid ${tokens.ink}`, pb: 2.5 }}>
+    <Box sx={{ borderBottom: `1px solid ${tokens.hair}`, pb: 2.5 }}>
       <Stack
         direction="row"
         alignItems="center"
         spacing={1.5}
         sx={{
           mb: 1.6,
-          fontFamily: tokens.mono,
-          fontSize: 11,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.28em',
           textTransform: 'uppercase',
           color: tokens.sub,
@@ -188,7 +188,7 @@ function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
             height: 6,
             borderRadius: '50%',
             background: tokens.terra,
-            boxShadow: '0 0 0 4px rgba(194,92,58,.14)',
+            boxShadow: `0 0 0 4px ${withAlpha(tokens.terra, 0.14)}`,
           }}
         />
         <span>VibeSim Analyzer</span>
@@ -206,8 +206,8 @@ function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
             borderRadius: 999,
             background: tokens.tile,
             color: tokens.ink,
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             fontWeight: 600,
             letterSpacing: '.08em',
             textTransform: 'none',
@@ -227,15 +227,15 @@ function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
         sx={{
           fontFamily: tokens.serif,
           fontWeight: 600,
-          fontSize: 'clamp(34px,5vw,60px)',
-          lineHeight: 0.96,
+          fontSize: 'clamp(30px,3vw,40px)',
+          lineHeight: 1.15,
           letterSpacing: '-.02em',
           color: tokens.ink,
         }}
       >
-        VibeSim —{' '}
-        <Box component="em" sx={{ fontStyle: 'italic', fontWeight: 500, color: tokens.teal }}>
-          Run
+        Run{' '}
+        <Box component="span" sx={{ fontWeight: 600, color: tokens.ink }}>
+          analysis
         </Box>
       </Typography>
       <Stack
@@ -250,8 +250,8 @@ function Masthead({ hasRun, runName }: { hasRun: boolean; runName?: string }) {
           <Typography
             sx={{
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               letterSpacing: '.12em',
               textTransform: 'uppercase',
@@ -335,7 +335,7 @@ export default function App() {
                   ? 'Loading simulation-folder catalog'
                   : 'Loading simulation folder'}
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             {activeRun.error?.message ??
               (activeRun.status === 'empty'
                 ? 'The repository returned an empty run catalog.'
@@ -450,8 +450,8 @@ export default function App() {
             mt: 5,
             pt: 2,
             borderTop: `1px solid ${tokens.hair}`,
-            fontFamily: tokens.mono,
-            fontSize: 10.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             letterSpacing: '.1em',
             color: tokens.sub,
             textTransform: 'uppercase',

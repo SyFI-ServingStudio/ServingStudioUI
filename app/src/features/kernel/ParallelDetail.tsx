@@ -13,7 +13,7 @@ import {
   type CostNode,
 } from '../../domain/cost-tree';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 
 function nodeLabel(node: CostNode): string {
   if (node.kind === 'leaf') return node.slot.name;
@@ -51,20 +51,20 @@ export default function ParallelDetail() {
           parallel{' '}
           <Box
             component="span"
-            sx={{ fontFamily: tokens.mono, fontSize: 13, color: tokens.violet }}
+            sx={{ fontFamily: tokens.body, fontSize: 13, color: tokens.violet }}
           >
             ⇉ {costTreeDisplayLabel(node.label ?? 'max')}
           </Box>
         </Typography>
         <Box
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 10.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             px: 1.1,
             py: 0.4,
             borderRadius: 0.75,
             color: tokens.violet,
-            background: 'rgba(122,92,255,.12)',
+            background: withAlpha(tokens.violet, 0.12),
           }}
         >
           pure Max · critical path
@@ -113,11 +113,11 @@ export default function ParallelDetail() {
         <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
           Load-imbalance detail not generated
         </Typography>
-        <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+        <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           Analyzer v1 has no versioned per-lane load or straggler artifact. The critical child above
           is the real CostTree Max result, not an inferred lane measurement.
         </Typography>
-        <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+        <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           evidence status · not_generated
         </Typography>
       </Box>

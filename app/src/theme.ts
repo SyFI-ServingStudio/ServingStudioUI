@@ -1,77 +1,88 @@
 import { createTheme } from '@mui/material/styles';
 
-// Editorial / warm-paper design tokens (from design-d). Components read these
-// via `import { tokens }` for sx values; MUI palette below mirrors the key ones.
+import { themes } from './theme/palettes';
+import { readThemeId } from './theme/selection';
+import { createDetailColors, withAlpha } from './theme/colors';
+export { withAlpha } from './theme/colors';
+export { themes } from './theme/palettes';
+export { selectTheme } from './theme/selection';
+
+export const activeThemeId = readThemeId();
+export const activeTheme = themes[activeThemeId];
+export const palette = activeTheme.palette;
+const derivedColors = createDetailColors(palette, activeTheme.mode);
+export const colors = { ...derivedColors, syntax: activeTheme.syntax ?? derivedColors.syntax };
+
+// Historical token names remain aliases to preserve feature color semantics.
 export const tokens = {
-  paper: '#f4efe4',
-  tile: '#faf7f0',
-  tile2: '#f7f2e7',
-  leafbg: '#fffdf8',
-  ink: '#2a2622',
-  // Small mono labels use these colors extensively. Both remain visually
-  // muted while clearing WCAG AA against paper, tile and tile2 backgrounds.
-  sub: '#685f54',
-  sub2: '#736a5e',
-  hair: '#e3dccb',
-  teal: '#1f6f6b',
-  terra: '#a84b2e',
-  gold: '#806600',
-  olive: '#566a2e',
-  violet: '#6548dc',
-  sectionStructure: '#6f9f9c',
-  sectionAnalysis: '#577e89',
-  // Operation colors rotate by mapping order. The operation label is the key
-  // that keeps measured/modelled pairs together; the label itself is never
-  // parsed to choose a hue.
-  operationColorPanel: [
-    '#3d5268',
-    '#49617a',
-    '#55708c',
-    '#62809e',
-    '#7190ae',
-    '#3f765b',
-    '#559072',
-    '#6f4351',
-    '#875263',
-    '#a0616f',
-    '#b8737d',
-    '#5f6f43',
-    '#74864f',
-    '#8b9d63',
-  ],
-  shadow: '0 1px 0 rgba(42,38,34,.02), 0 10px 30px -22px rgba(42,38,34,.35)',
-  shadowLift: '0 20px 60px -28px rgba(42,38,34,.5)',
-  serif: "'Fraunces', Georgia, serif",
-  body: "'Hanken Grotesk', system-ui, sans-serif",
-  mono: "'IBM Plex Mono', ui-monospace, monospace",
+  paper: palette.background,
+  tile: palette.surface,
+  tile2: palette.elevated,
+  leafbg: palette.leaf,
+  chrome: palette.elevated,
+  selected: palette.selected,
+  ink: palette.text,
+  sub: palette.secondaryText,
+  sub2: palette.muted,
+  hair: palette.border,
+  teal: palette.blue,
+  terra: palette.red,
+  gold: palette.amber,
+  olive: palette.green,
+  violet: palette.violet,
+  sectionStructure: palette.green,
+  sectionAnalysis: palette.blue,
+  operationColorPanel: colors.operationPanel,
+  shadow: 'none',
+  shadowLift: colors.shadowLift,
+  serif: "'Geist', Arial, sans-serif",
+  body: "'Geist', Arial, sans-serif",
+  mono: "ui-monospace, 'SFMono-Regular', Consolas, monospace",
   ease: 'cubic-bezier(.22,.61,.36,1)',
 };
 
 export const theme = createTheme({
   palette: {
-    mode: 'light',
-    primary: { main: tokens.teal },
+    mode: activeTheme.mode,
+    primary: { main: tokens.teal, contrastText: tokens.paper },
     secondary: { main: tokens.terra },
     background: { default: tokens.paper, paper: tokens.tile },
     text: { primary: tokens.ink, secondary: tokens.sub },
     divider: tokens.hair,
   },
-  shape: { borderRadius: 12 },
+  shape: { borderRadius: 8 },
   typography: {
     fontFamily: tokens.body,
-    button: { textTransform: 'none', fontWeight: 600 },
+    button: { textTransform: 'none', fontWeight: 500 },
   },
   components: {
     MuiCssBaseline: {
       styleOverrides: {
+        '@font-face': [
+          {
+            fontFamily: 'Geist',
+            src: "url('./fonts/geist-regular.woff2') format('woff2')",
+            fontWeight: 400,
+            fontDisplay: 'swap',
+          },
+          {
+            fontFamily: 'Geist',
+            src: "url('./fonts/geist-medium.woff2') format('woff2')",
+            fontWeight: '500 700',
+            fontDisplay: 'swap',
+          },
+        ],
         body: {
           backgroundColor: tokens.paper,
-          backgroundImage:
-            'radial-gradient(circle at 12% 8%, rgba(194,92,58,.035), transparent 42%),' +
-            'radial-gradient(circle at 90% 4%, rgba(31,111,107,.04), transparent 46%)',
-          backgroundAttachment: 'fixed',
+          fontVariantNumeric: 'tabular-nums',
+          colorScheme: activeTheme.mode,
         },
-        '::selection': { background: 'rgba(31,111,107,.18)' },
+        '::selection': { background: withAlpha(tokens.teal, 0.25) },
+        '*': { scrollbarWidth: 'thin', scrollbarColor: `${tokens.hair} transparent` },
+        'button:focus-visible, a:focus-visible': {
+          outline: `2px solid ${tokens.teal}`,
+          outlineOffset: 3,
+        },
       },
     },
     MuiPaper: {
@@ -81,7 +92,7 @@ export const theme = createTheme({
           backgroundColor: tokens.tile,
           border: `1px solid ${tokens.hair}`,
           backgroundImage: 'none',
-          boxShadow: tokens.shadow,
+          boxShadow: 'none',
         },
       },
     },
@@ -89,11 +100,12 @@ export const theme = createTheme({
     MuiTooltip: {
       styleOverrides: {
         tooltip: {
-          backgroundColor: 'rgba(42,38,34,.96)',
-          fontFamily: tokens.mono,
-          fontSize: 11,
+          backgroundColor: colors.tooltipBackground,
+          color: tokens.ink,
+          fontFamily: tokens.body,
+          fontSize: 13,
           borderRadius: 8,
-          padding: '8px 10px',
+          padding: '8px 12px',
         },
       },
     },

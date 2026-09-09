@@ -15,7 +15,7 @@ import { OPERATION_VIEWPORT_SIZE } from '../../application/workerOperationBuffer
 import SurfaceCard from '../../components/SurfaceCard';
 import { workerOperationLabel, type OperationSummary } from '../../domain/workerOperation';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import {
   hitTestOperation,
   OPERATION_DRAG_THRESHOLD_PX,
@@ -193,7 +193,7 @@ export default function WorkerOperationTimeline() {
         Math.abs(operationDurationMs - targetMaximumDurationMs) <= Number.EPSILON,
       );
       if (index === hoveredIndex) {
-        context.fillStyle = 'rgba(42,38,34,.065)';
+        context.fillStyle = withAlpha(tokens.sub, 0.065);
         context.globalAlpha = 1;
         context.fillRect(
           geometry.cellX + 1,
@@ -250,7 +250,7 @@ export default function WorkerOperationTimeline() {
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
           Worker operations
         </Typography>
-        <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}>
+        <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           {state.status === 'loading' ? 'Loading operation buffer…' : state.reason}
         </Typography>
       </SurfaceCard>
@@ -302,8 +302,8 @@ export default function WorkerOperationTimeline() {
             component="span"
             sx={{
               ml: 1.25,
-              fontFamily: tokens.mono,
-              fontSize: 10,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 400,
               color: tokens.sub,
             }}
@@ -320,7 +320,7 @@ export default function WorkerOperationTimeline() {
           sx={{ ml: 'auto', gap: 0.8 }}
           aria-label={`${state.viewport.buffer.batchRole} color legend`}
         >
-          <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+          <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             color →
           </Typography>
           {visibleColorKeys.slice(0, MAX_VISIBLE_COLOR_KEYS).map((identity) => (
@@ -334,11 +334,11 @@ export default function WorkerOperationTimeline() {
                   bgcolor: operationLaneColor(identity),
                 }}
               />
-              <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5 }}>{identity}</Typography>
+              <Typography sx={{ fontFamily: tokens.body, fontSize: 12 }}>{identity}</Typography>
             </Stack>
           ))}
           {visibleColorKeys.length > MAX_VISIBLE_COLOR_KEYS && (
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+            <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
               +{visibleColorKeys.length - MAX_VISIBLE_COLOR_KEYS}
             </Typography>
           )}
@@ -346,12 +346,12 @@ export default function WorkerOperationTimeline() {
       </Stack>
 
       {seek.status === 'loading' && (
-        <Typography role="status" sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 10 }}>
+        <Typography role="status" sx={{ mt: 1, fontFamily: tokens.body, fontSize: 12 }}>
           Locating operations at {(seek.atMs / 1000).toFixed(3)}s…
         </Typography>
       )}
       {seek.status === 'error' && (
-        <Typography role="alert" sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 10 }}>
+        <Typography role="alert" sx={{ mt: 1, fontFamily: tokens.body, fontSize: 12 }}>
           {seek.reason}
         </Typography>
       )}
@@ -363,7 +363,7 @@ export default function WorkerOperationTimeline() {
             height: OPERATION_TRACK_HEIGHT_PX,
             flex: '0 0 auto',
             position: 'relative',
-            fontFamily: tokens.mono,
+            fontFamily: tokens.body,
             color: tokens.sub,
           }}
         >
@@ -401,7 +401,7 @@ export default function WorkerOperationTimeline() {
                   position: 'absolute',
                   right: 8,
                   fontFamily: 'inherit',
-                  fontSize: 8.5,
+                  fontSize: 12,
                   lineHeight: 1,
                   color: tokens.sub2,
                   whiteSpace: 'nowrap',

@@ -5,7 +5,7 @@ import OutlinedFlagRounded from '@mui/icons-material/OutlinedFlagRounded';
 import { Box, ButtonBase, Skeleton, Stack, Typography } from '@mui/material';
 import { useEffect, useRef, type ReactNode } from 'react';
 
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { outlineEntryCounts, type OutlineEntry, type OutlineGroup } from './conversationOutline';
 
 /**
@@ -24,7 +24,7 @@ import { outlineEntryCounts, type OutlineEntry, type OutlineGroup } from './conv
  * cannot.
  */
 
-const FAILED = '#9a4538';
+const FAILED = tokens.terra;
 
 function entryColor(entry: OutlineEntry): string {
   if (entry.kind === 'answer') return tokens.terra;
@@ -92,9 +92,9 @@ function RailEntry({
         textAlign: 'left',
         borderLeft: `2px solid ${active ? color : 'transparent'}`,
         borderRadius: 0.65,
-        background: active ? `${color}12` : 'transparent',
+        background: active ? tokens.selected : 'transparent',
         transition: `background 140ms ${tokens.ease}, border-color 140ms ${tokens.ease}`,
-        '&:hover': { background: active ? `${color}1c` : tokens.tile2 },
+        '&:hover': { background: active ? tokens.selected : tokens.leafbg },
         '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
         '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
       }}
@@ -104,7 +104,7 @@ function RailEntry({
         <Typography
           sx={{
             color: tokens.ink,
-            fontSize: 11,
+            fontSize: 12,
             lineHeight: 1.4,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -115,7 +115,7 @@ function RailEntry({
           {entry.label}
         </Typography>
         {entry.detail && (
-          <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+          <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
             {entry.detail}
           </Typography>
         )}
@@ -171,7 +171,7 @@ export default function ConversationProgressRail({
         <Typography sx={{ color: tokens.ink, fontSize: 12.5, fontWeight: 700 }}>
           Progress
         </Typography>
-        <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+        <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
           {headerSummary(groups)}
         </Typography>
       </Box>
@@ -206,9 +206,9 @@ export default function ConversationProgressRail({
               border: `1px solid ${tokens.hair}`,
               borderRadius: 0.75,
               color: tokens.sub2,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
-              '&:hover': { color: tokens.teal, borderColor: 'rgba(31,111,107,.35)' },
+              fontFamily: tokens.body,
+              fontSize: 12,
+              '&:hover': { color: tokens.teal, borderColor: withAlpha(tokens.teal, 0.35) },
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
             }}
           >
@@ -222,16 +222,16 @@ export default function ConversationProgressRail({
                 key={index}
                 variant="rounded"
                 height={30}
-                sx={{ bgcolor: 'rgba(91,82,71,.07)', borderRadius: 0.65 }}
+                sx={{ bgcolor: withAlpha(tokens.sub, 0.07), borderRadius: 0.65 }}
               />
             ))}
           </Stack>
         ) : groups.length === 0 ? (
           <Box sx={{ px: 1, py: 2.5 }}>
-            <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 650 }}>
+            <Typography sx={{ color: tokens.ink, fontSize: 12, fontWeight: 650 }}>
               No progress yet
             </Typography>
-            <Typography sx={{ mt: 0.35, color: tokens.sub2, fontSize: 10.5, lineHeight: 1.45 }}>
+            <Typography sx={{ mt: 0.35, color: tokens.sub2, fontSize: 12, lineHeight: 1.45 }}>
               Milestones, results and answers collect here as the agent works.
             </Typography>
           </Box>
@@ -248,7 +248,7 @@ export default function ConversationProgressRail({
                 <Typography
                   noWrap
                   title={group.question}
-                  sx={{ px: 1, pb: 0.5, color: tokens.sub, fontSize: 10.5, fontWeight: 650 }}
+                  sx={{ px: 1, pb: 0.5, color: tokens.sub, fontSize: 12, fontWeight: 650 }}
                 >
                   {group.question}
                 </Typography>
@@ -268,8 +268,8 @@ export default function ConversationProgressRail({
                       px: 1.15,
                       pt: 0.4,
                       color: tokens.gold,
-                      fontFamily: tokens.mono,
-                      fontSize: 8.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                     }}
                   >
                     working

@@ -5,7 +5,7 @@ import type { JsonValue, ModelConfigResource } from '../../domain/overviewResour
 import type { Group, WorkerInstance } from '../../domain/run';
 import { makeWorkerKey, makeWorkerRef } from '../../domain/worker';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 import { shortName } from '../../util';
 
 const chip = (label: string) => (
@@ -18,8 +18,8 @@ const chip = (label: string) => (
       borderRadius: 0.75,
       border: `1px solid ${tokens.hair}`,
       background: tokens.tile,
-      fontFamily: tokens.mono,
-      fontSize: 10.5,
+      fontFamily: tokens.body,
+      fontSize: 12,
       color: tokens.sub,
     }}
   >
@@ -81,11 +81,11 @@ function WorkerChip({
         borderRadius: 1.25,
         transition: `all .28s ${tokens.ease}`,
         border: `1px solid ${selected ? tokens.teal : tokens.hair}`,
-        background: selected ? 'rgba(31,111,107,.10)' : tokens.tile,
+        background: selected ? withAlpha(tokens.teal, 0.1) : tokens.tile,
         boxShadow: selected ? `inset 0 0 0 1px ${tokens.teal}` : 'none',
         '&:hover': {
           transform: 'translateY(-2px)',
-          borderColor: selected ? tokens.teal : '#cabf9f',
+          borderColor: selected ? tokens.teal : colors.borderHover,
           boxShadow: selected ? `inset 0 0 0 1px ${tokens.teal}, ${tokens.shadow}` : tokens.shadow,
         },
       }}
@@ -101,7 +101,7 @@ function WorkerChip({
         {w.id}
       </Typography>
       <Typography
-        sx={{ fontFamily: tokens.mono, fontSize: 9.5, letterSpacing: '.06em', color: tokens.sub }}
+        sx={{ fontFamily: tokens.body, fontSize: 12, letterSpacing: '.06em', color: tokens.sub }}
       >
         {type}
         {w.dp ? ` · dp${w.dp}` : ''}
@@ -110,8 +110,8 @@ function WorkerChip({
         <Box
           component="i"
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
             fontStyle: 'normal',
             mr: 0.25,
@@ -126,13 +126,13 @@ function WorkerChip({
               width: 12,
               height: 12,
               borderRadius: 0.75,
-              background: selected ? 'rgba(31,111,107,.34)' : 'rgba(31,111,107,.16)',
-              border: '1px solid rgba(31,111,107,.28)',
+              background: selected ? withAlpha(tokens.teal, 0.34) : withAlpha(tokens.teal, 0.16),
+              border: `1px solid ${withAlpha(tokens.teal, 0.28)}`,
             }}
           />
         ))}
         {ng > shown && (
-          <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+          <Box component="span" sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             +{ng - shown}
           </Box>
         )}
@@ -188,11 +188,11 @@ export default function SystemMapBand() {
           borderRadius: 1.5,
           cursor: 'pointer',
           border: `1px solid ${clusterSel ? tokens.teal : tokens.hair}`,
-          background: clusterSel ? 'rgba(31,111,107,.08)' : tokens.tile2,
+          background: clusterSel ? withAlpha(tokens.teal, 0.08) : tokens.tile2,
           boxShadow: clusterSel ? `inset 0 0 0 1px ${tokens.teal}` : 'none',
           transition: `all .3s ${tokens.ease}`,
           '&:hover': {
-            borderColor: clusterSel ? tokens.teal : '#d3c8ad',
+            borderColor: clusterSel ? tokens.teal : colors.borderHover,
             boxShadow: clusterSel ? `inset 0 0 0 1px ${tokens.teal}` : tokens.shadow,
           },
         }}
@@ -203,7 +203,7 @@ export default function SystemMapBand() {
             height: 8,
             borderRadius: '50%',
             background: clusterSel ? tokens.teal : tokens.sub2,
-            boxShadow: clusterSel ? '0 0 0 3px rgba(31,111,107,.15)' : 'none',
+            boxShadow: clusterSel ? `0 0 0 3px ${withAlpha(tokens.teal, 0.15)}` : 'none',
           }}
         />
         <Typography
@@ -218,8 +218,8 @@ export default function SystemMapBand() {
           <Box
             component="span"
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 11,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 400,
               color: tokens.sub,
               ml: 1,
@@ -232,8 +232,8 @@ export default function SystemMapBand() {
           component="span"
           sx={{
             ml: 'auto',
-            fontFamily: tokens.mono,
-            fontSize: 10.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: clusterSel ? tokens.teal : tokens.sub,
           }}
         >
@@ -259,7 +259,7 @@ export default function SystemMapBand() {
                 minWidth: 260,
                 p: '12px 13px',
                 borderRadius: 1.5,
-                background: poolSel ? 'rgba(31,111,107,.05)' : tokens.tile2,
+                background: poolSel ? withAlpha(tokens.teal, 0.05) : tokens.tile2,
                 border: `1px solid ${poolSel ? tokens.teal : tokens.hair}`,
                 boxShadow: poolSel ? `inset 0 0 0 1px ${tokens.teal}` : 'none',
               }}
@@ -276,7 +276,7 @@ export default function SystemMapBand() {
                   borderRadius: 1,
                   mb: 1.25,
                   transition: `background .24s ${tokens.ease}`,
-                  '&:hover': { background: 'rgba(31,111,107,.07)' },
+                  '&:hover': { background: withAlpha(tokens.teal, 0.07) },
                 }}
               >
                 <Stack direction="row" alignItems="center" spacing={1.25}>
@@ -293,8 +293,8 @@ export default function SystemMapBand() {
                   <Box
                     component="span"
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 9.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       letterSpacing: '.1em',
                       textTransform: 'uppercase',
                       color: roleColor,
@@ -308,7 +308,7 @@ export default function SystemMapBand() {
                     {pool.placement}
                   </Box>
                   <Typography
-                    sx={{ ml: 'auto', fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+                    sx={{ ml: 'auto', fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}
                   >
                     {totWk} {totWk === 1 ? 'worker' : 'workers'} · {totGpus} GPU
                   </Typography>
@@ -324,8 +324,8 @@ export default function SystemMapBand() {
                     sx={{
                       gap: 1,
                       mb: 1,
-                      fontFamily: tokens.mono,
-                      fontSize: 10.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       color: tokens.sub,
                     }}
                   >
@@ -337,7 +337,7 @@ export default function SystemMapBand() {
                         px: 0.9,
                         py: '2px',
                         borderRadius: 0.75,
-                        background: 'rgba(31,111,107,.08)',
+                        background: withAlpha(tokens.teal, 0.08),
                       }}
                     >
                       {gr.arch.type}

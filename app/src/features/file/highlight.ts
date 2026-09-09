@@ -1,6 +1,6 @@
 import type { SxProps, Theme } from '@mui/material/styles';
 
-import { tokens } from '../../theme';
+import { colors, tokens, withAlpha } from '../../theme';
 
 /**
  * Syntax highlighting for the file preview.
@@ -102,22 +102,22 @@ export async function highlightLines(
  * highlight.js theme, so a previewed file reads as part of the page.
  */
 export const highlightSx: SxProps<Theme> = {
-  '& .hljs-comment, & .hljs-quote': { color: tokens.sub2, fontStyle: 'italic' },
+  '& .hljs-comment, & .hljs-quote': { color: colors.syntax.comment, fontStyle: 'italic' },
   '& .hljs-keyword, & .hljs-selector-tag, & .hljs-literal, & .hljs-doctag': {
-    color: tokens.terra,
+    color: colors.syntax.keyword,
   },
-  '& .hljs-string, & .hljs-regexp, & .hljs-addition': { color: tokens.olive },
-  '& .hljs-number, & .hljs-symbol, & .hljs-bullet': { color: tokens.gold },
+  '& .hljs-string, & .hljs-regexp, & .hljs-addition': { color: colors.syntax.string },
+  '& .hljs-number, & .hljs-symbol, & .hljs-bullet': { color: colors.syntax.number },
   '& .hljs-title, & .hljs-name, & .hljs-section, & .hljs-selector-id': {
-    color: tokens.teal,
+    color: colors.syntax.title,
     fontWeight: 600,
   },
-  '& .hljs-type, & .hljs-built_in, & .hljs-class .hljs-title': { color: tokens.violet },
+  '& .hljs-type, & .hljs-built_in, & .hljs-class .hljs-title': { color: colors.syntax.type },
   '& .hljs-attr, & .hljs-attribute, & .hljs-property, & .hljs-variable': {
-    color: tokens.sectionAnalysis,
+    color: colors.syntax.variable,
   },
   '& .hljs-meta, & .hljs-params': { color: tokens.sub },
-  '& .hljs-deletion': { color: tokens.terra, background: 'rgba(168,75,46,.08)' },
+  '& .hljs-deletion': { color: tokens.terra, background: withAlpha(tokens.terra, 0.08) },
   '& .hljs-emphasis': { fontStyle: 'italic' },
   '& .hljs-strong': { fontWeight: 700 },
 };

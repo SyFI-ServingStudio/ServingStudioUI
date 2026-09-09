@@ -204,7 +204,7 @@ export default function MappingBoardCard({
   if (sequences === null || catalog === null || lanes === null || phase === null) {
     return (
       <SurfaceCard sx={{ p: '14px 16px' }}>
-        <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 11 }}>
+        <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
           This capture carries no labelled kernel programs.
         </Typography>
       </SurfaceCard>
@@ -242,7 +242,7 @@ export default function MappingBoardCard({
         >
           Measured kernels against modelled slots
         </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           {fmtInt(lanes.measured.length)} measured kernels over {fmtInt(catalog.phaseOrder.length)}{' '}
           phases · {fmtInt(lanes.modelled.length)} modelled slots ·{' '}
           <Box component="span" sx={{ color: tokens.terra, fontWeight: 700 }}>
@@ -401,8 +401,8 @@ export default function MappingBoardCard({
         <Typography
           sx={{
             flex: '1 1 340px',
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
             lineHeight: 1.75,
           }}
@@ -435,8 +435,8 @@ export default function MappingBoardCard({
           onClick={() => setSelected(NO_SELECTION)}
           sx={{
             appearance: 'none',
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             padding: '6px 10px',
             borderRadius: '7px',
             cursor: 'pointer',
@@ -469,7 +469,7 @@ function ChipRow({ note, children }: { note: React.ReactNode; children: React.Re
       <Stack direction="row" sx={{ gap: 0.5, flexWrap: 'wrap' }}>
         {children}
       </Stack>
-      <Typography sx={{ ml: 'auto', fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+      <Typography sx={{ ml: 'auto', fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
         {note}
       </Typography>
     </Stack>
@@ -500,8 +500,8 @@ function Chip({
       sx={{
         appearance: 'none',
         cursor: 'pointer',
-        fontFamily: tokens.mono,
-        fontSize: 9.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         padding: '4px 10px',
         borderRadius: '6px',
         whiteSpace: 'nowrap',
@@ -550,8 +550,8 @@ function Lane({
           >
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 9,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
                 color: tokens.sub,
@@ -559,7 +559,7 @@ function Lane({
             >
               {group.label}
             </Typography>
-            <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+            <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
               {group.note}
             </Typography>
           </Stack>
@@ -632,8 +632,8 @@ function BoardRow({
           border: `1px ${loose ? 'dashed' : 'solid'} ${loose ? tokens.terra : selected ? tokens.ink : tokens.hair}`,
           boxShadow: selected ? `inset 0 0 0 1px ${tokens.ink}` : 'none',
           background: loose ? tokens.tile2 : tokens.leafbg,
-          fontFamily: tokens.mono,
-          fontSize: 10,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color: tokens.ink,
           overflow: 'hidden',
           opacity: dimmed && !lit ? 0.45 : 1,
@@ -661,7 +661,7 @@ function BoardRow({
         <Box
           component="span"
           sx={{
-            fontSize: 9,
+            fontSize: 12,
             color: loose ? tokens.terra : tokens.sub,
             whiteSpace: 'nowrap',
             maxWidth: 190,
@@ -674,7 +674,7 @@ function BoardRow({
         <Box
           component="span"
           sx={{
-            fontSize: 9.5,
+            fontSize: 12,
             color: tokens.sub,
             textAlign: 'right',
             fontVariantNumeric: 'tabular-nums',
@@ -682,7 +682,7 @@ function BoardRow({
         >
           {ms === null ? '—' : fmtMs(ms)}
         </Box>
-        <Box component="span" sx={{ fontSize: 9, color: tokens.sub2, textAlign: 'right' }}>
+        <Box component="span" sx={{ fontSize: 12, color: tokens.sub2, textAlign: 'right' }}>
           {repeat !== null && repeat > 1 ? `×${fmtInt(repeat)}` : ''}
         </Box>
         <Box

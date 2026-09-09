@@ -28,7 +28,7 @@ import type {
   SweepPrimitive,
 } from '../../domain/sweep';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { metricStatisticLabel, sweepMetricSections, type SweepMetricPanel } from './metricSections';
 import ExperimentSelector from './ExperimentSelector';
 import SweepHeatmap from './SweepHeatmap';
@@ -46,7 +46,7 @@ function StatePanel({ title, detail }: { title: string; detail: string }) {
       <Typography component="h2" sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 18 }}>
         {title}
       </Typography>
-      <Typography sx={{ mt: 0.5, color: tokens.sub, fontFamily: tokens.mono, fontSize: 10.5 }}>
+      <Typography sx={{ mt: 0.5, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
         {detail}
       </Typography>
     </SurfaceCard>
@@ -80,10 +80,10 @@ function Stat({
         sx={{
           mt: 0.65,
           color: tokens.sub,
-          fontFamily: tokens.mono,
-          fontSize: 9,
-          letterSpacing: '.14em',
-          textTransform: 'uppercase',
+          fontFamily: tokens.body,
+          fontSize: 12,
+          letterSpacing: '.02em',
+          textTransform: 'none',
         }}
       >
         {label}
@@ -111,7 +111,7 @@ function StatisticKnob({
         p: '2px',
         border: `1px solid ${tokens.hair}`,
         borderRadius: 999,
-        background: 'rgba(42,38,34,.035)',
+        background: `${withAlpha(tokens.ink, 0.035)}`,
       }}
     >
       {metrics.map((metric) => {
@@ -128,11 +128,11 @@ function StatisticKnob({
               borderRadius: 999,
               background: selected ? tokens.ink : 'transparent',
               color: selected ? tokens.tile : tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               letterSpacing: '.08em',
-              textTransform: 'uppercase',
+              textTransform: 'none',
               transition: `background 160ms ${tokens.ease}, color 160ms ${tokens.ease}`,
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
             }}
@@ -233,7 +233,7 @@ function MetricPanelCard({
       selectedForAgent={selectedForAgent}
       onEvidenceSelect={() => onPanelSelect(selectedMetric)}
       sx={{
-        p: { xs: 1.3, md: 1.5 },
+        p: { xs: 2, md: 2.5 },
       }}
     >
       <Stack
@@ -250,7 +250,7 @@ function MetricPanelCard({
           >
             <EvidenceTitleButton label={panel.label}>{panel.label}</EvidenceTitleButton>
           </Typography>
-          <Typography sx={{ mt: 0.1, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}>
+          <Typography sx={{ mt: 0.1, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
             {selectedMetric.unit}
           </Typography>
         </Box>
@@ -294,10 +294,10 @@ function MetricPanelCard({
             sx={{
               mt: 0.4,
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               letterSpacing: '.1em',
-              textTransform: 'uppercase',
+              textTransform: 'none',
             }}
           >
             Single-run aggregate
@@ -320,8 +320,8 @@ function MetricPanelCard({
                     mt: 0.8,
                     px: 0.4,
                     color: tokens.sub,
-                    fontFamily: tokens.mono,
-                    fontSize: 9,
+                    fontFamily: tokens.body,
+                    fontSize: 12,
                   }}
                 >
                   {facet.label}
@@ -721,9 +721,9 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
   return (
     <Box
       component="main"
-      sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
+      sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 4, pb: 10 }}
     >
-      <Box sx={{ borderBottom: `1.5px solid ${tokens.ink}`, pb: 2.5 }}>
+      <Box sx={{ borderBottom: `1px solid ${tokens.hair}`, pb: 2.5 }}>
         <Stack
           direction="row"
           alignItems="center"
@@ -732,10 +732,10 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
         >
           <Typography
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 11,
-              letterSpacing: '.24em',
-              textTransform: 'uppercase',
+              fontFamily: tokens.body,
+              fontSize: 12,
+              letterSpacing: '.03em',
+              textTransform: 'none',
             }}
           >
             VibeSim Analyzer
@@ -748,21 +748,20 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
           sx={{
             fontFamily: tokens.serif,
             fontWeight: 600,
-            fontSize: 'clamp(34px,5vw,60px)',
-            lineHeight: 0.96,
+            fontSize: 'clamp(30px,3vw,40px)',
+            lineHeight: 1.15,
             letterSpacing: '-.02em',
           }}
         >
           Sweep{' '}
-          <Box component="em" sx={{ color: tokens.teal, fontWeight: 500 }}>
+          <Box component="span" sx={{ color: tokens.ink, fontWeight: 600 }}>
             aggregate
           </Box>
         </Typography>
         <Typography
           sx={{ mt: 1.4, maxWidth: 720, color: tokens.sub, fontSize: 13.5, lineHeight: 1.55 }}
         >
-          Compare launcher-defined experiment coordinates across throughput, latency, and
-          utilization. Membership follows an explicit sweep manifest or one unclaimed singleton run.
+          Compare throughput, latency, and utilization across your experiment.
         </Typography>
       </Box>
 
@@ -806,10 +805,10 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
             {analysis && (
               <Stack
                 direction="row"
-                justifyContent="flex-end"
+                justifyContent="flex-start"
                 useFlexGap
                 flexWrap="wrap"
-                sx={{ gap: { xs: 2.5, md: 4 }, mt: integrated ? 0 : 1.4 }}
+                sx={{ gap: { xs: 3, md: 6 }, mt: integrated ? 1 : 1.4, py: 1.5 }}
               >
                 <Stat value={String(analysis.runs.length)} label="member runs" />
                 <Stat value={String(analysis.axes.length)} label="sweep axes" />
@@ -847,16 +846,6 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
                 >
                   <Box>
                     <Typography
-                      sx={{
-                        color: tokens.sectionAnalysis,
-                        fontFamily: tokens.mono,
-                        fontSize: 9.5,
-                        letterSpacing: '.14em',
-                      }}
-                    >
-                      00 · METRIC PANELS
-                    </Typography>
-                    <Typography
                       id="aggregate-metric-heading"
                       component="h2"
                       sx={{
@@ -866,7 +855,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
                         fontWeight: 600,
                       }}
                     >
-                      Aggregate evidence by outcome
+                      Performance breakdown
                     </Typography>
                   </Box>
                   {singletonRun?.runId && (
@@ -878,19 +867,19 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
                         border: `1px solid ${tokens.teal}`,
                         borderRadius: 1.5,
                         color: tokens.teal,
-                        fontFamily: tokens.mono,
-                        fontSize: 9,
+                        fontFamily: tokens.body,
+                        fontSize: 12,
                         fontWeight: 600,
                         letterSpacing: '.08em',
-                        textTransform: 'uppercase',
-                        '&:hover': { background: 'rgba(31,111,107,.06)' },
+                        textTransform: 'none',
+                        '&:hover': { background: withAlpha(tokens.teal, 0.06) },
                       }}
                     >
                       Inspect run →
                     </ButtonBase>
                   )}
                 </Stack>
-                <Stack spacing={1.8}>
+                <Stack spacing={3}>
                   {metricSections.map((section) => (
                     <Box key={section.id}>
                       <Box
@@ -909,7 +898,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
                         </Typography>
                         <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
                         <Typography
-                          sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}
+                          sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}
                         >
                           {section.panels.length} {section.panels.length === 1 ? 'view' : 'views'}
                         </Typography>

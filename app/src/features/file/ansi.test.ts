@@ -1,3 +1,4 @@
+import { activeTheme, tokens } from '../../theme';
 import { describe, expect, it } from 'vitest';
 
 import { ansiLines, hasAnsi, stripAnsi } from './ansi';
@@ -54,7 +55,7 @@ describe('ansiLines', () => {
     expect(line).toContain('opacity:.62');
     expect(line).toContain('2026-05-23T11:10:54.556547Z');
     // 32 is green, which resolves to the palette's olive rather than #00ff00.
-    expect(line).toContain('color:#566a2e');
+    expect(line).toContain(`color:${tokens.olive}`);
     expect(line).toContain('INFO');
     // Text after the reset carries no styling at all.
     expect(line?.endsWith('backend=triton done')).toBe(true);
@@ -69,7 +70,7 @@ describe('ansiLines', () => {
     const lines = ansiLines(`${ESC}[31mfirst\nsecond\nthird${ESC}[0m`);
     expect(lines).toHaveLength(3);
     lines.forEach((line) => {
-      expect(line).toContain('color:#a84b2e');
+      expect(line).toContain(`color:${tokens.terra}`);
       // Balanced on its own: as many closes as opens.
       expect(line.match(/<span/g)?.length).toBe(line.match(/<\/span>/g)?.length);
     });
@@ -97,13 +98,13 @@ describe('ansiLines', () => {
     const [line] = ansiLines(`${ESC}[1;2;32mloud${ESC}[22mquiet`);
     expect(line).toContain('font-weight:700');
     expect(line).toContain('opacity:.62');
-    expect(line).toContain('<span style="color:#566a2e">quiet</span>');
+    expect(line).toContain(`<span style="color:${tokens.olive}">quiet</span>`);
   });
 
-  it('reads 256-colour and truecolour, darkening what a light page cannot show', () => {
+  it('reads 256-colour and truecolour using the current theme contrast direction', () => {
     const [indexed] = ansiLines(`${ESC}[38;5;226mbright yellow`);
     const [truecolor] = ansiLines(`${ESC}[38;2;255;255;0mbright yellow`);
-    // Both are near-white in luminance terms and must come back darkened.
+    // Extended colors remain readable on the selected background.
     [indexed, truecolor].forEach((line) => {
       const hex = /color:#([0-9a-f]{6})/.exec(line ?? '')?.[1];
       expect(hex).toBeDefined();
@@ -111,13 +112,14 @@ describe('ansiLines', () => {
         Number.parseInt((hex ?? '').slice(at, at + 2), 16),
       );
       const luminance = (0.2126 * (red ?? 0) + 0.7152 * (green ?? 0) + 0.0722 * (blue ?? 0)) / 255;
-      expect(luminance).toBeLessThanOrEqual(0.56);
+      if (activeTheme.mode === 'light') expect(luminance).toBeLessThanOrEqual(0.46);
+      else expect(luminance).toBeGreaterThanOrEqual(0.54);
     });
   });
 
   it('swaps foreground and background on inverse', () => {
     const [line] = ansiLines(`${ESC}[32;7mflipped`);
-    expect(line).toContain('background:#566a2e');
+    expect(line).toContain(`background:${tokens.olive}`);
   });
 
   it('ignores a sequence it does not render instead of printing it', () => {

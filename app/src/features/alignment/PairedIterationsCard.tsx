@@ -53,7 +53,7 @@ export default function PairedIterationsCard({ series }: { series: AlignmentIter
   if (layout.count === 0) {
     return (
       <SurfaceCard sx={{ p: '16px' }}>
-        <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 11 }}>
+        <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
           This capture carries no paired iterations.
         </Typography>
       </SurfaceCard>
@@ -102,8 +102,8 @@ export default function PairedIterationsCard({ series }: { series: AlignmentIter
         </Stack>
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 9.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
             whiteSpace: 'nowrap',
           }}
@@ -193,8 +193,8 @@ function CaptureMultiplier({ value }: { value: string }) {
       <Stack sx={{ gap: 0.1 }}>
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             lineHeight: 1.1,
             letterSpacing: '.1em',
             textTransform: 'uppercase',
@@ -203,7 +203,7 @@ function CaptureMultiplier({ value }: { value: string }) {
         >
           whole capture
         </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 8.5, color: tokens.sub2 }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           recommended GPU-time correction
         </Typography>
       </Stack>
@@ -220,8 +220,8 @@ const chipSx = {
   borderRadius: '6px !important',
   background: 'transparent',
   color: tokens.sub,
-  fontFamily: tokens.mono,
-  fontSize: 9.5,
+  fontFamily: tokens.body,
+  fontSize: 12,
   fontWeight: 400,
   lineHeight: 1.5,
   p: '4px 10px',
@@ -250,8 +250,8 @@ function Legend({ family, typeNames }: { family: PairedFamily; typeNames: readon
         gap: '4px 16px',
         p: '9px 16px 0',
         alignItems: 'center',
-        fontFamily: tokens.mono,
-        fontSize: 9,
+        fontFamily: tokens.body,
+        fontSize: 12,
         color: tokens.sub,
       }}
     >
@@ -378,8 +378,8 @@ function RailGroup({
     <Typography
       component="h4"
       sx={{
-        fontFamily: tokens.mono,
-        fontSize: 8.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         letterSpacing: '.14em',
         textTransform: 'uppercase',
         color: tokens.sub,
@@ -437,8 +437,8 @@ function KeyValue({ term, value, sign }: { term: string; value: string; sign?: n
       <Typography
         component="dt"
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 650,
           letterSpacing: '.05em',
           textTransform: 'uppercase',
@@ -452,8 +452,8 @@ function KeyValue({ term, value, sign }: { term: string; value: string; sign?: n
         component="dd"
         sx={{
           m: 0,
-          fontFamily: tokens.mono,
-          fontSize: 10.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color,
           fontVariantNumeric: 'tabular-nums',
           textAlign: 'right',
@@ -498,8 +498,8 @@ function HoverReadout({
     <Typography
       role="status"
       sx={{
-        fontFamily: tokens.mono,
-        fontSize: 9.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         lineHeight: 1.75,
         color: tokens.sub,
         minHeight: 74,

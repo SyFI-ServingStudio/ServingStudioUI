@@ -32,10 +32,10 @@ function EvidenceState({
       <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
         Kernel input distribution
       </Typography>
-      <Typography sx={{ mt: 0.35, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+      <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
         {reason ?? reasonOf(subject)}
       </Typography>
-      <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+      <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
         evidence status · {subject.status}
       </Typography>
     </SurfaceCard>
@@ -99,7 +99,7 @@ export function KernelInputDistributionEvidenceView({
         <Typography component="h3" sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
           Kernel input distribution
         </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           sampled every {subject.payload.sampling.stride} iteration(s) · {projectionLabel}
         </Typography>
       </Stack>
@@ -141,8 +141,8 @@ export function KernelInputDistributionEvidenceView({
             <Typography
               component="dt"
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 10,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 color: tokens.ink,
                 overflowWrap: 'anywhere',
               }}
@@ -151,7 +151,7 @@ export function KernelInputDistributionEvidenceView({
             </Typography>
             <Typography
               component="dd"
-              sx={{ m: 0, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}
+              sx={{ m: 0, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}
             >
               {selection.count.toLocaleString()} · {(selection.ratio * 100).toFixed(1)}%
             </Typography>
@@ -164,7 +164,7 @@ export function KernelInputDistributionEvidenceView({
           ariaLabel={`Kernel input projection for ${position.name}, colored by selected backend.`}
         />
       </Box>
-      <Typography sx={{ mt: 0.6, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+      <Typography sx={{ mt: 0.6, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
         {position.points.length.toLocaleString()} deduplicated points · point size encodes sampled
         slot count · current operation is a diamond marker
       </Typography>

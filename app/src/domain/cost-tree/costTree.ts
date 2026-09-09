@@ -1,3 +1,4 @@
+import { colors } from '../../theme';
 /*
  * CostTree is the UI's validated view of VibeSim's cost-manifest structure.
  * Raw nodes mirror the wire combinators; annotated nodes are immutable copies
@@ -165,12 +166,12 @@ export const KIND: Readonly<Record<string, { readonly group: string; readonly la
 export const GROUP: Readonly<Record<string, { readonly label: string; readonly color: string }>> = {
   // These colors serve as both rails on light cards and filled time-share
   // blocks carrying white labels, so each must clear AA in both contexts.
-  gemm: { label: 'Dense GEMM', color: '#49617a' },
-  attn: { label: 'Attention', color: '#3f765b' },
-  comm: { label: 'Collectives', color: '#875263' },
-  norm: { label: 'Norm / EW', color: '#5f6f43' },
-  route: { label: 'Routing', color: '#63578a' },
-  misc: { label: 'Other', color: '#626a72' },
+  gemm: { label: 'Dense GEMM', color: colors.gemm },
+  attn: { label: 'Attention', color: colors.attention },
+  comm: { label: 'Collectives', color: colors.collective },
+  norm: { label: 'Norm / EW', color: colors.normalization },
+  route: { label: 'Routing', color: colors.routing },
+  misc: { label: 'Other', color: colors.other },
 };
 
 export const GROUP_ORDER = ['gemm', 'attn', 'comm', 'norm', 'route', 'misc'] as const;

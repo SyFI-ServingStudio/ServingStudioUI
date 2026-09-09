@@ -7,9 +7,15 @@ import type {
   SweepMetric,
   SweepRun,
 } from '../../domain/sweep';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 
-export const SWEEP_OUTCOME_SCALE = ['#edf3f5', '#d7e7ed', '#b7d2de', '#8eb8ca', '#5f91aa'] as const;
+export const SWEEP_OUTCOME_SCALE = [
+  colors.sweepLow,
+  colors.sweepMidLow,
+  colors.sweepMidHigh,
+  colors.sweepHigh,
+  tokens.teal,
+] as const;
 
 export interface SweepFacet {
   key: string;
@@ -114,7 +120,7 @@ export function sweepChartOption(
         nameGap: 38,
         nameTextStyle: {
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 12,
           fontWeight: 600,
         },
@@ -122,7 +128,7 @@ export function sweepChartOption(
         axisTick: { show: false },
         axisLabel: {
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 13,
           fontWeight: 500,
           formatter: sweepAxisTickLabel,
@@ -139,13 +145,13 @@ export function sweepChartOption(
         scale: true,
         nameTextStyle: {
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 12,
           fontWeight: 600,
         },
         axisLabel: {
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 13,
           fontWeight: 500,
           formatter: sweepAxisTickLabel,
@@ -157,8 +163,8 @@ export function sweepChartOption(
           type: 'line',
           smooth: 0.18,
           symbolSize: 8,
-          lineStyle: { width: 2, color: '#4f829c' },
-          itemStyle: { color: '#4f829c', borderColor: tokens.tile, borderWidth: 2 },
+          lineStyle: { width: 2, color: tokens.teal },
+          itemStyle: { color: tokens.teal, borderColor: tokens.tile, borderWidth: 2 },
           data: xDomain.map((coordinate, index) => {
             const run = indexedRuns.get(coordinateKey(coordinate));
             const value = run?.metrics[metric.key];
@@ -176,7 +182,7 @@ export function sweepChartOption(
                     borderColor: tokens.teal,
                     borderWidth: 4,
                     shadowBlur: 9,
-                    shadowColor: 'rgba(31,111,107,.38)',
+                    shadowColor: withAlpha(tokens.teal, 0.38),
                   }
                 : undefined,
             };
@@ -219,7 +225,7 @@ export function sweepChartOption(
       nameGap: 34,
       nameTextStyle: {
         color: tokens.ink,
-        fontFamily: tokens.mono,
+        fontFamily: tokens.body,
         fontSize: 12,
         fontWeight: 600,
       },
@@ -227,7 +233,7 @@ export function sweepChartOption(
       axisTick: { show: false },
       axisLabel: {
         color: tokens.ink,
-        fontFamily: tokens.mono,
+        fontFamily: tokens.body,
         fontSize: 13,
         fontWeight: 500,
       },
@@ -240,7 +246,7 @@ export function sweepChartOption(
       nameGap: 54,
       nameTextStyle: {
         color: tokens.ink,
-        fontFamily: tokens.mono,
+        fontFamily: tokens.body,
         fontSize: 12,
         fontWeight: 600,
       },
@@ -248,7 +254,7 @@ export function sweepChartOption(
       axisTick: { show: false },
       axisLabel: {
         color: tokens.ink,
-        fontFamily: tokens.mono,
+        fontFamily: tokens.body,
         fontSize: 13,
         fontWeight: 500,
       },
@@ -266,7 +272,7 @@ export function sweepChartOption(
       calculable: false,
       text: minimizes ? ['worse', 'better'] : ['better', 'worse'],
       textGap: 3,
-      textStyle: { color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 },
+      textStyle: { color: tokens.sub, fontFamily: tokens.body, fontSize: 9 },
       inRange: {
         color: minimizes ? [...SWEEP_OUTCOME_SCALE].reverse() : [...SWEEP_OUTCOME_SCALE],
       },
@@ -278,7 +284,7 @@ export function sweepChartOption(
         label: {
           show: true,
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 10,
           formatter: (params: unknown) => {
             const value = (params as { value?: readonly [number, number, number] }).value?.[2];
@@ -324,7 +330,7 @@ export function sweepChartOption(
               stroke: tokens.teal,
               lineWidth,
               shadowBlur: 10,
-              shadowColor: 'rgba(31,111,107,.42)',
+              shadowColor: withAlpha(tokens.teal, 0.42),
             },
           };
         },

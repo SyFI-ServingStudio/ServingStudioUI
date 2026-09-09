@@ -85,8 +85,8 @@ export default function OptimalityKernelsCard({
         '& .MuiToggleButton-root': {
           px: 0.8,
           py: 0.15,
-          fontFamily: tokens.mono,
-          fontSize: 9,
+          fontFamily: tokens.body,
+          fontSize: 12,
           lineHeight: 1.45,
           color: tokens.sub,
           borderColor: tokens.hair,

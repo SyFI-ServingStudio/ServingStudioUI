@@ -2,7 +2,7 @@ import { ButtonBase, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { createContext, type ReactNode, useContext } from 'react';
 
-import { tokens } from '../theme';
+import { tokens, withAlpha } from '../theme';
 import SurfaceCard, { type SurfaceCardProps } from './SurfaceCard';
 
 export interface EvidenceSurfaceCardProps extends SurfaceCardProps {
@@ -12,7 +12,7 @@ export interface EvidenceSurfaceCardProps extends SurfaceCardProps {
   readonly badgePlacement?: 'none' | 'top-edge';
 }
 
-const selectedBoxShadow = `${tokens.shadow}, 0 9px 38px -8px rgba(31,111,107,.32), 0 0 30px rgba(31,111,107,.18), inset 0 0 28px rgba(31,111,107,.05)`;
+const selectedBoxShadow = `inset 0 0 0 1px ${withAlpha(tokens.teal, 0.12)}`;
 const EvidenceSelectionContext = createContext(false);
 
 const selectedSurfaceSx: SxProps<Theme> = {
@@ -71,7 +71,7 @@ export function EvidenceSurfaceCard({
               borderRadius: '0 0 7px 7px',
               color: tokens.tile,
               backgroundColor: tokens.teal,
-              boxShadow: '0 6px 16px -10px rgba(31,111,107,.9)',
+              boxShadow: `0 6px 16px -10px ${withAlpha(tokens.teal, 0.9)}`,
             }}
           />
         )}
@@ -88,17 +88,17 @@ export function EvidenceSelectionBadge({ sx }: { readonly sx?: SxProps<Theme> })
       sx={[
         {
           color: tokens.teal,
-          fontFamily: tokens.mono,
-          fontSize: 8,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 600,
           lineHeight: 1.35,
           letterSpacing: '.06em',
           whiteSpace: 'nowrap',
           px: 0.75,
           py: 0.35,
-          border: '1px solid rgba(31,111,107,.2)',
+          border: `1px solid ${withAlpha(tokens.teal, 0.2)}`,
           borderRadius: 99,
-          backgroundColor: 'rgba(31,111,107,.08)',
+          backgroundColor: withAlpha(tokens.teal, 0.08),
           pointerEvents: 'none',
         },
         ...(Array.isArray(sx) ? sx : sx === undefined ? [] : [sx]),

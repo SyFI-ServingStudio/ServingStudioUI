@@ -2,7 +2,7 @@ import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRound
 import { Box, ButtonBase, Popover, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
 /** Shared multi-select column filter for the Page 0 catalogs. */
@@ -37,12 +37,12 @@ export default function CatalogColumnFilter({
           py: 0.65,
           borderRadius: 0.75,
           color: selected.length > 0 ? tokens.teal : tokens.sub,
-          fontFamily: tokens.mono,
-          fontSize: 8.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 600,
-          letterSpacing: '.1em',
-          textTransform: 'uppercase',
-          '&:hover': { background: 'rgba(31,111,107,.055)' },
+          letterSpacing: 0,
+          textTransform: 'none',
+          '&:hover': { background: withAlpha(tokens.teal, 0.055) },
           '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
         }}
       >
@@ -60,7 +60,7 @@ export default function CatalogColumnFilter({
               borderRadius: 999,
               background: tokens.teal,
               color: tokens.tile,
-              fontSize: 8,
+              fontSize: 12,
               letterSpacing: 0,
             }}
           >
@@ -101,10 +101,10 @@ export default function CatalogColumnFilter({
           <Typography
             sx={{
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 8,
+              fontFamily: tokens.body,
+              fontSize: 12,
               letterSpacing: '.11em',
-              textTransform: 'uppercase',
+              textTransform: 'none',
             }}
           >
             {label} options
@@ -114,8 +114,8 @@ export default function CatalogColumnFilter({
             onClick={onClear}
             sx={{
               color: tokens.teal,
-              fontFamily: tokens.mono,
-              fontSize: 8,
+              fontFamily: tokens.body,
+              fontSize: 12,
               '&.Mui-disabled': { color: tokens.sub2, opacity: 0.5 },
             }}
           >

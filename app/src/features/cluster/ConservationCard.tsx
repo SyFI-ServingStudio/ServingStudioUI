@@ -1,13 +1,13 @@
 import { Box, Stack, Typography } from '@mui/material';
 import SurfaceCard from '../../components/SurfaceCard';
 import { fmtInt } from '../../util';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import type { Conservation, CheckStatus } from '../../domain/run';
 
 const STY: Record<CheckStatus, { color: string; bg: string; label: string }> = {
-  ok: { color: tokens.teal, bg: 'rgba(31,111,107,.10)', label: 'OK' },
-  warn: { color: tokens.gold, bg: 'rgba(176,137,0,.14)', label: 'WARN' },
-  fail: { color: tokens.terra, bg: 'rgba(194,92,58,.14)', label: 'FAIL' },
+  ok: { color: tokens.teal, bg: withAlpha(tokens.teal, 0.1), label: 'OK' },
+  warn: { color: tokens.gold, bg: withAlpha(tokens.violet, 0.14), label: 'WARN' },
+  fail: { color: tokens.terra, bg: withAlpha(tokens.terra, 0.14), label: 'FAIL' },
 };
 
 /** Workload-conservation accounting checks (cluster scope). */
@@ -47,8 +47,8 @@ export default function ConservationCard({
           <Box
             component="span"
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 10,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.terra,
               letterSpacing: '.1em',
             }}
@@ -59,8 +59,8 @@ export default function ConservationCard({
         </Typography>
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 10,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: data.allOk ? tokens.teal : tokens.gold,
             textAlign: 'right',
             whiteSpace: 'nowrap',
@@ -84,8 +84,8 @@ export default function ConservationCard({
                 sx={{
                   width: 48,
                   textAlign: 'center',
-                  fontFamily: tokens.mono,
-                  fontSize: 9.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   fontWeight: 600,
                   letterSpacing: '.06em',
                   color: s.color,
@@ -97,14 +97,14 @@ export default function ConservationCard({
                 {s.label}
               </Box>
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography sx={{ fontFamily: tokens.mono, fontSize: 12, color: tokens.ink }}>
+                <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.ink }}>
                   {c.name}
                 </Typography>
               </Box>
               <Box sx={{ textAlign: 'right', minWidth: 88 }}>
                 <Typography
                   sx={{
-                    fontFamily: tokens.mono,
+                    fontFamily: tokens.body,
                     fontSize: 12,
                     color: tokens.ink,
                     fontVariantNumeric: 'tabular-nums',
@@ -112,7 +112,7 @@ export default function ConservationCard({
                 >
                   {fmtInt(c.actual)}
                 </Typography>
-                <Typography sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: s.color }}>
+                <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: s.color }}>
                   {c.deltaPct > 0 ? '+' : ''}
                   {c.deltaPct}% vs exp
                 </Typography>

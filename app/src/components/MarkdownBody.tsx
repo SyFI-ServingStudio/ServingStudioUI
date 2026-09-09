@@ -10,7 +10,7 @@ import {
   filePreviewHash,
   type LinkTarget,
 } from '../domain/workspaceFile';
-import { tokens } from '../theme';
+import { tokens, withAlpha } from '../theme';
 
 /**
  * Renders the Markdown subset that Agent turns and workspace documents use:
@@ -94,7 +94,7 @@ function FileLink({
         px: 0.3,
         borderRadius: 0.35,
         border: `1px solid ${tokens.teal}2e`,
-        background: 'rgba(31,111,107,.06)',
+        background: withAlpha(tokens.teal, 0.06),
         color: tokens.teal,
         font: 'inherit',
         fontFamily: mono ? tokens.mono : 'inherit',
@@ -102,7 +102,7 @@ function FileLink({
         fontWeight: 600,
         lineHeight: 'inherit',
         verticalAlign: 'baseline',
-        '&:hover': { background: 'rgba(31,111,107,.13)' },
+        '&:hover': { background: withAlpha(tokens.teal, 0.13) },
         '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
       }}
     >
@@ -194,7 +194,7 @@ export default function MarkdownBody({
                 : {})}
               sx={{
                 color: tokens.teal,
-                textDecorationColor: 'rgba(31,111,107,.42)',
+                textDecorationColor: withAlpha(tokens.teal, 0.42),
                 textUnderlineOffset: '2px',
               }}
             >
@@ -230,7 +230,7 @@ export default function MarkdownBody({
               sx={{
                 px: 0.35,
                 borderRadius: 0.35,
-                background: 'rgba(91,82,71,.08)',
+                background: withAlpha(tokens.sub, 0.08),
                 color: tokens.ink,
                 fontFamily: tokens.mono,
                 fontSize: '.9em',
@@ -270,9 +270,8 @@ export default function MarkdownBody({
         <ButtonBase
           key={`${citation.sourceStart}-${citation.token}`}
           onClick={() =>
-            navigateToFrozenEvidence(
-              citation.target,
-              (next) => setStatuses((current) => ({ ...current, [citationIndex]: next })),
+            navigateToFrozenEvidence(citation.target, (next) =>
+              setStatuses((current) => ({ ...current, [citationIndex]: next })),
             )
           }
           title={
@@ -292,7 +291,7 @@ export default function MarkdownBody({
             fontWeight: 650,
             lineHeight: 'inherit',
             verticalAlign: 'baseline',
-            '&:hover': { background: 'rgba(31,111,107,.08)' },
+            '&:hover': { background: withAlpha(tokens.teal, 0.08) },
             '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
           }}
         >
@@ -370,10 +369,10 @@ export default function MarkdownBody({
             overflowX: 'auto',
             border: `1px solid ${tokens.hair}`,
             borderRadius: 0.75,
-            background: 'rgba(91,82,71,.055)',
+            background: withAlpha(tokens.sub, 0.055),
             color: tokens.ink,
             fontFamily: tokens.mono,
-            fontSize: compact ? 9 : 10,
+            fontSize: compact ? 12 : 13,
             lineHeight: 1.5,
             whiteSpace: 'pre',
           }}
@@ -413,10 +412,10 @@ export default function MarkdownBody({
             '& th': {
               color: tokens.ink,
               fontFamily: tokens.mono,
-              fontSize: 9,
+              fontSize: 13,
               fontWeight: 700,
             },
-            '& td': { color: tokens.sub, fontSize: 10.5 },
+            '& td': { color: tokens.sub, fontSize: 13 },
           }}
         >
           <Box component="thead">
@@ -468,8 +467,8 @@ export default function MarkdownBody({
             my: compact ? 0.55 : 0.8,
             pl: 2.25,
             color: tokens.sub,
-            fontSize: 11.5,
-            lineHeight: 1.55,
+            fontSize: 13,
+            lineHeight: 1.7,
           }}
         >
           {listLines.map((item) => (
@@ -490,9 +489,9 @@ export default function MarkdownBody({
           mb: compact ? 0.5 : 0.8,
           color: heading ? tokens.ink : tokens.sub,
           fontFamily: heading ? tokens.serif : tokens.body,
-          fontSize: heading ? 13 : 11.5,
+          fontSize: heading ? 17 : 14,
           fontWeight: heading ? 650 : 400,
-          lineHeight: 1.55,
+          lineHeight: 1.7,
         }}
       >
         {renderInlineRange(contentStart, line.end, `line-${line.start}`)}

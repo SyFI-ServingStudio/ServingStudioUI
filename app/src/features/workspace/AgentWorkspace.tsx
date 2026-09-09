@@ -68,7 +68,7 @@ import type { AnalyzerTurnContextV2 } from '../../domain/citation';
 import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import MarkdownBody from '../../components/MarkdownBody';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 import {
   agentSettingsFromConversation,
   rolesForAgentMode,
@@ -106,30 +106,30 @@ type RoleTone = 'orchestrator' | 'implementer' | 'assistant' | 'answer' | 'error
 const roleStyle: Record<RoleTone, { color: string; line: string; wash: string }> = {
   orchestrator: {
     color: tokens.gold,
-    line: 'rgba(128,102,0,.3)',
-    wash: 'rgba(128,102,0,.055)',
+    line: withAlpha(tokens.gold, 0.3),
+    wash: withAlpha(tokens.gold, 0.055),
   },
   implementer: {
     color: tokens.teal,
-    line: 'rgba(31,111,107,.3)',
-    wash: 'rgba(31,111,107,.055)',
+    line: withAlpha(tokens.teal, 0.3),
+    wash: withAlpha(tokens.teal, 0.055),
   },
   // Olive sits between the orchestrator's gold and the implementer's teal, and
   // never appears beside either: a conversation runs one cast or the other.
   assistant: {
     color: tokens.olive,
-    line: 'rgba(86,106,46,.3)',
-    wash: 'rgba(86,106,46,.055)',
+    line: withAlpha(tokens.olive, 0.3),
+    wash: withAlpha(tokens.olive, 0.055),
   },
   answer: {
     color: tokens.terra,
-    line: 'rgba(168,75,46,.3)',
-    wash: 'rgba(168,75,46,.055)',
+    line: withAlpha(tokens.terra, 0.3),
+    wash: withAlpha(tokens.terra, 0.055),
   },
   error: {
-    color: '#9a4538',
-    line: 'rgba(154,69,56,.32)',
-    wash: 'rgba(154,69,56,.065)',
+    color: tokens.terra,
+    line: withAlpha(tokens.terra, 0.32),
+    wash: withAlpha(tokens.terra, 0.065),
   },
 };
 
@@ -168,11 +168,11 @@ function outlineFlashSx(borderRadius: number) {
       animation: `outlineFlash 900ms ${tokens.ease} both`,
     },
     '&[data-outline-flash="static"]': {
-      boxShadow: `0 0 0 2px rgba(31,111,107,.45)`,
+      boxShadow: `0 0 0 2px ${withAlpha(tokens.teal, 0.45)}`,
     },
     '@keyframes outlineFlash': {
-      from: { boxShadow: '0 0 0 3px rgba(31,111,107,.3)' },
-      to: { boxShadow: '0 0 0 3px rgba(31,111,107,0)' },
+      from: { boxShadow: `0 0 0 3px ${withAlpha(tokens.teal, 0.3)}` },
+      to: { boxShadow: `0 0 0 3px ${withAlpha(tokens.teal, 0)}` },
     },
   } as const;
 }
@@ -221,7 +221,7 @@ function RoleCard({
         border: `1px solid ${style.line}`,
         borderLeft: `2px solid ${style.color}`,
         borderRadius: 1.2,
-        background: style.wash,
+        background: tokens.tile,
       }}
     >
       <Stack direction="row" alignItems="center" sx={{ gap: 0.9 }}>
@@ -241,7 +241,7 @@ function RoleCard({
         </Box>
         <Typography sx={{ color: tokens.ink, fontSize: 12.5, fontWeight: 700 }}>{title}</Typography>
         {round !== undefined && (
-          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9 }}>
+          <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
             round {round}
           </Typography>
         )}
@@ -250,8 +250,8 @@ function RoleCard({
           sx={{
             ml: 'auto',
             color: style.color,
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             fontWeight: 600,
           }}
         >
@@ -296,7 +296,7 @@ function Note({
         {typeof children === 'string' ? (
           <MarkdownBody text={children} citations={[]} workspaceId={workspaceId} compact />
         ) : (
-          <Typography sx={{ color: tokens.ink, fontSize: 11.5, lineHeight: 1.5 }}>
+          <Typography sx={{ color: tokens.ink, fontSize: 14, lineHeight: 1.7 }}>
             {children}
           </Typography>
         )}
@@ -307,7 +307,7 @@ function Note({
     return <MarkdownBody text={children} citations={[]} workspaceId={workspaceId} compact />;
   }
   return (
-    <Typography sx={{ color: tokens.sub, fontSize: 11.5, lineHeight: 1.5 }}>{children}</Typography>
+    <Typography sx={{ color: tokens.sub, fontSize: 14, lineHeight: 1.7 }}>{children}</Typography>
   );
 }
 
@@ -325,9 +325,9 @@ function ActivityLine({ text }: { text: string }) {
       sx={{
         gap: 0.75,
         minWidth: 0,
-        color: tokens.teal,
-        fontFamily: tokens.mono,
-        fontSize: 9.5,
+        color: tokens.sub,
+        fontFamily: tokens.body,
+        fontSize: 12,
         lineHeight: 1.35,
       }}
     >
@@ -339,7 +339,7 @@ function ActivityLine({ text }: { text: string }) {
               width: 3,
               height: 3,
               borderRadius: '50%',
-              background: tokens.teal,
+              background: tokens.sub2,
               animation: 'agentActivityPulse 1.2s ease-in-out infinite',
               animationDelay: `${index * 160}ms`,
               '@keyframes agentActivityPulse': {
@@ -355,10 +355,9 @@ function ActivityLine({ text }: { text: string }) {
         sx={{
           flex: '0 0 auto',
           color: tokens.sub2,
-          fontSize: 8,
-          fontWeight: 650,
-          letterSpacing: '.06em',
-          textTransform: 'uppercase',
+          fontSize: 12,
+          fontWeight: 400,
+          letterSpacing: 0,
         }}
       >
         {label}
@@ -405,7 +404,7 @@ function Handoff({
         border: `1px solid ${style.line}`,
         borderLeft: `2px solid ${style.color}`,
         borderRadius: 1.2,
-        background: style.wash,
+        background: tokens.tile,
       }}
     >
       <Stack direction="row" alignItems="center" sx={{ gap: 0.85 }}>
@@ -432,7 +431,7 @@ function Handoff({
           <Typography sx={{ color: tokens.ink, fontSize: 12, fontWeight: 700 }}>
             {isImplementationReport ? 'Implementation report' : 'Delegated task'}
           </Typography>
-          <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.25 }}>
+          <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
             {from} to {to}
           </Typography>
         </Box>
@@ -463,7 +462,7 @@ function UserMessage({ children }: { children: ReactNode }) {
         borderRadius: '10px 10px 3px 10px',
         background: tokens.tile,
         color: tokens.ink,
-        fontSize: 11.5,
+        fontSize: 12,
         lineHeight: 1.45,
         whiteSpace: 'pre-wrap',
       }}
@@ -531,8 +530,8 @@ function QueuedMessages({
             <Typography
               sx={{
                 color: message.suspended ? tokens.terra : tokens.sub2,
-                fontFamily: tokens.mono,
-                fontSize: 7.5,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.12em',
                 textTransform: 'uppercase',
               }}
@@ -541,7 +540,7 @@ function QueuedMessages({
             </Typography>
             {message.context !== null && (
               <Typography
-                sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 7.5 }}
+                sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}
                 title="Carries the Analyzer selection from when it was queued"
               >
                 · with selection
@@ -553,8 +552,8 @@ function QueuedMessages({
                 sx={{
                   px: 0.5,
                   color: tokens.teal,
-                  fontFamily: tokens.mono,
-                  fontSize: 7.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   letterSpacing: '.06em',
                   textTransform: 'uppercase',
                   '&:hover': { textDecoration: 'underline' },
@@ -576,7 +575,7 @@ function QueuedMessages({
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}
             >
-              <CloseRounded sx={{ fontSize: 11 }} />
+              <CloseRounded sx={{ fontSize: 12 }} />
             </ButtonBase>
           </Stack>
           {/* Same geometry as a sent message, drawn unsent: dashed edge, paper
@@ -585,11 +584,11 @@ function QueuedMessages({
             sx={{
               px: 1.3,
               py: 1,
-              border: `1px dashed ${message.suspended ? 'rgba(153,68,45,.4)' : tokens.hair}`,
+              border: `1px dashed ${message.suspended ? withAlpha(tokens.terra, 0.4) : tokens.hair}`,
               borderRadius: '10px 10px 3px 10px',
               background: tokens.leafbg,
               color: tokens.sub,
-              fontSize: 11.5,
+              fontSize: 12,
               lineHeight: 1.45,
               whiteSpace: 'pre-wrap',
             }}
@@ -797,19 +796,23 @@ const TimelineCardView = memo(function TimelineCardView({
           p: 1.25,
           justifyContent: 'flex-start',
           border: `1px solid ${
-            failed ? 'rgba(154,69,56,.3)' : ready ? 'rgba(31,111,107,.34)' : tokens.hair
+            failed
+              ? withAlpha(tokens.terra, 0.3)
+              : ready
+                ? withAlpha(tokens.teal, 0.34)
+                : tokens.hair
           }`,
-          borderLeft: `2px solid ${failed ? '#9a4538' : tokens.teal}`,
+          borderLeft: `2px solid ${failed ? tokens.terra : tokens.teal}`,
           borderRadius: 1.1,
-          background: ready ? 'rgba(31,111,107,.055)' : 'rgba(91,82,71,.035)',
+          background: ready ? withAlpha(tokens.teal, 0.055) : withAlpha(tokens.sub, 0.035),
           textAlign: 'left',
-          '&:hover': ready ? { background: 'rgba(31,111,107,.09)' } : undefined,
+          '&:hover': ready ? { background: withAlpha(tokens.teal, 0.09) } : undefined,
           '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
         }}
       >
         <Stack direction="row" alignItems="center" sx={{ width: '100%', minWidth: 0, gap: 1 }}>
           {failed ? (
-            <ErrorOutlineRounded sx={{ color: '#9a4538', fontSize: 16 }} />
+            <ErrorOutlineRounded sx={{ color: tokens.terra, fontSize: 16 }} />
           ) : card.jobKind === 'kernel_profile' || card.jobKind === 'kernel_measure' ? (
             <BuildOutlined sx={{ color: ready ? tokens.teal : tokens.gold, fontSize: 16 }} />
           ) : ready ? (
@@ -818,10 +821,10 @@ const TimelineCardView = memo(function TimelineCardView({
             <AdjustRounded sx={{ color: tokens.gold, fontSize: 16 }} />
           )}
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 700 }}>
+            <Typography sx={{ color: tokens.ink, fontSize: 12, fontWeight: 700 }}>
               {title}
             </Typography>
-            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               {card.artifactPath || card.experimentPath}
             </Typography>
           </Box>
@@ -971,8 +974,8 @@ function ConversationOpening({
       <Typography
         sx={{
           color: tokens.sub2,
-          fontFamily: tokens.mono,
-          fontSize: 9,
+          fontFamily: tokens.body,
+          fontSize: 12,
           fontWeight: 500,
           letterSpacing: '.15em',
           textTransform: 'uppercase',
@@ -1037,9 +1040,9 @@ export const ConversationTranscript = memo(function ConversationTranscript({
             border: `1px solid ${tokens.hair}`,
             borderRadius: 0.75,
             color: tokens.sub2,
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
-            '&:hover': { color: tokens.teal, borderColor: 'rgba(31,111,107,.35)' },
+            fontFamily: tokens.body,
+            fontSize: 12,
+            '&:hover': { color: tokens.teal, borderColor: withAlpha(tokens.teal, 0.35) },
           }}
         >
           {loadingEarlier ? 'Loading earlier…' : 'Load earlier messages'}
@@ -1082,7 +1085,7 @@ export const ConversationTranscript = memo(function ConversationTranscript({
       {error && (
         <Typography
           role="alert"
-          sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 9.5 }}
+          sx={{ color: tokens.terra, fontFamily: tokens.body, fontSize: 12 }}
         >
           {error}
         </Typography>
@@ -1160,9 +1163,9 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
         mb: 1.15,
         px: 0.85,
         py: 0.7,
-        border: `1px solid rgba(31,111,107,.22)`,
+        border: `1px solid ${withAlpha(tokens.teal, 0.22)}`,
         borderRadius: 0.85,
-        background: 'rgba(31,111,107,.045)',
+        background: withAlpha(tokens.teal, 0.045),
       }}
     >
       <Stack direction="row" alignItems="center" useFlexGap sx={{ gap: 0.65 }}>
@@ -1171,8 +1174,8 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
           sx={{
             flex: '0 0 auto',
             color: tokens.teal,
-            fontFamily: tokens.mono,
-            fontSize: 7.8,
+            fontFamily: tokens.body,
+            fontSize: 12,
             fontWeight: 650,
             letterSpacing: '.11em',
             textTransform: 'uppercase',
@@ -1198,7 +1201,7 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
           }}
         >
           {values.length === 0 ? (
-            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               No Analyzer selection
             </Typography>
           ) : (
@@ -1212,12 +1215,12 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
                   px: 0.55,
                   py: 0.3,
                   overflow: 'hidden',
-                  border: `1px solid ${index === 0 ? 'rgba(31,111,107,.25)' : tokens.hair}`,
+                  border: `1px solid ${index === 0 ? withAlpha(tokens.teal, 0.25) : tokens.hair}`,
                   borderRadius: 0.55,
-                  background: index === 0 ? 'rgba(31,111,107,.08)' : tokens.tile,
+                  background: index === 0 ? withAlpha(tokens.teal, 0.08) : tokens.tile,
                   color: index === 0 ? tokens.teal : tokens.sub,
-                  fontFamily: tokens.mono,
-                  fontSize: 8,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   lineHeight: 1,
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -1236,8 +1239,8 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
               ml: 'auto',
               flex: '0 0 auto',
               color: tokens.teal,
-              fontFamily: tokens.mono,
-              fontSize: 8,
+              fontFamily: tokens.body,
+              fontSize: 12,
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
             }}
           >
@@ -1254,7 +1257,7 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
             flex: '0 0 auto',
             borderRadius: 0.55,
             color: tokens.sub2,
-            '&:hover': { background: 'rgba(31,111,107,.08)', color: tokens.teal },
+            '&:hover': { background: withAlpha(tokens.teal, 0.08), color: tokens.teal },
             '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
           }}
         >
@@ -1272,8 +1275,8 @@ function AnalyzerSelectionStrip({ onClear }: { onClear: () => void }) {
             overflow: 'auto',
             borderTop: `1px solid ${tokens.hair}`,
             color: tokens.sub,
-            fontFamily: tokens.mono,
-            fontSize: 8,
+            fontFamily: tokens.body,
+            fontSize: 12,
             lineHeight: 1.45,
             whiteSpace: 'pre-wrap',
           }}
@@ -1310,13 +1313,13 @@ function ResumeTargetStrip({ role, onRelease }: { role: string; onRelease: () =>
         mb: 0.75,
         px: 0.9,
         py: 0.5,
-        border: '1px solid rgba(31,111,107,.26)',
+        border: `1px solid ${withAlpha(tokens.teal, 0.26)}`,
         borderRadius: 0.7,
-        background: 'rgba(31,111,107,.045)',
+        background: withAlpha(tokens.teal, 0.045),
       }}
     >
       <Box aria-hidden sx={{ width: 4, height: 4, borderRadius: '50%', background: tokens.teal }} />
-      <Typography sx={{ color: tokens.teal, fontFamily: tokens.mono, fontSize: 8 }}>
+      <Typography sx={{ color: tokens.teal, fontFamily: tokens.body, fontSize: 12 }}>
         Next message continues with the {role}
       </Typography>
       <ButtonBase
@@ -1328,9 +1331,9 @@ function ResumeTargetStrip({ role, onRelease }: { role: string; onRelease: () =>
           py: 0.15,
           borderRadius: 0.5,
           color: tokens.sub2,
-          fontFamily: tokens.mono,
-          fontSize: 8,
-          '&:hover': { color: tokens.teal, background: 'rgba(31,111,107,.08)' },
+          fontFamily: tokens.body,
+          fontSize: 12,
+          '&:hover': { color: tokens.teal, background: withAlpha(tokens.teal, 0.08) },
         }}
       >
         Back to orchestrator
@@ -1483,18 +1486,18 @@ const AgentComposer = memo(function AgentComposer({
                   gap: 0.2,
                   borderRadius: 999,
                   color: tokens.sub2,
-                  fontFamily: tokens.mono,
-                  fontSize: 7.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   letterSpacing: '.08em',
                   textTransform: 'uppercase',
-                  '&:hover': { color: tokens.teal, background: 'rgba(31,111,107,.055)' },
+                  '&:hover': { color: tokens.teal, background: withAlpha(tokens.teal, 0.055) },
                   '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
                 }}
               >
                 Model
                 <ExpandMoreRounded
                   sx={{
-                    fontSize: 11,
+                    fontSize: 12,
                     transform: runtimeExpanded ? 'none' : 'rotate(180deg)',
                     transition: `transform 180ms ${tokens.ease}`,
                   }}
@@ -1561,10 +1564,10 @@ const AgentComposer = memo(function AgentComposer({
             border: `1px solid ${tokens.hair}`,
             borderRadius: 1.15,
             background: tokens.leafbg,
-            boxShadow: '0 9px 28px -24px rgba(42,38,34,.55)',
+            boxShadow: `0 9px 28px -24px ${withAlpha(tokens.ink, 0.55)}`,
             '&:focus-within': {
-              borderColor: 'rgba(31,111,107,.58)',
-              boxShadow: '0 0 0 2px rgba(31,111,107,.075)',
+              borderColor: withAlpha(tokens.teal, 0.58),
+              boxShadow: `0 0 0 2px ${withAlpha(tokens.teal, 0.075)}`,
             },
           }}
         >
@@ -1583,7 +1586,7 @@ const AgentComposer = memo(function AgentComposer({
               background: 'transparent',
               color: tokens.ink,
               fontFamily: tokens.body,
-              fontSize: 11.5,
+              fontSize: 12,
               '&::placeholder': { color: tokens.sub2, opacity: 1 },
             }}
           />
@@ -1608,7 +1611,7 @@ const AgentComposer = memo(function AgentComposer({
                     background: tokens.leafbg,
                     color: tokens.teal,
                     transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}`,
-                    '&:hover': { background: 'rgba(31,111,107,.08)' },
+                    '&:hover': { background: withAlpha(tokens.teal, 0.08) },
                     '&:active': { transform: 'translateY(1px)' },
                     '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
                     '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
@@ -1631,11 +1634,11 @@ const AgentComposer = memo(function AgentComposer({
                   // mark, drawn as an outline that has not closed yet.
                   border: `1px ${interruptArmed ? 'dashed' : 'solid'} ${tokens.terra}`,
                   borderRadius: 0.85,
-                  background: interruptArmed ? 'rgba(153,68,45,.08)' : tokens.leafbg,
+                  background: interruptArmed ? withAlpha(tokens.terra, 0.08) : tokens.leafbg,
                   color: tokens.terra,
                   opacity: interruptArmed ? 0.75 : 1,
                   transition: `transform 120ms ${tokens.ease}, background 120ms ${tokens.ease}, opacity 120ms ${tokens.ease}`,
-                  '&:hover': { background: 'rgba(153,68,45,.08)' },
+                  '&:hover': { background: withAlpha(tokens.terra, 0.08) },
                   '&:active': { transform: 'translateY(1px)' },
                   '&.Mui-disabled': { borderColor: tokens.hair, color: tokens.sub2 },
                   '&:focus-visible': {
@@ -1732,7 +1735,7 @@ function ConversationHistory({
             inset: '54px 0 0',
             zIndex: 4,
             borderRadius: 0,
-            background: 'rgba(42,38,34,.12)',
+            background: colors.scrim,
           }}
         />
       )}
@@ -1755,7 +1758,7 @@ function ConversationHistory({
           gridTemplateRows: 'auto auto minmax(0,1fr)',
           borderRight: `1px solid ${tokens.hair}`,
           background: tokens.tile,
-          boxShadow: persistent ? 'none' : '16px 0 42px -30px rgba(42,38,34,.5)',
+          boxShadow: persistent ? 'none' : colors.sidebarShadow,
           animation: persistent ? 'none' : 'historyEnter 180ms ease-out',
           '@keyframes historyEnter': {
             from: { opacity: 0, transform: 'translateX(-8px)' },
@@ -1773,7 +1776,7 @@ function ConversationHistory({
             <Typography sx={{ color: tokens.ink, fontSize: 12.5, fontWeight: 700 }}>
               Conversations
             </Typography>
-            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               {conversations.length} saved
             </Typography>
           </Box>
@@ -1788,9 +1791,9 @@ function ConversationHistory({
               border: `1px solid ${tokens.hair}`,
               borderRadius: 0.8,
               color: tokens.teal,
-              fontSize: 10.5,
+              fontSize: 12,
               fontWeight: 700,
-              '&:hover': { borderColor: tokens.teal, background: 'rgba(31,111,107,.055)' },
+              '&:hover': { borderColor: tokens.teal, background: withAlpha(tokens.teal, 0.055) },
               '&:active': { transform: 'translateY(1px)' },
               '&.Mui-disabled': { color: tokens.sub2, opacity: 0.5 },
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
@@ -1810,10 +1813,10 @@ function ConversationHistory({
                 width: 30,
                 height: 30,
                 flex: '0 0 auto',
-                border: `1px solid ${persistent ? 'rgba(31,111,107,.42)' : tokens.hair}`,
+                border: `1px solid ${persistent ? withAlpha(tokens.teal, 0.42) : tokens.hair}`,
                 borderRadius: 0.8,
                 color: persistent ? tokens.teal : tokens.sub2,
-                background: persistent ? 'rgba(31,111,107,.055)' : 'transparent',
+                background: persistent ? withAlpha(tokens.teal, 0.055) : 'transparent',
                 '&:hover': { borderColor: tokens.teal, color: tokens.teal },
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}
@@ -1841,8 +1844,8 @@ function ConversationHistory({
             borderRadius: 0.8,
             background: tokens.leafbg,
             '&:focus-within': {
-              borderColor: 'rgba(31,111,107,.58)',
-              boxShadow: '0 0 0 2px rgba(31,111,107,.08)',
+              borderColor: withAlpha(tokens.teal, 0.58),
+              boxShadow: `0 0 0 2px ${withAlpha(tokens.teal, 0.08)}`,
             },
           }}
         >
@@ -1861,7 +1864,7 @@ function ConversationHistory({
               background: 'transparent',
               color: tokens.ink,
               fontFamily: tokens.body,
-              fontSize: 11,
+              fontSize: 12,
               '&::placeholder': { color: tokens.sub2, opacity: 1 },
             }}
           />
@@ -1885,20 +1888,20 @@ function ConversationHistory({
                   key={index}
                   variant="rounded"
                   height={48}
-                  sx={{ bgcolor: 'rgba(91,82,71,.07)', borderRadius: 0.8 }}
+                  sx={{ bgcolor: withAlpha(tokens.sub, 0.07), borderRadius: 0.8 }}
                 />
               ))}
             </Stack>
           ) : error ? (
-            <Typography role="alert" sx={{ px: 1, py: 1, color: tokens.terra, fontSize: 10.5 }}>
+            <Typography role="alert" sx={{ px: 1, py: 1, color: tokens.terra, fontSize: 12 }}>
               {error}
             </Typography>
           ) : visibleConversations.length === 0 ? (
             <Box sx={{ px: 1, py: 2.5 }}>
-              <Typography sx={{ color: tokens.ink, fontSize: 11.5, fontWeight: 650 }}>
+              <Typography sx={{ color: tokens.ink, fontSize: 12, fontWeight: 650 }}>
                 {conversations.length === 0 ? 'No conversations yet' : 'No matching conversations'}
               </Typography>
-              <Typography sx={{ mt: 0.35, color: tokens.sub2, fontSize: 10.5, lineHeight: 1.45 }}>
+              <Typography sx={{ mt: 0.35, color: tokens.sub2, fontSize: 12, lineHeight: 1.45 }}>
                 {conversations.length === 0
                   ? 'Start a new conversation to keep its work and results here.'
                   : 'Try a shorter title search.'}
@@ -1918,8 +1921,10 @@ function ConversationHistory({
                       minHeight: 48,
                       borderLeft: `2px solid ${active ? tokens.teal : 'transparent'}`,
                       borderRadius: 0.65,
-                      background: active ? 'rgba(31,111,107,.065)' : 'transparent',
-                      '&:hover': { background: active ? 'rgba(31,111,107,.085)' : tokens.tile2 },
+                      background: active ? tokens.selected : 'transparent',
+                      '&:hover': {
+                        background: active ? tokens.selected : tokens.leafbg,
+                      },
                       '&:focus-within .conversation-delete': { opacity: 1 },
                     }}
                   >
@@ -1955,7 +1960,7 @@ function ConversationHistory({
                           noWrap
                           sx={{
                             color: active ? tokens.ink : tokens.sub,
-                            fontSize: 11.25,
+                            fontSize: 12,
                             fontWeight: active ? 700 : 540,
                           }}
                         >
@@ -1965,8 +1970,8 @@ function ConversationHistory({
                           sx={{
                             mt: 0.1,
                             color: tokens.sub2,
-                            fontFamily: tokens.mono,
-                            fontSize: 8.25,
+                            fontFamily: tokens.body,
+                            fontSize: 12,
                           }}
                         >
                           {conversationTimeLabel(conversation.updated_at)}
@@ -1977,7 +1982,7 @@ function ConversationHistory({
                       <Stack direction="row" sx={{ pr: 0.45, gap: 0.25 }}>
                         <ButtonBase
                           onClick={() => setPendingDelete(null)}
-                          sx={{ px: 0.45, py: 0.35, color: tokens.sub2, fontSize: 8.5 }}
+                          sx={{ px: 0.45, py: 0.35, color: tokens.sub2, fontSize: 12 }}
                         >
                           Cancel
                         </ButtonBase>
@@ -1986,7 +1991,7 @@ function ConversationHistory({
                             setPendingDelete(null);
                             void onDelete(conversation.id);
                           }}
-                          sx={{ px: 0.45, py: 0.35, color: tokens.terra, fontSize: 8.5 }}
+                          sx={{ px: 0.45, py: 0.35, color: tokens.terra, fontSize: 12 }}
                         >
                           Delete
                         </ButtonBase>
@@ -2005,7 +2010,10 @@ function ConversationHistory({
                           borderRadius: 0.65,
                           color: tokens.sub2,
                           opacity: active ? 0.72 : 0,
-                          '&:hover': { color: tokens.terra, background: 'rgba(168,75,46,.06)' },
+                          '&:hover': {
+                            color: tokens.terra,
+                            background: withAlpha(tokens.terra, 0.06),
+                          },
                           '&:focus-visible': {
                             opacity: 1,
                             outline: `2px solid ${tokens.terra}`,
@@ -3156,7 +3164,7 @@ export default function AgentPane({
         gridTemplateRows: 'auto minmax(0,1fr) auto',
         position: 'relative',
         overflow: 'hidden',
-        background: roomy ? tokens.paper : '#eee7da',
+        background: roomy ? tokens.paper : tokens.tile,
         transition: `grid-template-columns 190ms ${tokens.ease}`,
         '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
       }}
@@ -3180,7 +3188,7 @@ export default function AgentPane({
             >
               VibeSim Agent
             </Typography>
-            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+            <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               {workspaceName
                 ? `${workspaceName} · ${activeConversationTitle}`
                 : activeConversationTitle}
@@ -3203,10 +3211,10 @@ export default function AgentPane({
               sx={{
                 width: 32,
                 height: 32,
-                border: `1px solid ${historyVisible ? 'rgba(31,111,107,.42)' : tokens.hair}`,
+                border: `1px solid ${historyVisible ? withAlpha(tokens.teal, 0.42) : tokens.hair}`,
                 borderRadius: 0.85,
                 color: historyVisible ? tokens.teal : tokens.sub,
-                background: historyVisible ? 'rgba(31,111,107,.055)' : 'transparent',
+                background: historyVisible ? withAlpha(tokens.teal, 0.055) : 'transparent',
                 '&:hover': { borderColor: tokens.teal, color: tokens.teal },
                 '&:active': { transform: 'translateY(1px)' },
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
@@ -3222,10 +3230,10 @@ export default function AgentPane({
                 sx={{
                   width: 32,
                   height: 32,
-                  border: `1px solid ${progressRailOpen ? 'rgba(31,111,107,.42)' : tokens.hair}`,
+                  border: `1px solid ${progressRailOpen ? withAlpha(tokens.teal, 0.42) : tokens.hair}`,
                   borderRadius: 0.85,
                   color: progressRailOpen ? tokens.teal : tokens.sub,
-                  background: progressRailOpen ? 'rgba(31,111,107,.055)' : 'transparent',
+                  background: progressRailOpen ? withAlpha(tokens.teal, 0.055) : 'transparent',
                   '&:hover': { borderColor: tokens.teal, color: tokens.teal },
                   '&:active': { transform: 'translateY(1px)' },
                   '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },

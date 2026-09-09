@@ -31,7 +31,7 @@ import {
 } from '../../domain/workspaceFile';
 import MarkdownBody from '../../components/MarkdownBody';
 import SurfaceCard from '../../components/SurfaceCard';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CodeView from './CodeView';
 import JsonView from './JsonView';
 import TableView from './TableView';
@@ -72,9 +72,9 @@ function ActionButton({
         border: `1px solid ${active ? tokens.teal : tokens.hair}`,
         borderRadius: 0.8,
         color: active ? tokens.teal : tokens.sub,
-        background: active ? 'rgba(31,111,107,.07)' : tokens.tile,
+        background: active ? withAlpha(tokens.teal, 0.07) : tokens.tile,
         fontFamily: tokens.mono,
-        fontSize: 9.5,
+        fontSize: 12,
         '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
         '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
       }}
@@ -103,14 +103,14 @@ function Breadcrumbs({ workspaceId, path }: { workspaceId: string; path: string 
             sx={{
               color: tokens.sub,
               fontFamily: tokens.mono,
-              fontSize: 9,
+              fontSize: 12,
               '&:hover': { color: tokens.teal, textDecoration: 'underline' },
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
             }}
           >
             {ancestor.label}
           </ButtonBase>
-          <Box component="span" sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9 }}>
+          <Box component="span" sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 12 }}>
             /
           </Box>
         </Box>
@@ -127,7 +127,7 @@ function Notice({ tone, children }: { tone: 'muted' | 'error'; children: React.R
         p: 2,
         color: tone === 'error' ? tokens.terra : tokens.sub,
         fontFamily: tokens.mono,
-        fontSize: 11,
+        fontSize: 12,
       }}
     >
       {children}
@@ -164,8 +164,8 @@ function DirectoryView({
               borderBottom: `1px solid ${tokens.hair}`,
               color: tokens.ink,
               fontFamily: tokens.mono,
-              fontSize: 11,
-              '&:hover': { background: 'rgba(31,111,107,.05)' },
+              fontSize: 12,
+              '&:hover': { background: withAlpha(tokens.teal, 0.05) },
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
             }}
           >
@@ -179,7 +179,7 @@ function DirectoryView({
               {entry.isDir ? '/' : ''}
             </Box>
             {!entry.isDir && (
-              <Box component="span" sx={{ color: tokens.sub2, fontSize: 9 }}>
+              <Box component="span" sx={{ color: tokens.sub2, fontSize: 12 }}>
                 {byteLabel(entry.size)}
               </Box>
             )}
@@ -241,13 +241,13 @@ function SearchBar({
           background: tokens.leafbg,
           color: tokens.ink,
           fontFamily: tokens.mono,
-          fontSize: 10.5,
+          fontSize: 12,
           '&:focus': { outline: `2px solid ${tokens.teal}`, outlineOffset: -1 },
         }}
       />
       <Typography
         aria-live="polite"
-        sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 9, minWidth: 64 }}
+        sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 12, minWidth: 64 }}
       >
         {query.trim() === ''
           ? ''
@@ -447,7 +447,7 @@ export default function FilePreviewPage({ fileRef }: { fileRef: WorkspaceFileRef
           />
         )}
         {meta && (
-          <Typography sx={{ mt: 0.6, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+          <Typography sx={{ mt: 0.6, color: tokens.sub2, fontFamily: tokens.mono, fontSize: 12 }}>
             {meta.isDir ? 'directory' : `${meta.previewKind} · ${byteLabel(meta.size)}`}
             {meta.language ? ` · ${meta.language}` : ''}
             {ansi ? ' · terminal colour' : ''}

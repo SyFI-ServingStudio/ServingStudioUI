@@ -2,7 +2,7 @@ import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SweepListItem } from '../../domain/sweep';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 
 interface DateGroup {
   date: string;
@@ -96,7 +96,7 @@ function LabelFilter({
     <Box role="group" aria-labelledby={labelId}>
       <Typography
         id={labelId}
-        sx={{ display: 'block', mb: 0.45, color: tokens.sub, fontSize: 9.5, fontWeight: 600 }}
+        sx={{ display: 'block', mb: 0.45, color: tokens.sub, fontSize: 12, fontWeight: 600 }}
       >
         {label}
       </Typography>
@@ -117,10 +117,12 @@ function LabelFilter({
               px: 0.9,
               border: `1px solid ${selectedValues.includes(option) ? tokens.teal : tokens.hair}`,
               borderRadius: 1.25,
-              background: selectedValues.includes(option) ? 'rgba(31,111,107,.1)' : tokens.tile,
+              background: selectedValues.includes(option)
+                ? withAlpha(tokens.teal, 0.1)
+                : tokens.tile,
               color: selectedValues.includes(option) ? tokens.teal : tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               lineHeight: 1,
               transition: `background 140ms ${tokens.ease}, border-color 140ms ${tokens.ease}`,
@@ -220,7 +222,7 @@ export default function ExperimentSelector({
           <Typography
             component="label"
             htmlFor="experiment-search"
-            sx={{ display: 'block', mb: 0.45, color: tokens.sub, fontSize: 9.5, fontWeight: 600 }}
+            sx={{ display: 'block', mb: 0.45, color: tokens.sub, fontSize: 12, fontWeight: 600 }}
           >
             Find experiment
           </Typography>
@@ -253,7 +255,7 @@ export default function ExperimentSelector({
           justifyContent="space-between"
           sx={{ minWidth: 132, height: 36 }}
         >
-          <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 9.5 }}>
+          <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
             {visibleEntries.length}/{entries.length} shown
           </Typography>
           {hasFilters && (
@@ -267,8 +269,8 @@ export default function ExperimentSelector({
                 px: 0.8,
                 py: 0.5,
                 color: tokens.teal,
-                fontFamily: tokens.mono,
-                fontSize: 9,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
               }}
             >
@@ -309,7 +311,7 @@ export default function ExperimentSelector({
           overflowY: 'auto',
           border: `1px solid ${tokens.hair}`,
           borderRadius: 1.5,
-          background: 'rgba(250,247,240,.58)',
+          background: withAlpha(tokens.tile, 0.58),
           p: { xs: 1.1, md: 1.5 },
           scrollbarWidth: 'thin',
           scrollbarColor: `${tokens.hair} transparent`,
@@ -342,8 +344,8 @@ export default function ExperimentSelector({
                     <Typography
                       sx={{
                         color: tokens.sub,
-                        fontFamily: tokens.mono,
-                        fontSize: 8.5,
+                        fontFamily: tokens.body,
+                        fontSize: 12,
                         fontWeight: 600,
                         letterSpacing: '.08em',
                         textTransform: 'uppercase',
@@ -356,7 +358,7 @@ export default function ExperimentSelector({
                     >
                       {parts.monthDay}
                     </Typography>
-                    <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8.5 }}>
+                    <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
                       {parts.year} · {group.entries.length}
                     </Typography>
                   </Box>
@@ -393,7 +395,7 @@ export default function ExperimentSelector({
                             overflow: 'hidden',
                             border: `1px solid ${selected ? tokens.teal : tokens.hair}`,
                             borderRadius: 1.25,
-                            background: selected ? 'rgba(31,111,107,.07)' : tokens.tile,
+                            background: selected ? withAlpha(tokens.teal, 0.07) : tokens.tile,
                             boxShadow: selected ? `inset 0 0 0 1px ${tokens.teal}` : 'none',
                             textAlign: 'left',
                             transition: `background 140ms ${tokens.ease}, border-color 140ms ${tokens.ease}`,
@@ -409,8 +411,8 @@ export default function ExperimentSelector({
                             <Typography
                               sx={{
                                 color: selected ? tokens.teal : tokens.sub,
-                                fontFamily: tokens.mono,
-                                fontSize: 8,
+                                fontFamily: tokens.body,
+                                fontSize: 12,
                                 fontWeight: 600,
                                 textTransform: 'uppercase',
                               }}
@@ -420,8 +422,8 @@ export default function ExperimentSelector({
                             <Typography
                               sx={{
                                 color: entry.status === 'ready' ? tokens.teal : tokens.terra,
-                                fontFamily: tokens.mono,
-                                fontSize: 8,
+                                fontFamily: tokens.body,
+                                fontSize: 12,
                                 textTransform: 'uppercase',
                               }}
                             >
@@ -449,8 +451,8 @@ export default function ExperimentSelector({
                               mt: 0.45,
                               overflow: 'hidden',
                               color: tokens.sub,
-                              fontFamily: tokens.mono,
-                              fontSize: 8.5,
+                              fontFamily: tokens.body,
+                              fontSize: 12,
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
@@ -461,8 +463,8 @@ export default function ExperimentSelector({
                             sx={{
                               mt: 0.15,
                               color: tokens.sub2,
-                              fontFamily: tokens.mono,
-                              fontSize: 8,
+                              fontFamily: tokens.body,
+                              fontSize: 12,
                             }}
                           >
                             {geometry}

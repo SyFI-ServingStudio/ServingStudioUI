@@ -25,7 +25,7 @@ export default function TableView({
 
   if (table === null) {
     return (
-      <Typography sx={{ p: 2, color: tokens.sub, fontFamily: tokens.mono, fontSize: 11 }}>
+      <Typography sx={{ p: 2, color: tokens.sub, fontFamily: tokens.mono, fontSize: 12 }}>
         This file has no rows to tabulate.
       </Typography>
     );
@@ -41,7 +41,7 @@ export default function TableView({
             borderCollapse: 'collapse',
             width: '100%',
             fontFamily: tokens.mono,
-            fontSize: 10.5,
+            fontSize: 12,
             fontVariantNumeric: 'tabular-nums',
             '& th, & td': {
               px: 1,
@@ -112,7 +112,7 @@ export default function TableView({
           borderTop: `1px solid ${tokens.hair}`,
           color: tokens.sub2,
           fontFamily: tokens.mono,
-          fontSize: 9,
+          fontSize: 12,
         }}
       >
         {table.rows.length} of {table.totalRows} rows · {table.header.length} columns

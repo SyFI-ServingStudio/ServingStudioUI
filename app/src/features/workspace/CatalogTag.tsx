@@ -14,52 +14,11 @@ export type CatalogTagTone =
   | 'profile'
   | 'measure';
 
-const toneStyles: Record<CatalogTagTone, { color: string; border: string; background: string }> = {
-  workspace: {
-    color: tokens.gold,
-    border: 'rgba(128,102,0,.27)',
-    background: 'rgba(128,102,0,.065)',
-  },
-  deployment: {
-    color: tokens.teal,
-    border: 'rgba(31,111,107,.28)',
-    background: 'rgba(31,111,107,.065)',
-  },
-  trace: {
-    color: tokens.olive,
-    border: 'rgba(86,106,46,.3)',
-    background: 'rgba(86,106,46,.07)',
-  },
-  axis: {
-    color: tokens.sectionAnalysis,
-    border: 'rgba(87,126,137,.28)',
-    background: 'rgba(87,126,137,.06)',
-  },
-  singleton: {
-    color: tokens.sub,
-    border: 'rgba(104,95,84,.25)',
-    background: 'rgba(104,95,84,.055)',
-  },
-  simulation: {
-    color: tokens.teal,
-    border: 'rgba(31,111,107,.28)',
-    background: 'rgba(31,111,107,.065)',
-  },
-  timing: {
-    color: tokens.gold,
-    border: 'rgba(128,102,0,.27)',
-    background: 'rgba(128,102,0,.065)',
-  },
-  profile: {
-    color: tokens.sectionAnalysis,
-    border: 'rgba(87,126,137,.3)',
-    background: 'rgba(87,126,137,.07)',
-  },
-  measure: {
-    color: tokens.terra,
-    border: 'rgba(168,75,46,.28)',
-    background: 'rgba(168,75,46,.065)',
-  },
+const typeTones: Partial<Record<CatalogTagTone, string>> = {
+  simulation: tokens.teal,
+  timing: tokens.gold,
+  profile: tokens.violet,
+  measure: tokens.olive,
 };
 
 /** Shared visual identity for catalog cells and their column-filter options. */
@@ -74,25 +33,29 @@ export default function CatalogTag({
   selected?: boolean;
   compact?: boolean;
 }) {
-  const style = toneStyles[tone];
+  const color = typeTones[tone] ?? tokens.sub;
+  const isType = tone in typeTones;
   return (
     <Box
       component="span"
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        minHeight: compact ? 17 : 21,
+        minHeight: compact ? 22 : 26,
         px: compact ? 0.6 : 0.85,
-        border: `1px solid ${style.border}`,
+        border: '1px solid transparent',
         borderRadius: 0.75,
-        background: style.background,
-        boxShadow: selected ? `inset 0 0 0 1px ${style.color}` : 'none',
-        color: style.color,
-        fontFamily: tokens.mono,
-        fontSize: compact ? 7.5 : 8.5,
+        background: isType ? `${color}12` : 'transparent',
+        boxShadow: selected ? `inset 0 0 0 1px ${color}` : 'none',
+        color,
+        fontFamily: 'inherit',
+        fontSize: compact ? 12 : 12.5,
         fontWeight: 500,
         lineHeight: 1,
         whiteSpace: 'nowrap',
+        maxWidth: '100%',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
       }}
     >
       {children}

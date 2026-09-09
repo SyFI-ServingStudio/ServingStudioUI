@@ -30,8 +30,8 @@ export default function AxisZoomFootnote({
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '4px 12px',
-        fontFamily: tokens.mono,
-        fontSize: 9,
+        fontFamily: tokens.body,
+        fontSize: 12,
         color: tokens.sub2,
       }}
     >
@@ -54,8 +54,8 @@ export default function AxisZoomFootnote({
             appearance: 'none',
             cursor: isFull ? 'default' : 'pointer',
             font: 'inherit',
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             p: '2px 8px',
             borderRadius: '6px',
             border: `1px solid ${isFull ? tokens.hair : tokens.teal}`,
@@ -76,8 +76,8 @@ function Key({ children }: { children: React.ReactNode }) {
     <Box
       component="kbd"
       sx={{
-        fontFamily: tokens.mono,
-        fontSize: 8.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         border: `1px solid ${tokens.hair}`,
         borderRadius: '4px',
         px: '3px',

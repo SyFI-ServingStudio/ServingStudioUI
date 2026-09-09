@@ -193,7 +193,7 @@ export default function KernelThroughputAnalysis<AnalysisData extends Analysis>(
   const option: EChartsOption = {
     animation: false,
     grid: { left: 56, right: 16, top: 28, bottom: 42 },
-    legend: { top: 0, right: 0, textStyle: { fontSize: 9 } },
+    legend: { top: 0, right: 0, textStyle: { fontSize: 12 } },
     tooltip: { trigger: 'axis' },
     xAxis,
     yAxis: { type: 'value', name: rate.label, nameLocation: 'middle', nameGap: 42 },
@@ -210,7 +210,7 @@ export default function KernelThroughputAnalysis<AnalysisData extends Analysis>(
         spacing={1}
         sx={{ mt: 0.35 }}
       >
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub }}>
+        <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           {rankedShapes
             ? `Rust cache grid shapes ranked by ${rate.label}`
             : `Rust cache evaluation across ${xField}${
@@ -230,8 +230,8 @@ export default function KernelThroughputAnalysis<AnalysisData extends Analysis>(
             '& .MuiToggleButton-root': {
               px: 0.8,
               py: 0.15,
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               lineHeight: 1.45,
               color: tokens.sub,
               borderColor: tokens.hair,

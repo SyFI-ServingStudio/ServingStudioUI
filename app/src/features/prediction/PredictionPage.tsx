@@ -1,3 +1,4 @@
+import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import {
@@ -33,7 +34,7 @@ import type { OptimalityMode } from '../../domain/optimality';
 import type { PredictionCase } from '../../domain/prediction';
 import type { SubjectResult } from '../../domain/subject';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { KernelEvidenceView, KernelInspectorView } from '../kernel';
 import {
   OptimalityKernelLadderCard,
@@ -134,11 +135,16 @@ function PredictionCasePicker({
     >
       <Stack direction="row" alignItems="center" sx={{ gap: 0.8, minHeight: 31 }}>
         <Typography
-          sx={{ flexShrink: 0, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}
+          sx={{ flexShrink: 0, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}
         >
           iterations
         </Typography>
-        <Stack direction="row" useFlexGap flexWrap="wrap" sx={{ gap: 0.55, minWidth: 0 }}>
+        <Stack
+          direction="row"
+          useFlexGap
+          flexWrap="wrap"
+          sx={{ gap: 0.75, minWidth: 0, maxHeight: 104, overflowY: 'auto', py: 0.25, flex: 1 }}
+        >
           {cases.map((predictionCase) => {
             const selected = predictionCase.caseId === selectedCaseId;
             return (
@@ -151,11 +157,11 @@ function PredictionCasePicker({
                   px: 0.9,
                   gap: 0.65,
                   borderRadius: 0.75,
-                  border: `1px solid ${selected ? 'rgba(31,111,107,.5)' : tokens.hair}`,
+                  border: `1px solid ${selected ? withAlpha(tokens.teal, 0.5) : tokens.hair}`,
                   color: selected ? tokens.teal : tokens.ink,
-                  background: selected ? 'rgba(31,111,107,.08)' : tokens.tile2,
-                  fontFamily: tokens.mono,
-                  fontSize: 9.5,
+                  background: selected ? withAlpha(tokens.teal, 0.08) : tokens.tile2,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   transition: `background-color .16s ${tokens.ease}, border-color .16s ${tokens.ease}`,
                 }}
               >
@@ -199,7 +205,7 @@ function PredictionCasePicker({
           flexWrap="wrap"
           sx={{ gap: 0.45, mt: 0.8, pt: 0.8, borderTop: `1px solid ${tokens.hair}` }}
         >
-          <Typography sx={{ mr: 0.3, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}>
+          <Typography sx={{ mr: 0.3, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
             operations
           </Typography>
           {selectedCase.operations.map((operation) => {
@@ -213,11 +219,11 @@ function PredictionCasePicker({
                   px: 0.75,
                   py: 0.32,
                   borderRadius: 0.65,
-                  border: `1px solid ${selected ? 'rgba(31,111,107,.45)' : tokens.hair}`,
+                  border: `1px solid ${selected ? withAlpha(tokens.teal, 0.45) : tokens.hair}`,
                   color: selected ? tokens.teal : tokens.sub,
-                  background: selected ? 'rgba(31,111,107,.07)' : 'transparent',
-                  fontFamily: tokens.mono,
-                  fontSize: 9,
+                  background: selected ? withAlpha(tokens.teal, 0.07) : 'transparent',
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                 }}
               >
                 {operation.section} · layer {operation.layer} · {fmtMs(operation.timeMs)}
@@ -463,7 +469,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     const error = descriptor.error ?? casePage.error;
     return (
       <SurfaceCard role="alert" accent={tokens.terra} sx={{ p: 2 }}>
-        <Typography sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 11 }}>
+        <Typography sx={{ color: tokens.terra, fontFamily: tokens.body, fontSize: 12 }}>
           {error instanceof Error ? error.message : 'Could not load timing prediction.'}
         </Typography>
       </SurfaceCard>
@@ -488,7 +494,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     workbench = (
       <CostTreeFrame identity={evidenceHeader}>
         <CostTreeStatusViewport role="alert">
-          <Typography sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 11 }}>
+          <Typography sx={{ color: tokens.terra, fontFamily: tokens.body, fontSize: 12 }}>
             {costTree.error instanceof Error ? costTree.error.message : 'Could not load CostTree.'}
           </Typography>
         </CostTreeStatusViewport>
@@ -502,7 +508,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     workbench = (
       <CostTreeFrame identity={evidenceHeader}>
         <CostTreeStatusViewport role="status" busy>
-          <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 11 }}>
+          <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
             Loading exact prediction CostTree…
           </Typography>
         </CostTreeStatusViewport>
@@ -563,7 +569,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             <Typography sx={{ fontFamily: tokens.serif, fontSize: 15, fontWeight: 600 }}>
               Select a kernel
             </Typography>
-            <Typography sx={{ mt: 0.45, color: tokens.sub, fontFamily: tokens.mono, fontSize: 10 }}>
+            <Typography sx={{ mt: 0.45, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
               Select a CostTree leaf to inspect exact input, backend, and modeled performance.
             </Typography>
           </SurfaceCard>
@@ -573,7 +579,8 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
   }
 
   return (
-    <Stack sx={{ gap: 2 }}>
+    <Stack sx={{ gap: 2, p: { xs: 2, md: 4 }, maxWidth: 1560, mx: 'auto' }}>
+      <AnalysisPageHeader title="Timing prediction" detail={descriptor.data.displayName} />
       <PredictionSelectionUrlSync predictionId={predictionId} />
       <PredictionCasePicker
         cases={casePage.data.cases}
@@ -632,8 +639,8 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             '& .MuiToggleButton-root': {
               px: 1,
               py: 0.2,
-              fontFamily: tokens.mono,
-              fontSize: 9.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               lineHeight: 1.45,
               color: tokens.sub,
               borderColor: tokens.hair,

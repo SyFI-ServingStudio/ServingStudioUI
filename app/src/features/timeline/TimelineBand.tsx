@@ -5,7 +5,7 @@ import { CHART_THEME } from '../../charts/platform';
 import EChart from '../../components/EChart';
 import SurfaceCard from '../../components/SurfaceCard';
 import { useViz } from '../../store';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 import { concurrencySparkOption } from './timelineOptions';
 import {
   beginTimelineInteraction,
@@ -30,13 +30,13 @@ export default function TimelineBand() {
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
             Timeline
           </Typography>
-          <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+          <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             {subjectStatusLabel(concurrency)}
           </Typography>
         </Stack>
         <Typography
           role="status"
-          sx={{ mt: 0.75, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+          sx={{ mt: 0.75, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}
         >
           {subjectStatusMessage(concurrency)}
         </Typography>
@@ -54,7 +54,7 @@ export default function TimelineBand() {
         </Typography>
         <Typography
           role="status"
-          sx={{ mt: 0.75, fontFamily: tokens.mono, fontSize: 10.5, color: tokens.sub }}
+          sx={{ mt: 0.75, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}
         >
           Concurrency subject is ready but has no positive wall-clock span.
         </Typography>
@@ -82,20 +82,20 @@ export default function TimelineBand() {
 
   const allSel = cur == null;
   const pill = {
-    fontFamily: tokens.mono,
-    fontSize: 11,
+    fontFamily: tokens.body,
+    fontSize: 12,
     fontWeight: 600,
     px: 1.25,
     py: 0.5,
     borderRadius: 1.5,
     cursor: 'pointer',
     color: allSel ? tokens.teal : tokens.sub,
-    background: allSel ? 'rgba(31,111,107,.10)' : 'transparent',
+    background: allSel ? withAlpha(tokens.teal, 0.1) : 'transparent',
     border: `1px solid ${allSel ? tokens.teal : tokens.hair}`,
     transition: `all .22s ${tokens.ease}`,
     '&:hover': {
       color: allSel ? tokens.teal : tokens.ink,
-      borderColor: allSel ? tokens.teal : '#cabf9f',
+      borderColor: allSel ? tokens.teal : colors.borderHover,
     },
     '&:focus-visible': {
       outline: `2px solid ${tokens.ink}`,
@@ -117,8 +117,8 @@ export default function TimelineBand() {
           <Box
             component="span"
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 10.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.sub,
               ml: 1.25,
               fontWeight: 400,
@@ -130,8 +130,8 @@ export default function TimelineBand() {
         <Box
           sx={{
             ml: 'auto',
-            fontFamily: tokens.mono,
-            fontSize: 11.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: cur != null ? tokens.terra : tokens.sub,
             minWidth: 118,
             textAlign: 'right',
@@ -224,7 +224,7 @@ export default function TimelineBand() {
                 height: 12,
                 borderRadius: '50%',
                 background: tokens.terra,
-                border: '2px solid #fff',
+                border: `2px solid ${colors.tooltipText}`,
                 boxShadow: tokens.shadow,
                 pointerEvents: 'none',
               }}
@@ -235,7 +235,7 @@ export default function TimelineBand() {
       <Stack
         direction="row"
         justifyContent="space-between"
-        sx={{ mt: 0.4, fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2 }}
+        sx={{ mt: 0.4, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}
       >
         <span>0s</span>
         <span>active requests in flight ↑ · drag or use arrow keys</span>

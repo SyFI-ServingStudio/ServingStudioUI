@@ -55,8 +55,8 @@ export default function KpiStatline() {
             </Typography>
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 10,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.16em',
                 textTransform: 'uppercase',
                 color: tokens.sub,
@@ -71,7 +71,7 @@ export default function KpiStatline() {
       {sloSubject.status !== 'ready' && (
         <Typography
           role="status"
-          sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub }}
+          sx={{ mt: 1, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}
         >
           Latency KPIs unavailable · {subjectStatusMessage(sloSubject)}
         </Typography>

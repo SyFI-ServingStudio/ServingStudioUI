@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, max, scale, sum } from '../../domain/cost-tree';
+import { annotate, leaf, max, scale, sum, GROUP } from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import TimeShareBlocks from './TimeShareBlocks';
 
@@ -90,19 +90,17 @@ describe('TimeShareBlocks interaction targets', () => {
     expect(largeSegment).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('uses Mineral across family, position, and all-color bars', () => {
+  it('uses the same semantic family color without a decorative palette bar', () => {
     render(<TimeShareBlocks />);
-
-    const familySegment = screen.getByRole('img', { name: /^Attention —/ });
-    const positionSegment = screen.getByRole('button', { name: /attention\.decode/ });
-    expect(familySegment).toHaveStyle({ background: '#3f765b' });
-    expect(positionSegment).toHaveStyle({ background: '#3f765b' });
-    const preview = screen.getByRole('group', { name: 'All kernel family colors' });
-    expect(preview.querySelectorAll('[role="img"]')).toHaveLength(6);
-    expect(screen.getByRole('img', { name: 'Dense GEMM color #49617a' })).toHaveStyle({
-      background: '#49617a',
+    expect(screen.getByRole('img', { name: /^Attention —/ })).toHaveStyle({
+      background: GROUP.attn.color,
     });
-    expect(screen.queryByRole('button', { name: 'Light' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /attention\.decode/ })).toHaveStyle({
+      background: GROUP.attn.color,
+    });
+    expect(
+      screen.queryByRole('group', { name: 'All kernel family colors' }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows only the scaled critical Max branch against root wall-clock cost', () => {

@@ -180,8 +180,8 @@ export default function PerfettoTrace() {
               mt: 0.2,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              fontFamily: tokens.mono,
-              fontSize: 10,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.sub,
             }}
           >
@@ -224,8 +224,8 @@ export default function PerfettoTrace() {
               border: `1px solid ${tokens.teal}`,
               background: expanded ? tokens.teal : tokens.leafbg,
               color: expanded ? tokens.leafbg : tokens.teal,
-              fontFamily: tokens.mono,
-              fontSize: 10.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               '&:hover': {
                 background: expanded ? tokens.ink : tokens.tile2,
                 borderColor: expanded ? tokens.ink : tokens.teal,
@@ -241,8 +241,8 @@ export default function PerfettoTrace() {
         role={queryProblem !== null || status === 'error' ? 'alert' : 'status'}
         sx={{
           mt: 0.7,
-          fontFamily: tokens.mono,
-          fontSize: 10,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color:
             queryProblem !== null || status === 'error'
               ? tokens.terra

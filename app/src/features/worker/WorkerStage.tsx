@@ -139,7 +139,7 @@ function KernelInspectorPlaceholder() {
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
           Kernel inspector
         </Typography>
-        <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+        <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           Select a kernel in the CostTree to inspect exact execution facts.
         </Typography>
       </Box>
@@ -171,15 +171,15 @@ function NonReadyWorkerStage({ state }: { state: NonReadyWorkerTreeState }) {
         <Typography
           sx={{
             mt: 0.5,
-            fontFamily: tokens.mono,
-            fontSize: 11,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
             lineHeight: 1.6,
           }}
         >
           {state.reason}
         </Typography>
-        <Typography sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub2 }}>
+        <Typography sx={{ mt: 1, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
           evidence status · {state.status}
           {state.code ? ` · ${state.code}` : ''}
         </Typography>
@@ -274,7 +274,7 @@ function IterationWorkerStage() {
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
             Loading exact worker CostTree detail
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             Loading evidence for {worker}…
           </Typography>
         </CostTreeStatusViewport>
@@ -287,7 +287,7 @@ function IterationWorkerStage() {
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
             Select an exact operation
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             CostTree detail is requested only after an exact iter, batch/slot, and operation are
             selected.
           </Typography>
@@ -301,7 +301,7 @@ function IterationWorkerStage() {
           <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 16 }}>
             Invalid worker selection
           </Typography>
-          <Typography sx={{ mt: 0.5, fontFamily: tokens.mono, fontSize: 11, color: tokens.sub }}>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             {state.error.message}
           </Typography>
         </CostTreeStatusViewport>

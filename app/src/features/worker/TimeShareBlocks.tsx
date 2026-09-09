@@ -2,7 +2,7 @@ import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import SurfaceCard from '../../components/SurfaceCard';
 import { useViz } from '../../store';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import {
   criticalLeafTotals,
   GROUP,
@@ -34,77 +34,8 @@ type PreviewPalette = Readonly<
 >;
 
 const MINERAL_PALETTE: PreviewPalette = Object.fromEntries(
-  GROUP_ORDER.map((group) => [group, { color: GROUP[group].color, foreground: '#fff' }]),
+  GROUP_ORDER.map((group) => [group, { color: GROUP[group].color, foreground: tokens.paper }]),
 );
-
-// Light palette candidate intentionally disabled after review:
-// gemm #a9bdd2, attn #a8cdb8, comm #d4b0be,
-// norm #c7d6a3, route #c2b8dc, misc #c5ccd2.
-
-function PalettePreviewBar({ palette }: { palette: PreviewPalette }) {
-  return (
-    <Stack spacing={0.9}>
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
-          letterSpacing: '.14em',
-          textTransform: 'uppercase',
-          color: tokens.sub,
-        }}
-      >
-        <span>all kernel families</span>
-        <Box
-          component="span"
-          sx={{ color: tokens.sub2, letterSpacing: '.02em', textTransform: 'none' }}
-        >
-          equal-width · visual only
-        </Box>
-      </Stack>
-      <Box
-        role="group"
-        aria-label="All kernel family colors"
-        sx={{
-          display: 'flex',
-          height: 42,
-          overflow: 'hidden',
-          border: `1px solid ${tokens.hair}`,
-          borderRadius: 1.25,
-        }}
-      >
-        {GROUP_ORDER.map((group) => {
-          const family = GROUP[group];
-          const swatch = palette[group];
-          return (
-            <Tooltip key={group} title={`${family.label} · ${swatch.color}`} arrow placement="top">
-              <Box
-                role="img"
-                aria-label={`${family.label} color ${swatch.color}`}
-                sx={{
-                  display: 'flex',
-                  width: `${100 / GROUP_ORDER.length}%`,
-                  minWidth: 0,
-                  alignItems: 'center',
-                  px: 1,
-                  color: swatch.foreground,
-                  background: swatch.color,
-                  boxShadow: 'inset -1.5px 0 rgba(250,247,240,.65)',
-                  '&:last-of-type': { boxShadow: 'none' },
-                }}
-              >
-                <Typography noWrap sx={{ fontSize: 10, fontWeight: 600 }}>
-                  {family.label}
-                </Typography>
-              </Box>
-            </Tooltip>
-          );
-        })}
-      </Box>
-    </Stack>
-  );
-}
 
 function Bar({
   title,
@@ -127,8 +58,8 @@ function Bar({
         direction="row"
         spacing={1}
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.14em',
           textTransform: 'uppercase',
           color: tokens.sub,
@@ -200,7 +131,7 @@ function Bar({
                   cursor: interactive ? 'pointer' : 'default',
                   background: s.color,
                   borderRight: 0,
-                  boxShadow: 'inset -1.5px 0 rgba(250,247,240,.65)',
+                  boxShadow: `inset -1.5px 0 ${withAlpha(tokens.tile, 0.65)}`,
                   outline: selected ? `2.5px solid ${tokens.ink}` : 'none',
                   outlineOffset: -2.5,
                   zIndex: selected ? 4 : 1,
@@ -219,7 +150,7 @@ function Bar({
                 {s.pct >= 5 && (
                   <Typography
                     sx={{
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 600,
                       color: s.foreground,
                       textShadow: 'none',
@@ -233,8 +164,8 @@ function Bar({
                 {s.pct >= 3 && (
                   <Typography
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 9,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       color: s.foreground,
                     }}
                   >
@@ -314,7 +245,7 @@ export function TimeShareBlocksView({
       full: `${lt.positions.length - cutoff} smaller kernels`,
       pct: restPct,
       ms: (lt.totalMs * restPct) / 100,
-      color: '#e5ddca',
+      color: tokens.sub2,
       foreground: tokens.sub,
       nodeId: null,
       other: true,
@@ -341,7 +272,7 @@ export function TimeShareBlocksView({
           >
             Kernel time breakdown
           </Typography>
-          <Typography sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub }}>
+          <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
             critical path · root wall-clock
           </Typography>
         </Box>
@@ -362,11 +293,10 @@ export function TimeShareBlocksView({
           selectedLeafId={selectedLeafId}
           onSelectKernel={onSelectKernel}
         />
-        <PalettePreviewBar palette={palette} />
         <Stack
           direction="row"
           justifyContent="space-between"
-          sx={{ fontFamily: tokens.mono, fontSize: 9, color: tokens.sub2, letterSpacing: '.05em' }}
+          sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub2, letterSpacing: '.05em' }}
         >
           <span>0%</span>
           <span>25%</span>
@@ -375,7 +305,7 @@ export function TimeShareBlocksView({
           <span>100% of CostTree root wall-clock cost</span>
         </Stack>
         <Typography
-          sx={{ fontFamily: tokens.mono, fontSize: 10, color: tokens.sub, letterSpacing: '.03em' }}
+          sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub, letterSpacing: '.03em' }}
         >
           Critical-path share of this operation&apos;s CostTree root wall-clock cost by family and
           kernel position.

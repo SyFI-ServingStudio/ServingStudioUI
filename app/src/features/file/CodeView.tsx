@@ -1,7 +1,7 @@
 import { Box } from '@mui/material';
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { highlightSx } from './highlight';
 
 /**
@@ -60,7 +60,7 @@ export default function CodeView({
         overflowX: wrap ? 'hidden' : 'auto',
         color: tokens.ink,
         fontFamily: tokens.mono,
-        fontSize: 11.5,
+        fontSize: 12,
         lineHeight: 1.65,
         tabSize: 4,
       }}
@@ -71,11 +71,11 @@ export default function CodeView({
         const isActiveMatch = number === activeMatchLine;
         const isMatch = matched.has(number);
         const rowBackground = isActiveMatch
-          ? 'rgba(128,102,0,.2)'
+          ? withAlpha(tokens.gold, 0.2)
           : isMatch
-            ? 'rgba(128,102,0,.09)'
+            ? withAlpha(tokens.gold, 0.09)
             : highlighted
-              ? 'rgba(31,111,107,.12)'
+              ? withAlpha(tokens.teal, 0.12)
               : null;
         // highlight.js escapes the source before wrapping it in spans, so its
         // per-line fragment carries no markup from the file itself.

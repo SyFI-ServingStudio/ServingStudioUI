@@ -3,7 +3,7 @@ import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useState } from 'react';
 
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 
 /**
  * A collapsible tree over parsed JSON.
@@ -89,7 +89,7 @@ function JsonNode({
           justifyContent: 'flex-start',
           font: 'inherit',
           color: tokens.ink,
-          '&:hover': { background: 'rgba(31,111,107,.06)' },
+          '&:hover': { background: withAlpha(tokens.teal, 0.06) },
           '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
         }}
       >
@@ -131,10 +131,10 @@ export default function JsonView({ text }: { text: string }) {
   } catch (reason: unknown) {
     return (
       <Stack sx={{ p: 2, gap: 0.5 }}>
-        <Typography sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 11 }}>
+        <Typography sx={{ color: tokens.terra, fontFamily: tokens.mono, fontSize: 12 }}>
           This file is not valid JSON: {reason instanceof Error ? reason.message : String(reason)}
         </Typography>
-        <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 10 }}>
+        <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 12 }}>
           Switch to Source to read it as text.
         </Typography>
       </Stack>
@@ -148,7 +148,7 @@ export default function JsonView({ text }: { text: string }) {
         overflowX: 'auto',
         color: tokens.ink,
         fontFamily: tokens.mono,
-        fontSize: 11.5,
+        fontSize: 12,
         lineHeight: 1.6,
       }}
     >

@@ -1,11 +1,12 @@
+import SearchRounded from '@mui/icons-material/SearchRounded';
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
-import { Box, ButtonBase, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, InputBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import type { ManagedJobKind, ManagedJobListItem } from '../../application/managedJobRepository';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
 import type { SweepListItem } from '../../domain/sweep';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag, { type CatalogTagTone } from './CatalogTag';
 
@@ -208,6 +209,7 @@ export default function ExperimentCatalog({
   onActivateOfflineResource: (resource: OfflineResourceCatalogItem, workspaceId: string) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
+  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);
   const results = useMemo(
     () => catalogResults(entries, offlineResources, jobs),
@@ -231,10 +233,25 @@ export default function ExperimentCatalog({
     () =>
       new Set(
         sortedResults
-          .filter((entry) => matchesFilters(entry, selected))
+          .filter(
+            (entry) =>
+              matchesFilters(entry, selected) &&
+              [
+                entry.name,
+                entry.subtitle,
+                RESULT_LABELS[entry.kind],
+                workspaceNames[entry.workspaceId] ?? entry.workspaceId,
+                ...entry.deployments,
+                ...entry.traces,
+                ...entry.axes,
+              ]
+                .join(' ')
+                .toLocaleLowerCase()
+                .includes(search.trim().toLocaleLowerCase()),
+          )
           .map((entry) => entry.identity),
       ),
-    [selected, sortedResults],
+    [search, selected, sortedResults, workspaceNames],
   );
   const visibleCount = visibleIds.size;
   const hasFilters = (Object.keys(selected) as FilterKind[]).some(
@@ -250,17 +267,59 @@ export default function ExperimentCatalog({
   const clearKind = (kind: FilterKind) => setSelected((current) => ({ ...current, [kind]: [] }));
   const columns = {
     xs: 'minmax(0,1fr) 34px',
-    md: '92px minmax(190px,1.35fr) 128px 148px minmax(230px,1.25fr) 30px',
+    md: '100px minmax(220px,2fr) 140px 160px minmax(140px,1fr) 30px',
   };
 
   return (
-    <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
+    <Box
+      sx={{
+        border: `1px solid ${tokens.hair}`,
+        borderRadius: '12px',
+        background: tokens.tile,
+        overflow: 'hidden',
+      }}
+    >
+      <Stack
+        direction="row"
+        alignItems="center"
+        sx={{
+          gap: 1.5,
+          px: 2,
+          py: 1.5,
+          borderBottom: `1px solid ${tokens.hair}`,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Stack direction="row" alignItems="center" sx={{ flex: '1 1 240px', gap: 1, minWidth: 0 }}>
+          <SearchRounded sx={{ color: tokens.sub2, fontSize: 20 }} />
+          <InputBase
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search results, workspaces, or deployments"
+            inputProps={{ 'aria-label': 'Search results' }}
+            sx={{ width: '100%', fontSize: 14 }}
+          />
+        </Stack>
+        <Typography sx={{ color: tokens.sub, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+          {visibleCount} of {results.length} results
+        </Typography>
+        {search && (
+          <ButtonBase
+            onClick={() => setSearch('')}
+            sx={{ color: tokens.teal, fontSize: 12, p: 0.5 }}
+          >
+            Clear search
+          </ButtonBase>
+        )}
+      </Stack>
       <Box
         aria-label="Result table columns"
         sx={{
           minHeight: 47,
           px: { xs: 1.4, md: 1.75 },
-          display: 'grid',
+          display: { xs: 'flex', md: 'grid' },
+          flexWrap: 'wrap',
+          py: 1,
           gridTemplateColumns: columns,
           alignItems: 'center',
           gap: { xs: 1, md: 1.4 },
@@ -271,14 +330,14 @@ export default function ExperimentCatalog({
           sx={{
             display: { xs: 'none', md: 'block' },
             color: tokens.sub,
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
           }}
         >
           Run date
         </Typography>
         <Stack direction="row" alignItems="center" useFlexGap sx={{ minWidth: 0, gap: 1 }}>
-          <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 8.5 }}>
+          <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
             Result
           </Typography>
           <Typography
@@ -286,42 +345,33 @@ export default function ExperimentCatalog({
               pl: 1,
               borderLeft: `1px solid ${tokens.hair}`,
               color: tokens.sub2,
-              fontFamily: tokens.mono,
-              fontSize: 8,
+              fontFamily: tokens.body,
+              fontSize: 12,
               whiteSpace: 'nowrap',
             }}
           >
             {visibleCount} matches
           </Typography>
         </Stack>
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <CatalogColumnFilter
-            label="Type"
-            options={options.type}
-            selected={selected.type}
-            onToggle={(value) => toggle('type', value)}
-            onClear={() => clearKind('type')}
-            optionLabel={(value) => RESULT_LABELS[value as ResultKind]}
-            tone={(value) => RESULT_TONES[value as ResultKind]}
-          />
-        </Box>
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          <CatalogColumnFilter
-            label="Workspace"
-            options={options.workspace}
-            selected={selected.workspace}
-            onToggle={(value) => toggle('workspace', value)}
-            onClear={() => clearKind('workspace')}
-            optionLabel={(workspaceId) => workspaceNames[workspaceId] ?? workspaceId}
-            tone="workspace"
-          />
-        </Box>
-        <Stack
-          direction="row"
-          alignItems="center"
-          useFlexGap
-          sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.7 }}
-        >
+        <CatalogColumnFilter
+          label="Type"
+          options={options.type}
+          selected={selected.type}
+          onToggle={(value) => toggle('type', value)}
+          onClear={() => clearKind('type')}
+          optionLabel={(value) => RESULT_LABELS[value as ResultKind]}
+          tone={(value) => RESULT_TONES[value as ResultKind]}
+        />
+        <CatalogColumnFilter
+          label="Workspace"
+          options={options.workspace}
+          selected={selected.workspace}
+          onToggle={(value) => toggle('workspace', value)}
+          onClear={() => clearKind('workspace')}
+          optionLabel={(value) => workspaceNames[value] ?? value}
+          tone="workspace"
+        />
+        <Stack direction="row" useFlexGap sx={{ gap: 0.7, flexWrap: 'wrap' }}>
           <CatalogColumnFilter
             label="Deployment"
             options={options.deployment}
@@ -354,8 +404,8 @@ export default function ExperimentCatalog({
           sx={{
             justifySelf: 'end',
             color: tokens.teal,
-            fontFamily: tokens.mono,
-            fontSize: 8,
+            fontFamily: tokens.body,
+            fontSize: 12,
             '&.Mui-disabled': { color: tokens.sub2, opacity: 0.45 },
           }}
         >
@@ -367,7 +417,7 @@ export default function ExperimentCatalog({
         role="listbox"
         aria-label="Results, newest first"
         sx={{
-          maxHeight: 426,
+          maxHeight: 'max(360px, calc(100dvh - 350px))',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           scrollbarWidth: 'thin',
@@ -414,10 +464,10 @@ export default function ExperimentCatalog({
               }
               sx={{
                 width: '100%',
-                minHeight: visible ? 71 : 0,
-                maxHeight: visible ? 90 : 0,
+                minHeight: visible ? 76 : 0,
+                maxHeight: visible ? 110 : 0,
                 px: { xs: 1.4, md: 1.75 },
-                py: visible ? 1.25 : 0,
+                py: visible ? 1.75 : 0,
                 display: 'grid',
                 gridTemplateColumns: columns,
                 alignItems: 'center',
@@ -432,7 +482,7 @@ export default function ExperimentCatalog({
                 textAlign: 'left',
                 transition: `max-height 380ms ${tokens.ease}, min-height 380ms ${tokens.ease}, opacity 240ms ${tokens.ease}, transform 300ms ${tokens.ease}, padding 380ms ${tokens.ease}, background 250ms ${tokens.ease}`,
                 '&:hover': {
-                  background: 'rgba(31,111,107,.045)',
+                  background: withAlpha(tokens.teal, 0.045),
                   '& .result-go': {
                     background: tokens.teal,
                     borderColor: tokens.teal,
@@ -448,8 +498,8 @@ export default function ExperimentCatalog({
                 sx={{
                   display: { xs: 'none', md: 'block' },
                   color: tokens.sub,
-                  fontFamily: tokens.mono,
-                  fontSize: 9.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
@@ -461,20 +511,29 @@ export default function ExperimentCatalog({
                   sx={{
                     overflow: 'hidden',
                     color: tokens.ink,
-                    fontFamily: tokens.mono,
-                    fontSize: 13.5,
+                    fontFamily: tokens.body,
+                    fontSize: 15,
                     fontWeight: 500,
                     letterSpacing: '-.015em',
                     textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    lineHeight: 1.4,
                   }}
                 >
                   {entry.name}
                 </Typography>
                 <Typography
-                  sx={{ mt: 0.35, color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 }}
+                  sx={{ mt: 0.35, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}
                 >
                   {entry.subtitle}
+                  <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
+                    {' '}
+                    · {RESULT_LABELS[entry.kind]} · {formatDate(entry.timestamp)}
+                  </Box>
                 </Typography>
               </Box>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>

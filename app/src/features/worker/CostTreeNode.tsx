@@ -16,11 +16,10 @@ import {
   type ScaleNode,
   type SumNode,
 } from '../../domain/cost-tree';
-import { tokens } from '../../theme';
+import { tokens, withAlpha, colors } from '../../theme';
 import { scaledQuantity } from '../../util';
 import SelectionBoundary from './SelectionBoundary';
 
-const SEQUENTIAL_RGB = '74,91,104';
 const COMPUTE_RATE_SCALES = [
   { divisor: 1000, unit: 'PFLOP/s' },
   { divisor: 1, unit: 'TFLOP/s' },
@@ -106,9 +105,9 @@ function WrapLabel({
       flexWrap="wrap"
       sx={{
         rowGap: compact ? 0.2 : 0.4,
-        fontFamily: tokens.mono,
+        fontFamily: tokens.body,
         fontWeight: 500,
-        fontSize: compact ? 8 : 9,
+        fontSize: compact ? 10 : 12,
         letterSpacing: '.12em',
         textTransform: 'uppercase',
         color: tokens.sub,
@@ -124,7 +123,7 @@ function WrapLabel({
     >
       {text && (
         <>
-          <Box component="span" sx={{ color: `rgb(${SEQUENTIAL_RGB})`, fontSize: 12 }}>
+          <Box component="span" sx={{ color: tokens.olive, fontSize: 12 }}>
             {glyph}
           </Box>
           {text}
@@ -155,11 +154,11 @@ function WrapLabel({
         <Box
           component="span"
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.violet,
-            border: '1px solid rgba(122,92,255,.3)',
-            background: 'rgba(122,92,255,.08)',
+            border: `1px solid ${withAlpha(tokens.violet, 0.3)}`,
+            background: withAlpha(tokens.violet, 0.08),
             px: 0.75,
             py: '1px',
             borderRadius: 0.75,
@@ -178,8 +177,8 @@ function WrapLabel({
         component="span"
         sx={{
           ml: 'auto',
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color: tokens.sub,
           letterSpacing: 0,
           textTransform: 'none',
@@ -212,9 +211,9 @@ function ContainerHead({
   compact?: boolean;
 }) {
   const capSx = {
-    fontFamily: tokens.mono,
+    fontFamily: tokens.body,
     fontWeight: 500,
-    fontSize: compact ? 8 : 9,
+    fontSize: compact ? 10 : 12,
     letterSpacing: '.12em',
     textTransform: 'uppercase',
     color: tokens.sub,
@@ -266,10 +265,10 @@ function ContainerHead({
           <Box
             component="span"
             sx={{
-              fontSize: 8.5,
+              fontSize: 12,
               color: tokens.violet,
-              border: '1px solid rgba(122,92,255,.3)',
-              background: 'rgba(122,92,255,.08)',
+              border: `1px solid ${withAlpha(tokens.violet, 0.3)}`,
+              background: withAlpha(tokens.violet, 0.08),
               px: 0.6,
               py: '1px',
               borderRadius: 0.75,
@@ -282,7 +281,7 @@ function ContainerHead({
         )}
         <Box
           component="span"
-          sx={{ fontSize: 9.5, color: tokens.sub, letterSpacing: 0, textTransform: 'none' }}
+          sx={{ fontSize: 12, color: tokens.sub, letterSpacing: 0, textTransform: 'none' }}
         >
           <b style={{ color: tokens.ink }}>{fmtMs(node.ms)}</b> · {fmtPct(node.pct)}
         </Box>
@@ -332,23 +331,25 @@ function LeafCard({
           key={fact.label}
           sx={{
             display: 'grid',
-            gridTemplateColumns: '82px minmax(0, 1fr)',
+            gridTemplateColumns: '90px minmax(0, 1fr)',
             alignItems: 'baseline',
             gap: 1.25,
             py: 0.55,
             borderBottom:
-              index < hoverFacts.length - 1 ? '1px solid rgba(255,255,255,.14)' : undefined,
+              index < hoverFacts.length - 1
+                ? `1px solid ${withAlpha(tokens.ink, 0.14)}`
+                : undefined,
           }}
         >
           <Box
             component="dt"
             sx={{
-              fontFamily: tokens.mono,
-              fontSize: 9,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
-              letterSpacing: '.08em',
-              textTransform: 'uppercase',
-              color: 'rgba(255,255,255,.62)',
+              letterSpacing: 0,
+              textTransform: 'none',
+              color: `${withAlpha(tokens.ink, 0.62)}`,
             }}
           >
             {fact.label}
@@ -359,11 +360,11 @@ function LeafCard({
               m: 0,
               minWidth: 0,
               overflowWrap: 'anywhere',
-              fontFamily: tokens.mono,
-              fontSize: 10.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               fontVariantNumeric: 'tabular-nums',
-              color: 'accent' in fact && fact.accent ? '#72d8d1' : '#fff',
+              color: 'accent' in fact && fact.accent ? colors.blueBright : colors.tooltipText,
             }}
           >
             {fact.value}
@@ -428,7 +429,7 @@ function LeafCard({
           transition: `transform .18s ${tokens.ease}, box-shadow .18s ${tokens.ease}, border-color .18s ${tokens.ease}`,
           '&:hover': {
             transform: selected ? 'none' : 'translateY(-2px)',
-            borderColor: selected ? tokens.hair : '#cabf9f',
+            borderColor: selected ? tokens.hair : colors.borderHover,
             boxShadow: selected
               ? tokens.shadowLift
               : `inset 2px 0 0 ${color}, ${tokens.shadowLift}`,
@@ -472,7 +473,7 @@ function LeafCard({
         </Typography>
         <Typography
           sx={{
-            fontFamily: tokens.mono,
+            fontFamily: tokens.body,
             fontSize: compact ? 7.5 : 8.5,
             lineHeight: compact ? 1.15 : undefined,
             letterSpacing: '.06em',
@@ -491,7 +492,7 @@ function LeafCard({
           <Box
             component="span"
             sx={{
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: compact ? 9.5 : 11,
               lineHeight: compact ? 1.1 : undefined,
               color: tokens.ink,
@@ -503,7 +504,7 @@ function LeafCard({
           <Box
             component="span"
             sx={{
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: compact ? 8.5 : 9.5,
               lineHeight: compact ? 1.1 : undefined,
               color: tokens.sub,
@@ -544,9 +545,7 @@ export default function CostTreeNode({
     const kids = node.children;
     const isRoot = node.depth === 0 && !!onRoot;
     const subSel = selId != null || parSel != null;
-    // Depth-based alpha makes sequential-in-sequential boundaries readable
-    // without turning a large root container into an opaque white panel.
-    const sequentialFillAlpha = Math.min(0.035 + node.depth * 0.035, 0.105);
+    // Keep nested sequential surfaces opaque so tint does not accumulate.
     const sequentialBorderAlpha = Math.min(0.34 + node.depth * 0.1, 0.54);
     return (
       <Box
@@ -558,14 +557,11 @@ export default function CostTreeNode({
           display: 'flex',
           flexDirection: 'column',
           gap: compact ? 0.4 : 1,
-          // Max keeps violet hatching and Scale keeps gold dashes; these calm,
-          // translucent steel levels leave the selected leaf rail dominant.
+          // Green sequential boundaries complement amber Max and violet Scale.
           border: `1px solid ${
-            isRoot && subSel
-              ? `rgb(${SEQUENTIAL_RGB})`
-              : `rgba(${SEQUENTIAL_RGB},${sequentialBorderAlpha.toFixed(3)})`
+            isRoot && subSel ? tokens.olive : withAlpha(tokens.olive, sequentialBorderAlpha)
           }`,
-          background: `rgba(${SEQUENTIAL_RGB},${sequentialFillAlpha.toFixed(3)})`,
+          background: node.depth === 0 ? tokens.tile2 : colors.sumSurface,
         }}
       >
         <NodeControl
@@ -581,7 +577,7 @@ export default function CostTreeNode({
             borderRadius: 1,
             cursor: isRoot ? 'pointer' : 'default',
             transition: `background .2s ${tokens.ease}`,
-            ...(isRoot ? { '&:hover': { background: `rgba(${SEQUENTIAL_RGB},.07)` } } : {}),
+            ...(isRoot ? { '&:hover': { background: withAlpha(tokens.olive, 0.07) } } : {}),
           }}
         >
           <WrapLabel
@@ -619,7 +615,7 @@ export default function CostTreeNode({
                     fontSize: compact ? 12 : 14,
                     px: compact ? 0.6 : 1.1,
                     opacity: 0.75,
-                    fontFamily: tokens.mono,
+                    fontFamily: tokens.body,
                   }}
                 >
                   →
@@ -645,10 +641,9 @@ export default function CostTreeNode({
           display: 'flex',
           flexDirection: 'column',
           gap: compact ? 0.4 : 1,
-          border: `${selected ? 1.5 : 1}px solid ${selected ? tokens.violet : 'rgba(122,92,255,.32)'}`,
+          border: `${selected ? 1.5 : 1}px solid ${selected ? tokens.gold : withAlpha(tokens.gold, 0.32)}`,
           boxShadow: selected ? tokens.shadowLift : 'none',
-          background:
-            'repeating-linear-gradient(-45deg, rgba(122,92,255,.07) 0 7px, rgba(122,92,255,.015) 7px 14px)',
+          background: colors.maxSurface,
         }}
       >
         <NodeControl
@@ -664,7 +659,7 @@ export default function CostTreeNode({
             borderRadius: 1,
             cursor: clickable ? 'pointer' : 'default',
             transition: `background .2s ${tokens.ease}`,
-            ...(clickable ? { '&:hover': { background: 'rgba(122,92,255,.12)' } } : {}),
+            ...(clickable ? { '&:hover': { background: withAlpha(tokens.gold, 0.12) } } : {}),
           }}
         >
           <ContainerHead
@@ -691,7 +686,7 @@ export default function CostTreeNode({
               top: 5,
               bottom: 5,
               width: '2px',
-              background: `linear-gradient(180deg, ${tokens.violet}, transparent)`,
+              background: `linear-gradient(180deg, ${tokens.gold}, transparent)`,
               opacity: 0.55,
               borderRadius: '2px',
             },
@@ -731,8 +726,8 @@ export default function CostTreeNode({
         display: 'flex',
         flexDirection: 'column',
         gap: compact ? 0.4 : 1,
-        border: '1.5px dashed rgba(176,137,0,.5)',
-        background: 'rgba(176,137,0,.05)',
+        border: `1.5px dashed ${withAlpha(tokens.violet, 0.5)}`,
+        background: withAlpha(tokens.violet, 0.05),
       }}
     >
       <Box
@@ -740,12 +735,12 @@ export default function CostTreeNode({
           position: 'absolute',
           top: compact ? -10 : -12,
           left: compact ? 10 : 14,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontWeight: 600,
-          fontSize: compact ? 9 : 10.5,
-          color: '#7a5f00',
-          background: '#f6ecd0',
-          border: '1px solid rgba(176,137,0,.45)',
+          fontSize: compact ? 11 : 12,
+          color: tokens.violet,
+          background: colors.scaleSurface,
+          border: `1px solid ${withAlpha(tokens.violet, 0.45)}`,
           px: compact ? 0.8 : 1.25,
           py: compact ? '1px' : '2px',
           borderRadius: 0.75,

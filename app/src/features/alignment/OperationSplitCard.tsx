@@ -152,7 +152,7 @@ export default function OperationSplitCard({
         </Typography>
         <Stack direction="row" alignItems="center" sx={{ gap: 1.5, flexWrap: 'wrap' }}>
           <Typography
-            sx={{ fontFamily: tokens.mono, fontSize: 9.5, color: tokens.sub, whiteSpace: 'nowrap' }}
+            sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub, whiteSpace: 'nowrap' }}
           >
             {fmtInt(cycles.length)} of {fmtInt(report.meta.iterations)} cycles selectable · modelled
             slot value = {MODELLED_SLOT_FIELD}
@@ -167,8 +167,8 @@ export default function OperationSplitCard({
               aria-label={`Open the timing prediction this comparison was made against: ${prediction.displayName}`}
               title={prediction.displayName}
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 9.5,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 letterSpacing: '.08em',
                 textTransform: 'uppercase',
                 textDecoration: 'none',
@@ -194,8 +194,8 @@ export default function OperationSplitCard({
             gap: 1.5,
             flexWrap: 'wrap',
             p: '0 2px 2px',
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub2,
           }}
         >
@@ -253,7 +253,7 @@ export default function OperationSplitCard({
             <Skeleton variant="rounded" height={300} />
           ) : (
             <Typography
-              sx={{ fontFamily: tokens.mono, fontSize: 11, color: tokens.sub, p: '24px 8px' }}
+              sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub, p: '24px 8px' }}
             >
               This bundle serves no per-cycle kernel detail.
             </Typography>
@@ -338,8 +338,8 @@ export default function OperationSplitCard({
                 <Box sx={{ minWidth: 0 }}>
                   <Box
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 10,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       color: tokens.ink,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -350,8 +350,8 @@ export default function OperationSplitCard({
                   </Box>
                   <Box
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 8.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       color: tokens.sub2,
                       mt: '1px',
                       overflow: 'hidden',
@@ -401,8 +401,8 @@ export default function OperationSplitCard({
                 <Box>
                   <Box
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 10.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       textAlign: 'right',
                       color: row.deltaMs >= 0 ? tokens.terra : tokens.teal,
                     }}
@@ -411,8 +411,8 @@ export default function OperationSplitCard({
                   </Box>
                   <Box
                     sx={{
-                      fontFamily: tokens.mono,
-                      fontSize: 8.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                       color: tokens.sub2,
                       textAlign: 'right',
                       mt: '1px',
@@ -436,8 +436,8 @@ function Key({ children }: { children: ReactNode }) {
     <Box
       component="kbd"
       sx={{
-        fontFamily: tokens.mono,
-        fontSize: 8.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         border: `1px solid ${tokens.hair}`,
         borderRadius: '4px',
         p: '1px 4px',
@@ -475,8 +475,8 @@ function Chip({
         background: pressed ? withAlpha(tokens.teal, 0.07) : 'transparent',
         color: pressed ? tokens.teal : tokens.sub,
         opacity: disabled ? 0.45 : 1,
-        fontFamily: tokens.mono,
-        fontSize: 9.5,
+        fontFamily: tokens.body,
+        fontSize: 12,
         p: '4px 10px',
         borderRadius: '6px',
         '&:hover': disabled ? {} : { borderColor: tokens.sub2, color: tokens.ink },

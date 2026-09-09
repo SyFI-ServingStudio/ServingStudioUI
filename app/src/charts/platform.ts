@@ -5,7 +5,7 @@ import type {
   YAXisComponentOption,
 } from 'echarts';
 
-import { tokens } from '../theme';
+import { tokens, withAlpha, colors } from '../theme';
 
 export interface ChartTheme {
   font: string;
@@ -22,16 +22,16 @@ export const CHART_THEME: ChartTheme = {
   font: tokens.body,
   text: tokens.ink,
   sub: tokens.sub,
-  axis: '#d9cfbb',
-  split: 'rgba(120,110,90,.15)',
+  axis: colors.axis,
+  split: withAlpha(tokens.sub, 0.12),
   bg: tokens.tile,
-  tip: 'rgba(42,38,34,.94)',
+  tip: colors.tooltipBackground,
   palette: [tokens.teal, tokens.terra, tokens.gold, tokens.olive, tokens.violet],
 };
 
 /** The sole named ECharts theme. Runtime registration and every wrapper use
  * this name, so chart defaults cannot silently diverge between call sites. */
-export const ECHARTS_THEME_NAME = 'vibesim-warm-paper';
+export const ECHARTS_THEME_NAME = 'vibesim-dark';
 
 export const ECHARTS_THEME = {
   color: CHART_THEME.palette,
@@ -42,7 +42,7 @@ export const ECHARTS_THEME = {
     renderMode: 'richText',
     backgroundColor: CHART_THEME.tip,
     borderWidth: 0,
-    textStyle: { color: '#fff', fontFamily: CHART_THEME.font, fontSize: 12 },
+    textStyle: { color: colors.tooltipText, fontFamily: CHART_THEME.font, fontSize: 12 },
   },
   categoryAxis: {
     axisLine: { lineStyle: { color: CHART_THEME.axis } },
@@ -102,7 +102,7 @@ export function richTextTooltip(
     // Keep this after overrides: no option builder may re-enable HTML mode.
     renderMode: 'richText',
     textStyle: {
-      color: '#fff',
+      color: colors.tooltipText,
       fontFamily: theme.font,
       fontSize: 12,
       ...overrides.textStyle,

@@ -3,7 +3,7 @@ import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import type { WorkspaceSummary } from '../../application/workspaceRepository';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CatalogTag from './CatalogTag';
 import { conversationTimeLabel } from './conversationPresentation';
 
@@ -40,19 +40,19 @@ export default function WorkspacePicker({
           <Typography
             sx={{
               color: tokens.sub2,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               letterSpacing: '.1em',
               textTransform: 'uppercase',
             }}
           >
             Workspace for this conversation
           </Typography>
-          <Typography sx={{ mt: 0.25, color: tokens.sub, fontSize: 10.5 }}>
+          <Typography sx={{ mt: 0.25, color: tokens.sub, fontSize: 12 }}>
             Reuse its files and logs, or begin in a clean workspace.
           </Typography>
         </Box>
-        <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+        <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
           {visible.length}/{workspaces.length}
         </Typography>
       </Stack>
@@ -63,7 +63,7 @@ export default function WorkspacePicker({
           px: 1.1,
           borderTop: `1.5px solid ${tokens.ink}`,
           borderBottom: `1px solid ${tokens.hair}`,
-          background: 'rgba(250,247,240,.45)',
+          background: withAlpha(tokens.tile, 0.45),
         }}
       >
         <SearchRounded aria-hidden sx={{ mr: 0.8, color: tokens.sub2, fontSize: 15 }} />
@@ -80,7 +80,7 @@ export default function WorkspacePicker({
             outline: 0,
             background: 'transparent',
             color: tokens.ink,
-            fontSize: 10.5,
+            fontSize: 12,
             '&::placeholder': { color: tokens.sub2 },
           }}
         />
@@ -111,17 +111,18 @@ export default function WorkspacePicker({
               alignItems: 'center',
               gap: 1.2,
               borderBottom: `1px solid ${tokens.hair}`,
-              background: selectedWorkspaceId === null ? 'rgba(31,111,107,.065)' : 'transparent',
+              background:
+                selectedWorkspaceId === null ? withAlpha(tokens.teal, 0.065) : 'transparent',
               textAlign: 'left',
-              '&:hover': { background: 'rgba(31,111,107,.045)' },
+              '&:hover': { background: withAlpha(tokens.teal, 0.045) },
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
             }}
           >
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ color: tokens.ink, fontSize: 11.25, fontWeight: 650 }}>
+              <Typography sx={{ color: tokens.ink, fontSize: 12, fontWeight: 650 }}>
                 Create a new workspace
               </Typography>
-              <Typography sx={{ color: tokens.sub2, fontSize: 9.25 }}>
+              <Typography sx={{ color: tokens.sub2, fontSize: 12 }}>
                 Isolated repo, logs, and conversation history
               </Typography>
             </Box>
@@ -131,7 +132,7 @@ export default function WorkspacePicker({
               </CatalogTag>
             </Box>
             <Typography
-              sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8, textAlign: 'right' }}
+              sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12, textAlign: 'right' }}
             >
               recommended
             </Typography>
@@ -155,14 +156,14 @@ export default function WorkspacePicker({
                 alignItems: 'center',
                 gap: 1.2,
                 borderBottom: `1px solid ${tokens.hair}`,
-                background: selected ? 'rgba(31,111,107,.065)' : 'transparent',
+                background: selected ? withAlpha(tokens.teal, 0.065) : 'transparent',
                 color: selected ? tokens.teal : tokens.sub,
                 textAlign: 'left',
-                '&:hover': { background: 'rgba(31,111,107,.045)', color: tokens.ink },
+                '&:hover': { background: withAlpha(tokens.teal, 0.045), color: tokens.ink },
                 '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
               }}
             >
-              <Typography noWrap sx={{ color: 'inherit', fontSize: 11.25, fontWeight: 620 }}>
+              <Typography noWrap sx={{ color: 'inherit', fontSize: 12, fontWeight: 620 }}>
                 {workspace.displayName}
               </Typography>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
@@ -173,8 +174,8 @@ export default function WorkspacePicker({
               <Typography
                 sx={{
                   color: tokens.sub2,
-                  fontFamily: tokens.mono,
-                  fontSize: 8,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   textAlign: 'right',
                 }}
               >
@@ -184,7 +185,7 @@ export default function WorkspacePicker({
           );
         })}
         {visible.length === 0 && (
-          <Typography role="status" sx={{ px: 1.35, py: 2, color: tokens.sub2, fontSize: 10.5 }}>
+          <Typography role="status" sx={{ px: 1.35, py: 2, color: tokens.sub2, fontSize: 12 }}>
             No workspace matches this search.
           </Typography>
         )}

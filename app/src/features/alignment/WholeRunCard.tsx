@@ -261,8 +261,8 @@ export default function WholeRunCard({
                     py: 0.35,
                     borderColor: tokens.hair,
                     color: tokens.sub,
-                    fontFamily: tokens.mono,
-                    fontSize: 9,
+                    fontFamily: tokens.body,
+                    fontSize: 12,
                     lineHeight: 1.4,
                     textTransform: 'none',
                     whiteSpace: 'nowrap',
@@ -306,7 +306,7 @@ function MissingSourceCard({ title, detail }: { title: string; detail: string })
       <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 15 }}>
         {title}
       </Typography>
-      <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 10, mt: 0.75 }}>
+      <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12, mt: 0.75 }}>
         {detail}
       </Typography>
     </SurfaceCard>
@@ -346,8 +346,6 @@ function LatencyMetricCard({
     <MetricCard
       title={card.title}
       titleDefinition={definitions[card.key]}
-      badge={card.sharesSimulatedSeries ? 'one modelled series' : undefined}
-      emphasised={card.sharesSimulatedSeries}
       meta={`${card.label} · ${fmtInt(roundToInteger(card.n))} requests`}
       stats={[
         statFromQuantity(fmtLatencyMs(card.measured.p50), 'measured p50', 'measured'),

@@ -1,3 +1,4 @@
+import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import { Stack, Typography } from '@mui/material';
 import { useEffect } from 'react';
 
@@ -9,7 +10,9 @@ import { KernelCurve } from '../offline/OfflineResultComponents';
 import { useOfflineEvidenceNavigation } from '../offline/useOfflineEvidenceNavigation';
 
 export function KernelProfilePage({ profileId }: { readonly profileId: string }) {
-  const workspaceId = new URLSearchParams(window.location.hash.split('?', 2)[1] ?? '').get('workspace');
+  const workspaceId = new URLSearchParams(window.location.hash.split('?', 2)[1] ?? '').get(
+    'workspace',
+  );
   const queries = useKernelProfileQueries(profileId);
   const selection = useViz((state) => state.kernelProfileSelection);
   const setSelection = useViz((state) => state.setKernelProfileSelection);
@@ -26,7 +29,13 @@ export function KernelProfilePage({ profileId }: { readonly profileId: string })
     if (!workspaceId) return;
     const current = useViz.getState().kernelProfileSelection;
     if (current?.workspaceId === workspaceId && current.profileId === profileId) return;
-    setSelection({ kind: 'kernel_profile', workspaceId, profileId, panelId: null, metricKey: null });
+    setSelection({
+      kind: 'kernel_profile',
+      workspaceId,
+      profileId,
+      panelId: null,
+      metricKey: null,
+    });
   }, [profileId, setSelection, workspaceId]);
 
   if (!workspaceId) return <Typography>Missing workspace identity.</Typography>;
@@ -52,7 +61,8 @@ export function KernelProfilePage({ profileId }: { readonly profileId: string })
     replaceAnalyzerEvidenceHref({ protocol: 'vibesim.analyzer/v2', ...next });
   };
   return (
-    <Stack sx={{ gap: 1.4, p: { xs: 1.2, md: 2 } }}>
+    <Stack sx={{ gap: 2.5, p: { xs: 2, md: 4 }, maxWidth: 1440, mx: 'auto' }}>
+      <AnalysisPageHeader title="Kernel profile" />
       <KernelCurve
         curve={queries.curve.data}
         selectedMetric={selectedMetric}

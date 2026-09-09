@@ -2,7 +2,7 @@ import { Box, ButtonBase, Typography } from '@mui/material';
 import { useMemo } from 'react';
 
 import type { SweepAnalysis, SweepMetric, SweepRun } from '../../domain/sweep';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import {
   coordinateLabel,
   runCoordinateKey,
@@ -107,7 +107,7 @@ export default function SweepHeatmap({
           alignSelf: 'center',
           justifySelf: 'center',
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 12,
           fontWeight: 600,
           lineHeight: 1,
@@ -132,7 +132,7 @@ export default function SweepHeatmap({
             sx={{
               pr: 0.2,
               color: tokens.ink,
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: 13,
               fontWeight: 500,
               lineHeight: 1,
@@ -166,7 +166,7 @@ export default function SweepHeatmap({
                 <Box
                   key={coordinatePairKey(xValue, yValue)}
                   aria-hidden="true"
-                  sx={{ minWidth: 0, minHeight: 0, background: 'rgba(116,108,98,.045)' }}
+                  sx={{ minWidth: 0, minHeight: 0, background: `${withAlpha(tokens.sub, 0.045)}` }}
                 />
               );
             }
@@ -192,12 +192,12 @@ export default function SweepHeatmap({
                   borderRadius: 0.65,
                   background: outcomeColor(metric, displayedValue, minimum, maximum),
                   color: tokens.ink,
-                  fontFamily: tokens.mono,
-                  fontSize: 10,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   fontWeight: 600,
                   fontVariantNumeric: 'tabular-nums',
                   boxShadow: selected
-                    ? `inset 0 0 0 3px ${tokens.teal}, 0 0 12px rgba(31,111,107,.42)`
+                    ? `inset 0 0 0 3px ${tokens.teal}, 0 0 12px ${withAlpha(tokens.teal, 0.42)}`
                     : 'none',
                   zIndex: selected ? 2 : 1,
                   transition: `box-shadow 160ms ${tokens.ease}, filter 160ms ${tokens.ease}`,
@@ -243,8 +243,8 @@ export default function SweepHeatmap({
             gridRow: 1,
             alignSelf: 'end',
             color: tokens.sub,
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             lineHeight: 1,
           }}
         >
@@ -256,8 +256,8 @@ export default function SweepHeatmap({
             gridRow: 3,
             alignSelf: 'start',
             color: tokens.sub,
-            fontFamily: tokens.mono,
-            fontSize: 9,
+            fontFamily: tokens.body,
+            fontSize: 12,
             lineHeight: 1,
           }}
         >
@@ -278,7 +278,7 @@ export default function SweepHeatmap({
             key={JSON.stringify(value)}
             sx={{
               color: tokens.ink,
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontSize: 13,
               fontWeight: 500,
               lineHeight: 1,
@@ -295,7 +295,7 @@ export default function SweepHeatmap({
           gridRow: 3,
           alignSelf: 'end',
           color: tokens.ink,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: 12,
           fontWeight: 600,
           lineHeight: 1,

@@ -95,7 +95,7 @@ function PropertyGrid({
         >
           <Typography
             sx={{
-              fontFamily: tokens.mono,
+              fontFamily: tokens.body,
               fontWeight: 600,
               fontSize: 13.5,
               lineHeight: 1.15,
@@ -108,8 +108,8 @@ function PropertyGrid({
           <Typography
             sx={{
               mt: 0.4,
-              fontFamily: tokens.mono,
-              fontSize: 9.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: 600,
               lineHeight: 1.2,
               letterSpacing: '.055em',
@@ -147,8 +147,8 @@ function OverviewHeader({
       </Typography>
       <Typography
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 8.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.14em',
           textTransform: 'uppercase',
           color: accent,
@@ -206,7 +206,7 @@ function OverviewCard({
       </Typography>
       <Typography
         component="div"
-        sx={{ mt: 0.3, fontFamily: tokens.mono, fontSize: 9.5, lineHeight: 1.4, color: tokens.sub }}
+        sx={{ mt: 0.3, fontFamily: tokens.body, fontSize: 12, lineHeight: 1.4, color: tokens.sub }}
       >
         {description}
       </Typography>
@@ -407,8 +407,8 @@ export default function RunOverviewRow() {
                 sx={{
                   mt: 0.75,
                   maxWidth: 470,
-                  fontFamily: tokens.mono,
-                  fontSize: 10.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   lineHeight: 1.6,
                   color: tokens.sub,
                 }}

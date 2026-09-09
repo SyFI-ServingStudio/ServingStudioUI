@@ -17,8 +17,8 @@ export default function SubjectError({ error }: { error: unknown }) {
       <Typography
         component="pre"
         sx={{
-          fontFamily: tokens.mono,
-          fontSize: 11,
+          fontFamily: tokens.body,
+          fontSize: 12,
           lineHeight: 1.5,
           m: 0,
           whiteSpace: 'pre-wrap',

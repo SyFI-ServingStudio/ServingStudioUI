@@ -8,7 +8,7 @@ import type {
   CodexRoleRuntime,
   CodexRuntimeSelection,
 } from '../../application/conversationRepository';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { rolesForAgentMode, type CodexRoleName } from './agentMode';
 
 /**
@@ -32,8 +32,8 @@ const sizeStyles: Record<
   PickerSize,
   { height: number; fontSize: number; labelSize: number; gap: number }
 > = {
-  sm: { height: 22, fontSize: 8.5, labelSize: 9.5, gap: 0.7 },
-  md: { height: 26, fontSize: 9.5, labelSize: 10.5, gap: 0.85 },
+  sm: { height: 22, fontSize: 12, labelSize: 9.5, gap: 0.7 },
+  md: { height: 26, fontSize: 12, labelSize: 10.5, gap: 0.85 },
 };
 
 /**
@@ -76,7 +76,7 @@ function effortColumns(models: readonly CodexModelOption[]): string[] {
 const CELL_HEIGHT = 24;
 
 /** Trail segments run from the model name up to the pick, then stop. */
-const TRAIL_TINT = 'rgba(31,111,107,.055)';
+const TRAIL_TINT = withAlpha(tokens.teal, 0.055);
 
 /** One model × effort cell: a dot that swells and rings when it is the pick. */
 function RuntimeCell({
@@ -139,8 +139,8 @@ function RuntimeCell({
           width: selected ? 11 : 4.5,
           height: selected ? 11 : 4.5,
           borderRadius: '50%',
-          background: selected ? tokens.teal : 'rgba(42,38,34,.22)',
-          boxShadow: selected ? '0 0 0 3.5px rgba(31,111,107,.13)' : 'none',
+          background: selected ? tokens.teal : `${withAlpha(tokens.ink, 0.22)}`,
+          boxShadow: selected ? `0 0 0 3.5px ${withAlpha(tokens.teal, 0.13)}` : 'none',
           transition: `all 240ms ${tokens.ease}`,
         }}
       />
@@ -181,8 +181,8 @@ function RuntimePanel({
         <Typography
           sx={{
             color: tokens.sub2,
-            fontFamily: tokens.mono,
-            fontSize: 8.5,
+            fontFamily: tokens.body,
+            fontSize: 12,
             letterSpacing: '.1em',
             textTransform: 'uppercase',
           }}
@@ -229,9 +229,9 @@ function RuntimePanel({
                     borderRadius: 999,
                     background: selected ? tokens.tile : 'transparent',
                     color: selected ? tokens.teal : tokens.sub2,
-                    boxShadow: selected ? '0 1px 4px rgba(42,38,34,.12)' : 'none',
-                    fontFamily: tokens.mono,
-                    fontSize: 7.5,
+                    boxShadow: selected ? `0 1px 4px ${withAlpha(tokens.ink, 0.12)}` : 'none',
+                    fontFamily: tokens.body,
+                    fontSize: 12,
                     fontWeight: selected ? 700 : 550,
                     letterSpacing: '.055em',
                     textTransform: 'uppercase',
@@ -253,7 +253,7 @@ function RuntimePanel({
         sx={{
           mt: 0.9,
           display: 'grid',
-          gridTemplateColumns: `minmax(120px, 1fr) repeat(${efforts.length}, 34px)`,
+          gridTemplateColumns: `minmax(120px, 1fr) repeat(${efforts.length}, 52px)`,
           alignItems: 'center',
         }}
       >
@@ -265,8 +265,8 @@ function RuntimePanel({
             sx={{
               pb: 0.5,
               color: effort === runtime.effort ? tokens.teal : tokens.sub2,
-              fontFamily: tokens.mono,
-              fontSize: 7.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
               fontWeight: effort === runtime.effort ? 650 : 500,
               letterSpacing: '.05em',
               lineHeight: 1,
@@ -292,7 +292,7 @@ function RuntimePanel({
                 <Typography
                   sx={{
                     color: tokens.sub2,
-                    fontSize: 8.5,
+                    fontSize: 12,
                     fontWeight: 620,
                     letterSpacing: '.06em',
                     lineHeight: 1,
@@ -301,7 +301,7 @@ function RuntimePanel({
                 >
                   {group.label}
                 </Typography>
-                {familyLocked && <LockOutlined sx={{ color: tokens.sub2, fontSize: 10 }} />}
+                {familyLocked && <LockOutlined sx={{ color: tokens.sub2, fontSize: 12 }} />}
                 <Box sx={{ flex: 1, borderTop: `1px solid ${tokens.hair}` }} />
               </Stack>
               {group.models.map((model) => {
@@ -328,7 +328,7 @@ function RuntimePanel({
                           borderRadius: onRow ? '7px 0 0 7px' : 0.8,
                           background: onRow ? TRAIL_TINT : 'transparent',
                           color: onRow ? tokens.teal : familyLocked ? tokens.sub2 : tokens.ink,
-                          fontSize: 10,
+                          fontSize: 12,
                           fontWeight: onRow ? 650 : 520,
                           opacity: cellDisabled || !model.available ? 0.45 : 1,
                           transition: `color 200ms ${tokens.ease}, background 180ms ${tokens.ease}`,
@@ -375,8 +375,8 @@ function RuntimePanel({
             alignItems="center"
             sx={{ mt: 1.2, gap: 0.5, width: 'fit-content' }}
           >
-            <LockOutlined aria-hidden sx={{ color: tokens.sub2, fontSize: 10 }} />
-            <Typography noWrap sx={{ color: tokens.sub2, fontSize: 9, lineHeight: 1 }}>
+            <LockOutlined aria-hidden sx={{ color: tokens.sub2, fontSize: 12 }} />
+            <Typography noWrap sx={{ color: tokens.sub2, fontSize: 12, lineHeight: 1 }}>
               Family locked once the conversation starts
             </Typography>
           </Stack>
@@ -447,11 +447,11 @@ function RuntimeChip({
           borderRadius: 999,
           background: tokens.leafbg,
           color: tokens.sub,
-          fontFamily: tokens.mono,
+          fontFamily: tokens.body,
           fontSize: style.fontSize,
           whiteSpace: 'nowrap',
           transition: `border-color 160ms ${tokens.ease}, background 160ms ${tokens.ease}`,
-          '&:hover': { borderColor: 'rgba(31,111,107,.4)', background: tokens.tile2 },
+          '&:hover': { borderColor: withAlpha(tokens.teal, 0.4), background: tokens.tile2 },
           '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
         }}
       >
@@ -494,9 +494,11 @@ function RuntimeChip({
             height: 12,
             borderRadius: 999,
             background:
-              runtime.serviceTier === 'fast' ? 'rgba(31,111,107,.1)' : 'rgba(104,95,84,.07)',
+              runtime.serviceTier === 'fast'
+                ? withAlpha(tokens.teal, 0.1)
+                : `${withAlpha(tokens.sub, 0.07)}`,
             color: runtime.serviceTier === 'fast' ? tokens.teal : tokens.sub2,
-            fontSize: 7,
+            fontSize: 12,
             fontWeight: 780,
             letterSpacing: 0,
             lineHeight: 1,
@@ -645,7 +647,7 @@ function UnavailableChips({
                 border: `1px dashed ${tokens.hair}`,
                 borderRadius: 999,
                 color: tokens.sub2,
-                fontFamily: tokens.mono,
+                fontFamily: tokens.body,
                 fontSize: style.fontSize,
                 whiteSpace: 'nowrap',
               }}
@@ -681,9 +683,11 @@ export function CodexRuntimeTag({ model, effort }: { model: string; effort?: str
         height: 14,
         px: 0.5,
         gap: 0.4,
-        border: `1px solid ${deepseek ? 'rgba(101,72,220,.3)' : 'rgba(104,95,84,.25)'}`,
+        border: `1px solid ${deepseek ? '${withAlpha(tokens.violet, .3)}' : '${withAlpha(tokens.sub, .25)}'}`,
         borderRadius: 999,
-        background: deepseek ? 'rgba(101,72,220,.06)' : 'rgba(104,95,84,.05)',
+        background: deepseek
+          ? `${withAlpha(tokens.violet, 0.06)}`
+          : `${withAlpha(tokens.sub, 0.05)}`,
       }}
     >
       <Box
@@ -694,8 +698,8 @@ export function CodexRuntimeTag({ model, effort }: { model: string; effort?: str
         component="span"
         sx={{
           color,
-          fontFamily: tokens.mono,
-          fontSize: 7.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           letterSpacing: '.06em',
           lineHeight: 1,
           textTransform: 'uppercase',

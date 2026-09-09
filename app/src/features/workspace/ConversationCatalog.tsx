@@ -8,7 +8,7 @@ import {
   type WorkspaceConversationSummary,
 } from '../../application/conversationRepository';
 import type { WorkspaceSummary } from '../../application/workspaceRepository';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag from './CatalogTag';
 import { conversationTimeLabel } from './conversationPresentation';
@@ -112,27 +112,24 @@ export default function ConversationCatalog({
   };
   return (
     <Box>
-      <Box sx={{ maxWidth: 700, mx: 'auto', mb: 4, textAlign: 'center' }}>
+      <Box sx={{ maxWidth: 760, mb: 3, textAlign: 'left' }}>
         <Typography
           component="h1"
           sx={{
             fontFamily: tokens.serif,
-            fontSize: 'clamp(40px,5.5vw,68px)',
+            fontSize: 'clamp(30px,3vw,40px)',
             fontWeight: 600,
             letterSpacing: '-.035em',
             lineHeight: 1,
           }}
         >
-          Return to the{' '}
-          <Box component="em" sx={{ color: tokens.teal, fontWeight: 500 }}>
-            thread.
-          </Box>
+          Conversations
         </Typography>
-        <Typography sx={{ maxWidth: 560, mx: 'auto', mt: 1.8, color: tokens.sub, fontSize: 14.5 }}>
+        <Typography sx={{ maxWidth: 640, mt: 1.5, color: tokens.sub, fontSize: 14.5 }}>
           Conversations are ordered by their latest activity, across every active workspace.
         </Typography>
       </Box>
-      <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
+      <Box sx={{ borderTop: `1px solid ${tokens.hair}` }}>
         <Box
           sx={{
             minHeight: 47,
@@ -148,17 +145,17 @@ export default function ConversationCatalog({
             sx={{
               display: { xs: 'none', md: 'block' },
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
             }}
           >
             Last active
           </Typography>
           <Stack direction="row" alignItems="center" sx={{ minWidth: 0, gap: 1 }}>
-            <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 8.5 }}>
+            <Typography sx={{ color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
               Conversation
             </Typography>
-            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.mono, fontSize: 8 }}>
+            <Typography sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               {visible.length} shown
             </Typography>
           </Stack>
@@ -177,8 +174,8 @@ export default function ConversationCatalog({
             sx={{
               display: { xs: 'none', md: 'block' },
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 8.5,
+              fontFamily: tokens.body,
+              fontSize: 12,
             }}
           >
             Time
@@ -191,7 +188,7 @@ export default function ConversationCatalog({
           sx={{
             px: 1.5,
             borderBottom: `1px solid ${tokens.hair}`,
-            background: 'rgba(250,247,240,.4)',
+            background: withAlpha(tokens.tile, 0.4),
           }}
         >
           <SearchRounded aria-hidden sx={{ mr: 0.75, color: tokens.sub2, fontSize: 15 }} />
@@ -208,7 +205,7 @@ export default function ConversationCatalog({
               outline: 0,
               background: 'transparent',
               color: tokens.ink,
-              fontSize: 10.5,
+              fontSize: 12,
               '&::placeholder': { color: tokens.sub2 },
             }}
           />
@@ -276,7 +273,7 @@ export default function ConversationCatalog({
                     color: tokens.sub,
                     textAlign: 'left',
                     transition: `background 180ms ${tokens.ease}, color 180ms ${tokens.ease}`,
-                    '&:hover': { background: 'rgba(31,111,107,.045)', color: tokens.ink },
+                    '&:hover': { background: withAlpha(tokens.teal, 0.045), color: tokens.ink },
                     '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: -2 },
                   }}
                 >
@@ -285,14 +282,14 @@ export default function ConversationCatalog({
                     sx={{
                       display: { xs: 'none', md: 'block' },
                       color: showDate ? tokens.ink : 'transparent',
-                      fontFamily: tokens.mono,
-                      fontSize: 8.5,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                     }}
                   >
                     {showDate ? dateLabel(conversation) : '—'}
                   </Typography>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography noWrap sx={{ color: 'inherit', fontSize: 11.5, fontWeight: 630 }}>
+                    <Typography noWrap sx={{ color: 'inherit', fontSize: 12, fontWeight: 630 }}>
                       {conversation.title || 'New conversation'}
                     </Typography>
                     <Typography
@@ -300,8 +297,8 @@ export default function ConversationCatalog({
                         display: { xs: 'block', md: 'none' },
                         mt: 0.25,
                         color: tokens.sub2,
-                        fontFamily: tokens.mono,
-                        fontSize: 8,
+                        fontFamily: tokens.body,
+                        fontSize: 12,
                       }}
                     >
                       {workspaceName} · {conversationTimeLabel(conversation.updated_at)}
@@ -314,8 +311,8 @@ export default function ConversationCatalog({
                     sx={{
                       display: { xs: 'none', md: 'block' },
                       color: tokens.sub2,
-                      fontFamily: tokens.mono,
-                      fontSize: 8,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
                     }}
                   >
                     {conversationTimeLabel(conversation.updated_at)}

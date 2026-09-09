@@ -27,3 +27,6 @@ blob-report/
 
 smoke/
 design-alignment-data/
+
+# Local dependency link used by sibling UI worktrees
+/app/node_modules

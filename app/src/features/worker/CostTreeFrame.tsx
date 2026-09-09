@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import SurfaceCard from '../../components/SurfaceCard';
 import { GROUP, fmtMs } from '../../domain/cost-tree';
 import type { WorkerRow } from '../../domain/run';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
 export const COST_TREE_HEADER_HEIGHT = 45;
@@ -85,8 +85,8 @@ export function CostTreeFrame({
               <Box
                 component="span"
                 sx={{
-                  fontFamily: tokens.mono,
-                  fontSize: 10.5,
+                  fontFamily: tokens.body,
+                  fontSize: 12,
                   color: tokens.teal,
                   fontWeight: 500,
                 }}
@@ -101,8 +101,8 @@ export function CostTreeFrame({
           <Box
             sx={{
               flexShrink: 0,
-              fontFamily: tokens.mono,
-              fontSize: 10,
+              fontFamily: tokens.body,
+              fontSize: 12,
               color: tokens.sub,
               border: `1px solid ${tokens.hair}`,
               borderRadius: 0.9,
@@ -126,7 +126,7 @@ export function CostTreeFrame({
             .map(([group, definition]) => (
               <Box
                 key={group}
-                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 9.5 }}
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 12 }}
               >
                 <Box
                   sx={{
@@ -170,7 +170,7 @@ export function CostTreeStatusViewport({
         alignItems: 'center',
         p: 3,
         backgroundColor: tokens.tile2,
-        backgroundImage: 'radial-gradient(circle, rgba(42,38,34,.12) 0.7px, transparent 0.8px)',
+        backgroundImage: `radial-gradient(circle, ${withAlpha(tokens.sub, 0.12)} 0.7px, transparent 0.8px)`,
         backgroundSize: '16px 16px',
       }}
     >

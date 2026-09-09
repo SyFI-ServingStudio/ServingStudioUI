@@ -31,7 +31,7 @@ const OPEN_MS = 380;
  * `Working style` is wider than `Workspace`, and letting the captions size
  * themselves left the folded summaries visibly ragged down the page.
  */
-const CAPTION_COLUMN = { xs: 76, sm: 104 };
+const CAPTION_COLUMN = { xs: 96, sm: 120 };
 
 export default function SetupStep({
   index,
@@ -63,7 +63,7 @@ export default function SetupStep({
             p: { xs: '17px 14px 15px', sm: '20px 18px 18px' },
             border: `1px solid ${tokens.hair}`,
             borderRadius: '11px',
-            background: tokens.leafbg,
+            background: tokens.tile,
           }}
         >
           {/* Same column track as the folded line, so the marker and caption do
@@ -95,7 +95,7 @@ export default function SetupStep({
             py: 1.35,
             border: `1px solid ${tokens.hair}`,
             borderRadius: '9px',
-            background: tokens.leafbg,
+            background: tokens.tile,
             textAlign: 'left',
             transition: `border-color 170ms ${tokens.ease}`,
             '&:hover': { borderColor: tokens.sub2 },
@@ -135,12 +135,12 @@ const rowGrid = {
 
 const captionStyle = {
   color: tokens.sub2,
-  fontFamily: tokens.mono,
-  fontSize: 9,
+  fontFamily: tokens.body,
+  fontSize: 12,
   fontWeight: 500,
-  letterSpacing: '.15em',
+  letterSpacing: '.02em',
   lineHeight: 1.35,
-  textTransform: 'uppercase',
+  textTransform: 'none',
 } as const;
 
 /** Filled once the step is answered, hollow while it is the one being asked. */
@@ -158,8 +158,8 @@ function StepMarker({ index, filled }: { index: number; filled: boolean }) {
         border: `1px solid ${tokens.teal}`,
         background: filled ? tokens.teal : 'transparent',
         color: filled ? tokens.tile : tokens.teal,
-        fontFamily: tokens.mono,
-        fontSize: 10,
+        fontFamily: tokens.body,
+        fontSize: 12,
         fontWeight: 600,
         lineHeight: 1,
       }}

@@ -4,7 +4,7 @@ import type { EChartsOption } from 'echarts';
 import type { ReactNode } from 'react';
 import type { EvidenceSurfaceCardProps } from './EvidenceSurfaceCard';
 import { useViz } from '../store';
-import { tokens } from '../theme';
+import { tokens, colors } from '../theme';
 import { useOpenChartFocus } from './ChartFocusContext';
 import EChart from './EChart';
 import { EvidenceSurfaceCard, EvidenceTitleButton } from './EvidenceSurfaceCard';
@@ -14,11 +14,10 @@ function AnalyzerEvidenceSurfaceCard({
   children,
   ...props
 }: Omit<EvidenceSurfaceCardProps, 'selectedForAgent' | 'onEvidenceSelect'>) {
-  const selectedForAgent = useViz(
-    (state) =>
-      state.selectionSurface === 'prediction'
-        ? state.predictionSelection?.panelId === evidenceId
-        : state.selectionSurface === 'run' && state.runPanelId === evidenceId,
+  const selectedForAgent = useViz((state) =>
+    state.selectionSurface === 'prediction'
+      ? state.predictionSelection?.panelId === evidenceId
+      : state.selectionSurface === 'run' && state.runPanelId === evidenceId,
   );
   const selectEvidencePanel = useViz((state) => state.selectEvidencePanel);
   return (
@@ -68,7 +67,7 @@ export default function ChartCard({
         p: '16px 16px 14px',
         position: 'relative',
         transition: `box-shadow .4s ${tokens.ease}, border-color .3s ${tokens.ease}`,
-        '&:hover': { borderColor: '#d8cfb8', boxShadow: tokens.shadowLift },
+        '&:hover': { borderColor: colors.axis, boxShadow: tokens.shadowLift },
         '&:hover .expand, &:focus-within .expand': { opacity: 1 },
       }}
     >
@@ -85,7 +84,7 @@ export default function ChartCard({
             opacity: 0,
             color: tokens.sub,
             transition: `all .28s ${tokens.ease}`,
-            '&:hover': { color: '#fff', background: tokens.teal },
+            '&:hover': { color: colors.foregroundOnAccent, background: tokens.teal },
             '&:focus-visible': {
               opacity: 1,
               color: tokens.teal,
@@ -121,8 +120,8 @@ export default function ChartCard({
             <Box
               component="span"
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 10,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 color: tokens.terra,
                 letterSpacing: '.1em',
               }}
@@ -143,8 +142,8 @@ export default function ChartCard({
           {sub && (
             <Typography
               sx={{
-                fontFamily: tokens.mono,
-                fontSize: 10,
+                fontFamily: tokens.body,
+                fontSize: 12,
                 color: tokens.sub,
                 textAlign: 'right',
                 whiteSpace: 'nowrap',
@@ -166,8 +165,8 @@ export default function ChartCard({
               alignItems: 'center',
               justifyContent: 'center',
               color: tokens.sub,
-              fontFamily: tokens.mono,
-              fontSize: 11,
+              fontFamily: tokens.body,
+              fontSize: 12,
               textAlign: 'center',
               px: 2,
             }}
@@ -179,8 +178,8 @@ export default function ChartCard({
       {option && note && (
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 10,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.sub,
             mt: 0.75,
             letterSpacing: '.03em',

@@ -99,8 +99,8 @@ export default function OptimalityAnalysisStage() {
         '& .MuiToggleButton-root': {
           px: 1,
           py: 0.2,
-          fontFamily: tokens.mono,
-          fontSize: 9.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           lineHeight: 1.45,
           color: tokens.sub,
           borderColor: tokens.hair,

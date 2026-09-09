@@ -113,8 +113,8 @@ export interface LatencyCardModel {
   readonly measured: LatencySide;
   readonly simulated: LatencySide;
   readonly deltaP50Pct: number | null;
-  /** True when another card carries the same modelled distribution: one
-   * simulated series answering two differently-scoped measured views. */
+  /** True when another card has the same simulated sample count and reported
+   * percentiles. This does not establish that the underlying series is identical. */
   readonly sharesSimulatedSeries: boolean;
 }
 
@@ -130,8 +130,7 @@ function latencySide(curve: AlignmentCdfComparison['measured']): LatencySide {
   };
 }
 
-/** The fingerprint of a modelled distribution: its size and the percentiles
- * the card reads it at. Two cards sharing this share one simulated series. */
+/** Compare summary values only; matching percentiles do not identify a series. */
 function simulatedFingerprint(comparison: AlignmentCdfComparison): string {
   const { n, markers } = comparison.simulated;
   return [n, markers.p50, markers.p90, markers.p99].join('|');
@@ -483,11 +482,7 @@ export function latencyNote(
         text(
           `, ${fmtFixed(share, 0)} % of this measured p50 — is the part the two measured views `,
         ),
-        text(
-          card.sharesSimulatedSeries
-            ? 'disagree about, and both cards carry the same modelled series.'
-            : 'disagree about.',
-        ),
+        text('disagree about.'),
       ];
     }
     case 'server_ttft': {

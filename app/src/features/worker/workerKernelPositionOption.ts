@@ -1,3 +1,4 @@
+import { tokens, colors } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
 import {
@@ -90,7 +91,7 @@ export function workerKernelPositionOption(
       stack: 'worker-kernel-time',
       data: chunk.data,
       barMaxWidth: 38,
-      itemStyle: { color: chunk.color, borderColor: '#faf7f0', borderWidth: 0.7 },
+      itemStyle: { color: chunk.color, borderColor: tokens.tile, borderWidth: 0.7 },
       label: {
         show: chunk.sharePct >= 5,
         position: 'inside' as const,
@@ -100,7 +101,7 @@ export function workerKernelPositionOption(
           Number(params.value ?? 0) > 0
             ? `${safeChartText(chunk.name.split('.').pop() ?? chunk.name)}\n${chunk.sharePct.toFixed(1)}%`
             : '',
-        color: '#fff',
+        color: colors.tooltipText,
         fontSize: 9,
       },
     })),

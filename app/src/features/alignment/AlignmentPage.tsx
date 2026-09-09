@@ -312,10 +312,10 @@ function PageFrame({ title, children }: { title: string; children: React.ReactNo
       <Stack sx={{ mb: 2.5, gap: 0.5 }}>
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 10,
+            fontFamily: tokens.body,
+            fontSize: 12,
             color: tokens.terra,
-            letterSpacing: '.14em',
+            letterSpacing: '.03em',
           }}
         >
           ALIGNMENT
@@ -325,7 +325,7 @@ function PageFrame({ title, children }: { title: string; children: React.ReactNo
           sx={{
             fontFamily: tokens.serif,
             fontWeight: 600,
-            fontSize: 26,
+            fontSize: 34,
             letterSpacing: '-.015em',
             m: 0,
           }}
@@ -366,9 +366,9 @@ function Section({
       >
         <Typography
           sx={{
-            fontFamily: tokens.mono,
-            fontSize: 10,
-            letterSpacing: '.14em',
+            fontFamily: tokens.body,
+            fontSize: 12,
+            letterSpacing: '.03em',
             color: tokens.terra,
             flex: '0 0 auto',
           }}

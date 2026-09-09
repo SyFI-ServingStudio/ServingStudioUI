@@ -24,8 +24,8 @@ export default function WorkspaceNav({ current }: { current: 'run' | 'aggregate'
           sx={{
             px: 1.4,
             py: 0.7,
-            fontFamily: tokens.mono,
-            fontSize: 10,
+            fontFamily: tokens.body,
+            fontSize: 12,
             letterSpacing: '.08em',
             color: current === view ? tokens.paper : tokens.sub,
             background: current === view ? tokens.ink : tokens.tile,

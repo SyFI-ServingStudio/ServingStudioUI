@@ -1,3 +1,4 @@
+import { tokens, withAlpha } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
 import type { Concurrency } from '../../domain/run';
@@ -22,7 +23,7 @@ export function concurrencySparkOption(
         silent: true,
         data: concurrency.active.map((value, index) => [seconds[index], value]),
         lineStyle: { width: 1.6, color: theme.palette[0], opacity: 0.6 },
-        areaStyle: { color: 'rgba(31,111,107,.13)' },
+        areaStyle: { color: withAlpha(tokens.teal, 0.13) },
       },
     ],
   };

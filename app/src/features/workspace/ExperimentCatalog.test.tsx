@@ -67,6 +67,34 @@ const offlineResources: readonly OfflineResourceCatalogItem[] = [
 ];
 
 describe('ExperimentCatalog', () => {
+  it('searches result metadata and restores rows when cleared', async () => {
+    const user = userEvent.setup();
+    render(
+      <ExperimentCatalog
+        entries={entries}
+        jobs={[]}
+        offlineResources={[]}
+        workspaceNames={{ w_main: 'Main workspace' }}
+        onActivate={vi.fn()}
+        onActivateOfflineResource={vi.fn()}
+      />,
+    );
+    const search = screen.getByRole('textbox', { name: 'Search results' });
+    await user.type(search, ' SHAREGPT ');
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(
+      screen.getByRole('option', { name: 'Open Simulation afd_ui_reanalysis' }),
+    ).toBeInTheDocument();
+    await user.clear(search);
+    await user.type(search, 'missing-result');
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.getByRole('status')).toHaveTextContent('No results match');
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+    await user.type(search, 'Main workspace');
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+  });
+
   it('shows concise real experiment names and activates a row', async () => {
     const user = userEvent.setup();
     const onActivate = vi.fn();

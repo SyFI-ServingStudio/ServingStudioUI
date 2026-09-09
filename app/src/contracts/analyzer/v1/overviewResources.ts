@@ -23,10 +23,10 @@ const modelSourcePath = repoSourcePath.refine(
   (path) => path.startsWith('model/config/'),
   'must be below model/config',
 );
-const traceSourcePath = repoSourcePath.refine(
-  (path) => path.split('/').slice(0, -1).includes('trace'),
-  'must be inside a trace directory',
-);
+const traceSourcePath = repoSourcePath.refine((path) => {
+  const directories = path.split('/').slice(0, -1);
+  return directories.includes('trace') || (directories.includes('logs') && path.endsWith('.csv'));
+}, 'must be inside a trace directory or a CSV under logs');
 
 const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -77,7 +77,7 @@ const workloadResourceSchema = z
     request_count: z.number().int().nonnegative().safe(),
     average_input_tokens: finiteNonNegative,
     average_output_tokens: finiteNonNegative,
-    arrival_basis: z.enum(['effective_open_loop', 'source_trace']),
+    arrival_basis: z.enum(['effective_open_loop', 'effective_trace_timed', 'source_trace']),
     request_rate: finiteNonNegative,
     token_lengths: boundedSeries,
     input_density: boundedSeries,

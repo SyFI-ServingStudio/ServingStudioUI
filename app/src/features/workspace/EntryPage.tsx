@@ -1,3 +1,4 @@
+import ThemePicker from '../../components/ThemePicker';
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,7 +28,7 @@ import { agentWorkspaceHref } from '../../application/workspaceRoute';
 import { analyzerEvidenceHref } from '../../domain/analyzerNavigation';
 import type { SweepListItem } from '../../domain/sweep';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import {
   agentSettingsSentence,
   rolesForAgentMode,
@@ -45,9 +46,9 @@ import WorkspacePicker from './WorkspacePicker';
 type EntryMode = 'experiments' | 'new-conversation' | 'resume-conversation';
 
 const PROMPT_STARTERS = [
-  'Find the best tensor parallel configuration',
-  'Compare two deployment plans',
-  'Investigate a TTFT regression',
+  'For Llama3-8B on a single H200, what is the maximum throughput with TPOT < 20 ms, given 4K input tokens and 1K output tokens per request?',
+  'When serving GLM5.2 with TP4 + EP4, which kernel takes the most time when processing 16K prefill tokens?',
+  'What is the best ratio of prefill to decode servers for Llama3-8B when serving requests with 2K input tokens and 4K output tokens?',
 ] as const;
 
 function navigateToExperiment(entry: SweepListItem): void {
@@ -116,12 +117,9 @@ function ModeSwitch({ mode, onChange }: { mode: EntryMode; onChange: (mode: Entr
       aria-label="Workspace start mode"
       direction="row"
       sx={{
-        width: 'max-content',
-        mx: 'auto',
-        p: 0.45,
-        border: `1px solid ${tokens.hair}`,
-        borderRadius: 1,
-        background: 'rgba(250,247,240,.72)',
+        width: '100%',
+        gap: { xs: 0, sm: 2 },
+        borderBottom: `1px solid ${tokens.hair}`,
       }}
     >
       {(
@@ -139,13 +137,15 @@ function ModeSwitch({ mode, onChange }: { mode: EntryMode; onChange: (mode: Entr
             aria-selected={selected}
             onClick={() => onChange(value)}
             sx={{
-              px: 1.6,
-              py: 0.8,
-              borderRadius: 0.7,
-              background: selected ? tokens.ink : 'transparent',
-              color: selected ? tokens.paper : tokens.sub,
-              fontSize: 11.5,
-              fontWeight: 650,
+              px: { xs: 0.75, sm: 1.5 },
+              py: 1.8,
+              minWidth: 0,
+              flex: { xs: 1, sm: 'none' },
+              borderBottom: `2px solid ${selected ? tokens.teal : 'transparent'}`,
+              color: selected ? tokens.teal : tokens.sub,
+              fontSize: { xs: 12, sm: 15 },
+              '&:hover': { background: withAlpha(tokens.teal, 0.045) },
+              fontWeight: 500,
               transition: `background 180ms ${tokens.ease}, color 180ms ${tokens.ease}`,
               '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
             }}
@@ -254,23 +254,20 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
   }, []);
   return (
     <Box>
-      <Box sx={{ maxWidth: 700, mx: 'auto', textAlign: 'center' }}>
+      <Box sx={{ maxWidth: 760, mx: 'auto', textAlign: 'left' }}>
         <Typography
           component="h1"
           sx={{
             fontFamily: tokens.serif,
-            fontSize: 'clamp(40px,5.5vw,68px)',
+            fontSize: 'clamp(30px,3vw,42px)',
             fontWeight: 600,
             letterSpacing: '-.035em',
             lineHeight: 1,
           }}
         >
-          Begin with a{' '}
-          <Box component="em" sx={{ color: tokens.teal, fontWeight: 500 }}>
-            question.
-          </Box>
+          New conversation
         </Typography>
-        <Typography sx={{ maxWidth: 560, mx: 'auto', mt: 1.8, color: tokens.sub, fontSize: 14.5 }}>
+        <Typography sx={{ maxWidth: 640, mt: 1.5, color: tokens.sub, fontSize: 16 }}>
           The Agent can choose a configuration, run the simulation, and connect its findings to the
           Analyzer.
         </Typography>
@@ -350,7 +347,7 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
                 direction="row"
                 alignItems="center"
                 justifyContent="space-between"
-                sx={{ gap: 1 }}
+                sx={{ gap: 1, flexWrap: 'wrap' }}
               >
                 <CodexRuntimePicker
                   models={modelOptions}
@@ -387,7 +384,7 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
       </Stack>
       {/* Starters fill the composer, so they only mean anything once it exists. */}
       <Stack
-        direction="row"
+        direction="column"
         justifyContent="center"
         useFlexGap
         flexWrap="wrap"
@@ -407,13 +404,16 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
               inputRef.current?.focus();
             }}
             sx={{
-              px: 1.1,
-              py: 0.7,
+              px: 1.4,
+              py: 1,
+              textAlign: 'left',
+              justifyContent: 'flex-start',
+              lineHeight: 1.5,
               border: `1px solid ${tokens.hair}`,
               borderRadius: 0.8,
               color: tokens.sub,
-              background: 'rgba(250,247,240,.55)',
-              fontSize: 10.5,
+              background: withAlpha(tokens.tile, 0.55),
+              fontSize: 12,
               '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
             }}
           >
@@ -493,8 +493,10 @@ export default function EntryPage() {
       component="main"
       sx={{
         minHeight: '100dvh',
-        px: { xs: 2.25, md: 6.5 },
-        py: { xs: 2.5, md: 3.5 },
+        px: { xs: 2, md: 5 },
+        py: { xs: 2, md: 3.5 },
+        maxWidth: 1360,
+        mx: 'auto',
         display: 'grid',
         gridTemplateRows: 'auto minmax(0,1fr) auto',
       }}
@@ -502,32 +504,26 @@ export default function EntryPage() {
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Stack direction="row" alignItems="center" sx={{ gap: 1 }}>
           <Box
-            sx={{
-              width: 22,
-              height: 22,
-              display: 'grid',
-              placeItems: 'center',
-              border: `1px solid ${tokens.ink}`,
-              borderRadius: 999,
-              fontFamily: tokens.serif,
-              fontSize: 12,
-            }}
+            component="img"
+            src="./vibesim-logo.png"
+            alt=""
+            sx={{ width: 34, height: 30, objectFit: 'contain' }}
+          />
+          <Typography
+            sx={{ color: tokens.ink, fontWeight: 500, fontSize: 25, letterSpacing: '-.06em' }}
           >
-            V
-          </Box>
-          <Typography sx={{ color: tokens.ink, fontWeight: 650, fontSize: 12 }}>VibeSim</Typography>
+            VibeSim
+          </Typography>
         </Stack>
-        <Typography sx={{ color: tokens.sub, fontFamily: tokens.mono, fontSize: 9.5 }}>
-          Analyzer ready
-        </Typography>
+        {mode !== 'new-conversation' && <ThemePicker />}
       </Stack>
 
-      <Box sx={{ width: 'min(1100px,100%)', mx: 'auto', pt: { xs: 5, md: 6.5 }, pb: 8 }}>
+      <Box sx={{ width: '100%', minWidth: 0, mx: 'auto', pt: 2.5, pb: 4 }}>
         <ModeSwitch mode={mode} onChange={setMode} />
         <Box
           key={mode}
           sx={{
-            mt: 5.2,
+            mt: { xs: 3, md: 5 },
             '@keyframes entryModeIn': {
               from: { opacity: 0, transform: 'translateY(8px)' },
               to: { opacity: 1, transform: 'none' },
@@ -538,27 +534,22 @@ export default function EntryPage() {
         >
           {mode === 'experiments' ? (
             <Box>
-              <Box sx={{ maxWidth: 700, mx: 'auto', mb: 4, textAlign: 'center' }}>
+              <Box sx={{ maxWidth: 760, mb: 3, textAlign: 'left' }}>
                 <Typography
                   component="h1"
                   sx={{
                     fontFamily: tokens.serif,
-                    fontSize: 'clamp(40px,5.5vw,68px)',
+                    fontSize: 'clamp(30px,3vw,42px)',
                     fontWeight: 600,
                     letterSpacing: '-.035em',
                     lineHeight: 1,
                   }}
                 >
-                  Start from{' '}
-                  <Box component="em" sx={{ color: tokens.teal, fontWeight: 500 }}>
-                    what ran.
-                  </Box>
+                  Results
                 </Typography>
-                <Typography
-                  sx={{ maxWidth: 560, mx: 'auto', mt: 1.8, color: tokens.sub, fontSize: 14.5 }}
-                >
-                  Open a simulation, timing prediction, or kernel result, then ask the Agent when
-                  interpretation is useful.
+                <Typography sx={{ maxWidth: 640, mt: 1.5, color: tokens.sub, fontSize: 16 }}>
+                  Explore simulations, timing predictions, and kernel measurements across your
+                  workspaces.
                 </Typography>
               </Box>
               {resultCatalogPending ? (
@@ -566,7 +557,7 @@ export default function EntryPage() {
                   sx={{
                     height: 280,
                     borderTop: `1.5px solid ${tokens.ink}`,
-                    background: 'rgba(250,247,240,.35)',
+                    background: withAlpha(tokens.tile, 0.35),
                   }}
                 />
               ) : resultCatalogFailed ? (
@@ -601,12 +592,8 @@ export default function EntryPage() {
         </Box>
       </Box>
       <Stack direction="row" justifyContent="space-between" sx={{ color: tokens.sub2 }}>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 8.5 }}>
-          Local workspace, old-logs excluded
-        </Typography>
-        <Typography sx={{ fontFamily: tokens.mono, fontSize: 8.5 }}>
-          Experiments and agent work
-        </Typography>
+        <Typography sx={{ fontSize: 12 }}>VibeSim · Performance analysis</Typography>
+        <Typography sx={{ fontSize: 12 }}>Simulate. Inspect. Compare.</Typography>
       </Stack>
     </Box>
   );

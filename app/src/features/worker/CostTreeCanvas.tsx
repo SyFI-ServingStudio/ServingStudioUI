@@ -15,7 +15,7 @@ import {
 } from 'react';
 
 import { criticalLeafTotals, type CostTree } from '../../domain/cost-tree';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import CostTreeNode from './CostTreeNode';
 
 export const COST_TREE_VIEWPORT_HEIGHT = 675;
@@ -143,11 +143,11 @@ export default function CostTreeCanvas({
     const readableWidth = contentWidth * READABLE_ZOOM;
     const readableHeight = contentHeight * READABLE_ZOOM;
     // Small trees centre horizontally; wide trees keep a predictable left
-    // origin. Both stay vertically centred at the readable reset scale.
+    // origin. Tall trees start at the top so their root remains visible.
     const fitsWidth = readableWidth <= viewportRect.width - FIT_PADDING_PX * 2;
     applyTransform({
       x: fitsWidth ? (viewportRect.width - readableWidth) / 2 : FIT_PADDING_PX,
-      y: (viewportRect.height - readableHeight) / 2,
+      y: Math.max(FIT_PADDING_PX, (viewportRect.height - readableHeight) / 2),
       scale: READABLE_ZOOM,
     });
   }, [applyTransform]);
@@ -211,11 +211,11 @@ export default function CostTreeCanvas({
   useLayoutEffect(() => {
     if (!supportsBrowserExpansion) return;
     // The fixed frame has its final viewport dimensions on the next paint.
-    // Re-fit once per mode transition without making ordinary resizes destroy
-    // a user's deliberate pan/zoom position.
-    const fitFrame = requestAnimationFrame(fitTree);
+    // Expanded mode shows the whole tree; the normal frame starts readable.
+    // Ordinary resizes preserve a user's deliberate pan/zoom position.
+    const fitFrame = requestAnimationFrame(browserExpanded ? fitTree : resetView);
     return () => cancelAnimationFrame(fitFrame);
-  }, [browserExpanded, fitTree, supportsBrowserExpansion]);
+  }, [browserExpanded, fitTree, resetView, supportsBrowserExpansion]);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -302,7 +302,7 @@ export default function CostTreeCanvas({
         touchAction: 'none',
         userSelect: 'none',
         backgroundColor: tokens.tile2,
-        backgroundImage: 'radial-gradient(circle, rgba(42,38,34,.12) 0.7px, transparent 0.8px)',
+        backgroundImage: `radial-gradient(circle, ${withAlpha(tokens.sub, 0.12)} 0.7px, transparent 0.8px)`,
         backgroundSize: '16px 16px',
       }}
     >
@@ -317,7 +317,7 @@ export default function CostTreeCanvas({
           p: 0.35,
           borderRadius: 1,
           border: `1px solid ${tokens.hair}`,
-          background: 'rgba(250,247,240,.94)',
+          background: withAlpha(tokens.tile, 0.94),
           boxShadow: tokens.shadow,
         }}
       >

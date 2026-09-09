@@ -1,3 +1,4 @@
+import { readableTerminalColor } from '../../theme/colors';
 /**
  * Terminal colour for previewed logs.
  *
@@ -7,12 +8,11 @@
  * ESC byte and leaves `[2m` / `[32m` littered through every line.
  *
  * This turns them into per-line HTML, the same shape `highlightLines` returns,
- * so `CodeView` needs no new branch. Colours resolve to the app's warm palette
- * rather than true terminal values: on a `#fffdf8` page a real bright yellow is
- * unreadable.
+ * so `CodeView` needs no new branch. Colours resolve to the app's dark palette so levels remain legible
+ * alongside the surrounding interface.
  */
 
-import { tokens } from '../../theme';
+import { tokens, colors, activeTheme } from '../../theme';
 
 /* eslint-disable no-control-regex -- matching control characters is the point */
 const ESCAPE_SEQUENCE =
@@ -32,27 +32,27 @@ const BASIC_FOREGROUND = [
   tokens.sub2,
 ] as const;
 
-/** Foreground 90-97. Brighter in a terminal means more saturated here. */
+/** Foreground 90-97. Brighter terminal variants remain readable on dark surfaces. */
 const BRIGHT_FOREGROUND = [
   tokens.sub,
-  '#c25538',
-  '#6b8438',
-  '#9a7c00',
-  '#6a97a4',
-  '#7f63e8',
-  '#268b86',
+  colors.redBright,
+  colors.greenBright,
+  colors.amberBright,
+  colors.blueBright,
+  colors.violetBright,
+  colors.cyanBright,
   tokens.ink,
 ] as const;
 
 /** Backgrounds 40-47 as tints; a saturated fill would bury the text. */
 const BASIC_BACKGROUND = [
   tokens.hair,
-  '#f3ded6',
-  '#e6ecd8',
-  '#f0e7c8',
-  '#dde8ec',
-  '#e5dffb',
-  '#d8e9e8',
+  colors.redWash,
+  colors.greenWash,
+  colors.amberWash,
+  colors.blueWash,
+  colors.violetWash,
+  colors.cyanWash,
   tokens.tile,
 ] as const;
 
@@ -78,23 +78,8 @@ const DEFAULT_STATE: AnsiState = {
   inverse: false,
 };
 
-function channelHex(value: number): string {
-  return value.toString(16).padStart(2, '0');
-}
-
-/**
- * Pull a colour down until it reads on a light page.
- *
- * A terminal assumes a dark background, so roughly half the 256-colour cube is
- * near-invisible here. Scaling by relative luminance keeps hues distinguishable
- * from each other while making every one of them legible.
- */
 function readable(red: number, green: number, blue: number): string {
-  const luminance = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-  const scale = luminance > 0.55 ? 0.55 / luminance : 1;
-  return `#${channelHex(Math.round(red * scale))}${channelHex(Math.round(green * scale))}${channelHex(
-    Math.round(blue * scale),
-  )}`;
+  return readableTerminalColor(red, green, blue, activeTheme.mode);
 }
 
 /** One of the 256 indexed colours, as a page-legible hex. */

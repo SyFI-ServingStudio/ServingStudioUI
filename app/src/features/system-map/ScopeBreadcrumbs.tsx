@@ -3,7 +3,7 @@ import { useViz } from '../../store';
 import { useActiveRun } from '../../application/ActiveRunProvider';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
 import { leafById, nodeById } from '../../domain/cost-tree';
-import { tokens } from '../../theme';
+import { tokens, withAlpha } from '../../theme';
 import { shortName } from '../../util';
 
 interface Crumb {
@@ -27,7 +27,7 @@ const crumbSx = (here: boolean) => ({
   background: here ? tokens.tile : 'transparent',
   boxShadow: here ? tokens.shadow : 'none',
   transition: `all .28s ${tokens.ease}`,
-  '&:hover': here ? {} : { color: tokens.ink, background: 'rgba(42,38,34,.04)' },
+  '&:hover': here ? {} : { color: tokens.ink, background: withAlpha(tokens.sub, 0.04) },
 });
 
 export default function ScopeBreadcrumbs() {
@@ -106,7 +106,7 @@ export default function ScopeBreadcrumbs() {
       {parts.map((p, i) => {
         const content = (
           <>
-            <Box component="span" sx={{ fontFamily: tokens.mono, fontSize: 11, opacity: 0.7 }}>
+            <Box component="span" sx={{ fontFamily: tokens.body, fontSize: 12, opacity: 0.7 }}>
               {p.g}
             </Box>
             {p.lab}
@@ -147,8 +147,8 @@ export default function ScopeBreadcrumbs() {
       <Typography
         sx={{
           ml: 'auto',
-          fontFamily: tokens.mono,
-          fontSize: 10.5,
+          fontFamily: tokens.body,
+          fontSize: 12,
           color: tokens.sub2,
           letterSpacing: '.04em',
         }}
