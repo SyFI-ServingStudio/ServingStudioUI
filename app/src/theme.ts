@@ -1,3 +1,6 @@
+import { metrics, fontRem } from './theme/metrics';
+export { metrics, pageLayout } from './theme/metrics';
+
 import { createTheme } from '@mui/material/styles';
 
 import { themes } from './theme/palettes';
@@ -42,6 +45,12 @@ export const tokens = {
 };
 
 export const theme = createTheme({
+  unstable_sxConfig: {
+    fontSize: {
+      themeKey: 'typography',
+      transform: (value) => typeof value === 'number' ? fontRem(value) : typeof value === 'string' ? value : 'inherit',
+    },
+  },
   palette: {
     mode: activeTheme.mode,
     primary: { main: tokens.teal, contrastText: tokens.paper },
@@ -72,6 +81,7 @@ export const theme = createTheme({
             fontDisplay: 'swap',
           },
         ],
+        html: { fontSize: `${metrics.fontScale * 100}%` },
         body: {
           backgroundColor: tokens.paper,
           fontVariantNumeric: 'tabular-nums',
@@ -103,7 +113,7 @@ export const theme = createTheme({
           backgroundColor: colors.tooltipBackground,
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 13,
+          fontSize: fontRem(13),
           borderRadius: 8,
           padding: '8px 12px',
         },

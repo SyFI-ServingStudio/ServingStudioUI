@@ -29,3 +29,7 @@ Kernel optimality ladder 使用同一主色的六档明暗，kernel 身份保持
 ## 验证
 
 生产构建通过，40 个定向检查通过。浏览器验证三套主题切换、持久化和真实 run 页面；三套 ladder 截图已目视检查。浅色 Agent、代码预览和成本树也已检查。证据位于 .artifacts/style-audit/ 下的 theme-*.png、ladder-*.png、light-agent.png、light-file.png 和 light-cost-tree-readable.png。未运行多屏宽测试矩阵。
+
+## 阅读尺寸和页面宽度
+
+`app/src/theme/metrics.ts` 管理 `fontScale`（当前1.125）和 `pageWidth`（当前80%）。MUI sx 数字字号以16px为设计基准转换为rem，根字号使用相同比例；字符串字号保留语义。ECharts/Canvas使用chartFont转换其像素字号。页面使用共享pageLayout，避免按浏览器缩放猜测布局。会话阅读列保留45rem行长上限。调整文字比例后仍需检查密集图表标签与固定尺寸控件。

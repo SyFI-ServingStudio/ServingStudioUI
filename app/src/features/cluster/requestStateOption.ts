@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import {
@@ -63,12 +64,12 @@ export function clusterRequestStateOption(
       data: xSeconds,
       boundaryGap: false,
       name: 's',
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(theme),
       axisTick: { show: false },
       axisLabel: {
         color: theme.sub,
-        fontSize: 11,
+        fontSize: chartFont(11),
         formatter: (value: string) => `${+Number(value).toFixed(1)}`,
       },
       splitLine: { show: false },
@@ -77,7 +78,7 @@ export function clusterRequestStateOption(
       ...(base.yAxis as object),
       min: 0,
       name: 'requests',
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
     },
     series: [
       ...requestState.clusterSeries.map((category, sourceIndex) => {
@@ -113,7 +114,7 @@ export function clusterRequestStateOption(
                 label: {
                   formatter: 'iter',
                   color: theme.palette[1],
-                  fontSize: 9,
+                  fontSize: chartFont(9),
                   position: 'start' as const,
                 },
                 data: [{ xAxis: cursorCategory }],

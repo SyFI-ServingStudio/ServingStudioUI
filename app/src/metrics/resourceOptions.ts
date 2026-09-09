@@ -1,3 +1,4 @@
+import { chartFont } from '../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import type { ScopedPendingQueue } from '../application/runSelection';
@@ -32,12 +33,12 @@ export function utilizationOption(
   const selectedWorkerOnly = util.series.length === 0 && util.workerSeries.length === 1;
   return {
     ...opt,
-    xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
+    xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: chartFont(10) } },
     yAxis: {
       ...(opt.yAxis as object),
       max: 100,
       name: 'busy %',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       ...util.workerSeries.map((series) => {
@@ -116,12 +117,12 @@ export function kvOption(kv: KvSeries, t: ChartTheme, cursorS?: number): ECharts
   const percentAxisMax = Math.max(100, Math.ceil((peakPercent * 1.05) / 5) * 5);
   return {
     ...opt,
-    xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: 10 } },
+    xAxis: { ...(opt.xAxis as object), name: 's', nameTextStyle: { color: t.sub, fontSize: chartFont(10) } },
     yAxis: {
       ...(opt.yAxis as object),
       ...(percentMode ? { max: percentAxisMax } : {}),
       name: percentMode ? 'KV %' : 'KV tokens',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       ...kv.workerSeries.map((series) => {
@@ -225,12 +226,12 @@ export function pendingQueueOption(
       data: x,
       boundaryGap: false,
       name: 's',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(t),
       axisTick: { show: false },
       axisLabel: {
         color: t.sub,
-        fontSize: 11,
+        fontSize: chartFont(11),
         formatter: (value: string) => `${+Number(value).toFixed(1)}`,
       },
       splitLine: { show: false },
@@ -240,7 +241,7 @@ export function pendingQueueOption(
       min: 0,
       minInterval: 1,
       name: 'pending req',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       ...queue.series.map((series, index) => {
@@ -293,7 +294,7 @@ export function pendingQueueOption(
                 label: {
                   formatter: 'iter',
                   color: tokens.terra,
-                  fontSize: 9,
+                  fontSize: chartFont(9),
                   position: 'start' as const,
                 },
                 data: [{ xAxis: cursorCategory }],
@@ -342,13 +343,13 @@ export function batchMetricOption(
     xAxis: {
       ...(opt.xAxis as object),
       name: 's',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     yAxis: {
       ...(opt.yAxis as object),
       min: 0,
       name: metricView.unit,
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       {
@@ -385,7 +386,7 @@ export function poolBatchMetricOption(
       top: 0,
       right: 0,
       data: ['pool aggregate', 'pool average'],
-      textStyle: { color: t.sub, fontSize: 11 },
+      textStyle: { color: t.sub, fontSize: chartFont(11) },
       itemWidth: 14,
       itemHeight: 8,
     },
@@ -397,13 +398,13 @@ export function poolBatchMetricOption(
     xAxis: {
       ...(opt.xAxis as object),
       name: 's',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     yAxis: {
       ...(opt.yAxis as object),
       min: 0,
       name: aggregateView.unit.replace(' / invocation', ''),
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       {

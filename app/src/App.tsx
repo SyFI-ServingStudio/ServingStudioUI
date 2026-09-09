@@ -1,3 +1,4 @@
+import { pageLayout } from './theme/metrics';
 import { Box, Link, Stack, Typography } from '@mui/material';
 import { lazy, Suspense, type ReactNode, useEffect } from 'react';
 import { useViz, type Scope } from './store';
@@ -313,7 +314,7 @@ export default function App() {
     return (
       <Box
         component="main"
-        sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
+        sx={{ ...pageLayout, mx: 'auto', px: 0, pt: 3.75, pb: 10 }}
       >
         <Masthead hasRun={false} />
         <Box
@@ -391,7 +392,7 @@ export default function App() {
     >
       <Box
         component="main"
-        sx={{ maxWidth: 1560, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 3.75, pb: 10 }}
+        sx={{ ...pageLayout, mx: 'auto', px: 0, pt: 3.75, pb: 10 }}
       >
         <Masthead hasRun runName={run.name} />
 

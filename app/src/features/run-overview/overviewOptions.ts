@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type { EChartsOption } from 'echarts';
 import type { TraceOverviewData } from './model';
 import {
@@ -27,12 +28,12 @@ export function lengthDistributionOption(
       top: 0,
       right: 0,
       data: ['input lens', 'output lens'],
-      textStyle: { color: theme.sub, fontSize: 10 },
+      textStyle: { color: theme.sub, fontSize: chartFont(10) },
       itemWidth: 12,
       itemHeight: 7,
     },
     tooltip: richTextTooltip(theme, 'axis', {
-      textStyle: { fontSize: 11 },
+      textStyle: { fontSize: chartFont(11) },
       formatter: (params: unknown) => {
         const rows = params as Array<{
           seriesName: string;
@@ -52,10 +53,10 @@ export function lengthDistributionOption(
       name: 'sequence length · tokens',
       nameLocation: 'middle',
       nameGap: 24,
-      nameTextStyle: { color: theme.sub, fontSize: 9 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(9) },
       axisLine: chartAxisLine(theme),
       axisTick: { show: false },
-      axisLabel: { color: theme.sub, fontSize: 9, formatter: tokenLabel },
+      axisLabel: { color: theme.sub, fontSize: chartFont(9), formatter: tokenLabel },
       splitLine: { show: false },
     },
     yAxis: {
@@ -67,7 +68,7 @@ export function lengthDistributionOption(
       axisTick: { show: false },
       axisLabel: {
         color: theme.sub,
-        fontSize: 9,
+        fontSize: chartFont(9),
         formatter: (value: number) => Math.abs(value).toFixed(1),
       },
       splitLine: { lineStyle: { color: theme.split, type: 'dashed' } },
@@ -116,32 +117,32 @@ export function arrivalPatternOption(data: TraceOverviewData, theme: ChartTheme)
       top: 0,
       right: 0,
       data: ['effective request rate'],
-      textStyle: { color: theme.sub, fontSize: 10 },
+      textStyle: { color: theme.sub, fontSize: chartFont(10) },
       itemWidth: 12,
       itemHeight: 7,
     },
     tooltip: richTextTooltip(theme, 'axis', {
       axisPointer: { type: 'line' },
-      textStyle: { fontSize: 11 },
+      textStyle: { fontSize: chartFont(11) },
     }),
     xAxis: {
       type: 'value',
       name: 'wall-clock · s',
       nameLocation: 'middle',
       nameGap: 24,
-      nameTextStyle: { color: theme.sub, fontSize: 9 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(9) },
       axisLine: chartAxisLine(theme),
       axisTick: { show: false },
-      axisLabel: { color: theme.sub, fontSize: 9 },
+      axisLabel: { color: theme.sub, fontSize: chartFont(9) },
       splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
       name: 'req/s',
-      nameTextStyle: { color: theme.sub, fontSize: 9 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(9) },
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: theme.sub, fontSize: 9 },
+      axisLabel: { color: theme.sub, fontSize: chartFont(9) },
       splitLine: { lineStyle: { color: theme.split, type: 'dashed' } },
     },
     series: [

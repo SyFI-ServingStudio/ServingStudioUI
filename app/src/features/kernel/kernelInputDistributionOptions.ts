@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import {
@@ -214,7 +215,7 @@ export function kernelInputDistributionOption(
       top: 0,
       right: 0,
       type: 'scroll',
-      textStyle: { color: theme.sub, fontSize: 10 },
+      textStyle: { color: theme.sub, fontSize: chartFont(10) },
       itemWidth: 12,
       itemHeight: 7,
     },
@@ -260,10 +261,10 @@ export function kernelInputDistributionOption(
       name: categorical ? undefined : safeChartText(position.axisLabels[0]),
       nameLocation: 'middle',
       nameGap: 28,
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
       axisLine: categorical ? { show: false } : chartAxisLine(theme),
       axisTick: { show: !categorical },
-      axisLabel: { show: !categorical, color: theme.sub, fontSize: 10 },
+      axisLabel: { show: !categorical, color: theme.sub, fontSize: chartFont(10) },
       splitLine: { show: false },
       min: categorical ? -1 : undefined,
       max: categorical ? 1 : undefined,
@@ -275,10 +276,10 @@ export function kernelInputDistributionOption(
         : categorical
           ? undefined
           : safeChartText(position.axisLabels[1]),
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
       axisLine: categorical ? { show: false } : chartAxisLine(theme),
       axisTick: { show: !categorical },
-      axisLabel: { show: !categorical, color: theme.sub, fontSize: 10 },
+      axisLabel: { show: !categorical, color: theme.sub, fontSize: chartFont(10) },
       splitLine: { show: !categorical },
       min: categorical || oneDimensional ? 0 : undefined,
       max: categorical ? 1 : undefined,

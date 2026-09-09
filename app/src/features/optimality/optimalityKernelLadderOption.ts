@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { colors } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
@@ -50,7 +51,7 @@ export function optimalityKernelLadderOption(
       top: 0,
       left: 0,
       right: 0,
-      textStyle: { color: theme.sub, fontSize: 12 },
+      textStyle: { color: theme.sub, fontSize: chartFont(12) },
       itemWidth: 11,
       itemHeight: 8,
       pageTextStyle: { color: theme.sub },
@@ -63,11 +64,11 @@ export function optimalityKernelLadderOption(
       name: 'GPU·seconds',
       nameLocation: 'middle',
       nameGap: 30,
-      nameTextStyle: { color: theme.sub, fontSize: 12 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(12) },
       axisLine: chartAxisLine(theme),
       axisLabel: {
         color: theme.sub,
-        fontSize: 12,
+        fontSize: chartFont(12),
         formatter: (value: number) => formatGpuSeconds(value),
       },
       splitLine: { lineStyle: { color: theme.split, type: 'dashed' } },
@@ -80,7 +81,7 @@ export function optimalityKernelLadderOption(
       ),
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: theme.text, fontSize: 12, fontFamily: theme.font, fontWeight: 600 },
+      axisLabel: { color: theme.text, fontSize: chartFont(12), fontFamily: theme.font, fontWeight: 600 },
     },
     series: identities.map((identity) => ({
       name: safeChartText(identity.label),

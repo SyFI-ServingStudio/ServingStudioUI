@@ -1,3 +1,4 @@
+import { chartFont } from '../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import { KERNEL_TIME_EPSILON_MS } from '../domain/kernelTimeShare';
@@ -27,7 +28,7 @@ export function kernelTimeStackOption(
     legend: {
       top: 0,
       right: 0,
-      textStyle: { color: t.sub, fontSize: 11 },
+      textStyle: { color: t.sub, fontSize: chartFont(11) },
       itemWidth: 12,
       itemHeight: 8,
     },
@@ -39,9 +40,9 @@ export function kernelTimeStackOption(
       type: 'value',
       max: 100,
       name: '% of CostTree root kernel time',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(t),
-      axisLabel: { color: t.sub, fontSize: 11, formatter: '{value}%' },
+      axisLabel: { color: t.sub, fontSize: chartFont(11), formatter: '{value}%' },
       splitLine: { lineStyle: { color: t.split, type: 'dashed' } },
     },
     yAxis: {
@@ -50,7 +51,7 @@ export function kernelTimeStackOption(
       data: cats,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: t.text, fontSize: 12, fontFamily: t.font, fontWeight: 600 },
+      axisLabel: { color: t.text, fontSize: chartFont(12), fontFamily: t.font, fontWeight: 600 },
     },
     series: data.families.map((f) => ({
       name: safeChartText(f.label),

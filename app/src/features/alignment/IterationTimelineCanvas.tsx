@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { Box } from '@mui/material';
 import {
   useCallback,
@@ -365,7 +366,7 @@ function laneText(
   align: CanvasTextAlign = 'left',
 ): void {
   context.fillStyle = color;
-  context.font = `${bold ? '600 ' : ''}9px ${tokens.mono}`;
+  context.font = `${bold ? '600 ' : ''}${chartFont(9)}px ${tokens.mono}`;
   context.textAlign = align;
   context.fillText(text, x, y);
 }

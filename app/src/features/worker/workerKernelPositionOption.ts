@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { tokens, colors } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
@@ -67,9 +68,9 @@ export function workerKernelPositionOption(
       type: 'value',
       max: 100,
       name: '% of worker CostTree-root kernel time',
-      nameTextStyle: { color: CHART_THEME.sub, fontSize: 10 },
+      nameTextStyle: { color: CHART_THEME.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(CHART_THEME),
-      axisLabel: { color: CHART_THEME.sub, fontSize: 11, formatter: '{value}%' },
+      axisLabel: { color: CHART_THEME.sub, fontSize: chartFont(11), formatter: '{value}%' },
       splitLine: { lineStyle: { color: CHART_THEME.split, type: 'dashed' } },
     },
     yAxis: {
@@ -80,7 +81,7 @@ export function workerKernelPositionOption(
       axisTick: { show: false },
       axisLabel: {
         color: CHART_THEME.text,
-        fontSize: 12,
+        fontSize: chartFont(12),
         fontFamily: CHART_THEME.font,
         fontWeight: 600,
       },
@@ -102,7 +103,7 @@ export function workerKernelPositionOption(
             ? `${safeChartText(chunk.name.split('.').pop() ?? chunk.name)}\n${chunk.sharePct.toFixed(1)}%`
             : '',
         color: colors.tooltipText,
-        fontSize: 9,
+        fontSize: chartFont(9),
       },
     })),
   };

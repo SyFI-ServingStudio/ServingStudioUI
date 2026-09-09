@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { colors } from '../../theme';
 import type { EChartsOption } from 'echarts';
 
@@ -77,7 +78,7 @@ const CATEGORY_LABEL_MAX_WIDTH = 188;
 function categoryAxisLabel(t: ChartTheme) {
   return {
     color: t.text,
-    fontSize: 12,
+    fontSize: chartFont(12),
     fontFamily: t.font,
     fontWeight: 600,
     width: CATEGORY_LABEL_MAX_WIDTH,
@@ -121,7 +122,7 @@ export function optimalityStackOption(
     legend: {
       top: 0,
       right: 0,
-      textStyle: { color: t.sub, fontSize: 11 },
+      textStyle: { color: t.sub, fontSize: chartFont(11) },
       itemWidth: 12,
       itemHeight: 8,
     },
@@ -137,11 +138,11 @@ export function optimalityStackOption(
       max: normalized ? 100 : undefined,
       nameLocation: 'middle',
       nameGap: 34,
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(t),
       axisLabel: {
         color: t.sub,
-        fontSize: 11,
+        fontSize: chartFont(11),
         formatter: (value: number) =>
           normalized ? `${value.toFixed(0)}%` : formatGpuSeconds(value),
       },
@@ -199,12 +200,12 @@ function valueAxis(t: ChartTheme, name: string, position: 'top' | 'bottom', norm
     name,
     nameLocation: 'middle' as const,
     nameGap: 32,
-    nameTextStyle: { color: t.sub, fontSize: 10 },
+    nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     max: normalized ? 100 : undefined,
     axisLine: chartAxisLine(t),
     axisLabel: {
       color: t.sub,
-      fontSize: 11,
+      fontSize: chartFont(11),
       formatter: (value: number) => (normalized ? `${value.toFixed(0)}%` : formatGpuSeconds(value)),
     },
     splitLine: { lineStyle: { color: t.split, type: 'dashed' as const } },
@@ -264,13 +265,13 @@ function separatedPrimaryRowOption(
         text: 'Aggregate',
         left: 16,
         top: 35,
-        textStyle: { color: t.sub, fontFamily: t.font, fontSize: 11, fontWeight: 700 },
+        textStyle: { color: t.sub, fontFamily: t.font, fontSize: chartFont(11), fontWeight: 700 },
       },
       {
         text: 'Per worker',
         left: 16,
         top: 125,
-        textStyle: { color: t.sub, fontFamily: t.font, fontSize: 11, fontWeight: 700 },
+        textStyle: { color: t.sub, fontFamily: t.font, fontSize: chartFont(11), fontWeight: 700 },
       },
     ],
     grid: [
@@ -280,7 +281,7 @@ function separatedPrimaryRowOption(
     legend: {
       top: 0,
       right: 0,
-      textStyle: { color: t.sub, fontSize: 11 },
+      textStyle: { color: t.sub, fontSize: chartFont(11) },
       itemWidth: 12,
       itemHeight: 8,
     },

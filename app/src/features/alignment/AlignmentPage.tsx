@@ -1,3 +1,4 @@
+import { pageLayout } from '../../theme/metrics';
 import { Alert, Box, Skeleton, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
@@ -308,7 +309,7 @@ const SUBJECT_LABELS: Readonly<Record<AlignmentSubjectName, string>> = {
 
 function PageFrame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1500, mx: 'auto' }}>
+    <Box sx={{ py: 3, ...pageLayout, mx: 'auto' }}>
       <Stack sx={{ mb: 2.5, gap: 0.5 }}>
         <Typography
           sx={{

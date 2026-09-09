@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { Box } from '@mui/material';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -76,7 +77,7 @@ export default function WallClockPicker({
     const context = prepareCanvas(canvas, PICKER.axisWidth, PICKER.height);
     if (context === null) return;
     context.textAlign = 'right';
-    context.font = `9px ${tokens.mono}`;
+    context.font = `${chartFont(9)}px ${tokens.mono}`;
     context.fillStyle = tokens.sub2;
     for (const tick of pickerTicks(topFraction)) {
       context.fillText(
@@ -123,7 +124,7 @@ export default function WallClockPicker({
 
     const step = pickerRulerStep(ordered.length, width);
     context.fillStyle = tokens.sub2;
-    context.font = `9px ${tokens.mono}`;
+    context.font = `${chartFont(9)}px ${tokens.mono}`;
     context.textAlign = 'center';
     bars.forEach((bar, slot) => {
       if (slot % step !== 0) return;

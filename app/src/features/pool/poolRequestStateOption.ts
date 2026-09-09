@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import {
@@ -54,12 +55,12 @@ export function poolRequestStateOption(
       data: xSeconds,
       boundaryGap: false,
       name: 's',
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
       axisLine: chartAxisLine(theme),
       axisTick: { show: false },
       axisLabel: {
         color: theme.sub,
-        fontSize: 11,
+        fontSize: chartFont(11),
         formatter: (value: string) => `${+Number(value).toFixed(1)}`,
       },
       splitLine: { show: false },
@@ -68,7 +69,7 @@ export function poolRequestStateOption(
       ...(base.yAxis as object),
       min: 0,
       name: 'pending requests',
-      nameTextStyle: { color: theme.sub, fontSize: 10 },
+      nameTextStyle: { color: theme.sub, fontSize: chartFont(10) },
     },
     series: [
       {

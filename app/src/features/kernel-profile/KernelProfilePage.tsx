@@ -1,3 +1,4 @@
+import { pageLayout } from '../../theme/metrics';
 import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import { Stack, Typography } from '@mui/material';
 import { useEffect } from 'react';
@@ -61,7 +62,7 @@ export function KernelProfilePage({ profileId }: { readonly profileId: string })
     replaceAnalyzerEvidenceHref({ protocol: 'vibesim.analyzer/v2', ...next });
   };
   return (
-    <Stack sx={{ gap: 2.5, p: { xs: 2, md: 4 }, maxWidth: 1440, mx: 'auto' }}>
+    <Stack sx={{ gap: 2.5, py: 4, ...pageLayout, mx: 'auto' }}>
       <AnalysisPageHeader title="Kernel profile" />
       <KernelCurve
         curve={queries.curve.data}

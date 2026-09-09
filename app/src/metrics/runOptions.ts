@@ -1,3 +1,4 @@
+import { chartFont } from '../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import type { SloMetric, Throughput } from '../domain/run';
@@ -43,13 +44,13 @@ export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string)
       max: axisMax,
       axisPointer: { snap: true },
       name: `latency · ${safeChartText(metric.unit)}`,
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     yAxis: {
       ...(opt.yAxis as object),
       max: 100,
       name: 'CDF %',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       {
@@ -66,7 +67,7 @@ export function sloMetricOption(metric: SloMetric, t: ChartTheme, color: string)
           silent: true,
           symbol: 'none',
           lineStyle: { color, opacity: 0.5, type: 'dotted' },
-          label: { formatter: 'p90', color: t.sub, fontSize: 10 },
+          label: { formatter: 'p90', color: t.sub, fontSize: chartFont(10) },
           data: [{ xAxis: metric.markers.p90 }],
         },
       },
@@ -107,12 +108,12 @@ export function throughputOption(tp: Throughput, t: ChartTheme, cursorS?: number
       name: 'wall-clock · s',
       nameLocation: 'middle',
       nameGap: 24,
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     yAxis: {
       ...(opt.yAxis as object),
       name: 'tok/s',
-      nameTextStyle: { color: t.sub, fontSize: 10 },
+      nameTextStyle: { color: t.sub, fontSize: chartFont(10) },
     },
     series: [
       // Keep the bold total behind its components: decode often equals total,

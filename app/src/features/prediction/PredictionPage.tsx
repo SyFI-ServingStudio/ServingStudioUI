@@ -1,3 +1,4 @@
+import { pageLayout } from '../../theme/metrics';
 import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
@@ -579,7 +580,7 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
   }
 
   return (
-    <Stack sx={{ gap: 2, p: { xs: 2, md: 4 }, maxWidth: 1560, mx: 'auto' }}>
+    <Stack sx={{ gap: 2, py: 4, ...pageLayout, mx: 'auto' }}>
       <AnalysisPageHeader title="Timing prediction" detail={descriptor.data.displayName} />
       <PredictionSelectionUrlSync predictionId={predictionId} />
       <PredictionCasePicker

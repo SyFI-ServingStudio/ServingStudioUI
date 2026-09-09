@@ -1,3 +1,4 @@
+import { pageLayout } from '../../theme/metrics';
 import ThemePicker from '../../components/ThemePicker';
 import ArrowUpwardRounded from '@mui/icons-material/ArrowUpwardRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
@@ -56,7 +57,7 @@ const PROMPT_STARTERS = [
   },
   {
     label: 'Llama3-8B · Prefill/decode split',
-    prompt: 'What is the best ratio of prefill to decode servers for Llama3-8B when serving requests with 2K input tokens and 4K output tokens?',
+    prompt: 'What is the best ratio of prefill to decode servers for Llama3-8B on NVIDIA H200 GPUs when serving requests with 2K input tokens and 4K output tokens?',
   },
 ] as const;
 
@@ -502,9 +503,9 @@ export default function EntryPage() {
       component="main"
       sx={{
         minHeight: '100dvh',
-        px: { xs: 2, md: 5 },
+        px: 0,
         py: { xs: 2, md: 3.5 },
-        maxWidth: 1360,
+        ...pageLayout,
         mx: 'auto',
         display: 'grid',
         gridTemplateRows: 'auto minmax(0,1fr) auto',

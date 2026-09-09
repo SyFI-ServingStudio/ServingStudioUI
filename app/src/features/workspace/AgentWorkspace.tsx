@@ -2980,7 +2980,7 @@ export default function AgentPane({
   // it the reading column comes first and the progress rail steps aside.
   const roomForProgressRail = useMediaQuery('(min-width:1280px)', { noSsr: true });
   const progressRailVisible = roomy && progressRailOpen && roomForProgressRail;
-  const readingColumnWidth = roomy ? 'min(720px,calc(100% - 40px))' : '100%';
+  const readingColumnWidth = roomy ? 'min(45rem,80%)' : '100%';
   const activeConversationTitle =
     conversation.conversations.find((item) => item.id === conversation.conversationId)?.title ??
     'New conversation';

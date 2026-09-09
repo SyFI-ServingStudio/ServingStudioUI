@@ -1,3 +1,4 @@
+import { pageLayout } from '../../theme/metrics';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import type { EChartsOption } from 'echarts';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -721,7 +722,7 @@ export default function SweepPage({ integrated = false }: { integrated?: boolean
   return (
     <Box
       component="main"
-      sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 2.25, md: 5.5 }, pt: 4, pb: 10 }}
+      sx={{ ...pageLayout, mx: 'auto', px: 0, pt: 4, pb: 10 }}
     >
       <Box sx={{ borderBottom: `1px solid ${tokens.hair}`, pb: 2.5 }}>
         <Stack

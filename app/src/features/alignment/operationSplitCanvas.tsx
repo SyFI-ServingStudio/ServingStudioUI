@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { Box, Typography } from '@mui/material';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -61,7 +62,7 @@ export interface OperationSplitCanvasProps {
   readonly ariaLabel: string;
 }
 
-const monoFont = (size: number): string => `${size}px ${tokens.mono}`;
+const monoFont = (size: number): string => `${chartFont(size)}px ${tokens.mono}`;
 
 function drawStack(
   context: CanvasRenderingContext2D,

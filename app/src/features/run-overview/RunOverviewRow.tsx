@@ -183,8 +183,8 @@ function OverviewCard({
       component="section"
       aria-labelledby={id}
       sx={{
-        flex: { xs: '0 0 auto', md: '1 1 0' },
-        minHeight: 0,
+        flex: '1 0 auto',
+        minHeight: 'min-content',
         py: 1.5,
         px: 2,
         display: 'flex',

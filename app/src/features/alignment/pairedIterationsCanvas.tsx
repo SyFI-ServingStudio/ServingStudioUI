@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import { Box } from '@mui/material';
 import {
   useCallback,
@@ -23,7 +24,7 @@ function applyFont(
   context: CanvasRenderingContext2D,
   shape: Extract<PlotShape, { kind: 'text' }>,
 ): void {
-  context.font = `${shape.weight ?? 400} ${shape.size}px ${tokens.mono}`;
+  context.font = `${shape.weight ?? 400} ${chartFont(shape.size)}px ${tokens.mono}`;
   // Not every engine implements canvas letter spacing; where it is missing the
   // label simply sets tighter, which is preferable to measuring glyphs here.
   if ('letterSpacing' in context) {

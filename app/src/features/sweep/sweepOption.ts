@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type { EChartsOption } from 'echarts';
 
 import { CHART_THEME, chartGrid } from '../../charts/platform';
@@ -121,7 +122,7 @@ export function sweepChartOption(
         nameTextStyle: {
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 12,
+          fontSize: chartFont(12),
           fontWeight: 600,
         },
         data: xDomain.map(coordinateLabel),
@@ -129,7 +130,7 @@ export function sweepChartOption(
         axisLabel: {
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 13,
+          fontSize: chartFont(13),
           fontWeight: 500,
           formatter: sweepAxisTickLabel,
         },
@@ -146,13 +147,13 @@ export function sweepChartOption(
         nameTextStyle: {
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 12,
+          fontSize: chartFont(12),
           fontWeight: 600,
         },
         axisLabel: {
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 13,
+          fontSize: chartFont(13),
           fontWeight: 500,
           formatter: sweepAxisTickLabel,
         },
@@ -226,7 +227,7 @@ export function sweepChartOption(
       nameTextStyle: {
         color: tokens.ink,
         fontFamily: tokens.body,
-        fontSize: 12,
+        fontSize: chartFont(12),
         fontWeight: 600,
       },
       data: xDomain.map(coordinateLabel),
@@ -234,7 +235,7 @@ export function sweepChartOption(
       axisLabel: {
         color: tokens.ink,
         fontFamily: tokens.body,
-        fontSize: 13,
+        fontSize: chartFont(13),
         fontWeight: 500,
       },
       axisLine: { lineStyle: { color: CHART_THEME.axis } },
@@ -247,7 +248,7 @@ export function sweepChartOption(
       nameTextStyle: {
         color: tokens.ink,
         fontFamily: tokens.body,
-        fontSize: 12,
+        fontSize: chartFont(12),
         fontWeight: 600,
       },
       data: yDomain.map(coordinateLabel),
@@ -255,7 +256,7 @@ export function sweepChartOption(
       axisLabel: {
         color: tokens.ink,
         fontFamily: tokens.body,
-        fontSize: 13,
+        fontSize: chartFont(13),
         fontWeight: 500,
       },
       axisLine: { lineStyle: { color: CHART_THEME.axis } },
@@ -272,7 +273,7 @@ export function sweepChartOption(
       calculable: false,
       text: minimizes ? ['worse', 'better'] : ['better', 'worse'],
       textGap: 3,
-      textStyle: { color: tokens.sub, fontFamily: tokens.body, fontSize: 9 },
+      textStyle: { color: tokens.sub, fontFamily: tokens.body, fontSize: chartFont(9) },
       inRange: {
         color: minimizes ? [...SWEEP_OUTCOME_SCALE].reverse() : [...SWEEP_OUTCOME_SCALE],
       },
@@ -285,7 +286,7 @@ export function sweepChartOption(
           show: true,
           color: tokens.ink,
           fontFamily: tokens.body,
-          fontSize: 10,
+          fontSize: chartFont(10),
           formatter: (params: unknown) => {
             const value = (params as { value?: readonly [number, number, number] }).value?.[2];
             if (value === undefined) return '';

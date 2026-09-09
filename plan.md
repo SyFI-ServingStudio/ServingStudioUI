@@ -132,3 +132,37 @@ Trace overview 的后端路径校验及前端 schema 已同步修复：支持 lo
 三个建议按钮显示简短的模型与任务标题，并恢复紧凑横向排列。点击后填入原始完整问题并聚焦输入框，保留所有模型、硬件、并行配置、长度与延迟约束；不自动发送。
 
 短标题改动生产构建通过（6.08s），diff 空白检查通过；沿用已授权的提交推送流程更新 design/intro-style-match 分支。
+
+## 2026-09-09 Agent 首次构建失败调查
+
+只读调查 w_0a324903b8df / 441877f79e3c。原始 Codex 工具日志显示首次 cargo release 在57.18s完成，launcher 随后报 build failed; cannot produce deployment schema；重试 cargo仅0.08s并继续构建Analyzer。实际失败阶段比会话中“schema generation failed”的解释更早：cargo_build 对 ProcessResult.succeeded 的检查。
+
+容器 Init=<nil>，PID1为 sleep infinity；进程树显示多个 PPID1、状态Z的 ld.mold，分别残留于2333/3854进程组。ProcessSupervisor 使用 killpg(pgid,0) 检查组是否存在，将僵尸进程计入 leaked_descendants；ProcessResult 即使exit_code=0也因此判失败。冷构建链接后容易触发，缓存重试跳过链接则能继续。通用错误文案掩盖了进程清理判定。
+
+修复方向：新Agent容器启用 --init 回收孤儿进程；监督器区分活进程与僵尸并输出具体失败原因。此次未修改运行中的Agent容器、启动模拟或发送会话消息，也未实施后端修复。
+
+## 2026-09-09 首次构建误报的修复
+
+已在 main/launcher/process/supervisor.py 将进程组检查改为 Linux procfs 活进程检查：忽略 Z/X 状态，保留对真实残留进程的清理与失败判断；procfs 不可读时保守处理。main/launcher/exec.py 分阶段输出编译/schema 失败、退出码、PID/PGID和终止原因，入口不再统一误报 schema 失败。user-facing-ui/backend/codex_runtime/docker.py 为新容器增加 --init。
+
+验证：18个 Launcher CPU 检查通过，覆盖同步/异步真实僵尸进程、活跃残留、取消、输出捕获和诊断；15个 Claude runtime 检查及4个 Docker runtime 检查通过，包含实际命令构造的 --init 断言。未运行GPU测试或启动模拟。
+
+生效边界：未重启正在运行的8765后端或重建现有Agent容器，也未改动活跃会话的工作区副本。后端需在会话安全结束后重新加载，随后新容器使用init；已有workspace副本需要同步Launcher修复。源码修改尚未提交。
+
+## 2026-09-09 PD 示例指定 H200
+
+Prefill/decode split 建议的完整问题明确使用 NVIDIA H200 GPUs，保留 Llama3-8B、2K 输入和4K 输出以及原短标题。仅更新建议文案，不向现有会话发送消息。
+
+## 2026-09-09 自适应占宽与统一阅读尺寸
+
+主要分析页面和结果目录改用共享 pageLayout，主体占可用宽度80%，去掉1360–1560px固定上限和重复内边距。新增 theme/metrics.ts 集中控制 pageWidth、fontScale=1.125 和阅读列宽；MUI sx 数值字号转 rem，根字号采用112.5%，ECharts和alignment Canvas字号通过chartFont同步放大。会话阅读列使用 min(45rem,80%)。概览卡片允许内容自然撑高，避免新增字号造成裁切。
+
+生产构建通过（6.33s），diff检查通过。浏览器实测1440/960 CSS视口下首页主体宽1152/768px，均为80%，根字号18px且无页面横向溢出；这是视口重排检查，并非操作真实浏览器缩放。三套主题均完成目录与真实run导航检查，最终深色run截图已目视检查。未运行广泛屏宽/测试矩阵。
+
+## 2026-09-09 浅色表面减淡
+
+按反馈将 VS Code Light 的 surface 从 #f3f3f3 调为 #fafafa，elevated 从 #ececec 调为 #f3f3f3，降低首页结果表格和卡片的灰度重量。修改集中在 palettes.ts；这是对官方参考色的产品调整。
+
+## 2026-09-09 UI 更新提交
+
+用户授权提交推送80%页面宽度、统一增大字号、浅色表面减淡及PD示例明确H200。最终生产构建通过（7.29s），diff检查通过。提交范围仅为 VibeSimUI；其他仓库的Launcher与容器init修复仍独立保留。

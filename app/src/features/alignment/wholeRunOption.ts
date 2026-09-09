@@ -1,3 +1,4 @@
+import { chartFont } from '../../theme/metrics';
 import type {
   EChartsOption,
   LineSeriesOption,
@@ -444,7 +445,7 @@ export function expandedWholeRunOption(option: EChartsOption): EChartsOption {
           lineStyle: { color: tokens.teal },
           areaStyle: { color: `${tokens.teal}20` },
         },
-        textStyle: { color: tokens.sub, fontFamily: tokens.mono, fontSize: 9 },
+        textStyle: { color: tokens.sub, fontFamily: tokens.mono, fontSize: chartFont(9) },
       },
     ],
   };

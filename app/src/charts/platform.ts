@@ -1,3 +1,4 @@
+import { chartFont } from '../theme/metrics';
 import type {
   EChartsOption,
   GridComponentOption,
@@ -42,7 +43,7 @@ export const ECHARTS_THEME = {
     renderMode: 'richText',
     backgroundColor: CHART_THEME.tip,
     borderWidth: 0,
-    textStyle: { color: colors.tooltipText, fontFamily: CHART_THEME.font, fontSize: 12 },
+    textStyle: { color: colors.tooltipText, fontFamily: CHART_THEME.font, fontSize: chartFont(12) },
   },
   categoryAxis: {
     axisLine: { lineStyle: { color: CHART_THEME.axis } },
@@ -104,7 +105,7 @@ export function richTextTooltip(
     textStyle: {
       color: colors.tooltipText,
       fontFamily: theme.font,
-      fontSize: 12,
+      fontSize: chartFont(12),
       ...overrides.textStyle,
     },
   };
@@ -123,7 +124,7 @@ export function chartValueAxis(theme: ChartTheme): YAXisComponentOption {
     type: 'value',
     axisLine: { show: false },
     axisTick: { show: false },
-    axisLabel: { color: theme.sub, fontSize: 11 },
+    axisLabel: { color: theme.sub, fontSize: chartFont(11) },
     splitLine: { lineStyle: { color: theme.split, type: 'dashed' } },
   };
 }
@@ -140,7 +141,7 @@ export function cursorMarker(cursorSeconds: number) {
       silent: true,
       symbol: ['none', 'none'] as [string, string],
       lineStyle: { color: tokens.terra, width: 1.5, opacity: 0.85 },
-      label: { formatter: 'iter', color: tokens.terra, fontSize: 9, position: 'start' as const },
+      label: { formatter: 'iter', color: tokens.terra, fontSize: chartFont(9), position: 'start' as const },
       data: [{ xAxis: +cursorSeconds.toFixed(2) }],
     },
   };
@@ -153,7 +154,7 @@ export function baseChartOption(theme: ChartTheme): EChartsOption {
     legend: {
       top: 0,
       right: 0,
-      textStyle: { color: theme.sub, fontSize: 11 },
+      textStyle: { color: theme.sub, fontSize: chartFont(11) },
       itemWidth: 14,
       itemHeight: 8,
     },
@@ -161,7 +162,7 @@ export function baseChartOption(theme: ChartTheme): EChartsOption {
     xAxis: {
       type: 'value',
       axisLine: chartAxisLine(theme),
-      axisLabel: { color: theme.sub, fontSize: 11 },
+      axisLabel: { color: theme.sub, fontSize: chartFont(11) },
       splitLine: { show: false },
     },
     yAxis: chartValueAxis(theme),
