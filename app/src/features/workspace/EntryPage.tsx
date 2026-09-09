@@ -46,9 +46,18 @@ import WorkspacePicker from './WorkspacePicker';
 type EntryMode = 'experiments' | 'new-conversation' | 'resume-conversation';
 
 const PROMPT_STARTERS = [
-  'For Llama3-8B on a single H200, what is the maximum throughput with TPOT < 20 ms, given 4K input tokens and 1K output tokens per request?',
-  'When serving GLM5.2 with TP4 + EP4, which kernel takes the most time when processing 16K prefill tokens?',
-  'What is the best ratio of prefill to decode servers for Llama3-8B when serving requests with 2K input tokens and 4K output tokens?',
+  {
+    label: 'Llama3-8B · Max throughput',
+    prompt: 'For Llama3-8B on a single H200, what is the maximum throughput with TPOT < 20 ms, given 4K input tokens and 1K output tokens per request?',
+  },
+  {
+    label: 'GLM5.2 · Kernel bottleneck',
+    prompt: 'When serving GLM5.2 with TP4 + EP4, which kernel takes the most time when processing 16K prefill tokens?',
+  },
+  {
+    label: 'Llama3-8B · Prefill/decode split',
+    prompt: 'What is the best ratio of prefill to decode servers for Llama3-8B when serving requests with 2K input tokens and 4K output tokens?',
+  },
 ] as const;
 
 function navigateToExperiment(entry: SweepListItem): void {
@@ -384,7 +393,7 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
       </Stack>
       {/* Starters fill the composer, so they only mean anything once it exists. */}
       <Stack
-        direction="column"
+        direction="row"
         justifyContent="center"
         useFlexGap
         flexWrap="wrap"
@@ -398,9 +407,9 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
       >
         {PROMPT_STARTERS.map((starter) => (
           <ButtonBase
-            key={starter}
+            key={starter.label}
             onClick={() => {
-              setPrompt(starter);
+              setPrompt(starter.prompt);
               inputRef.current?.focus();
             }}
             sx={{
@@ -417,7 +426,7 @@ export function AgentStart({ workspaces }: { workspaces: readonly WorkspaceSumma
               '&:hover': { borderColor: tokens.sub2, color: tokens.ink },
             }}
           >
-            {starter}
+            {starter.label}
           </ButtonBase>
         ))}
       </Stack>
