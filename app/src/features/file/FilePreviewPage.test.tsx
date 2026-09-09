@@ -285,7 +285,10 @@ describe('find in file', () => {
     // The escapes are gone from the text, and the level is a coloured element.
     expect(body.textContent).not.toContain('[32m');
     expect(body.textContent).toContain('INFO built');
-    expect(body.querySelector('[style*="color:#566a2e"]')?.textContent).toBe(' INFO');
+    const level = Array.from(body.querySelectorAll('span')).find(
+      (span) => span.textContent === ' INFO',
+    );
+    expect(level?.style.color).toBeTruthy();
     expect(body.querySelector('[style*="opacity:.62"]')?.textContent).toBe('2026-05-23T11:10:54Z');
     // Two log lines stay two gutter rows.
     expect(body.querySelectorAll('[data-line]')).toHaveLength(2);

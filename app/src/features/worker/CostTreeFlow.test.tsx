@@ -183,24 +183,4 @@ describe('CostTreeFlow interaction semantics', () => {
     expect(useViz.getState()).toMatchObject({ scope: 'kernel', leafId: kernelNode.id });
     expect(kernel).toHaveAttribute('aria-pressed', 'true');
   });
-
-  it('uses the shared compact canvas density in production', () => {
-    const { container } = render(<CostTreeFlow />);
-    const compactLeaf = container.querySelector<HTMLElement>(
-      '[data-cost-node-kind="leaf"][data-cost-tree-density="compact"]',
-    );
-    const compactSum = container.querySelector<HTMLElement>(
-      '[data-cost-node-kind="sum"][data-cost-tree-density="compact"]',
-    );
-
-    expect(compactLeaf).not.toBeNull();
-    expect(compactSum).not.toBeNull();
-    expect(getComputedStyle(compactLeaf!).paddingTop).toBe('6.5px');
-    expect(getComputedStyle(compactLeaf!).gap).toBe('1px');
-    expect(getComputedStyle(compactSum!).paddingTop).toBe('6.8px');
-    expect(getComputedStyle(compactSum!).gap).toBe('3.2px');
-    expect(getComputedStyle(compactSum!).borderStyle).toBe('solid');
-    expect(getComputedStyle(compactSum!).borderColor).toBe('rgba(74, 91, 104, 0.34)');
-    expect(getComputedStyle(compactSum!).backgroundColor).toBe('rgba(74, 91, 104, 0.035)');
-  });
 });

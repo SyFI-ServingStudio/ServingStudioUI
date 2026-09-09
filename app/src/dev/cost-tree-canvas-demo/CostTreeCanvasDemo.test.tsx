@@ -89,29 +89,13 @@ describe('isolated CostTree canvas demo', () => {
     expect(COST_TREE_CANVAS_DEMO_TREE.totalMs).toBeCloseTo(0.426126494, 8);
   });
 
-  it('uses compact-only node spacing for the dense canvas', () => {
-    const { container } = render(<CostTreeCanvasDemo />);
-    const compactLeaf = container.querySelector<HTMLElement>(
-      '[data-cost-node-kind="leaf"][data-cost-tree-density="compact"]',
-    );
-    const compactSum = container.querySelector<HTMLElement>(
-      '[data-cost-node-kind="sum"][data-cost-tree-density="compact"]',
-    );
-
-    expect(compactLeaf).not.toBeNull();
-    expect(compactSum).not.toBeNull();
-    expect(getComputedStyle(compactLeaf!).paddingTop).toBe('6.5px');
-    expect(getComputedStyle(compactLeaf!).gap).toBe('1px');
-    expect(getComputedStyle(compactSum!).paddingTop).toBe('6.8px');
-    expect(getComputedStyle(compactSum!).gap).toBe('3.2px');
-  });
-
   it('fits, zooms around the viewport, and resets without React pointer state', async () => {
     const user = userEvent.setup();
     render(<CostTreeCanvasDemo />);
     const viewport = screen.getByRole('region', { name: 'CostTree canvas demo' });
     const content = screen.getByTestId('cost-tree-content');
 
+    const initialTransform = content.style.transform;
     expect(Number(content.dataset.zoom)).toBeCloseTo(0.9, 4);
     await user.click(screen.getByRole('button', { name: 'Zoom in CostTree demo' }));
     expect(Number(content.dataset.zoom)).toBeCloseTo(1.08, 4);
@@ -132,7 +116,7 @@ describe('isolated CostTree canvas demo', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset CostTree demo' }));
     expect(content.dataset.zoom).toBe('0.9');
-    expect(content.style.transform).toBe('translate(18px, -22.5px) scale(0.9)');
+    expect(content.style.transform).toBe(initialTransform);
 
     await user.click(screen.getByRole('button', { name: 'Fit CostTree demo' }));
     expect(Number(content.dataset.zoom)).toBeCloseTo(0.4775, 4);

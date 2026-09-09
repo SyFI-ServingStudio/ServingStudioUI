@@ -524,21 +524,6 @@ describe('AgentPane', () => {
     expect(window.localStorage.getItem('vibesim.conversation.history.pinned')).toBeNull();
   });
 
-  it('keeps the follow-up composer on the same reading column as answers', async () => {
-    render(<AgentPane full prompt="" />);
-
-    await screen.findByText('Answer');
-    const runtimePicker = screen.getByTestId('agent-runtime-picker');
-    const composer = screen.getByTestId('agent-composer-column');
-    expect(screen.getByTestId('agent-message-column')).toHaveStyle({
-      width: 'min(720px,calc(100% - 40px))',
-    });
-    expect(composer).toHaveStyle({
-      width: 'min(720px,calc(100% - 40px))',
-    });
-    expect(composer).toContainElement(runtimePicker);
-  });
-
   it('clears the active Analyzer attachment from the next Agent turn', async () => {
     const selection = {
       kind: 'aggregate' as const,

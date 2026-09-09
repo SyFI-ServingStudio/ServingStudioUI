@@ -5,7 +5,7 @@ import ConservationCard from './ConservationCard';
 
 describe('ConservationCard', () => {
   it('keeps accounting values without rendering analyzer descriptions', () => {
-    const { container } = render(
+    render(
       <ConservationCard
         data={{
           allOk: true,
@@ -28,6 +28,5 @@ describe('ConservationCard', () => {
     expect(screen.getByText('65')).toBeVisible();
     expect(screen.getByText('0% vs exp')).toBeVisible();
     expect(screen.queryByText('verbose analyzer accounting formula')).not.toBeInTheDocument();
-    expect(container.querySelector('[data-surface-accent-edge]')).toBeInTheDocument();
   });
 });

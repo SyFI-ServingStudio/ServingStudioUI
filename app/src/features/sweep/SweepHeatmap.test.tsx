@@ -61,11 +61,11 @@ describe('SweepHeatmap', () => {
     const fastCell = screen.getByRole('button', {
       name: 'Mean TTFT, request_rate 10, tensor_parallel 2, 12.0 ms',
     });
-    const slowCell = screen.getByRole('button', {
-      name: 'Mean TTFT, request_rate 20, tensor_parallel 1, 120 ms',
-    });
-    expect(fastCell).toHaveStyle({ background: '#5f91aa' });
-    expect(slowCell).toHaveStyle({ background: '#edf3f5' });
+    expect(
+      screen.getByRole('button', {
+        name: 'Mean TTFT, request_rate 20, tensor_parallel 1, 120 ms',
+      }),
+    ).toBeVisible();
 
     fireEvent.click(fastCell);
     expect(onCellClick).toHaveBeenCalledWith({

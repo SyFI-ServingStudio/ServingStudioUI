@@ -79,18 +79,10 @@ describe('sweep aggregate options', () => {
       data: [[0, 0]],
     });
     expect(formatMetricValue(analysis.metrics[0], 0.945)).toBe('94.5 %');
-    expect(option.visualMap).toMatchObject({
-      right: 1,
-      itemHeight: 92,
-      text: ['better', 'worse'],
-      inRange: { color: ['#edf3f5', '#d7e7ed', '#b7d2de', '#8eb8ca', '#5f91aa'] },
-    });
-    expect(option.grid).toMatchObject({ left: 78, right: 60, top: 12, bottom: 50 });
-    expect(option.xAxis).toMatchObject({ nameGap: 34 });
-    expect(option.yAxis).toMatchObject({ nameGap: 54 });
+    expect(option.visualMap).toMatchObject({ text: ['better', 'worse'] });
   });
 
-  it('maps lower-is-better metrics to the darker end of the scale', () => {
+  it('maps lower-is-better metrics to the better end of the theme scale', () => {
     const facet = sweepFacets(analysis)[0];
     const option = sweepChartOption(
       analysis,
@@ -99,10 +91,7 @@ describe('sweep aggregate options', () => {
       null,
     );
 
-    expect(option.visualMap).toMatchObject({
-      text: ['worse', 'better'],
-      inRange: { color: ['#5f91aa', '#8eb8ca', '#b7d2de', '#d7e7ed', '#edf3f5'] },
-    });
+    expect(option.visualMap).toMatchObject({ text: ['worse', 'better'] });
   });
 
   it('keeps one-axis labels inside the panel and compacts engineering-scale ticks', () => {

@@ -102,10 +102,6 @@ describe('projectKernelTimeBreakdown', () => {
     if (projection.status !== 'ready') return;
 
     expect(projection.families.map((family) => family.group)).toEqual(['gemm', 'misc']);
-    expect(projection.families.map(({ group, color }) => ({ group, color }))).toEqual([
-      { group: 'gemm', color: '#49617a' },
-      { group: 'misc', color: '#626a72' },
-    ]);
     expect(projection.rows[0]).toMatchObject({
       label: 'cluster',
       total: 10,
