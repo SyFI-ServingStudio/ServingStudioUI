@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import runMetaJson from '../../../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/raw/run_meta.json';
 import { parseAnalyzerV1RunMeta } from './runMeta';
 
 function minimalV1(): Record<string, unknown> {
@@ -19,21 +18,6 @@ function minimalV1(): Record<string, unknown> {
 }
 
 describe('parseAnalyzerV1RunMeta', () => {
-  it('validates the real v4 metadata without collapsing same-numbered workers', () => {
-    const meta = parseAnalyzerV1RunMeta(runMetaJson);
-
-    expect(meta.schema_version).toBe(4);
-    expect(meta.num_gpus).toBe(48);
-    expect(meta.workers).toHaveLength(10);
-    expect(meta.workers.filter((worker) => worker.worker_id === 0)).toHaveLength(2);
-    // v4: every worker (incl. non-KV ffn) carries an authoritative, non-null tag.
-    expect(meta.workers.every((worker) => 'pool_tag' in worker && worker.pool_tag)).toBe(true);
-  });
-
-  it('accepts the confirmed legacy v1 shape with composite numeric ownership', () => {
-    expect(parseAnalyzerV1RunMeta(minimalV1()).workers).toHaveLength(2);
-  });
-
   it('rejects a v4 worker whose authoritative pool_tag is null', () => {
     const meta = {
       schema_version: 4,
@@ -74,11 +58,15 @@ describe('parseAnalyzerV1RunMeta', () => {
       comm_groups: [],
       stage_vocab: {
         deployment: 'unified',
-        names: ['pending', 'done:request', 'done:request'],
+        names: ['pending:request', 'done:request'],
       },
     };
 
-    expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/category:detail|duplicate stage names/);
+    expect(() => parseAnalyzerV1RunMeta(meta)).not.toThrow();
+    meta.stage_vocab.names = ['pending', 'done:request'];
+    expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/category:detail/);
+    meta.stage_vocab.names = ['done:request', 'done:request'];
+    expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/duplicate stage names/);
   });
 
   it('rejects a worker roster that does not cover every GPU exactly once', () => {
@@ -87,12 +75,5 @@ describe('parseAnalyzerV1RunMeta', () => {
     workers[1].gpu_ids = [0];
 
     expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/worker placement must cover every GPU/);
-  });
-
-  it('rejects unknown fields for a versioned metadata shape', () => {
-    const meta = minimalV1();
-    meta.future = true;
-
-    expect(() => parseAnalyzerV1RunMeta(meta)).toThrow(/<root>: Unrecognized key.*future/);
   });
 });

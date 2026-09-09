@@ -67,16 +67,6 @@ describe('ClusterStage', () => {
     ).toHaveLength(3);
   });
 
-  it('renders ready TTFT, TPOT and E2E as three separate charts', async () => {
-    const { repository } = createTestRepository();
-
-    renderStage(repository);
-
-    expect(await screen.findByRole('img', { name: /TTFT latency/ })).toBeVisible();
-    expect(screen.getByRole('img', { name: /TPOT latency/ })).toBeVisible();
-    expect(screen.getByRole('img', { name: /E2E latency/ })).toBeVisible();
-  });
-
   it('renders one cluster utilization chart for every payload pool', async () => {
     const subjects = makeTestSubjectResults();
     subjects.utilization = {
@@ -112,16 +102,5 @@ describe('ClusterStage', () => {
     expect(await screen.findByText('GPU utilization · all pools')).toBeVisible();
     expect(await screen.findByText('2 worker lines · 2 pool averages')).toBeVisible();
     expect(screen.queryByText('GPU utilization · attn')).not.toBeInTheDocument();
-  });
-
-  it('places request state immediately before the closing kernel breakdown', async () => {
-    const { repository } = createTestRepository();
-    renderStage(repository);
-
-    const requestState = await screen.findByText('Request state');
-    const kernelBreakdown = screen.getByText('Cluster kernel time breakdown');
-    expect(requestState.compareDocumentPosition(kernelBreakdown)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
   });
 });

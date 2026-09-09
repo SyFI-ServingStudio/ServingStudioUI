@@ -387,17 +387,6 @@ describe('boardSequenceCatalog', () => {
     expect(chosenKey).toBe(`forward/sequence_${omittedIteration}`);
     expect(sequenceOptionsForPhase(bounded, 'forward', chosenKey)[0]?.key).toBe(chosenKey);
   });
-
-  it('shortens a sequence id the way the board labels it', () => {
-    expect(catalog.offered[0].shortId).toBe('pre');
-  });
-
-  it('opens each phase on its costliest program', () => {
-    expect(defaultSequenceKeys(catalog)).toEqual({
-      preprocess: 'preprocess/sequence_pre',
-      forward: 'forward/sequence_big',
-    });
-  });
 });
 
 describe('defaultBoardExampleIterationId', () => {
@@ -431,7 +420,6 @@ describe('boardLanes measured side', () => {
   });
 
   it('gives each operation pair one rotating colour without parsing its name', () => {
-    expect(lanes.measured[2].color).toBe(tokens.operationColorPanel[0]);
     expect(lanes.measured[2].color).toBe(lanes.modelled[0].color);
     expect(lanes.measured[3].color).toBe(lanes.modelled[1].color);
     expect(lanes.measured[2].color).not.toBe(lanes.measured[3].color);
@@ -478,15 +466,6 @@ describe('boardLanes modelled side', () => {
   const catalog = boardSequenceCatalog(sequences, report);
   const lanes = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null);
 
-  it('orders slots by where the measured program first reaches them', () => {
-    expect(lanes.modelled.map((card) => card.slot)).toEqual([
-      'unified.attn_block.qkv_proj',
-      'unified.mlp_block.tp_allreduce',
-      'unified.final_norm',
-      'unified.embedding',
-    ]);
-  });
-
   it('shows a slot under the measured operation it is paired with', () => {
     expect(lanes.modelled[1].operationLabel).toBe('model.mlp_allreduce_and_norm_boundaries');
     expect(lanes.modelled[2].operationLabel).toBe('model.mlp_allreduce_and_norm_boundaries');
@@ -502,10 +481,6 @@ describe('boardLanes modelled side', () => {
 
   it('does not price cards from aggregate operation means', () => {
     expect(lanes.modelled.every((card) => card.ms === null)).toBe(true);
-  });
-
-  it('has no bar scale while iteration detail is unavailable', () => {
-    expect(lanes.maximumMs).toBe(0);
   });
 
   it('uses one real iteration prediction for the modelled cards', () => {

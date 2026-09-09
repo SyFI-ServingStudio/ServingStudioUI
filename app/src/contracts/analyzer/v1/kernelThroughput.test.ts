@@ -156,18 +156,4 @@ describe('decodeAnalyzerV1KernelThroughputPayload', () => {
       reason: expect.stringContaining('definitions.tflops'),
     });
   });
-
-  it('accepts additive v1 fields without leaking them into the domain model', () => {
-    const fixture = mutableFixture();
-    fixture.future_optional = true;
-    (fixture.locations[0] as Record<string, unknown>).future_optional = true;
-    fixture.definitions.future_optional = 'future analyzer note';
-
-    const result = decodeAnalyzerV1KernelThroughputPayload(fixture);
-    expect(result.status).toBe('ready');
-    if (result.status !== 'ready') return;
-    expect(result.payload).not.toHaveProperty('future_optional');
-    expect(result.payload.locations[0]).not.toHaveProperty('future_optional');
-    expect(result.payload.definitions.future_optional).toBe('future analyzer note');
-  });
 });

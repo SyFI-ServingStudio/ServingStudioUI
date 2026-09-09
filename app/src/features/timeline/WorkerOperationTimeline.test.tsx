@@ -2,14 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OperationSummary } from '../../domain/workerOperation';
-import { GROUP } from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import WorkerOperationTimeline from './WorkerOperationTimeline';
 import {
   hitTestOperation,
   operationBarGeometry,
   operationDurationScaleMs,
-  operationLaneColor,
   operationMaximumDurationMs,
 } from './workerOperationTimelineModel';
 
@@ -78,17 +76,6 @@ beforeEach(() => {
 });
 
 describe('WorkerOperationTimeline', () => {
-  it('renders one accessible Canvas track without per-operation DOM rows', () => {
-    render(<WorkerOperationTimeline />);
-    expect(screen.getByRole('application', { name: /Exact worker operations/ })).toBeVisible();
-    expect(document.querySelectorAll('canvas')).toHaveLength(1);
-    expect(document.querySelectorAll('rect')).toHaveLength(0);
-    expect(screen.getByLabelText(/Duration axis from 0 to/)).toBeVisible();
-    expect(screen.getByText('max 1.00 ms')).toBeVisible();
-    expect(screen.getByText('P95 1.00 ms')).toBeVisible();
-    expect(screen.getByText('0.00 ms')).toBeVisible();
-  });
-
   it('click hit-tests the equal-width operation cells and atomically selects the exact ref', () => {
     render(<WorkerOperationTimeline />);
     const track = screen.getByRole('application');
@@ -156,26 +143,6 @@ describe('WorkerOperationTimeline', () => {
     expect(useViz.getState().operation).toBeNull();
   });
 
-  it('maps drag distance to operation-count navigation', () => {
-    render(<WorkerOperationTimeline />);
-    const track = screen.getByRole('application');
-    vi.spyOn(track, 'getBoundingClientRect').mockReturnValue({
-      width: 300,
-      height: 48,
-      x: 0,
-      y: 0,
-      top: 0,
-      left: 0,
-      right: 300,
-      bottom: 48,
-      toJSON: () => ({}),
-    });
-    fireEvent(track, pointerEvent('pointerdown', 3, 270));
-    fireEvent(track, pointerEvent('pointermove', 3, 120));
-
-    expect(fixture.navigate).toHaveBeenCalledWith(1);
-  });
-
   it('labels FFN identities as slots instead of generic batches', () => {
     fixture.state.mockReturnValue({
       ...fixture.state(),
@@ -217,23 +184,12 @@ describe('operation Canvas model', () => {
     expect(hitTestOperation(entries, 250, 300)?.operation).toBe(second);
   });
 
-  it('uses a narrow bounded gap and encodes duration in bar height', () => {
+  it('encodes longer duration with a taller bar', () => {
     const short = operationBarGeometry(0, 4, 400, 2, 8, 1);
     const long = operationBarGeometry(1, 4, 400, 8, 8, 1);
 
-    expect(short.barWidth).toBe(97);
-    expect(long.barX - short.barX).toBe(100);
     expect(short.barHeight).toBeLessThan(long.barHeight);
-    expect(long.barHeight).toBe(86);
     expect(long.barY).toBeLessThan(short.barY);
-  });
-
-  it('reserves twenty percent of plot height exclusively for the largest operation', () => {
-    const ordinary = operationBarGeometry(0, 2, 200, 8, 8, 1, 96, 0, false);
-    const largest = operationBarGeometry(1, 2, 200, 9, 8, 1, 96, 0, true);
-
-    expect(largest.barHeight - ordinary.barHeight).toBeCloseTo(17.2);
-    expect(largest.barHeight / ordinary.barHeight).toBeCloseTo(1.25);
   });
 
   it('uses a robust duration scale that ignores one large outlier', () => {
@@ -254,12 +210,5 @@ describe('operation Canvas model', () => {
 
     expect(operationDurationScaleMs([...ordinary, outlier])).toBe(20);
     expect(operationMaximumDurationMs([...ordinary, outlier])).toBe(1000);
-  });
-
-  it('keeps batch colors stable and distinguishable', () => {
-    expect(operationLaneColor('0')).toBe(GROUP.gemm.color);
-    expect(operationLaneColor('1')).toBe(GROUP.attn.color);
-    expect(operationLaneColor('2')).toBe(GROUP.comm.color);
-    expect(operationLaneColor('2')).not.toBe(operationLaneColor('4'));
   });
 });

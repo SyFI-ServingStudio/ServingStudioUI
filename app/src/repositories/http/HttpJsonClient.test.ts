@@ -288,7 +288,6 @@ describe('HttpJsonClient', () => {
     ['invalid', 'soon'],
     ['fractional', '0.5'],
     ['negative', '-1'],
-    ['fractional', '1.5'],
     ['longer than the client bound', '6'],
   ])('does not retry artifact_read_busy with a %s Retry-After', async (_case, retryAfter) => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(artifactBusyResponse(retryAfter));

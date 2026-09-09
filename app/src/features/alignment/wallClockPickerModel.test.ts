@@ -1,17 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AlignmentTimelineIterationSummary } from '../../domain/alignment';
-import { tokens } from '../../theme';
-import { iterationTypeColor } from './iterationPalette';
-import { operationColors } from './wallClockPalette';
 import {
   PICKER,
   pickerBars,
-  pickerCaptionAlign,
-  pickerRulerStep,
   pickerScrollLeft,
   pickerSlotAt,
-  pickerTicks,
   pickerTopFraction,
   pickerWidth,
 } from './wallClockPickerModel';
@@ -47,19 +41,8 @@ const iterations = [row(6, 0.1, 'prefill'), row(7, 0.5), row(8, 0.25, 'mixed')];
 const ordered = [0, 1, 2];
 
 describe('pickerTopFraction', () => {
-  it('leaves headroom above the tallest bar for its marker and caption', () => {
-    expect(pickerTopFraction(iterations)).toBeCloseTo(0.56, 12);
-  });
-
   it('falls back to a full scale when nothing was idle at all', () => {
     expect(pickerTopFraction([row(1, 0)])).toBe(1);
-  });
-});
-
-describe('pickerTicks', () => {
-  it('drops the quarters that fall off the top of the plot', () => {
-    expect(pickerTicks(0.56)).toEqual([0.25, 0.5]);
-    expect(pickerTicks(0.2)).toEqual([]);
   });
 });
 
@@ -96,47 +79,8 @@ describe('pickerSlotAt', () => {
 });
 
 describe('pickerScrollLeft', () => {
-  it('centres the selection', () => {
-    expect(pickerScrollLeft(100, 600, 2040)).toBe(100 * PICKER.pitch - 300);
-  });
-
   it('never scrolls past either end of the capture', () => {
     expect(pickerScrollLeft(1, 600, 2040)).toBe(0);
     expect(pickerScrollLeft(2039, 600, 2040)).toBe(pickerWidth(2040) - 600);
-  });
-});
-
-describe('pickerRulerStep and caption placement', () => {
-  it('labels often enough to place yourself and rarely enough to read', () => {
-    expect(pickerRulerStep(2040, pickerWidth(2040))).toBe(25);
-  });
-
-  it('turns the selection caption inwards at either end of the scroller', () => {
-    expect(pickerCaptionAlign(0, 2040)).toBe('left');
-    expect(pickerCaptionAlign(1000, 2040)).toBe('center');
-    expect(pickerCaptionAlign(2039, 2040)).toBe('right');
-  });
-});
-
-describe('wallClockPalette', () => {
-  it('uses the same stable operation colours as the operation-split view', () => {
-    const colors = operationColors([
-      { operation: 'layer.qkv_projection', type: 'gemm' },
-      { operation: 'layer.output_projection', type: 'gemm' },
-      { operation: 'layer.attention', type: 'attention' },
-    ]);
-    expect(colors['layer.qkv_projection']).toBe(tokens.operationColorPanel[0]);
-    expect(colors['layer.output_projection']).toBe(tokens.operationColorPanel[1]);
-    expect(colors['layer.attention']).toBe(tokens.operationColorPanel[2]);
-  });
-
-  it('rotates every iteration type by category order without parsing its name', () => {
-    const order = ['prefill', 'speculative', 'verify'];
-    const first = iterationTypeColor('prefill', order);
-    const second = iterationTypeColor('speculative', order);
-    const third = iterationTypeColor('verify', order);
-    expect(first).not.toBe(second);
-    expect(second).not.toBe(third);
-    expect(first).toBe(tokens.sectionAnalysis);
   });
 });

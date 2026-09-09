@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { CHART_THEME, richTextTooltip, safeChartText } from './platform';
+import { safeChartText } from './platform';
 
 const ATTACK = '<img src=x onerror=alert(1)>{owned|payload}&';
 
@@ -11,9 +11,5 @@ describe('chart platform', () => {
     expect(safe).not.toMatch(/[<>{}&]/);
     expect(safe).toContain('＜img');
     expect(safe).toContain('｛owned|payload｝');
-  });
-
-  it('forces renderer-native rich-text tooltips', () => {
-    expect(richTextTooltip(CHART_THEME, 'axis').renderMode).toBe('richText');
   });
 });

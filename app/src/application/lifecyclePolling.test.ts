@@ -23,13 +23,6 @@ describe('descriptor lifecycle polling policy', () => {
     );
   });
 
-  it('stops the timer when pending transitions to complete', () => {
-    expect(descriptorPollInterval(lifecycle('complete', 'pending'))).toBe(
-      PENDING_LIFECYCLE_POLL_INTERVAL_MS,
-    );
-    expect(descriptorPollInterval(lifecycle('complete', 'complete'))).toBe(false);
-  });
-
   it('stops the timer after either stage fails', () => {
     expect(descriptorPollInterval(lifecycle('failed', 'not_started'))).toBe(false);
     expect(descriptorPollInterval(lifecycle('complete', 'failed'))).toBe(false);

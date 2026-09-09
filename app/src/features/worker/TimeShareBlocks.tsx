@@ -1,17 +1,17 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
-import SurfaceCard from '../../components/SurfaceCard';
-import { useViz } from '../../store';
 import { useActiveWorkerTreeState } from '../../application/WorkerTreeProvider';
-import { tokens, withAlpha } from '../../theme';
+import SurfaceCard from '../../components/SurfaceCard';
 import {
   criticalLeafTotals,
+  fmtMs,
+  fmtPct,
   GROUP,
   GROUP_ORDER,
   leafByName,
-  fmtMs,
-  fmtPct,
   type CostTree,
 } from '../../domain/cost-tree';
+import { useViz } from '../../store';
+import { tokens, withAlpha } from '../../theme';
 
 interface Seg {
   label: string;
@@ -24,9 +24,8 @@ interface Seg {
   other?: boolean;
 }
 
-// The supported 390 px layout leaves this bar more than 300 px wide, so an
-// 8% share is a real >=24 px target. Responsive E2E locks that geometry; smaller
-// shares stay proportional and use the equivalent CostTree leaf-card action.
+// Small shares stay proportional and can be selected through the CostTree
+// controls instead of inflating their displayed share.
 const MIN_INTERACTIVE_SHARE_PCT = 8;
 
 type PreviewPalette = Readonly<

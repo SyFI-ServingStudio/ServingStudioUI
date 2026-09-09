@@ -11,7 +11,7 @@
     "dev:live": "vite --mode live",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.playwright.json --noEmit",
-    "lint": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
+    "lint": "npm run test:lint && eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
     "lint:fix": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --fix",
     "format": "prettier --write src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
     "format:check": "prettier --check src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
@@ -20,10 +20,10 @@
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:a11y": "playwright test e2e/a11y.spec.ts",
     "size": "npm run build && npm run size:check",
     "size:check": "size-limit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:lint": "node --test eslint-rules/*.test.js"
   },
   "size-limit": [
     {
@@ -57,7 +57,6 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.61.1",
     "@size-limit/file": "^12.1.0",

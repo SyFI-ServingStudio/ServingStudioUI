@@ -1,35 +1,63 @@
-# 主题配置
+# Themes and visual configuration
 
-首页右上角的 Dark / Light / Paper 三段按钮提供三套主题，色样展示对应主题的背景层次。选择保存在 `vibesim.ui.theme`；URL 的 `?theme=vscode`、`?theme=light` 或 `?theme=warm` 优先。默认使用 vscode，旧 intro ID 不再有效，回退到默认主题。
+The entry-page theme picker offers three themes. Selection is stored in
+`vibesim.ui.theme`; a valid `?theme=` query overrides the saved choice. The default
+is `vscode`. Invalid values fall back to a valid saved choice or the default.
 
-| ID | 名称 | 来源 |
+| ID | Theme | Character |
 | --- | --- | --- |
-| vscode | VS Code Dark | 用户截图中的深色表面和强调色，并非本机主题导出 |
-| light | VS Code Light | Microsoft Light / Light+ 和浅色 workbench 默认值 |
-| warm | Warm Paper | viz-ui 0c8283b 原始米黄配色，保留当前字体和布局 |
+| `vscode` | VS Code Dark | Neutral dark surfaces with blue and green accents. |
+| `light` | VS Code Light | Light editor-style surfaces. |
+| `warm` | Warm Paper | Warm surfaces with the current typography and layout. |
 
-浅色来源：[light_vs.json](https://raw.githubusercontent.com/microsoft/vscode/main/extensions/theme-defaults/themes/light_vs.json)、[light_plus.json](https://raw.githubusercontent.com/microsoft/vscode/main/extensions/theme-defaults/themes/light_plus.json)、[workbench 默认值](https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/workbench/common/theme.ts)。这是面向分析界面的语义映射，不是完整复制编辑器主题。
+Changing themes reloads the page so module-level ECharts and Canvas colors are
+initialized consistently with the MUI theme. Images and third-party embeds are
+not recolored. Terminal-provided RGB values retain their hue while the renderer
+adjusts their readability for the active light/dark mode.
 
-## 集中配置
+## Source of truth
 
-| 文件 | 职责 |
+| File, relative to `app/src/` | Responsibility |
 | --- | --- |
-| app/src/theme/palettes.ts | 主题注册表、dark/light 模式、基础色和可选语法色 |
-| app/src/theme/colors.ts | 图表、热图、成本树、终端及语法派生色；透明度、混色和终端对比调整 |
-| app/src/theme/selection.ts | URL、持久化、默认主题及切换 |
-| app/src/theme.ts | 对外提供 tokens、palette、colors 和 MUI 主题 |
-| app/src/components/ThemePicker.tsx | 首页菜单 |
+| `theme/palettes.ts` | Theme IDs, labels, modes and base palettes. |
+| `theme/selection.ts` | URL/storage precedence and theme changes. |
+| `theme/colors.ts` | Derived chart, terminal, syntax and surface colors. |
+| `theme/metrics.ts` | Shared reading scale and page widths. |
+| `theme.ts` | Public tokens, derived colors and MUI configuration. |
+| `components/ThemePicker.tsx` | Theme selection control. |
 
-颜色常量集中在主题目录。普通控件使用 tokens，图表使用 colors 的具名字段，透明变体使用 withAlpha。历史 teal 等名称保留为兼容别名。ANSI 真彩色来自日志输入，并按主题调整可读性；图像和第三方嵌入内容不重新着色。
+Use tokens for ordinary controls and named `colors` roles for charts. Use
+`withAlpha` for transparency rather than duplicating RGB literals. Legacy names
+such as `teal` are compatibility aliases, not instructions to hard-code that hue.
+`SurfaceCard` provides a neutral themed shell; it does not draw an accent edge.
 
-新增主题时扩展注册表的 ID 类型，提供 label、mode、完整 palette 和可选 syntax。菜单与 ID 校验使用注册表。MUI 与页面 color-scheme 跟随 mode。切换会完整重新加载页面，使模块初始化时保存的 Canvas/ECharts 颜色同步；菜单只在首页结果与恢复会话目录显示。
+The current shared metrics are `fontScale: 1.125`, `pageWidth: '80%'`, and
+`readingWidth: '45rem'`. Numeric MUI font sizes are converted from the 16px design
+baseline to rem; charts use `chartFont`. Change these centrally rather than
+adding unrelated per-page scaling rules.
 
-Kernel optimality ladder 使用同一主色的六档明暗，kernel 身份保持稳定映射；imbalance 使用柔和琥珀色，idle 使用灰色，globally fused 使用柔和绿色。悬停突出对应序列。TimeShareBlocks 已删除无数据含义的等宽 kernel family 展示色带。
+Kernel identities use a consistent color mapping. Optimality ladders distinguish
+kernel work, imbalance, idle time and fusion with semantic roles. A decorative
+color strip must not imply a measured time distribution.
 
-## 验证
+## Making changes
 
-生产构建通过，40 个定向检查通过。浏览器验证三套主题切换、持久化和真实 run 页面；三套 ladder 截图已目视检查。浅色 Agent、代码预览和成本树也已检查。证据位于 .artifacts/style-audit/ 下的 theme-*.png、ladder-*.png、light-agent.png、light-file.png 和 light-cost-tree-readable.png。未运行多屏宽测试矩阵。
+Add a theme through the palette registry, with a complete palette and light/dark
+mode. Check its URL override, persistence, entry catalog, dense charts, CostTree,
+Agent text and terminal logs. Check desktop and narrow layouts when changing
+fonts or widths.
 
-## 阅读尺寸和页面宽度
+Keep automated tests focused on selection behavior, persistence, meaningful color
+mapping and interactions. Avoid assertions for exact RGB values or decorative
+spacing. Full-page WCAG auditing is outside the maintained research test suite;
+keyboard controls and meaningful interactions remain covered. Historical screenshot reviews do
+not establish that the current revision passes an accessibility audit.
 
-`app/src/theme/metrics.ts` 管理 `fontScale`（当前1.125）和 `pageWidth`（当前80%）。MUI sx 数字字号以16px为设计基准转换为rem，根字号使用相同比例；字符串字号保留语义。ECharts/Canvas使用chartFont转换其像素字号。页面使用共享pageLayout，避免按浏览器缩放猜测布局。会话阅读列保留45rem行长上限。调整文字比例后仍需检查密集图表标签与固定尺寸控件。
+`npm run lint` enforces shared font-family and color references in application
+TypeScript/JSX, including chart properties, Canvas assignments, conditional
+values and local constants. Define literal palettes and fonts in `src/theme.ts`
+or `src/theme/`; elsewhere use `tokens`, `colors`, `withAlpha`, or shared CSS
+variables. Theme definitions and test fixtures are excluded. Numeric MUI sizes
+and `chartFont` retain the scaling described above. This is a static check, not
+runtime tracking of imported or computed values. Its regression tests run as
+part of lint (`npm run test:lint` also runs them independently).

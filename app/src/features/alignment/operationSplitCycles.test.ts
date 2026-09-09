@@ -119,18 +119,6 @@ describe('cycleFromBreakdown', () => {
     ).toBe(18);
   });
 
-  it('projects nothing when the report carries no critical-path attribution', () => {
-    // Reports produced before 2026-08-04 carry the same schema version and no
-    // attribution. Falling back to the folded workload would draw a modelled
-    // stack several times too tall, so the projection refuses instead.
-    const cycle = cycleFromBreakdown({
-      ...breakdown,
-      simulatedCriticalPathMs: null,
-      simulatedKernels: [{ ...breakdown.simulatedKernels[0], criticalPathMs: null }],
-    });
-    expect(cycle).toBeNull();
-  });
-
   it('preserves a missing phase as an explicit empty grouping key', () => {
     const cycle = cycleFromBreakdown({
       ...breakdown,

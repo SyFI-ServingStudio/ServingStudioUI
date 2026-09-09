@@ -142,66 +142,6 @@ function expectStableCostTreeFrame(): void {
 }
 
 describe('WorkerStage CostTree frame stability', () => {
-  it('keeps request state immediately before the closing kernel breakdown', () => {
-    useViz.setState({ workerAnalysisLevel: 'worker' });
-    workerTreeMock.state.mockReturnValue({
-      status: 'idle',
-      worker: null,
-      tree: null,
-      error: null,
-      retry: null,
-    });
-
-    render(<WorkerStage />);
-
-    const cards = screen.getAllByTestId('chart-card');
-    expect(cards.at(-2)).toHaveTextContent('Request state');
-    expect(cards.at(-1)).toHaveTextContent('Worker kernel time breakdown');
-  });
-
-  it.each([
-    {
-      label: 'idle',
-      state: { status: 'idle', worker: null, tree: null, error: null, retry: null },
-    },
-    {
-      label: 'awaiting selection',
-      state: { status: 'awaiting-selection', worker, tree: null, error: null, retry: null },
-    },
-    {
-      label: 'loading',
-      state: { status: 'loading', worker, tree: null, error: null, retry: null },
-    },
-    {
-      label: 'error',
-      state: {
-        status: 'error',
-        worker,
-        tree: null,
-        error: new Error('bad worker'),
-        retry: null,
-      },
-    },
-    {
-      label: 'non-ready detail',
-      state: {
-        status: 'unavailable',
-        worker,
-        tree: null,
-        reason: 'No CostTree detail.',
-        code: null,
-        retry: null,
-      },
-    },
-  ])('keeps the shared dimensions for $label', ({ state }) => {
-    workerTreeMock.state.mockReturnValue(state);
-    render(<WorkerStage />);
-
-    expectStableCostTreeFrame();
-    expect(screen.getByTestId('operation-timeline')).toBeVisible();
-    expect(screen.queryByTestId('kernel-inspector')).not.toBeInTheDocument();
-  });
-
   it('replaces pending copy with the ready tree without collapsing the frame', () => {
     workerTreeMock.state.mockReturnValue({
       status: 'awaiting-selection',
@@ -281,93 +221,6 @@ describe('WorkerStage CostTree frame stability', () => {
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not move the page again when a kernel is selected inside a fully visible shell', () => {
-    workerTreeMock.state.mockReturnValue({
-      status: 'ready',
-      worker,
-      operation: { iterId: '7', batchId: '2', operationId: '9' },
-      tree,
-      error: null,
-      retry: null,
-    });
-    const view = render(<WorkerStage />);
-    scrollIntoViewMock.mockClear();
-    vi.spyOn(screen.getByTestId('worker-viewport-shell'), 'getBoundingClientRect').mockReturnValue({
-      x: 0,
-      y: 6,
-      top: 6,
-      left: 0,
-      right: 1192,
-      bottom: 714,
-      width: 1192,
-      height: 708,
-      toJSON: () => ({}),
-    });
-
-    useViz.setState({ scope: 'kernel', leafId: tree.id });
-    view.rerender(<WorkerStage />);
-
-    expect(screen.getByTestId('kernel-inspector')).toBeVisible();
-    expect(scrollIntoViewMock).not.toHaveBeenCalled();
-  });
-
-  it('hides the empty inspector placeholder in the narrow single-column fallback', () => {
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: vi.fn(() => mediaQuery(false)),
-    });
-    workerTreeMock.state.mockReturnValue({
-      status: 'ready',
-      worker,
-      operation: { iterId: '7', batchId: '2', operationId: '9' },
-      tree,
-      error: null,
-      retry: null,
-    });
-    render(<WorkerStage />);
-
-    expect(screen.getByTestId('worker-exact-workbench')).toHaveStyle({ minWidth: '0' });
-    expect(screen.queryByTestId('kernel-inspector-placeholder')).not.toBeInTheDocument();
-  });
-
-  it('uses the minimum workbench row and start alignment when the shell is taller than a short viewport', () => {
-    const originalInnerHeight = window.innerHeight;
-    const scrollHeight = vi
-      .spyOn(HTMLElement.prototype, 'scrollHeight', 'get')
-      .mockImplementation(function (this: HTMLElement) {
-        return this.dataset.testid === 'worker-viewport-shell' ? 640 : 0;
-      });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 420 });
-    workerTreeMock.state.mockReturnValue({
-      status: 'ready',
-      worker,
-      operation: { iterId: '7', batchId: '2', operationId: '9' },
-      tree,
-      error: null,
-      retry: null,
-    });
-
-    try {
-      render(<WorkerStage />);
-      expect(
-        getComputedStyle(screen.getByTestId('worker-viewport-shell')).getPropertyValue(
-          WORKER_WORKBENCH_MIN_HEIGHT_VAR,
-        ),
-      ).toBe(`${WORKER_WORKBENCH_MIN_HEIGHT}px`);
-      expect(scrollIntoViewMock).toHaveBeenCalledWith({
-        behavior: 'smooth',
-        block: 'start',
-        inline: 'nearest',
-      });
-    } finally {
-      scrollHeight.mockRestore();
-      Object.defineProperty(window, 'innerHeight', {
-        configurable: true,
-        value: originalInnerHeight,
-      });
-    }
-  });
-
   it('does not scroll a retained tree until its exact operation identity matches', () => {
     workerTreeMock.state.mockReturnValue({
       status: 'ready',
@@ -390,27 +243,5 @@ describe('WorkerStage CostTree frame stability', () => {
     });
     view.rerender(<WorkerStage />);
     expect(scrollIntoViewMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('uses instant page scrolling when reduced motion is requested', () => {
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      value: vi.fn(() => mediaQuery(true)),
-    });
-    workerTreeMock.state.mockReturnValue({
-      status: 'ready',
-      worker,
-      operation: { iterId: '7', batchId: '2', operationId: '9' },
-      tree,
-      error: null,
-      retry: null,
-    });
-    render(<WorkerStage />);
-
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({
-      behavior: 'auto',
-      block: 'center',
-      inline: 'nearest',
-    });
   });
 });

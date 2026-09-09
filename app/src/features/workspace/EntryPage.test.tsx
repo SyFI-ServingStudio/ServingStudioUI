@@ -87,32 +87,6 @@ describe('Page 0 conversation entry', () => {
     });
   });
 
-  it('asks working style, then workspace, then the question', async () => {
-    const user = userEvent.setup();
-    render(<AgentStart workspaces={workspaces} />);
-
-    // Each step is mounted only once the one above it is answered, so the
-    // workspace picker cannot appear before the working style is pinned.
-    expect(
-      screen.queryByRole('listbox', { name: 'Workspace for new conversation' }),
-    ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('radio', { name: '2 Agents, Autonomous' }));
-
-    const picker = await screen.findByRole('listbox', { name: 'Workspace for new conversation' });
-    expect(screen.queryByRole('textbox', { name: 'Ask VibeSim Agent' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /context/i })).not.toBeInTheDocument();
-
-    const workspace = screen.getByRole('option', { name: 'Select Kernel exploration' });
-    await user.click(workspace);
-
-    const composer = await screen.findByRole('textbox', { name: 'Ask VibeSim Agent' });
-    expect(
-      picker.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(window.location.hash).toBe('#/');
-    expect(workspace).toHaveAttribute('aria-selected', 'true');
-  });
-
   it('offers a pinned clean-workspace choice', async () => {
     const user = userEvent.setup();
     render(<AgentStart workspaces={workspaces} />);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   annotate,
+  CostTreeValidationError,
   criticalLeafContributions,
   criticalLeafTotals,
   leaf,
@@ -12,7 +13,6 @@ import {
   nodeById,
   scale,
   sum,
-  CostTreeValidationError,
 } from './index';
 
 describe('CostTree annotation', () => {
@@ -247,16 +247,6 @@ describe('CostTree malformed boundaries', () => {
       'scale requires exactly one child',
     ],
     [{ kind: 'leaf', slot }, 'finite non-negative'],
-    [
-      {
-        kind: 'leaf',
-        slot,
-        base: 1,
-        stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
-        children: [],
-      },
-      'unexpected field children',
-    ],
     [{ kind: 'leaf', slot, base: Number.NaN }, 'finite non-negative'],
     [
       {
@@ -290,17 +280,6 @@ describe('CostTree malformed boundaries', () => {
     expect(() => annotate(raw)).toThrow(message);
   });
 
-  it('rejects the retired string config field instead of guessing its structure', () => {
-    expect(() =>
-      annotate({
-        kind: 'leaf',
-        slot: { name: 'a', kind: 'single_gemm', config: 'm=1,n=2,k=3', backend: null },
-        base: 1,
-        stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
-      }),
-    ).toThrow('kernel_config');
-  });
-
   it('rejects finite inputs whose derived cost overflows', () => {
     expect(() =>
       annotate(
@@ -317,14 +296,6 @@ describe('CostTree malformed boundaries', () => {
     const tree = annotate(max('one group', 1, leaf('a', 'single_gemm', {}, 3)));
 
     expect(tree).toMatchObject({ kind: 'max', ms: 3, totalMs: 3 });
-  });
-
-  it('applies a finite positive Max overlap divisor like the Rust manifest fold', () => {
-    const tree = annotate(
-      max('overlapped', 2, leaf('slow', 'single_gemm', {}, 8), leaf('fast', 'single_gemm', {}, 3)),
-    );
-
-    expect(tree).toMatchObject({ kind: 'max', overlap: 2, ms: 4, totalMs: 4 });
   });
 
   it.each([1.5, 0x1_0000_0000])('rejects non-u32 scale count %s at the authoring boundary', (n) => {

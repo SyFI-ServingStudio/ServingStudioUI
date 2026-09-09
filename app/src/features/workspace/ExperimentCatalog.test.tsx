@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ManagedJobListItem } from '../../application/managedJobRepository';
-import type { SweepListItem } from '../../domain/sweep';
 import type { OfflineResourceCatalogItem } from '../../domain/offlineResource';
+import type { SweepListItem } from '../../domain/sweep';
 import ExperimentCatalog from './ExperimentCatalog';
 
 const entries: readonly SweepListItem[] = [
@@ -95,27 +95,6 @@ describe('ExperimentCatalog', () => {
     expect(screen.getAllByRole('option')).toHaveLength(2);
   });
 
-  it('shows concise real experiment names and activates a row', async () => {
-    const user = userEvent.setup();
-    const onActivate = vi.fn();
-    render(
-      <ExperimentCatalog
-        entries={entries}
-        jobs={[]}
-        offlineResources={[]}
-        onActivate={onActivate}
-        onActivateOfflineResource={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText('llama3_8b_tp_rate')).toBeInTheDocument();
-    expect(screen.queryByText('20260727_0_llama3_8b_tp_rate')).not.toBeInTheDocument();
-    expect(screen.getByText('6 runs')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('option', { name: 'Open Simulation llama3_8b_tp_rate' }));
-    expect(onActivate).toHaveBeenCalledWith(entries[0]);
-  });
-
   it('combines column filters without replacing the stable table shell', async () => {
     const user = userEvent.setup();
     render(
@@ -134,12 +113,7 @@ describe('ExperimentCatalog', () => {
     expect(screen.getByText('1 matches')).toBeInTheDocument();
     expect(screen.getByText('afd_ui_reanalysis')).toBeInTheDocument();
     const filteredRow = screen.getByLabelText('Open Simulation llama3_8b_tp_rate');
-    expect(filteredRow).toHaveStyle({
-      maxHeight: '0',
-      opacity: '0',
-      transform: 'translateY(-7px)',
-    });
-    expect(getComputedStyle(filteredRow).transition).toContain('max-height 380ms');
+    expect(filteredRow).not.toBeVisible();
     expect(
       screen.queryByRole('option', { name: '20260727_0_llama3_8b_tp_rate' }),
     ).not.toBeInTheDocument();

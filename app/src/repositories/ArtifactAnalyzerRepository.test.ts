@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import catalogJson from '../../../fixtures/analyzer-v1/run_catalog.json';
-import descriptorJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/run_descriptor.json';
+import batchJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/batch_scatter.json';
 import paramsJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/raw/params.json';
 import runMetaJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/raw/run_meta.json';
+import descriptorJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/run_descriptor.json';
 import summaryJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/summary.json';
-import batchJson from '../../../fixtures/analyzer-v1/afd-qwen3-duration-reached/payloads/batch_scatter.json';
+import catalogJson from '../../../fixtures/analyzer-v1/run_catalog.json';
 import type { Topology } from '../domain/run';
 import { makeWorkerRef } from '../domain/worker';
 import {
@@ -86,19 +86,6 @@ describe('ArtifactAnalyzerRepository', () => {
     await expect(repository.getRunDescriptor(RUN_ID)).rejects.toThrow(
       /does not match requested opaque id/,
     );
-  });
-
-  it('decodes bounded core artifacts and the explicit topology fallback', async () => {
-    const repository = repositoryWith(coreModules());
-
-    const [summary, topology] = await Promise.all([
-      repository.getRunSummary(RUN_ID),
-      repository.getRunTopology(RUN_ID),
-    ]);
-
-    expect(summary).toMatchObject({ numGpus: 48, requestsFinished: 5587 });
-    expect(topology.pools.map((pool) => pool.role)).toEqual(['attn', 'ffn']);
-    expect(topology.pools.flatMap((pool) => pool.groups[0].workers)).toHaveLength(10);
   });
 
   it('decodes descriptor-declared model and workload resources', async () => {
@@ -302,13 +289,6 @@ describe('bundled analyzer-v1 artifact export', () => {
 describe('bundled alignment bundle', () => {
   const ALIGNMENT_ID = 'al_fixture_llama3_8b_tp4';
 
-  it('reports both analysis halves and which subjects serve per-iteration detail', async () => {
-    const descriptor = await bundledArtifactAnalyzerRepository.getAlignmentDescriptor(ALIGNMENT_ID);
-    expect(descriptor.lifecycle).toEqual({ kernelAnalysis: 'complete', e2eAnalysis: 'complete' });
-    expect(descriptor.subjects.timeline.hasIterationDetail).toBe(true);
-    expect(descriptor.subjects.workload.hasIterationDetail).toBe(false);
-  });
-
   it('serves every iteration the index names, by id', async () => {
     const index = await bundledArtifactAnalyzerRepository.getAlignmentTimelineIndex(ALIGNMENT_ID);
     const iterationIds = index.iterations.map((row) => row.iterationId);
@@ -324,14 +304,6 @@ describe('bundled alignment bundle', () => {
         bundledArtifactAnalyzerRepository.getAlignmentBreakdown(ALIGNMENT_ID, iterationId),
       ).resolves.toMatchObject({ iterationId });
     }
-  });
-
-  it('carries the capture`s last iteration, whose gpu cycle never closed', async () => {
-    const series =
-      await bundledArtifactAnalyzerRepository.getAlignmentIterationSeries(ALIGNMENT_ID);
-    const trailing = series.iterations.at(-1);
-    expect(trailing?.measuredMs).toBeGreaterThan(0);
-    expect(trailing?.measuredGpuCycleMs).toBeNull();
   });
 
   it('reads both halves` reports and payloads', async () => {

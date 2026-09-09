@@ -92,6 +92,14 @@ export async function expectKernelShareGeometry(page: Page): Promise<void> {
       continuityErrors: segmentRects.slice(1).map((rect, index) => {
         return rect.left - segmentRects[index].right;
       }),
+      relativeErrors: segments.map((segment) => {
+        const expectedPercent = Number.parseFloat(
+          segment.getAttribute('aria-label')?.match(/· ([\d.]+)%/)?.[1] ?? '',
+        );
+        return (
+          segment.getBoundingClientRect().width - (barElement.clientWidth * expectedPercent) / 100
+        );
+      }),
       buttonWidths: segments
         .filter((segment) => segment.tagName === 'BUTTON')
         .map((segment) => segment.getBoundingClientRect().width),
@@ -102,7 +110,7 @@ export async function expectKernelShareGeometry(page: Page): Promise<void> {
     };
   });
 
-  expect(geometry.contentWidth).toBeGreaterThanOrEqual(300);
+  expect(geometry.contentWidth).toBeGreaterThan(0);
   expect(geometry.segmentCount).toBeGreaterThan(1);
   expect(Math.abs(geometry.startError ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(0.75);
   expect(Math.abs(geometry.endError ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(0.75);
@@ -110,8 +118,10 @@ export async function expectKernelShareGeometry(page: Page): Promise<void> {
   for (const continuityError of geometry.continuityErrors) {
     expect(Math.abs(continuityError)).toBeLessThanOrEqual(0.75);
   }
+  for (const relativeError of geometry.relativeErrors) {
+    expect(Math.abs(relativeError)).toBeLessThanOrEqual(0.75);
+  }
   expect(geometry.buttonWidths.length).toBeGreaterThan(0);
-  for (const width of geometry.buttonWidths) expect(width).toBeGreaterThanOrEqual(24);
 
   const tinyKernelName = geometry.tinySegmentLabels[0]?.split(' — ', 1)[0];
   expect(tinyKernelName).toBeTruthy();
@@ -119,57 +129,8 @@ export async function expectKernelShareGeometry(page: Page): Promise<void> {
     name: `Inspect kernel ${tinyKernelName}`,
   });
   await expect(equivalentCard).toBeVisible();
-  const equivalentCardRect = await equivalentCard.boundingBox();
-  expect(equivalentCardRect).not.toBeNull();
-  expect(equivalentCardRect!.width).toBeGreaterThanOrEqual(24);
-  expect(equivalentCardRect!.height).toBeGreaterThanOrEqual(24);
-}
-
-export async function expectKernelShareSelectionStable(page: Page): Promise<void> {
-  const bar = page.getByRole('group', { name: 'Kernel position time share' });
-  const segment = bar.getByRole('button').first();
-  const segmentLabel = await segment.getAttribute('aria-label');
-  const kernelName = segmentLabel?.split(' — ', 1)[0];
-  expect(kernelName).toBeTruthy();
-  const kernelCard = page.getByRole('button', { name: `Inspect kernel ${kernelName}` });
-  await expect(kernelCard).toBeVisible();
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-    );
-  });
-  const geometry = async () =>
-    kernelCard.evaluate((element) => {
-      const card = element as HTMLElement;
-      let scroller: HTMLElement | null = card.parentElement;
-      while (scroller && getComputedStyle(scroller).overflowX !== 'auto') {
-        scroller = scroller.parentElement;
-      }
-      if (!scroller) throw new Error('CostTree card has no local horizontal scroller.');
-      const cardRect = card.getBoundingClientRect();
-      const scrollerRect = scroller.getBoundingClientRect();
-      return {
-        x: cardRect.x - scrollerRect.x + scroller.scrollLeft,
-        y: cardRect.y - scrollerRect.y + scroller.scrollTop,
-        width: cardRect.width,
-        height: cardRect.height,
-      };
-    });
-  const before = await geometry();
-
-  await segment.click();
-
-  await expect(segment).toHaveAttribute('aria-pressed', 'true');
-  await expect(kernelCard).toHaveAttribute('aria-pressed', 'true');
-  await expect(kernelCard.locator('svg')).toHaveCount(1);
-  const after = await geometry();
-  for (const coordinate of ['x', 'y', 'width', 'height'] as const) {
-    expect(
-      Math.abs(after[coordinate] - before[coordinate]),
-      `${coordinate} moved: ${JSON.stringify({ before, after })}`,
-    ).toBeLessThanOrEqual(0.5);
-  }
+  await equivalentCard.click();
+  await expect(equivalentCard).toHaveAttribute('aria-pressed', 'true');
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {

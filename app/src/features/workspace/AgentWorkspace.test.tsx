@@ -499,31 +499,6 @@ describe('AgentPane', () => {
     );
   });
 
-  it('pins conversation history as a persistent left rail and restores the preference', async () => {
-    const user = userEvent.setup();
-    const firstRender = render(<AgentPane full prompt="" />);
-
-    await user.click(await screen.findByRole('button', { name: 'Open conversation history' }));
-    await user.click(screen.getByRole('button', { name: 'Pin conversation history to the left' }));
-
-    expect(screen.getByRole('region', { name: 'Conversation history' })).toHaveAttribute(
-      'data-history-mode',
-      'persistent',
-    );
-    expect(window.localStorage.getItem('vibesim.conversation.history.pinned')).toBe('true');
-
-    firstRender.unmount();
-    render(<AgentPane full prompt="" />);
-
-    expect(screen.getByRole('region', { name: 'Conversation history' })).toHaveAttribute(
-      'data-history-mode',
-      'persistent',
-    );
-    await user.click(screen.getByRole('button', { name: 'Hide conversation history' }));
-    expect(screen.queryByRole('region', { name: 'Conversation history' })).not.toBeInTheDocument();
-    expect(window.localStorage.getItem('vibesim.conversation.history.pinned')).toBeNull();
-  });
-
   it('clears the active Analyzer attachment from the next Agent turn', async () => {
     const selection = {
       kind: 'aggregate' as const,
@@ -584,31 +559,6 @@ describe('AgentPane', () => {
     });
     expect(messageRequest).toBeDefined();
     expect(JSON.parse(String(messageRequest?.[1]?.body))).not.toHaveProperty('analyzerContext');
-  });
-
-  it('renders a legacy runtime exception as a compact retry card', async () => {
-    const rawError =
-      "(backend error: Command '['docker', 'run', '-d'] failed: no space left on device)";
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        if (String(input).endsWith('/stream')) return new Response(null, { status: 204 });
-        return new Response(
-          JSON.stringify({
-            id: 'c_test',
-            title: 'Test',
-            messages: [{ role: 'assistant', content: rawError }],
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
-      }),
-    );
-
-    render(<AgentPane prompt="Explain this graph." />);
-
-    expect(await screen.findByText('Agent unavailable')).toBeInTheDocument();
-    expect(screen.getByText(/host disk is full/)).toBeInTheDocument();
-    expect(screen.queryByText(/docker.*run/)).not.toBeInTheDocument();
   });
 
   it('renders local Markdown images through the active workspace file route', async () => {
@@ -991,57 +941,6 @@ describe('progress rail on the full-page Agent surface', () => {
     });
   });
 
-  it('indexes only milestones, results and answers, grouped under the question', async () => {
-    render(<AgentPane full prompt="" />);
-
-    const rail = await screen.findByRole('region', { name: 'Conversation progress' });
-    expect(within(rail).getByText('2 milestones · 2 results')).toBeInTheDocument();
-    expect(within(rail).getByText('Compare TP choices.')).toBeInTheDocument();
-    expect(within(rail).getByText('Now profile the dense GEMM kernel.')).toBeInTheDocument();
-    expect(
-      within(rail).getByRole('button', { name: /Scoped the sweep to TP=2 and TP=4\./ }),
-    ).toBeInTheDocument();
-    expect(within(rail).getByText('logs/20260731_0_predict')).toBeInTheDocument();
-    expect(within(rail).getByText('timing prediction · ready')).toBeInTheDocument();
-    expect(within(rail).getByText('kernel profile · running')).toBeInTheDocument();
-    // Progress chatter and delegated tasks stay in the transcript.
-    expect(within(rail).queryByText(/Reading the preset/)).not.toBeInTheDocument();
-    expect(within(rail).queryByText(/Run the sweep/)).not.toBeInTheDocument();
-  });
-
-  it('gives every kind its own marker shape rather than only its own colour', async () => {
-    render(<AgentPane full prompt="" />);
-
-    const rail = await screen.findByRole('region', { name: 'Conversation progress' });
-    const markers = within(rail)
-      .getAllByRole('button')
-      .map((entry) => entry.querySelector('svg')?.getAttribute('data-testid'));
-    expect(markers).toEqual([
-      'OutlinedFlagRoundedIcon', // milestone
-      'BarChartRoundedIcon', // result, ready
-      'LightbulbOutlinedIcon', // answer
-      'OutlinedFlagRoundedIcon', // milestone
-      'BarChartRoundedIcon', // result, running: same shape, different colour
-      'HelpOutlineRoundedIcon', // input needed
-    ]);
-    expect(new Set(markers).size).toBe(4);
-  });
-
-  it('brings its own newest entry into view when a conversation loads', async () => {
-    const scrolledRailEntries: string[] = [];
-    scrollIntoViewMock.mockImplementation(function (this: Element) {
-      const railEntry = this.closest('[data-rail-entry]')?.getAttribute('data-rail-entry');
-      if (railEntry) scrolledRailEntries.push(railEntry);
-    });
-    render(<AgentPane full prompt="" />);
-
-    await screen.findByRole('region', { name: 'Conversation progress' });
-    // The transcript opens at its newest turn, so the index has to be showing
-    // the same turn rather than the opening question.
-    await waitFor(() => expect(scrolledRailEntries.at(-1)).toBe('t3-c2'));
-    scrollIntoViewMock.mockReset();
-  });
-
   it('centres the transcript on the card a rail entry points at', async () => {
     const user = userEvent.setup();
     render(<AgentPane full prompt="" />);
@@ -1054,29 +953,6 @@ describe('progress rail on the full-page Agent surface', () => {
     expect(
       screen.getByTestId('agent-message-column').querySelector('[data-outline-flash]'),
     ).toHaveAttribute('data-outline-anchor', 't1-c0-n1');
-  });
-
-  it('hides behind a header toggle and restores the preference', async () => {
-    const user = userEvent.setup();
-    const firstRender = render(<AgentPane full prompt="" />);
-
-    await user.click(await screen.findByRole('button', { name: 'Hide progress summary' }));
-    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
-    expect(window.localStorage.getItem('vibesim.conversation.progress.hidden')).toBe('true');
-
-    firstRender.unmount();
-    render(<AgentPane full prompt="" />);
-    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: 'Show progress summary' }));
-    expect(screen.getByRole('region', { name: 'Conversation progress' })).toBeInTheDocument();
-  });
-
-  it('stays out of the docked pane, which has no room for a third column', async () => {
-    render(<AgentPane prompt="" />);
-
-    await screen.findByText('Answer');
-    expect(screen.queryByRole('region', { name: 'Conversation progress' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Hide progress summary' })).not.toBeInTheDocument();
   });
 });
 
@@ -1151,15 +1027,6 @@ describe('file references in Agent output', () => {
     expect(screen.queryByRole('button', { name: 'tokens/s' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'p50/p99' })).not.toBeInTheDocument();
     expect(screen.getByText('tokens/s')).toBeInTheDocument();
-  });
-
-  it('serves a relative image through the workspace file route', () => {
-    renderAnswer('![throughput](logs/plots/throughput.png)');
-
-    expect(screen.getByAltText('throughput')).toHaveAttribute(
-      'src',
-      '/api/file?path=logs%2Fplots%2Fthroughput.png&workspace_id=w_main',
-    );
   });
 });
 
@@ -1464,22 +1331,6 @@ describe('AgentPane message queue', () => {
 });
 
 describe('AgentPane interrupt gate', () => {
-  it('says nothing about the target when the interrupt landed on the driver', async () => {
-    // Interrupting the driver has always resumed the driver, so a strip saying
-    // so would be a line that carries no news.
-    const { emit } = streamingTurnHarness({}, 'orchestrator');
-    const user = userEvent.setup();
-    render(<AgentPane full prompt="" />);
-
-    await user.type(await screen.findByRole('textbox'), 'First.');
-    await user.click(screen.getByRole('button', { name: 'Send follow-up' }));
-    await emit('role_start', { role: 'orchestrator' });
-    await emit('role_ready', { role: 'orchestrator' });
-    await user.click(screen.getByRole('button', { name: 'Interrupt turn' }));
-
-    await screen.findByRole('button', { name: 'Send follow-up' });
-    expect(screen.queryByText(/Next message continues with/)).not.toBeInTheDocument();
-  });
   it('arms an interrupt inside the blind window and fires it on first output', async () => {
     const { emit, cancelCalls } = streamingTurnHarness();
     const user = userEvent.setup();

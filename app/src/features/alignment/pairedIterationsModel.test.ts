@@ -3,9 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AlignmentIterationSeries, AlignmentPairedIteration } from '../../domain/alignment';
 import {
   PLOT,
-  axisTickLabel,
   bandAndMean,
-  densityNote,
   hoverIndexAt,
   iterationToX,
   iterationTypeShare,
@@ -79,13 +77,21 @@ describe('pairedSeries', () => {
   });
 
   it('carries all measured time bases without mixing them', () => {
-    const [criticalPath, busyUnion, rawKernelSum, cycle] = paired.families;
+    const distinct = pairedSeries({
+      ...series,
+      iterations: series.iterations.map((row) => ({
+        ...row,
+        measuredBusyUnionMs: row.measuredMs! * 0.5,
+        measuredKernelSumMs: row.measuredMs! * 3,
+      })),
+    });
+    const [criticalPath, busyUnion, rawKernelSum, cycle] = distinct.families;
     expect(criticalPath.key).toBe('critical_path');
     expect(criticalPath.measured).toEqual([10, 2, 4, 8]);
     expect(busyUnion.key).toBe('busy_union');
-    expect(busyUnion.measured).toEqual([10, 2, 4, 8]);
+    expect(busyUnion.measured).toEqual([5, 1, 2, 4]);
     expect(rawKernelSum.key).toBe('raw_kernel_sum');
-    expect(rawKernelSum.measured).toEqual([10, 2, 4, 8]);
+    expect(rawKernelSum.measured).toEqual([30, 6, 12, 24]);
     expect(cycle.key).toBe('gpu_cycle');
     expect(cycle.measured).toEqual([20, 4, 8, 16]);
   });
@@ -97,10 +103,6 @@ describe('pairedSeries', () => {
     expect(busyUnion.measuredDefinition).toBe(series.definitions.measured_busy_union_ms);
     expect(cycle.definition).toBe(series.definitions.gpu_cycle_relative_diff_pct);
     expect(cycle.measuredDefinition).toBe(series.definitions.measured_gpu_cycle_ms);
-  });
-
-  it('keeps the scaled lane label clean for the card-level correction badge', () => {
-    expect(paired.families[3].simulatedLabel).toBe('Timing-predict');
   });
 
   it('recomputes error against the selected busy-union baseline', () => {
@@ -142,40 +144,14 @@ describe('seriesStats', () => {
 });
 
 describe('niceTicks', () => {
-  it('lands on round steps inside the range', () => {
-    expect(niceTicks(-20.03, 47.16, 4)).toEqual([-20, 0, 20, 40]);
-    expect(niceTicks(-1.6, 21.6, 5).map(axisTickLabel)).toEqual([
-      '0.000',
-      '5.00',
-      '10.0',
-      '15.0',
-      '20.0',
-    ]);
-  });
-
   it('degenerates to the single bound when the range has no span', () => {
     expect(niceTicks(3, 3, 4)).toEqual([3]);
-  });
-});
-
-describe('axisTickLabel', () => {
-  it('keeps more digits as the scale gets finer', () => {
-    expect(axisTickLabel(0)).toBe('0.000');
-    expect(axisTickLabel(5)).toBe('5.00');
-    expect(axisTickLabel(-20)).toBe('-20.0');
-    expect(axisTickLabel(2000)).toBe('2000');
   });
 });
 
 describe('pairedLayout', () => {
   const paired = pairedSeries(series);
   const layout = pairedLayout(paired.families[0]);
-
-  it('stacks the three panels with the designed gaps', () => {
-    expect(layout.tops).toEqual([110, 404, 604]);
-    expect(layout.axisY).toBe(766);
-    expect(layout.height).toBe(802);
-  });
 
   it('starts the value panel at zero rather than at the smallest iteration', () => {
     expect(layout.ranges.value[0]).toBeLessThan(0);
@@ -195,21 +171,14 @@ describe('pairedLayout', () => {
     expect(clipped.ranges.relative[1]).toBeLessThan(clipped.relativeStats.max);
   });
 
-  it('draws every point while the capture is smaller than the column count', () => {
-    expect(layout.dense).toBe(false);
-    expect(layout.markers).toBe(true);
-    expect(densityNote(layout)).toBe('4 iterations, every point drawn');
-  });
-
-  it('spreads the first and last iteration across the full plot width', () => {
-    expect(iterationToX(layout, 0)).toBe(PLOT.left);
-    expect(iterationToX(layout, layout.count - 1)).toBe(PLOT.width - PLOT.right);
-  });
-
   it('maps a value onto the panel it belongs to', () => {
     const toY = panelScale(layout, 0, 'value');
-    expect(toY(layout.ranges.value[0])).toBeCloseTo(110 + 256, 6);
-    expect(toY(layout.ranges.value[1])).toBeCloseTo(110, 6);
+    const bottom = toY(layout.ranges.value[0]);
+    const top = toY(layout.ranges.value[1]);
+    expect(bottom).toBeGreaterThan(top);
+    const middleValue = (layout.ranges.value[0] + layout.ranges.value[1]) / 2;
+    expect(toY(middleValue)).toBeCloseTo((top + bottom) / 2, 6);
+    expect(top).toBe(layout.tops[0]);
   });
 });
 
@@ -286,12 +255,6 @@ describe('the iteration-type strip', () => {
     // survive the column they share with a decode.
     const runs = iterationTypeStrip([0, 2, 0, 1], twoColumnLayout);
     expect(runs.map((run) => run.typeIndex)).toEqual([2, 1]);
-  });
-
-  it('merges neighbouring columns of one type into a single run', () => {
-    const runs = iterationTypeStrip([0, 0, 0, 0], twoColumnLayout);
-    expect(runs).toHaveLength(1);
-    expect(runs[0]).toMatchObject({ typeIndex: 0, column: 0 });
   });
 
   it('shares counts, not percentages, most common first', () => {

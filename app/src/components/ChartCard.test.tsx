@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useViz } from '../store';
 import ChartCard from './ChartCard';
@@ -37,17 +37,22 @@ function renderWithFocus(ui: ReactNode, observe?: (focus: ChartFocusPayload | nu
 }
 
 describe('ChartCard', () => {
-  it('keeps the expand control visible when reached from the keyboard', async () => {
+  it('opens the chart from the keyboard', async () => {
     const user = userEvent.setup();
+    let focus: ChartFocusPayload | null = null;
     renderWithFocus(
       <ChartCard evidenceId="throughput" title="Throughput" option={{ series: [] }} />,
+      (value) => {
+        focus = value;
+      },
     );
 
     const expand = screen.getByRole('button', { name: 'Expand Throughput' });
     await user.tab();
 
     expect(expand).toHaveFocus();
-    expect(getComputedStyle(expand).opacity).toBe('1');
+    await user.keyboard('{Enter}');
+    expect(focus).toMatchObject({ title: 'Throughput' });
   });
 
   it('subscribes only to stable actions and opens the shared dialog payload', async () => {
@@ -79,25 +84,6 @@ describe('ChartCard', () => {
     expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
   });
 
-  it('selects the whole evidence surface without rerendering its chart', async () => {
-    const user = userEvent.setup();
-    renderWithFocus(
-      <ChartCard evidenceId="throughput" title="Throughput" option={{ series: [] }} />,
-    );
-    const initialChartRenders = chartRender.mock.calls.length;
-    const surface = screen
-      .getByRole('button', { name: 'Select Throughput panel' })
-      .closest('[data-evidence-id]');
-
-    expect(surface).not.toBeNull();
-    await user.click(surface!);
-
-    expect(useViz.getState().runPanelId).toBe('throughput');
-    expect(surface).toHaveAttribute('data-agent-selected', 'true');
-    expect(screen.getByText('Selected for agent')).toBeVisible();
-    expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
-  });
-
   it('updates prediction evidence without falling back to the retained run', async () => {
     const user = userEvent.setup();
     useViz.setState({
@@ -122,7 +108,6 @@ describe('ChartCard', () => {
         option={{ series: [] }}
       />,
     );
-    const initialChartRenders = chartRender.mock.calls.length;
 
     await user.click(
       screen
@@ -133,6 +118,5 @@ describe('ChartCard', () => {
     expect(useViz.getState().selectionSurface).toBe('prediction');
     expect(useViz.getState().predictionSelection?.panelId).toBe('optimality-breakdown');
     expect(useViz.getState().runPanelId).toBe('throughput');
-    expect(chartRender).toHaveBeenCalledTimes(initialChartRenders);
   });
 });

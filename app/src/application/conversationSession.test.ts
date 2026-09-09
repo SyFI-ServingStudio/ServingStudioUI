@@ -47,18 +47,4 @@ describe('active conversation session', () => {
 
     expect(pendingCodexRuntime()).toBeNull();
   });
-
-  it('rejects a selection left by a tab that predates the single-agent role', () => {
-    // Falling back to the backend catalog defaults is self-healing; carrying a
-    // half-populated selection forward would start the assistant with no model.
-    window.sessionStorage.setItem(
-      'vibesim.entry.codex-runtime',
-      JSON.stringify({
-        orchestrator: { model: 'gpt-5.6-terra', effort: 'high', serviceTier: 'fast' },
-        implementer: { model: 'gpt-5.6-sol', effort: 'xhigh', serviceTier: 'default' },
-      }),
-    );
-
-    expect(pendingCodexRuntime()).toBeNull();
-  });
 });

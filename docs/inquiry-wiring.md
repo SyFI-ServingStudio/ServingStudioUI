@@ -1,7 +1,7 @@
 # Agent–Analyzer Workspace Wiring
 
 This document describes the production boundary between the VibeSim Agent,
-conversation backend, Launcher, Rust Analyzer, and viz-ui. It replaces the
+conversation backend, Launcher, Rust Analyzer, and VibeSimUI. It replaces the
 earlier model where every conversation implicitly owned a separate repository
 or where an “inquiry” was treated as a durable top-level object.
 
@@ -39,7 +39,7 @@ Analyzer discovery.
 | Conversation backend | Workspaces, conversations, turns, capabilities, job ownership overlays, citation dictionaries and frozen targets | Recomputed result metrics or plot bytes |
 | Analyzer MCP bridge | Bounded read-only Analyzer access and compact evidence projection | Metric computation or resource-choice policy |
 | Agent | Resource choice, interpretation, derived reasoning, citation-token choice | Navigation target construction |
-| viz-ui | Analyzer presentation, Agent shell, frozen citation rendering and click navigation | DSL parsing into targets or metric inference |
+| VibeSimUI | Analyzer presentation, Agent shell, frozen citation rendering and click navigation | DSL parsing into targets or metric inference |
 
 Result values are always read from Analyzer. A conversation job row proves
 lifecycle and ownership only.

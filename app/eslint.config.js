@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import themeTokens from './eslint-rules/theme-tokens.js';
 import prettier from 'eslint-config-prettier';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import react from 'eslint-plugin-react';
@@ -55,8 +56,8 @@ export default tseslint.config(
               // its siblings deep-import. Bare directory names (not
               // `**/features/<name>/*`) so a sibling writing `../cluster/X` is
               // caught too — that spelling is how the shared-bucket drift
-              // started. `worker` is deliberately absent: App.tsx and the canvas
-              // demo import single modules out of it precisely to keep the lazy
+              // started. `worker` is deliberately absent: App.tsx imports single
+              // modules out of it precisely to keep the lazy
               // cost-tree chunk off the eager entry path, and its barrel would
               // drag that chunk back in.
               group: [
@@ -91,6 +92,12 @@ export default tseslint.config(
     // hook. Split them only when feature boundaries, not hot reload, demand it.
     files: ['src/application/*Provider.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/theme.ts', 'src/theme/**', 'src/**/*.test.{ts,tsx}', 'src/test/**'],
+    plugins: { local: { rules: { 'theme-tokens': themeTokens } } },
+    rules: { 'local/theme-tokens': 'error' },
   },
   prettier,
 );

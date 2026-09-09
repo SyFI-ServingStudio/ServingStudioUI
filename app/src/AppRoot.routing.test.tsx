@@ -74,21 +74,6 @@ describe('AppRoot workspace routing', () => {
     expect(screen.queryByText('workspace:w_one')).not.toBeInTheDocument();
   });
 
-  it('preserves the workspace Agent host while legacy routes change layout', async () => {
-    render(<AppRoot />);
-    const agentHost = await screen.findByTestId('agent-host');
-    expect(screen.getByText('view:agent')).toBeInTheDocument();
-
-    act(() => {
-      window.history.replaceState(null, '', '#/aggregate?workspace=w_one&experiment=s_test');
-      window.dispatchEvent(new HashChangeEvent('hashchange'));
-    });
-
-    expect(await screen.findByText('view:aggregate')).toBeInTheDocument();
-    expect(await screen.findByText('aggregate')).toBeInTheDocument();
-    expect(screen.getByTestId('agent-host').isSameNode(agentHost)).toBe(true);
-  });
-
   it('keeps the workspace Agent host visible while a destination route suspends', async () => {
     aggregateRenderState.pending = new Promise<void>((resolve) => {
       aggregateRenderState.release = () => resolve();

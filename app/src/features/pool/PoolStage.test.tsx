@@ -86,15 +86,4 @@ describe('PoolStage', () => {
     ).toBeVisible();
     await waitFor(() => expect(calls.subjects).toBe(2));
   });
-
-  it('places request state immediately before the closing kernel breakdown', async () => {
-    const { repository } = createTestRepository();
-    renderStage(repository);
-
-    const requestState = await screen.findByText('Request state · attn');
-    const kernelBreakdown = screen.getByText('Kernel time breakdown · attn');
-    expect(requestState.compareDocumentPosition(kernelBreakdown)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
 });

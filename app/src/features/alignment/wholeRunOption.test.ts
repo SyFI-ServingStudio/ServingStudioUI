@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AlignmentCdfComparison, AlignmentThroughputSeries } from '../../domain/alignment';
+import type { WorkloadCardModel } from './wholeRunModel';
 import {
   expandedWholeRunOption,
   latencyCdfOption,
   throughputRateOption,
   workloadShapeOption,
 } from './wholeRunOption';
-import type { WorkloadCardModel } from './wholeRunModel';
 
 const comparison: AlignmentCdfComparison = {
   key: 'client_ttft',
@@ -75,14 +75,6 @@ describe('latencyCdfOption', () => {
       [28, 90],
       [30, 99],
     ]);
-  });
-
-  it('rules the percentile axis and drops a guide at the measured median', () => {
-    const rules = series.find((entry) => entry.markLine !== undefined)?.markLine?.data ?? [];
-    expect(rules.map((rule) => rule.yAxis).filter((value) => value !== undefined)).toEqual([
-      0, 50, 90, 100,
-    ]);
-    expect(rules.some((rule) => rule.xAxis === 20)).toBe(true);
   });
 
   it('names the x axis with the analyzer`s own unit and pins the percentile axis', () => {

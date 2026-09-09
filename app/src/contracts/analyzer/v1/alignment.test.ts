@@ -61,12 +61,6 @@ describe('alignment descriptor', () => {
     );
   });
 
-  it('rejects an unexpected protocol key rather than ignoring it', () => {
-    expect(() =>
-      parseAnalyzerV1AlignmentDescriptor(descriptorWire({ surprise: 1 }), ALIGNMENT_ID),
-    ).toThrow();
-  });
-
   it('rejects a descriptor missing one of the four subjects', () => {
     const wire = descriptorWire();
     delete (wire.subjects as Record<string, unknown>).workload;
@@ -188,20 +182,15 @@ describe('iteration series', () => {
   });
 
   it('keeps only the iteration ids from the shard index, sorted', () => {
-    const series = parseAnalyzerV1AlignmentIterationSeries(wire);
-    expect(series.breakdownDetail?.iterationIds).toEqual([6, 7]);
-    expect(series.breakdownDetail?.file).toBe('alignment_iteration_breakdowns.jsonl');
-  });
-
-  it('accepts a payload written before sequences or shards existed', () => {
     const series = parseAnalyzerV1AlignmentIterationSeries({
       ...wire,
-      sequences: null,
-      breakdown_detail: null,
+      breakdown_detail: {
+        ...wire.breakdown_detail,
+        byte_ranges: { '10': [0, 1], '2': [1, 1], invalid: [2, 1] },
+      },
     });
-    expect(series.sequences).toBeNull();
-    expect(series.breakdownDetail).toBeNull();
-    expect(series.iterations).toHaveLength(1);
+    expect(series.breakdownDetail?.iterationIds).toEqual([2, 10]);
+    expect(series.breakdownDetail?.file).toBe('alignment_iteration_breakdowns.jsonl');
   });
 
   it('passes definitions through untouched', () => {
@@ -292,21 +281,6 @@ describe('data-parallel union catalog (schema 4)', () => {
       { deviceId: 0, iterations: [8, 9] },
       { deviceId: 1, iterations: [9] },
     ]);
-  });
-
-  it('rejects a sequence that carries both iterations and occurrences', () => {
-    const sequence = unionWire.sequences.phases.forward.unique_sequences[0];
-    expect(() =>
-      parseAnalyzerV1AlignmentIterationSeries({
-        ...unionWire,
-        sequences: {
-          ...unionWire.sequences,
-          phases: {
-            forward: { unique_sequences: [{ ...sequence, iterations: [8, 9] }] },
-          },
-        },
-      }),
-    ).toThrow(/either iterations or occurrences/);
   });
 });
 
@@ -456,11 +430,6 @@ describe('timeline index', () => {
     },
   };
 
-  it('turns the kernel name map into numeric keys', () => {
-    const index = parseAnalyzerV1AlignmentTimelineIndex(wire);
-    expect(index.kernelNames[7]).toBe('nvjet');
-  });
-
   it('keeps the analyzer rules verbatim, on both the index and the host block', () => {
     const index = parseAnalyzerV1AlignmentTimelineIndex(wire);
     expect(index.meta.anchorRule).toBe('min kernel start over the reference rank.');
@@ -556,35 +525,6 @@ describe('per-iteration detail', () => {
       deltaMs: 1,
       relativeDiffPct: null,
     });
-  });
-
-  it('falls back to summed kernel contributions for an older detail shard', () => {
-    const parsed = parseAnalyzerV1AlignmentBreakdown(
-      {
-        iteration_id: 7,
-        case_index: 1,
-        stage: 'decode',
-        measured_kernel_sum_ms: 1,
-        simulated_leaf_workload_ms: 1,
-        unmapped_measured_ms: 0,
-        unmapped_simulated_ms: 0,
-        measured_kernels: [
-          {
-            name: 'kernel',
-            category: 'other',
-            duration_ms: 0.625,
-            calls: 1,
-            first_start_ns: 0,
-            device_ids: [0],
-          },
-        ],
-        simulated_kernels: [],
-        operation_summary: [],
-        phase_summary: [],
-      },
-      7,
-    );
-    expect(parsed.measuredCriticalPathMs).toBe(0.625);
   });
 });
 

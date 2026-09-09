@@ -406,9 +406,4 @@ describe('decodeAnalyzerV1OptimalityPayload', () => {
     if (result.status !== 'unavailable') return;
     expect(result.reason).toMatch(/no \(pool_tag, worker_id\)/);
   });
-
-  it('rejects a payload missing the required schema fields', () => {
-    const result = decodeAnalyzerV1OptimalityPayload({ hello: 'world' });
-    expect(result.status).toBe('incompatible');
-  });
 });

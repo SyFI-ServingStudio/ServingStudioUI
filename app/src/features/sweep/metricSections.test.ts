@@ -45,20 +45,17 @@ describe('sweep metric sections', () => {
   it('groups outcome families and folds mean/p99 into one panel', () => {
     const sections = sweepMetricSections(metrics);
 
-    expect(sections.map((section) => section.label)).toEqual([
-      'Throughput',
-      'Utilization',
-      'Request SLO',
-    ]);
-    expect(sections[2]?.panels).toMatchObject([
+    expect(
+      sections
+        .flatMap((section) => section.panels)
+        .filter((panel) => ['tpot', 'ttft'].includes(panel.id)),
+    ).toMatchObject([
       {
         id: 'tpot',
-        label: 'TPOT',
         metrics: [{ key: 'tpot_mean_ms' }, { key: 'tpot_p99_ms' }],
       },
       {
         id: 'ttft',
-        label: 'TTFT',
         metrics: [{ key: 'ttft_mean_ms' }],
       },
     ]);

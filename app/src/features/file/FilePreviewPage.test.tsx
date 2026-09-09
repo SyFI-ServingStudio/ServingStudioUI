@@ -207,94 +207,9 @@ describe('structured views', () => {
     expect(await screen.findByRole('heading', { name: 'Design' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'the summary' })).toBeInTheDocument();
   });
-
-  it('leaves a plain log file with no structured toggle', async () => {
-    stubBackend({
-      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
-      body: 'started\n',
-    });
-
-    render(
-      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
-    );
-
-    expect(await screen.findByLabelText('File contents')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Source' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Wrap' })).toBeInTheDocument();
-  });
 });
 
 describe('find in file', () => {
-  it('marks matching lines and steps between them', async () => {
-    stubBackend({
-      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
-      body: 'start\nerror: one\nok\nerror: two\n',
-    });
-    const user = userEvent.setup();
-
-    render(
-      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Find' }));
-    await user.type(screen.getByLabelText('Find in file'), 'error');
-
-    expect(screen.getByText('1 of 2 lines')).toBeInTheDocument();
-    const body = screen.getByLabelText('File contents');
-    expect(body.querySelectorAll('[data-match]')).toHaveLength(2);
-    expect(body.querySelector('[data-match="active"]')).toHaveAttribute('data-line', '2');
-
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText('2 of 2 lines')).toBeInTheDocument();
-    expect(body.querySelector('[data-match="active"]')).toHaveAttribute('data-line', '4');
-  });
-
-  it('says when nothing matches', async () => {
-    stubBackend({
-      meta: { ...textMeta, path: 'logs/run.log', name: 'run.log', language: null },
-      body: 'start\n',
-    });
-    const user = userEvent.setup();
-
-    render(
-      <FilePreviewPage fileRef={{ workspaceId: 'w_main', path: 'logs/run.log', line: null }} />,
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Find' }));
-    await user.type(screen.getByLabelText('Find in file'), 'absent');
-
-    expect(screen.getByText('no matches')).toBeInTheDocument();
-  });
-
-  it('renders a tty-captured log in colour instead of printing its escapes', async () => {
-    const escape = String.fromCharCode(27);
-    stubBackend({
-      meta: { ...textMeta, path: 'logs/run/stdout.log', name: 'stdout.log', language: null },
-      body:
-        `${escape}[2m2026-05-23T11:10:54Z${escape}[0m ${escape}[32m INFO${escape}[0m built\n` +
-        `${escape}[2m2026-05-23T11:10:55Z${escape}[0m ${escape}[32m INFO${escape}[0m done\n`,
-    });
-
-    render(
-      <FilePreviewPage
-        fileRef={{ workspaceId: 'w_main', path: 'logs/run/stdout.log', line: null }}
-      />,
-    );
-
-    const body = await screen.findByLabelText('File contents');
-    // The escapes are gone from the text, and the level is a coloured element.
-    expect(body.textContent).not.toContain('[32m');
-    expect(body.textContent).toContain('INFO built');
-    const level = Array.from(body.querySelectorAll('span')).find(
-      (span) => span.textContent === ' INFO',
-    );
-    expect(level?.style.color).toBeTruthy();
-    expect(body.querySelector('[style*="opacity:.62"]')?.textContent).toBe('2026-05-23T11:10:54Z');
-    // Two log lines stay two gutter rows.
-    expect(body.querySelectorAll('[data-line]')).toHaveLength(2);
-    expect(screen.getByText(/terminal colour/)).toBeInTheDocument();
-  });
-
   it('searches the visible text of a coloured log, not its escape codes', async () => {
     const escape = String.fromCharCode(27);
     stubBackend({

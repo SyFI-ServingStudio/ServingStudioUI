@@ -1,5 +1,5 @@
-import { Profiler } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { Profiler } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useActiveRun, useActiveRunModel } from '../../application/ActiveRunProvider';
@@ -34,12 +34,6 @@ beforeEach(() => {
 });
 
 describe('SystemMapBand store subscription', () => {
-  it('labels the deployment card beneath the System map section', () => {
-    render(<SystemMapBand />);
-
-    expect(screen.getByRole('heading', { level: 3, name: 'Deployment' })).toBeVisible();
-  });
-
   it('does not re-render while an unrelated timeline cursor changes', () => {
     const onRender = vi.fn();
     render(

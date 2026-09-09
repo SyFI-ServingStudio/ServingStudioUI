@@ -37,13 +37,4 @@ describe('clusterRequestStateOption', () => {
     expect(xAxis.data).toEqual(['0.00', '5.00', '10.00']);
     expect(series[0].data).toEqual([2, 1, 1]);
   });
-
-  it('extends the last bin to its end boundary', () => {
-    const option = clusterRequestStateOption(requestState, CHART_THEME);
-    const pending = (option.series as Array<{ name?: string; data: number[] }>).find(
-      (series) => series.name === 'pending',
-    );
-
-    expect(pending?.data).toEqual([2, 1, 1]);
-  });
 });

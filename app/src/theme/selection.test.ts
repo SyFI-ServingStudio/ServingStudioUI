@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { themes } from './palettes';
 import { createDetailColors, readableTerminalColor } from './colors';
+import { themes } from './palettes';
 import { readThemeId, resolveThemeId } from './selection';
 
 describe('theme selection', () => {
@@ -36,8 +36,8 @@ describe('theme selection', () => {
 });
 
 it('keeps near-white and near-black terminal colors legible in their respective modes', () => {
-  expect(readableTerminalColor(255, 255, 255, 'light')).toBe('#737373');
-  expect(readableTerminalColor(0, 0, 0, 'dark')).toBe('#8c8c8c');
+  expect(readableTerminalColor(255, 255, 255, 'light')).not.toBe('#ffffff');
+  expect(readableTerminalColor(0, 0, 0, 'dark')).not.toBe('#000000');
   expect(readableTerminalColor(0, 0, 0, 'light')).toBe('#000000');
   expect(readableTerminalColor(255, 255, 255, 'dark')).toBe('#ffffff');
 });

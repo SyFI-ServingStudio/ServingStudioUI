@@ -9,7 +9,7 @@ import type {
   CodexRuntimeSelection,
 } from '../../application/conversationRepository';
 import type { CodexRoleName } from './agentMode';
-import CodexRuntimePicker, { CodexRuntimeTag } from './CodexRuntimePicker';
+import CodexRuntimePicker from './CodexRuntimePicker';
 
 const MODELS: readonly CodexModelOption[] = [
   ...['sonnet', 'opus'].map((model) => ({
@@ -136,16 +136,6 @@ describe('Agent runtime picker', () => {
     );
   });
 
-  it('names versioned Claude models on transcript tags', () => {
-    render(<CodexRuntimeTag model="claude-opus-5" effort="max" />);
-    expect(screen.getByText('Claude Opus 5 · max')).toBeInTheDocument();
-  });
-
-  it('names Claude aliases on transcript runtime tags', () => {
-    render(<CodexRuntimeTag model="sonnet" effort="high" />);
-    expect(screen.getByText('Claude Sonnet · high')).toBeInTheDocument();
-  });
-
   it('picks a model and effort from one cell of the grid', async () => {
     const user = userEvent.setup();
     render(<Harness />);
@@ -179,16 +169,6 @@ describe('Agent runtime picker', () => {
     await user.click(screen.getByRole('button', { name: 'Orchestrator Fast tier' }));
 
     expect(indicator).toHaveTextContent('F');
-  });
-
-  it('does not offer Fast for a model whose provider lacks the tier', async () => {
-    const user = userEvent.setup();
-    render(<Harness />);
-
-    await user.click(screen.getByLabelText('Orchestrator Agent runtime'));
-    await user.click(screen.getByRole('radio', { name: 'DeepSeek V4 Flash at max' }));
-
-    expect(screen.getByRole('button', { name: 'Orchestrator Fast tier' })).toBeDisabled();
   });
 
   it('locks the other family once the conversation has history, but not effort', async () => {

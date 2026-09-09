@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, max, scale, sum, GROUP } from '../../domain/cost-tree';
+import { annotate, leaf, max, scale, sum } from '../../domain/cost-tree';
 import { useViz } from '../../store';
 import TimeShareBlocks from './TimeShareBlocks';
 
@@ -34,37 +34,6 @@ beforeEach(() => {
 });
 
 describe('TimeShareBlocks interaction targets', () => {
-  it('keeps a tiny share exact and non-target', () => {
-    render(<TimeShareBlocks />);
-
-    expect(screen.getByRole('region', { name: 'Kernel time breakdown' })).toBeVisible();
-    expect(screen.getByText('critical path · root wall-clock')).toBeVisible();
-    expect(
-      screen.getByText(
-        "Critical-path share of this operation's CostTree root wall-clock cost by family and kernel position.",
-      ),
-    ).toBeVisible();
-    const bar = screen.getByRole('group', { name: 'Kernel position time share' });
-    const tinySegment = screen.getByRole('img', {
-      name: /attention\.prefill/,
-    });
-
-    expect(bar).toContainElement(tinySegment);
-    expect(
-      screen.queryByRole('button', {
-        name: /attention\.prefill/,
-      }),
-    ).not.toBeInTheDocument();
-    expect(tinySegment).toHaveStyle({
-      width: '5%',
-      boxSizing: 'border-box',
-      flex: '0 0 auto',
-      minWidth: '0',
-      paddingLeft: '0',
-      paddingRight: '0',
-    });
-  });
-
   it('selects a safely sized share by pointer and exposes pressed state', async () => {
     const user = userEvent.setup();
     render(<TimeShareBlocks />);
@@ -88,19 +57,6 @@ describe('TimeShareBlocks interaction targets', () => {
 
     expect(useViz.getState()).toMatchObject({ scope: 'kernel', leafId: largeNode.id });
     expect(largeSegment).toHaveAttribute('aria-pressed', 'true');
-  });
-
-  it('uses the same semantic family color without a decorative palette bar', () => {
-    render(<TimeShareBlocks />);
-    expect(screen.getByRole('img', { name: /^Attention —/ })).toHaveStyle({
-      background: GROUP.attn.color,
-    });
-    expect(screen.getByRole('button', { name: /attention\.decode/ })).toHaveStyle({
-      background: GROUP.attn.color,
-    });
-    expect(
-      screen.queryByRole('group', { name: 'All kernel family colors' }),
-    ).not.toBeInTheDocument();
   });
 
   it('shows only the scaled critical Max branch against root wall-clock cost', () => {

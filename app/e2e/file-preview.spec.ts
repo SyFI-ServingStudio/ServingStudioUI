@@ -115,11 +115,15 @@ test('shows a tty-captured log in colour rather than printing its escapes', asyn
   await expect(body).toContainText('kernel done');
   await expect(body).not.toContainText('[32m');
 
-  // The colour has to survive as a computed style, not just as an attribute.
-  const level = body.locator('span', { hasText: /^ INFO$/ }).first();
-  await expect(level).toHaveCSS('color', 'rgb(86, 106, 46)');
-  await expect(body.locator('span', { hasText: /^ERROR$/ }).first()).toHaveCSS(
-    'color',
-    'rgb(168, 75, 46)',
+  // Severity colors must remain distinct and differ from ordinary log text.
+  const info = body.locator('span', { hasText: /^ INFO$/ }).first();
+  const error = body.locator('span', { hasText: /^ERROR$/ }).first();
+  await expect(info).toBeVisible();
+  await expect(error).toBeVisible();
+  const [infoColor, errorColor, bodyColor] = await Promise.all(
+    [info, error, body].map((element) => element.evaluate((node) => getComputedStyle(node).color)),
   );
+  expect(infoColor).not.toBe(errorColor);
+  expect(infoColor).not.toBe(bodyColor);
+  expect(errorColor).not.toBe(bodyColor);
 });

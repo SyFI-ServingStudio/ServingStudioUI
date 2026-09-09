@@ -31,10 +31,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
+      grepInvert: /@mobile/,
       use: { browserName: 'chromium', viewport: { width: 1440, height: 900 } },
     },
     {
       name: 'chromium-390',
+      testMatch: '**/responsive.spec.ts',
+      grep: /@mobile/,
       use: { browserName: 'chromium', viewport: { width: 390, height: 844 } },
     },
   ],

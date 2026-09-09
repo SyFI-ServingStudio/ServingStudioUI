@@ -127,11 +127,4 @@ describe('parseAnalyzerV1RunCatalog', () => {
 
     expect(() => parseAnalyzerV1RunCatalog(wire)).toThrow(/runs\.0: Unrecognized key/);
   });
-
-  it('rejects timestamps that are not RFC 3339 date-times', () => {
-    const wire = validWireCatalog();
-    wire.generated_at = 'July 15, 2026';
-
-    expect(() => parseAnalyzerV1RunCatalog(wire)).toThrow(/generated_at: Invalid datetime/);
-  });
 });

@@ -30,3 +30,6 @@ design-alignment-data/
 
 # Local dependency link used by sibling UI worktrees
 /app/node_modules
+
+# Local planning notes
+/plan.md

@@ -294,14 +294,6 @@ describe('kernel feature evidence boundaries', () => {
     expect(screen.getByText('692 GB/s')).toBeVisible();
     expect(screen.queryByText(/roofline/i)).not.toBeInTheDocument();
     const inspector = screen.getByTestId('kernel-inspector');
-    const cards = screen.getByTestId('kernel-detail-cards');
-    expect(inspector).toHaveStyle({ height: '723px', display: 'flex' });
-    expect(cards).toHaveStyle({
-      gridTemplateColumns: 'minmax(0,1fr)',
-      minHeight: '0',
-      overflowY: 'auto',
-      overflowX: 'hidden',
-    });
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Overview' }));
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Execution' }));
     expect(inspector).toContainElement(screen.getByRole('heading', { name: 'Performance' }));

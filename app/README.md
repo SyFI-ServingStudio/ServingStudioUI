@@ -53,14 +53,22 @@ incompatible resources remain explicit states rather than fabricated zeroes.
 
 Vitest covers repository adapters, route/selection behavior, visualization
 models, and workspace interactions with isolated Query clients. Playwright runs
-at 1440x900 and 390x844, checks browser errors, and enforces axe WCAG A/AA
-thresholds. Failure traces, screenshots, videos, and reports are written under
+at 1440x900 and 390x844, checks browser errors, and covers interaction behavior.
+Full-page WCAG audits are not part of this research test suite. Failure traces, screenshots, videos, and reports are written under
 `../.artifacts/playwright-test/`.
 
 `npm run size:check` checks an existing `dist/`; `npm run size` performs a
-production build first. The size budget covers both the initial entry and the
-gzip total of all JavaScript chunks.
+production build first. These optional local budgets cover both the initial entry and the
+gzip total of all JavaScript chunks; they do not block CI. Formatting is also a
+local check. CI checks types once before bundling the live application.
 
 Architecture and wire contracts live in
 [`../docs/frontend-architecture.md`](../docs/frontend-architecture.md) and
 [`../docs/data-protocol.md`](../docs/data-protocol.md).
+
+Browser tests run the functional suite on desktop and responsive cases at 390px.
+The isolated `e2e/fixtures/cost-tree.html` mounts production components with an
+explicit 95/5 cost split to check proportional rendering and kernel selection;
+the bundled Analyzer run does not contain exact operation CostTrees. This test
+entry is not included in the production build. Font-family/color token rules and
+their regression tests run through `npm run lint`; see [themes](../docs/themes.md).

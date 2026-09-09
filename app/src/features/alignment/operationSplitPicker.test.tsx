@@ -27,14 +27,6 @@ describe('OperationSplitPicker', () => {
     render(<OperationSplitPicker cycles={cycles} selectedIndex={0} onSelect={onSelect} />);
 
     const option = screen.getByRole('option', { name: /iteration 106/ });
-    const optionStyle = getComputedStyle(option);
-    expect(optionStyle.top).toBe('0px');
-    expect(optionStyle.height).toBe('46px');
-
-    const visualBar = option.firstElementChild;
-    expect(visualBar).not.toBeNull();
-    expect(getComputedStyle(visualBar as HTMLElement).pointerEvents).toBe('none');
-
     await user.click(option);
     expect(onSelect).toHaveBeenCalledWith(0);
   });

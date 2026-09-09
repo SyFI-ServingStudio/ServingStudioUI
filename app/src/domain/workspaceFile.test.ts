@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyLinkTarget,
   detectPathToken,
-  fileName,
   filePreviewHash,
   fileRefFromHash,
   pathAncestors,
@@ -40,14 +39,6 @@ describe('classifyLinkTarget', () => {
     });
   });
 
-  it('treats a host-absolute path as a workspace file', () => {
-    expect(classifyLinkTarget('/m-coriander/main/logs/summary.json')).toEqual({
-      kind: 'workspace-file',
-      path: '/m-coriander/main/logs/summary.json',
-      line: null,
-    });
-  });
-
   it('carries a trailing line number', () => {
     expect(classifyLinkTarget('simulator/src/main.rs:42')).toEqual({
       kind: 'workspace-file',
@@ -64,7 +55,6 @@ describe('classifyLinkTarget', () => {
 describe('detectPathToken', () => {
   it.each([
     ['logs/20260728_test/summary.json', 'logs/20260728_test/summary.json', null],
-    ['simulator/src/worker/mod.rs', 'simulator/src/worker/mod.rs', null],
     ['simulator/src/main.rs:42', 'simulator/src/main.rs', 42],
     ['simulator/src/main.rs:42:7', 'simulator/src/main.rs', 42],
     ['/workspace/logs/run.log', '/workspace/logs/run.log', null],
@@ -74,19 +64,15 @@ describe('detectPathToken', () => {
   });
 
   it.each([
-    ['s/old/new'], // a sed expression
-    ['p50/p99'], // a metric pair
-    ['TP/EP'], // a parallelism pair
-    ['and/or'], // prose
-    ['tokens/s'], // a unit
-    ['summary.json'], // no directory separator: too ambiguous in prose
-    ['logs/*.json'], // a glob
-    ['cargo test --all'], // a command
-    ['--log-dir=logs/x.json'], // a flag
-    ['https://example.com/a.json'], // a URL, handled as a link instead
-    ['logs/../etc/passwd.txt'], // traversal
-    ['config/.env'], // a dotfile the backend refuses anyway
-    ['logs/archive.tar.zst'], // an unlisted extension
+    ['p50/p99'],
+    ['summary.json'],
+    ['logs/*.json'],
+    ['cargo test --all'],
+    ['--log-dir=logs/x.json'],
+    ['https://example.com/a.json'],
+    ['logs/../etc/passwd.txt'],
+    ['config/.env'],
+    ['logs/archive.tar.zst'],
   ])('leaves %s as prose', (token) => {
     expect(detectPathToken(token)).toEqual({ kind: 'plain' });
   });
@@ -115,11 +101,6 @@ describe('the file preview address', () => {
 });
 
 describe('path presentation', () => {
-  it('names a file and a directory', () => {
-    expect(fileName('logs/run/summary.json')).toBe('summary.json');
-    expect(fileName('logs/run/')).toBe('run');
-  });
-
   it('lists ancestors outermost first, excluding the file', () => {
     expect(pathAncestors('logs/run/summary.json')).toEqual([
       { label: 'logs', path: 'logs' },

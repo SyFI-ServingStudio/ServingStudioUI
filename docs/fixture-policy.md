@@ -1,6 +1,7 @@
 # Analyzer v1 Fixture 策略
 
-第一批真实 fixture 来自 `main/logs/20260715_1_afd_ui_reanalysis`。该目录是 `20260703_4_qwen3_coder_480b_send_trace` 的事实数据副本，并使用 2026-07-15 的 analyzer 重新计算；`reanalysis_source.json` 明确记录 simulation 未重跑。它用于验证当前 analyzer v1 的真实差异，不用于伪造尚不存在的数据源。
+第一批真实 fixture 来自当时的 `main/logs/20260715_1_afd_ui_reanalysis`
+（源码目录现名 `VibeSim/`；历史 provenance 保留采集时路径）。该目录是 `20260703_4_qwen3_coder_480b_send_trace` 的事实数据副本，并使用 2026-07-15 的 analyzer 重新计算；`reanalysis_source.json` 明确记录 simulation 未重跑。它用于验证当前 analyzer v1 的真实差异，不用于伪造尚不存在的数据源。
 
 aggregate fixture 来自
 `main/logs/20260727_0_llama3_8b_tp_rate/payloads/sweep_metrics_grid.json`。
@@ -69,7 +70,7 @@ analysis 未结束                     → pending
 
 subject payload 的 availability 位置不统一：可能在 `payload.available`、`payload.meta.available`，也可能在 ready payload 中完全缺失。每个 subject 必须有自己的 Zod schema/adapter；report 的顶层 `available` 只作为该 subject 判定的一部分。
 
-`run_meta.schema_version: 3`、run descriptor `protocol_version: 1` 和 subject `schema_version: 1` 是三套独立版本，不得混用。
+当前 fixture 的 `run_meta.schema_version: 4`、run descriptor `protocol_version: 1` 和 subject `schema_version: 1` 是三套独立版本，不得混用。
 
 ## 单位不变量
 

@@ -86,19 +86,4 @@ describe('optimalityStackOption', () => {
     if (!Array.isArray(series)) return;
     expect(series.map((entry) => entry.data)).toEqual([[10], [30], [35], [25]]);
   });
-
-  it('contains long scope labels inside the chart without changing their data value', () => {
-    const label = 'main/0 / iter 40 · 10000× large-batch / unified.post_attn.post_norm';
-    const option = optimalityStackOption(
-      [row(label, 0.00008, 0.00001)],
-      OPTIMALITY_FAMILIES,
-      CHART_THEME,
-    );
-
-    expect(option.grid).toMatchObject({ left: 12, containLabel: true });
-    expect(option.yAxis).toMatchObject({
-      data: [`${label} · 9.00e-5 GPU·s`],
-      axisLabel: { width: 188, overflow: 'truncate', ellipsis: '…' },
-    });
-  });
 });

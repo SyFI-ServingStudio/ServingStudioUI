@@ -73,14 +73,4 @@ describe('active-run core assembly', () => {
       'has 2 topology model identities; the current view requires one.',
     );
   });
-
-  it('does not read optional subjects while assembling the core run', async () => {
-    const descriptor = makeTestDescriptor();
-    const { repository, calls } = createTestRepository({ descriptor });
-
-    const core = await loadActiveRunCore(repository, descriptor);
-
-    expect(core.run.id).toBe('test-run');
-    expect(calls.subjects).toBe(0);
-  });
 });

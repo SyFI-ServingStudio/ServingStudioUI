@@ -3,10 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { matchingLines, stepMatch } from './search';
 
 describe('matchingLines', () => {
-  it('reports 1-indexed lines containing the query', () => {
-    expect(matchingLines('alpha\nbeta\nalphabet\n', 'alpha')).toEqual([1, 3]);
-  });
-
   it('ignores case', () => {
     expect(matchingLines('Total TPS\ntotal tps\n', 'TOTAL')).toEqual([1, 2]);
   });

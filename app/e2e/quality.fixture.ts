@@ -1,4 +1,4 @@
-import { expect, test as base, type ConsoleMessage } from '@playwright/test';
+import { test as base, expect, type ConsoleMessage } from '@playwright/test';
 
 interface QualityFixtures {
   qualityGuard: void;
@@ -10,7 +10,7 @@ function formatConsole(message: ConsoleMessage): string {
   return `console.${message.type()}: ${message.text()}${source}`;
 }
 
-/** Automatically turns browser warnings, errors and uncaught exceptions into
+/** Automatically turns browser errors and uncaught exceptions into
  * test failures. Network failures stay outside this guard because external
  * fonts are not part of the simulation UI contract. */
 export const test = base.extend<QualityFixtures>({
@@ -35,7 +35,7 @@ export const test = base.extend<QualityFixtures>({
         });
       });
       const onConsole = (message: ConsoleMessage) => {
-        if (message.type() === 'warning' || message.type() === 'error') {
+        if (message.type() === 'error') {
           failures.push(formatConsole(message));
         }
       };

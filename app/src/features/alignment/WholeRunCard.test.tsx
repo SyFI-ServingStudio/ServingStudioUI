@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -56,4 +56,27 @@ describe('WholeRunCard scheduler axis', () => {
     );
     expect(screen.getByRole('img', { name: /decode batch by iteration ID/ })).toBeInTheDocument();
   });
+});
+
+it('shows the current Analyzer definition and leaves absent definitions empty', async () => {
+  const user = userEvent.setup();
+  const view = (definitions: AlignmentWorkloadSeries['definitions']) => (
+    <ChartFocusProvider>
+      <WholeRunCard e2e={null} workload={{ ...workload, definitions }} />
+    </ChartFocusProvider>
+  );
+  const { rerender } = render(view({ decode_batch_size: 'Requests decoded in this capture.' }));
+  const heading = screen.getByText('decode batch', { selector: 'h3', exact: true });
+  await user.hover(heading);
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('Requests decoded in this capture.');
+
+  rerender(view({ decode_batch_size: 'Updated Analyzer definition for another capture.' }));
+  expect(screen.getByRole('tooltip')).toHaveTextContent(
+    'Updated Analyzer definition for another capture.',
+  );
+  expect(screen.queryByText('Requests decoded in this capture.')).not.toBeInTheDocument();
+
+  rerender(view({}));
+  await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
+  expect(screen.getByRole('heading', { name: 'decode batch' })).toBeVisible();
 });

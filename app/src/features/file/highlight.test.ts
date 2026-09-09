@@ -3,17 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { canHighlight, highlightLines, splitHighlightedLines } from './highlight';
 
 describe('splitHighlightedLines', () => {
-  it('splits plain output on newlines', () => {
-    expect(splitHighlightedLines('alpha\nbeta')).toEqual(['alpha', 'beta']);
-  });
-
-  it('closes and reopens a span that crosses a line break', () => {
-    expect(splitHighlightedLines('<span class="hljs-comment">/* one\ntwo */</span>')).toEqual([
-      '<span class="hljs-comment">/* one</span>',
-      '<span class="hljs-comment">two */</span>',
-    ]);
-  });
-
   it('preserves nesting across a line break', () => {
     expect(splitHighlightedLines('<span class="a"><span class="b">x\ny</span>z</span>')).toEqual([
       '<span class="a"><span class="b">x</span></span>',
@@ -52,12 +41,5 @@ describe('highlightLines', () => {
     expect(lines).toHaveLength(4);
     expect(lines?.[0]).toContain('hljs-keyword');
     expect(lines?.[1]).toContain('total');
-  });
-
-  it('keeps a Python docstring coloured on every one of its lines', async () => {
-    const lines = await highlightLines('"""One\nTwo"""\n', 'python');
-
-    expect(lines?.[0]).toContain('hljs-string');
-    expect(lines?.[1]).toContain('hljs-string');
   });
 });

@@ -1,10 +1,15 @@
-# Analyzer → UI 数据协议方向
+# Analyzer → UI 数据协议
 
-本文记录 UI 接入现有 Rust analyzer 的边界。它不是对当前 JSON 的重新发明，而是一个兼容层设计：先可靠读取 analyzer v1，再逐步把同一合同固化到 Rust 类型和 schema 中。
+本文记录 UI 与 Rust Analyzer 之间的资源合同、单位和身份约束。当前实现通过
+`AnalyzerRepository` 及 `contracts/analyzer/v1/` 解码 HTTP 资源或有界 fixture。
+新增或修改路由时，应同时核对 repository 接口与 Rust Analyzer 实现。
 
 ## 1. 数据所有权
 
-UI 可以读取：
+以下文件描述 Analyzer 资源的来源与 fixture 适配输入。live UI 通过
+`AnalyzerRepository` 读取声明的 HTTP 资源，组件不自行拼接文件路径。
+
+资源来源包括：
 
 - `summary.json`：运行级结果与关键计数
 - `raw/params.json`、`raw/run_meta.json`：参数、部署与运行元数据
@@ -76,7 +81,7 @@ KV occupancy schema v1 的每个 pool `series[]` 保留 `active.mean` 作为 poo
 时序；其中可选的 `workers[]` 提供 `{worker_id, active_tokens}` worker 曲线。UI 必须兼容
 没有 `workers` 的旧 v1 artifact；存在时按父 series 的 `pool_tag` 与
 `capacity_tokens` 构造复合 worker 身份；cluster/pool 中以细线展示 worker，并以同 pool 颜色的粗线突出
-pool average，worker 视图的单条选中曲线则使用不透明主线。不得
+pool average，worker 视图的单条选中曲线则使用不透明主线。不得将 worker 曲线总和误当作 pool average
 `active.mean`。worker 与 pool 曲线都不得 clamp 超容量值，因为超界本身是诊断信号；
 KV percent 轴以 100% 为正常基线，存在超容量样本时必须自动扩展上限并保留顶部空间。
 
@@ -517,15 +522,18 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
   从 FIFO 中移除已取消的等待项，并中止对应的 in-flight fetch，避免 run 切换后继续消耗
   artifact 许可。
 
-## 8. 当前缺失的数据源
+## 8. 资源能力与缺失状态
 
-以下现有 UI 需求还没有可靠 analyzer artifact：
+模型配置与 workload overview 已由 `AnalyzerRepository.getRunModel` / `getRunWorkload`
+提供；worker operation index、seek 和 exact operation CostTree 也已实现。不能再将这些
+资源笼统列为“尚无数据源”。具体 run 是否有资源，由 descriptor、版本和实际响应决定。
 
-- 模型配置快照及 hidden size、layer/head/MoE 等 overview 字段
-- 输入/输出长度分布和 arrival burstiness 所需的 offered workload 摘要
-- 面向交互的 worker operation index 和 exact operation CostTree detail
+旧 run 或未生成的 subject 仍可返回 `not_generated` / `unavailable`；失败、版本不兼容
+和合法空结果保持独立状态，不生成替代曲线。fixture 只裁剪真实 artifact 或明确标记的
+synthetic 协议测试案例，后者不能成为生产指标来源。
 
-在数据补齐前，真实 run 页面显示对应的 `not_generated`/`unavailable` 状态，不生成替代曲线。checked-in fixture 只裁剪真实 analyzer artifact 或覆盖 transport/status 合同；若协议测试必须使用 synthetic provenance，也必须显式标记，且不能成为生产组件的指标来源。
+Analyzer HTTP 路由仍为 `/api/v1/`。浏览器导航、selection 和 frozen evidence 使用
+独立的 `vibesim.analyzer/v2` 合同；它们不要求将所有 subject schema 升为 v2。
 
 ## 9. 演进规则
 

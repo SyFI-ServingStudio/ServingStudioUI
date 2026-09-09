@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Run } from '../domain/run';
 import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
-import { createTestRepository } from '../test/analyzerRepositoryFixture';
 import { useViz } from '../store';
+import { createTestRepository } from '../test/analyzerRepositoryFixture';
 import { analyzerQueryKeys } from './queries';
 import { AnalyzerRepositoryProvider } from './RepositoryProvider';
 import { ActiveWorkerTreeProvider, useActiveWorkerOperationState } from './WorkerTreeProvider';
@@ -63,41 +63,6 @@ describe('operation detail cache identity', () => {
 });
 
 describe('ActiveWorkerTreeProvider operation buffer', () => {
-  it('bootstraps a bounded operation buffer', async () => {
-    const { repository } = createTestRepository();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    useViz.setState({
-      scope: 'worker',
-      workerKey: makeWorkerKey(worker),
-      poolRole: 'ffn',
-      cursorMs: null,
-      cursorNeedsSeek: false,
-      operation: null,
-      workerAnalysisLevel: 'worker',
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <AnalyzerRepositoryProvider repository={repository}>
-          <ActiveWorkerTreeProvider
-            run={run}
-            workerOperationDetail={{
-              status: 'ready',
-              schemaVersion: 1,
-              resource: { href: 'workers' },
-            }}
-            workerCostTreeDetail={{ status: 'not_generated' }}
-            analysisRevision="revision-a"
-          >
-            <OperationProbe />
-          </ActiveWorkerTreeProvider>
-        </AnalyzerRepositoryProvider>
-      </QueryClientProvider>,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId('operation-probe')).toHaveAttribute('data-status', 'ready'),
-    );
-  });
-
   it('preserves the selected operation while a fused wall-clock seek is pending', async () => {
     vi.useFakeTimers();
     const { repository } = createTestRepository();

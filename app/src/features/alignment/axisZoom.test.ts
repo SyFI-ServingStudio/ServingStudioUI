@@ -3,7 +3,6 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  MINIMUM_SPAN_FRACTION,
   anchorRatioAt,
   applyKeyAction,
   axisZoomKeyAction,
@@ -36,10 +35,6 @@ const insets = plotInsets(80, 20, 400);
 const bounds = { left: 50, width: 400 };
 
 describe('clampViewport', () => {
-  it('keeps a window that already fits', () => {
-    expect(clampViewport({ start: 20, end: 60 }, domain)).toEqual({ start: 20, end: 60 });
-  });
-
   it('narrows a window wider than the data to exactly the data', () => {
     expect(clampViewport({ start: -50, end: 500 }, domain)).toEqual(domain);
   });
@@ -49,13 +44,6 @@ describe('clampViewport', () => {
     // the position gives way.
     expect(clampViewport({ start: 80, end: 120 }, domain)).toEqual({ start: 60, end: 100 });
     expect(clampViewport({ start: -30, end: 10 }, domain)).toEqual({ start: 0, end: 40 });
-  });
-
-  it('widens a window below the zoom floor to that floor', () => {
-    const clamped = clampViewport({ start: 50, end: 50 }, domain);
-    expect(spanOf(clamped)).toBeCloseTo(minimumSpanOf(domain), 12);
-    expect(minimumSpanOf(domain)).toBe(100 * MINIMUM_SPAN_FRACTION);
-    expect(minimumSpanOf(domain)).toBeGreaterThan(0);
   });
 
   it('falls back to the whole domain for a window that is not a range', () => {
@@ -238,12 +226,6 @@ const keyPress = (key: string): ReactKeyboardEvent<HTMLElement> =>
   ({ key, preventDefault: vi.fn() }) as unknown as ReactKeyboardEvent<HTMLElement>;
 
 describe('useAxisZoom', () => {
-  it('starts on the whole domain', () => {
-    const { result } = renderHook(() => useAxisZoom(domain, insets));
-    expect(result.current.viewport).toEqual(domain);
-    expect(result.current.isFull).toBe(true);
-  });
-
   it('zooms a wheel gesture around the pointer, and stops the page scrolling', () => {
     const element = surfaceElement();
     const { result } = renderHook(() => useAxisZoom(domain, insets));

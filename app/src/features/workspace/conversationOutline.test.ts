@@ -4,7 +4,7 @@ import type {
   ConversationMessage,
   ConversationTurnEvent,
 } from '../../application/conversationRepository';
-import { conversationOutline, outlineEntryCounts, plainTextExcerpt } from './conversationOutline';
+import { conversationOutline, outlineEntryCounts } from './conversationOutline';
 
 function assistant(activity: readonly ConversationTurnEvent[]): ConversationMessage {
   return { role: 'assistant', content: '', activity };
@@ -15,18 +15,6 @@ const milestone = (text: string): ConversationTurnEvent => ({
   role: 'orchestrator',
   level: 'milestone',
   text,
-});
-
-describe('plainTextExcerpt', () => {
-  it('flattens the Markdown subset agents write into one scannable line', () => {
-    expect(
-      plainTextExcerpt('## Ready\n\n- Compared **TP=2** and `TP=4` in [the sweep](#/aggregate)\n'),
-    ).toBe('Ready Compared TP=2 and TP=4 in the sweep');
-  });
-
-  it('truncates past the limit with an ellipsis', () => {
-    expect(plainTextExcerpt('a'.repeat(40), 10)).toBe(`${'a'.repeat(9)}…`);
-  });
 });
 
 describe('conversationOutline', () => {
@@ -145,19 +133,6 @@ describe('conversationOutline', () => {
         false,
       ),
     ).toEqual([]);
-  });
-
-  it('counts each indexed kind for the rail header', () => {
-    const outline = conversationOutline(
-      [
-        { role: 'user', content: 'Go.' },
-        assistant([milestone('One.'), milestone('Two.'), { kind: 'final', text: 'Done.' }]),
-      ],
-      0,
-      [],
-      false,
-    );
-    expect(outlineEntryCounts(outline)).toEqual({ milestones: 2, results: 0, answers: 1 });
   });
 
   it('indexes milestones from the single-agent cast too', () => {

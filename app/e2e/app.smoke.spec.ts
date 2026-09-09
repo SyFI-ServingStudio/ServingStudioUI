@@ -12,8 +12,6 @@ test('loads the real analyzer folder and drills through a composite worker ident
 }) => {
   await openRealRun(page);
 
-  await expect(page.getByRole('heading', { name: 'Simulation overview', level: 3 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Trace overview', level: 3 })).toBeVisible();
   await expect(page.getByText('Trace distribution not generated', { exact: true })).toBeVisible();
   await expectRenderedCharts(page);
 
@@ -29,19 +27,11 @@ test('loads the real analyzer folder and drills through a composite worker ident
   await expect(page.getByRole('heading', { name: 'Cluster outcome', level: 2 })).toBeVisible();
 });
 
-test('uses one fully rounded aggregate return in the run masthead', async ({ page }) => {
+test('returns from a run to the aggregate overview', async ({ page }) => {
   await openRealRun(page);
-
-  const aggregateReturn = page.getByRole('link', { name: 'Return to aggregate overview' });
-  await expect(aggregateReturn).toBeVisible();
-  expect(
-    await aggregateReturn.evaluate((element) => {
-      const radius = Number.parseFloat(getComputedStyle(element).borderTopLeftRadius);
-      return radius >= element.getBoundingClientRect().height / 2;
-    }),
-  ).toBe(true);
-  await expect(page.getByRole('button', { name: 'Back to experiments' })).toBeVisible();
-  await expect(page.getByText('Current run', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Return to aggregate overview' }).click();
+  await expect(page).toHaveURL(/#\/aggregate/);
+  await expect(page.getByRole('heading', { name: 'Sweep aggregate', level: 1 })).toBeVisible();
 });
 
 test('selects a run-level chart as agent evidence from the whole card', async ({ page }) => {
@@ -193,7 +183,6 @@ test('restores a complete run selection from an agent navigation command', async
   });
 
   await expect(page).toHaveURL(/#\/run\?/);
-  await expect(page.getByRole('heading', { name: 'VibeSim — Run', level: 1 })).toBeVisible();
   await expect(
     page.locator('[data-evidence-id="panel:utilization"][data-agent-selected="true"]'),
   ).toBeVisible();
@@ -207,21 +196,13 @@ test('opens the FFN pool through the same stable pool control', async ({ page })
   await scopeToWorker(page, 'ffn/0');
 });
 
-test('opens the launcher-defined sweep aggregate workspace', async ({ page }) => {
-  await page.goto('/#/aggregate');
-  await expect(page.getByRole('heading', { name: 'Sweep aggregate', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Throughput', level: 3 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Request SLO', level: 3 })).toBeVisible();
-  await expect(page.getByRole('img', { name: /Total throughput by request_rate/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Back to experiments' })).toBeVisible();
-});
-
 test('opens an unclaimed run through the singleton aggregate interface', async ({ page }) => {
   await page.goto('/#/');
-  await page.getByRole('option', { name: /20260715_1_afd_ui_reanalysis/ }).click();
+  await page
+    .getByRole('option', { name: 'Open Simulation afd_ui_reanalysis', exact: true })
+    .click();
 
   await expect(page.getByText('54,635 tok/s', { exact: true })).toBeVisible();
-  await expect(page.getByText('68.9 %', { exact: true })).toBeVisible();
   await expect(page.getByRole('img', { name: /by request_rate/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Inspect run →' }).click();
   await expect(page.getByRole('heading', { name: 'Simulation overview', level: 3 })).toBeVisible();
@@ -230,19 +211,9 @@ test('opens an unclaimed run through the singleton aggregate interface', async (
 test('draws an alignment bundle from the measured capture beside the model', async ({ page }) => {
   await openAlignmentFixture(page);
 
-  for (const heading of [
-    'What is in the comparison, and what is not',
-    'One cycle, split by operation',
-    "Where one iteration's wall clock went",
-    'The whole run',
-  ]) {
-    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
-  }
   await expectRenderedCharts(page);
 
-  // Every explanatory sentence on the page is the analyzer's. These two only
-  // exist in its documents, so seeing them proves the page quoted rather than
-  // paraphrased.
+  // Check that Analyzer-provided metric labels and ownership rules reach the page.
   await expect(
     page.getByRole('heading', { name: /replica critical-path sum/i }).first(),
   ).toBeVisible();

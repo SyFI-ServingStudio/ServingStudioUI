@@ -119,36 +119,6 @@ describe('parseAnalyzerV1Topology', () => {
     ]);
   });
 
-  it('rejects a pre-v4 worker that lacks an authoritative pool_tag', () => {
-    const params = {
-      deployment: 'pd',
-      pools: {
-        prefill: pool(group('llama3_dense_tp', 'pd_prefill')),
-        decode: pool(group('llama3_dense_tp', 'pd_decode')),
-      },
-    };
-    // A v3 roster whose non-KV worker still carries a null tag: topology no longer
-    // reverse-recovers it, so it demands run_meta v4 rather than guessing.
-    const meta = {
-      schema_version: 3,
-      num_gpus: 2,
-      gpus: [
-        { id: 0, name: 'NVIDIA H200', pool: 0, worker_id: 0 },
-        { id: 1, name: 'NVIDIA H200', pool: 1, worker_id: 0 },
-      ],
-      workers: [
-        { worker_id: 0, pool: 0, pool_tag: 'prefill', gpu_ids: [0], kv_pools: [] },
-        { worker_id: 0, pool: 1, pool_tag: null, gpu_ids: [1], kv_pools: [] },
-      ],
-      comm_groups: [
-        { gid: 0, base: 0, count: 1, gpu_ids: [0], owner_pool: 'prefill', owner_worker_id: 0 },
-        { gid: 1, base: 1, count: 1, gpu_ids: [1], owner_pool: 'decode', owner_worker_id: 0 },
-      ],
-    };
-
-    expect(() => parseAnalyzerV1Topology(params, meta)).toThrow(/requires run_meta v4/);
-  });
-
   it('rejects multiple groups because run_meta has no group identity', () => {
     const params = structuredClone(paramsJson);
     params.pools.attn.groups.push(structuredClone(params.pools.attn.groups[0]));

@@ -157,12 +157,9 @@ Previous/Next 与键盘逐 operation 导航继续可用。
 - ECharts 只能经共享平台入口按需注册，tooltip 的 Analyzer 文本必须 escape。默认使用
   SVG renderer，使坐标轴、图例和 annotation 保持为可缩放矢量文字；只有实测证明某张
   有界高密度图需要 canvas 时，才在共享封装中增加显式例外。
-- 页面一级 card 必须使用共享 `SurfaceCard`，由它统一 warm-white surface、普通边框、圆角、
-  shadow 和覆盖在 feature 内容上方的 2px semantic left edge；canvas 或不透明 viewport 不得遮住
-  该 edge。feature 不得重新手写这套 shell。页面 section 通过 `SurfaceAccentProvider` 统一 edge：
-  Overview 使用 teal、System map（包括 Timeline 与 whole-run trace）使用 Sea Nymph `#6F9F9C`、
-  scope stage 使用 Smalt Blue `#577E89`；section 内 feature-local `accent` 不得覆盖 section edge。Architecture
-  overview 也使用该共享单元，作为实现基准而不是例外。
+- 页面一级 card 使用共享 `SurfaceCard`，统一当前主题的中性表面、边框、圆角与阴影。
+  它不再绘制 semantic left edge；`accent` 和 `SurfaceAccentProvider` 只保留兼容接口，
+  不覆盖当前主题。选择态由 evidence/feature 组件负责，颜色来自 `theme.ts` 与 `theme/colors.ts`。
 - 页面主体按 `00 Overview`、`01 System map`、`02 scope stage` 建立一级 section；model、simulation
   和 trace overview card 是 `00 Overview` 的子级，使用 `h3` card heading，不与 section `h2` 并列。
   System map 下的 topology card 同样以 `Deployment` `h3` 标识其内容层级。
@@ -170,7 +167,7 @@ Previous/Next 与键盘逐 operation 导航继续可用。
 - kernel detail 的 config 与 exact input 必须解码为带字段名的可读列表，不直接展示 Python
   repr 或 JSON；FLOP、byte、throughput 与 bandwidth 使用紧凑工程单位。detail 网格中的 value
   使用一致的字体层级，不能因字段来源不同随机切换 serif/mono 或粗细。字段按 Overview、
-  Execution、Performance 三张语义 card 在宽屏组成等宽三列，窄屏降为单列；card 内使用
+  Execution、Performance 三张纵向语义 card；card 内使用
   紧凑的纵向 label → value 行，不为每个字段生成独立 card。字段 label 使用清晰可辨的
   medium/semibold mono 层级；value 保持统一字号，不因字段类别任意放大。
 - operation selection 与 exact CostTree primary 工作面由 worker feature 的 viewport shell 共同布局。
@@ -186,7 +183,7 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   计算。Worker aggregate 模式使用 aggregate `kernel-time-share` worker row 展示跨全部 operation
   的 kernel family 与 position composition；position mix 必须明确标出 exact 或 sampled，不能冒充
   exact operation CostTree。所有 kernel-time breakdown、CostTree family legend、leaf
-  与 operation selection lane 必须复用 `domain/cost-tree` 的同一套 Mineral family palette。Worker
+  与 operation selection lane 必须复用 `domain/cost-tree` 的同一套主题语义色。Worker
   CostTree leaf hover 只显示 kind、backend、time、time share、compute rate 与 bandwidth；其中
   time share 必须直接复用 `by kernel position` 的 position-name 聚合，显示经过 Scale 与 Max
   critical-path 归因后该 kernel position 对 CostTree root wall-clock 的最终贡献；同名并列 leaf
@@ -194,7 +191,7 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   inspector 复用同一工程单位缩放和舍入规则。
   hover card 优先锚定在 leaf 侧边并与目标留出间距，空间不足时向另一侧或下方 flip，不得覆盖被
   hover 的 kernel card。
-  breakdown 另提供一条六 family 等宽的 visual-only palette bar；它不得伪装成真实时间比例。
+  breakdown 不添加无数据含义的等宽 family 色带。
 - exact CostTree ready 工作面在 `lg` 及以上保持左右两列：左列是完整 CostTree frame，右列是约
   `clamp(300px, 26vw, 340px)` 的 kernel inspector。未选择 kernel 时右列保留轻量 placeholder，
   避免选择造成 CostTree 宽度跳变；窄屏使用自然高度上下布局，每块保持 723px 且不得产生页面级
@@ -373,17 +370,17 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 - Agent prose 中的 evidence link 遵循 [`citation-dsl.md`](citation-dsl.md)。Agent 只写
   citation dictionary 公布的 symbolic inline-code token，例如
   `` `exp.tp2.rate20.throughput` ``；Conversation host 在 ingestion 时将 token 冻结为
-  `EvidenceRefV1`。渲染、hover 和流式完成禁止导航，只有用户 activation 才能把 frozen
+  `EvidenceRefV2`。渲染、hover 和流式完成禁止导航，只有用户 activation 才能把 frozen
   target 转成下述 navigation command。
-- `domain/analyzerNavigation.ts` 拥有 browser-side `vibesim.analyzer/v1` 合同。Agent 和
-  Analyzer 之间传递稳定的 `EvidenceRefV1`（experiment、panel、metric/statistic、
-  run/coordinates），禁止传 CSS selector、DOM id、显示文字或颜色。
+- `domain/analyzerNavigation.ts` 拥有 browser-side `vibesim.analyzer/v2` 合同。Agent 和
+  Analyzer 之间传递稳定的 `EvidenceRefV2`（aggregate、run、prediction、kernel_profile、
+  kernel_measurement 的资源身份与选择状态），禁止传 CSS selector、DOM id、显示文字或颜色。
 - 可复制 URL 是 canonical navigation state：
-  `#/aggregate?experiment=…&panel=…&metric=…&statistic=…&run=…&coordinates=…`。
+  `#/aggregate?workspace=…&experiment=…&panel=…&metric=…&statistic=…&run=…&coordinates=…`。
   `AppRoot` 的 route parser 必须忽略 query string；刷新 URL 后仍按 experiment → panel →
   metric → run coordinate 的顺序恢复状态。
-- live integration 接受同源 `window.postMessage` 的 `AnalyzerNavigateCommandV1`，并以相同
-  `requestId` 返回 `AnalyzerNavigationResultV1`。结果只有 `ok`、`not-found`、
+- live integration 接受同源 `window.postMessage` 的 `AnalyzerNavigateCommandV2`，并以相同
+  `requestId` 返回 `AnalyzerNavigationResultV2`。结果只有 `ok`、`not-found`、
   `unavailable`；跨 origin message 必须忽略。该 transport 只是 URL navigation 的即时入口，
   不能维护第二份隐藏 navigation state。
 - 成功导航到 panel 后，使用稳定 `panel.id` 找到注册的 panel boundary，滚动到 panel 并提供
@@ -406,8 +403,9 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
 
 ### Analyzer → Agent selection context
 
-- `domain/analyzerSelection.ts` 定义可序列化的 `AnalyzerSelectionV1`。它是
-  discriminated union：aggregate variant 保存 experiment、panel、metric/statistic 与
+- `domain/analyzerSelection.ts` 定义可序列化的 `AnalyzerSelectionV2`。它是
+  discriminated union，覆盖 aggregate、run、prediction、kernel_profile 与 kernel_measurement；
+  aggregate variant 保存 experiment、panel、metric/statistic 与
   run/coordinates；run variant 必须逐字段投影 `VizState` 的 selection 字段，包括稳定
   `panelId`，保留显式 `null`，不能把“未选择”改成字段缺失。Panel identity 由 feature
   显式声明，禁止从显示 title、DOM selector 或颜色推导。
@@ -416,23 +414,26 @@ Agent 提供自然 symbolic token 的组成规则。Agent 在最终 Markdown 中
   既有字段与 action 拥有。不得再在 aggregate feature 内维护第二份 panel/member selected
   state。
 - `application/analyzerSelection.ts` 只负责把 store 投影为
-  `AnalyzerSelectionV1` / `InquiryContextV1`。同页 Inquiry rail 直接订阅 store；跨 iframe
+  `AnalyzerSelectionV2` / `InquiryContextV2`。同页 Inquiry rail 直接订阅 store；跨 iframe
   或外部 shell 才消费 versioned `selection-change` notification。Notification 不能被当作
   navigation command 回放，从而避免双向同步环。
-- `InquiryContextV1` 只在 `inquiryId` 与 `phaseId` 都已知时出现，载荷为这两个 identity 加
+- `InquiryContextV2` 只在 `inquiryId` 与 `phaseId` 都已知时出现，载荷为这两个 identity 加
   当前 selection。panel 的 hidden/spine/docked/full、宽度、composer draft 等纯 UI 状态禁止
   进入载荷。
 - 普通 run 切换仍清空不适用于新 run 的 drill state；citation 明确要求“同一 selection，
   另一个 run”时使用 `setRun(runId, { keepSelection: true })`。目标 run 的 topology/subject
   无法解析所保留 identity 时，后续 resolver 必须显式降级到 cluster，而不是伪造 detail。
 
-## 6. 变更完成标准
+## 7. 验证与维护
 
-每次 feature 迁移或数据接线至少验证：
+- CI 检查 lint、应用与浏览器测试类型、fixture 合同、行为单元测试和 live production bundle。
+  应用类型已检查后，bundle 步骤不重复执行 TypeScript。
+- 默认 Playwright 在桌面运行完整功能测试，在移动端运行响应式测试。
+  不维护全页面 WCAG 扫描；保留键盘操作、选择及数据可达性测试。
+- formatting 与 bundle budget 是可选本地工具，不是 CI gate。
+- 测试应验证计算、身份映射、状态转换和用户操作；不要把主题色、圆角、固定间距或动画时长
+  当作产品合同。字体族与颜色必须引用共享主题定义，由 lint 检查；字号沿用主题缩放机制。
+- HTTP 改动应验证真实 Analyzer 的资源路由、请求边界、ETag/304 和错误状态。
+  构建和单元测试通过不代表完整 Agent/GPU 部署已通过验收。
 
-1. scoped format、TypeScript、ESLint 和 `git diff --check`；
-2. adapter/view-model 单测，以及状态和键盘交互回归；
-3. 全量 unit、production build 和双 bundle size budget；
-4. 涉及页面结构时运行 desktop + 390px Playwright 和 axe；
-5. 涉及 HTTP 时用真实 Analyzer 服务检查请求数量、ETag/304、console/page errors，
-   并确认没有 raw parquet 或未声明 artifact 请求。
+命令以 `app/package.json` 和 `.github/workflows/ci.yml` 为准；运行入口见仓库 README。

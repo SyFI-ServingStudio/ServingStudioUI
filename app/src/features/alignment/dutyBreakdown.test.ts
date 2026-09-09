@@ -214,12 +214,6 @@ describe('dutySegments', () => {
     ]);
   });
 
-  it('adds up to the span, so the bar has no unexplained remainder', () => {
-    const breakdown = dutyBreakdown(subject, 0);
-    const total = dutySegments(breakdown).reduce((sum, segment) => sum + segment.ms, 0);
-    expect(total).toBeCloseTo(breakdown.spanMs, 12);
-  });
-
   it('reports the forward phase`s own idle share, not the iteration`s', () => {
     // 1 ms idle inside a 5 ms forward extent, against 5 ms idle in a 10 ms span.
     expect(forwardIdleFraction(dutyBreakdown(subject, 0))).toBeCloseTo(0.2, 12);
@@ -258,13 +252,6 @@ describe('widestForwardGap', () => {
       'layer.kv_cache_append',
       'layer.attention',
     ]);
-  });
-
-  it('ignores holes outside the forward phase, which the model never priced', () => {
-    // The 1 ms to 2 ms hole between preprocess and forward is wider than none,
-    // and is still not a forward gap.
-    const gap = widestForwardGap(subject, 0)!;
-    expect(gap.gap.startNs).toBe(3 * NS_PER_MS);
   });
 
   it('is null when the phase has fewer than two runs to gap between', () => {

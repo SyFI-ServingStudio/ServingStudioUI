@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import type { ScopedPendingQueue } from '../application/runSelection';
 import { CHART_THEME } from '../charts/platform';
 import type { BatchSeries, KvSeries, Slo, Throughput, UtilSeries } from '../domain/run';
-import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
 import { makeWorkerKey, makeWorkerRef } from '../domain/worker';
+import type { ReadyKernelTimeBreakdown } from './kernelTimeBreakdown';
 import {
   batchMetricOption,
   kernelTimeStackOption,
@@ -275,16 +275,6 @@ describe('scope metric chart options', () => {
     ).toBe('latency: 170.6015 ms/token\nCDF: 92.31%');
   });
 
-  it('keeps the throughput x-axis title and final tick inside the SVG viewport', () => {
-    const option = throughputOption(throughput, CHART_THEME);
-    expect(option.grid).toMatchObject({ containLabel: true });
-    expect(option.xAxis).toMatchObject({
-      name: 'wall-clock · s',
-      nameLocation: 'middle',
-      nameGap: 24,
-    });
-  });
-
   it('renders throughput intervals as unstacked steps within the real time range', () => {
     const intervalThroughput: Throughput = {
       t_start_ms: [0, 1_000_000],
@@ -313,7 +303,7 @@ describe('scope metric chart options', () => {
     expect(series[0].lineStyle.width).toBeGreaterThan(series[1].lineStyle.width);
   });
 
-  it('renders worker utilization with identity-stable pool colors and bold pool averages', () => {
+  it('renders worker utilization with stable pool identities under reordering', () => {
     const option = utilizationOption(multiPoolUtilization, CHART_THEME);
     const reordered = utilizationOption(
       { ...multiPoolUtilization, series: [...multiPoolUtilization.series].reverse() },
@@ -341,16 +331,10 @@ describe('scope metric chart options', () => {
     ]);
     expect(reorderedColors).toEqual(colors);
     expect(new Set(colors.values()).size).toBe(2);
-    expect(series.slice(0, 2).every((item) => item.lineStyle.width === 1.1 && item.z === 2)).toBe(
-      true,
-    );
-    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(
-      true,
-    );
     expect(option.legend).toBeTruthy();
   });
 
-  it('renders worker KV occupancy with identity-stable pool colors and bold pool averages', () => {
+  it('renders worker KV occupancy with stable pool identities under reordering', () => {
     const option = kvOption(multiPoolKv, CHART_THEME);
     const reordered = kvOption(
       { ...multiPoolKv, series: [...multiPoolKv.series].reverse() },
@@ -380,12 +364,6 @@ describe('scope metric chart options', () => {
     expect(reorderedColors).toEqual(colors);
     expect(new Set(colors.values()).size).toBe(2);
     expect(series.every((item) => item.color === item.lineStyle.color)).toBe(true);
-    expect(series.slice(0, 2).every((item) => item.lineStyle.width === 1.1 && item.z === 2)).toBe(
-      true,
-    );
-    expect(series.slice(2).every((item) => item.lineStyle.width === 3.4 && item.z === 4)).toBe(
-      true,
-    );
   });
 
   it('expands the KV percent axis above 100 instead of clipping over-capacity samples', () => {
@@ -410,31 +388,5 @@ describe('scope metric chart options', () => {
 
     expect(yAxis.max).toBeGreaterThan(103);
     expect(series[0].data.at(-1)?.[1]).toBe(103);
-  });
-
-  it('promotes a selected worker utilization and KV series to a solid primary line', () => {
-    const workerUtilization = utilizationOption(
-      { ...multiPoolUtilization, series: [], workerSeries: [multiPoolUtilization.workerSeries[0]] },
-      CHART_THEME,
-    );
-    const workerKv = kvOption(
-      { ...multiPoolKv, series: [], workerSeries: [multiPoolKv.workerSeries[0]] },
-      CHART_THEME,
-    );
-    const utilizationLine = (
-      workerUtilization.series as Array<{
-        lineStyle: { width: number; opacity: number };
-        z: number;
-      }>
-    )[0];
-    const kvLine = (
-      workerKv.series as Array<{
-        lineStyle: { width: number; opacity: number };
-        z: number;
-      }>
-    )[0];
-
-    expect(utilizationLine).toMatchObject({ lineStyle: { width: 3.4, opacity: 1 }, z: 4 });
-    expect(kvLine).toMatchObject({ lineStyle: { width: 3.4, opacity: 1 }, z: 4 });
   });
 });

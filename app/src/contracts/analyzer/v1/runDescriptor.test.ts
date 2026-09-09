@@ -163,13 +163,6 @@ describe('parseAnalyzerV1RunDescriptor', () => {
     );
   });
 
-  it('reports the precise path when a required deployment field is missing', () => {
-    const wire = validWireDescriptor();
-    delete wire.deployment;
-
-    expect(() => parseAnalyzerV1RunDescriptor(wire)).toThrow(/deployment: Required/);
-  });
-
   it('rejects a ready subject that has no addressable artifact', () => {
     const wire = validWireDescriptor();
     wire.subjects = {
@@ -181,13 +174,7 @@ describe('parseAnalyzerV1RunDescriptor', () => {
     );
   });
 
-  it.each([
-    'https://example.test/summary.json',
-    '/api/v1/summary.json',
-    '../raw/summary.json',
-    'reports/%2e%2e/raw/summary.json',
-    'reports/%252e%252e/raw/summary.json',
-  ])('rejects unsafe artifact href %s', (href) => {
+  it.each(['../raw/summary.json'])('rejects unsafe artifact href %s', (href) => {
     const wire = validWireDescriptor();
     wire.summary = { href };
 

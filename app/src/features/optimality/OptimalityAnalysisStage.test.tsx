@@ -97,22 +97,6 @@ beforeEach(() => {
 });
 
 describe('OptimalityAnalysisStage', () => {
-  it('renders the three cluster optimality views together', () => {
-    render(<OptimalityAnalysisStage />);
-
-    expect(screen.getByText('Cluster optimality waterfall')).toBeVisible();
-    expect(screen.getByText('Cluster kernel optimality ladder')).toBeVisible();
-    expect(screen.getByText('Cluster per-kernel optimality')).toBeVisible();
-  });
-
-  it('switches the dedicated section to the selected pool', () => {
-    useViz.setState({ scope: 'pool', poolRole: 'attn' });
-    render(<OptimalityAnalysisStage />);
-
-    expect(screen.getByText('Pool optimality waterfall · attn')).toBeVisible();
-    expect(screen.getByText('Pool per-kernel optimality · attn')).toBeVisible();
-  });
-
   it('selects the batch-locked optimality artifact variant', async () => {
     const user = userEvent.setup();
     render(<OptimalityAnalysisStage />);

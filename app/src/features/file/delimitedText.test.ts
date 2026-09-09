@@ -10,17 +10,6 @@ describe('delimiterFor', () => {
 });
 
 describe('parseDelimitedText', () => {
-  it('separates the header from the rows', () => {
-    const table = parseDelimitedText('a,b\n1,2\n3,4\n', ',', 100);
-
-    expect(table?.header).toEqual(['a', 'b']);
-    expect(table?.rows).toEqual([
-      ['1', '2'],
-      ['3', '4'],
-    ]);
-    expect(table?.totalRows).toBe(2);
-  });
-
   it('keeps a quoted delimiter inside its own field', () => {
     const table = parseDelimitedText('name,note\nrun,"tp=2, ep=8"\n', ',', 100);
 

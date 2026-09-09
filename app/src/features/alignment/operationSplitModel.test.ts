@@ -10,8 +10,8 @@ import type { OperationSplitCycle } from './operationSplitCycles';
 import {
   CYCLE_PICKER,
   SPLIT_PLOT,
-  cumulativeErrorSteps,
   criticalPathMeasuredGroups,
+  cumulativeErrorSteps,
   cycleOperationRows,
   divergingBars,
   foldMeasuredGroups,
@@ -315,39 +315,15 @@ describe('plotGeometry', () => {
     expect(geometry.domainMs).toBeCloseTo(4 * 1.03, 9);
   });
 
-  it('labels a segment only when it is wide enough to hold the text', () => {
-    expect(geometry.measured.map((segment) => segment.label)).toEqual(['detail', 'detail']);
-    const tiny = plotGeometry(
-      foldMeasuredGroups([
-        measured('forward', 'layer.qkv_projection', 0.01),
-        measured('forward', 'layer.attention', 3.99),
-      ]),
-      [],
-      4,
-      0,
-    );
-    expect(tiny.measured[0].label).toBe('none');
-  });
-
   it('fans a measured group out to every slot of the same operation', () => {
     const attention = geometry.ribbons.filter((ribbon) => ribbon.operation === 'layer.attention');
     expect(attention).toHaveLength(2);
     expect(attention[0].topY).toBe(SPLIT_PLOT.measuredY + SPLIT_PLOT.laneHeight);
     expect(attention[0].bottomY).toBe(SPLIT_PLOT.simulatedY);
   });
-
-  it('draws the cumulative curve as held levels, one per slot', () => {
-    expect(geometry.cumulative.path).toHaveLength(slots.length * 2 + 1);
-    expect(geometry.cumulative.dots).toHaveLength(slots.length);
-    expect(geometry.cumulative.totalDeltaMs).toBeCloseTo(-0.5, 12);
-  });
 });
 
 describe('niceTicks', () => {
-  it('returns round values covering the domain', () => {
-    expect(niceTicks(0, 6.65, 9)).toEqual([0, 1, 2, 3, 4, 5, 6]);
-  });
-
   it('returns the single value for an empty domain', () => {
     expect(niceTicks(3, 3, 9)).toEqual([3]);
   });

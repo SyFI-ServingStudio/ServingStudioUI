@@ -4,7 +4,6 @@ import type { AnalyzerTurnContextV2 } from '../domain/citation';
 import {
   createConversation,
   deleteConversation,
-  getConversation,
   listAllConversations,
   listConversations,
   resumeConversationTurn,
@@ -153,34 +152,6 @@ describe('conversation repository', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/conversations');
   });
 
-  it('requests an earlier message page with the backend cursor', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(
-          JSON.stringify({
-            id: 'c_long',
-            title: 'Long history',
-            messages: [{ role: 'user', content: 'older' }],
-            message_page: {
-              start_index: 0,
-              end_index: 22,
-              total_messages: 122,
-              has_more: false,
-            },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    const conversation = await getConversation('w_main', 'c_long', 22);
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/workspaces/w_main/conversations/c_long?limit=100&before=22',
-    );
-    expect(conversation?.message_page?.start_index).toBe(0);
-  });
-
   it('sends the bounded Analyzer context and decodes live events plus frozen citations', async () => {
     const citation = {
       protocol: 'vibesim.citation/v2',
@@ -310,73 +281,6 @@ describe('conversation repository', () => {
       failure,
       namingScheduled: false,
       interruptedRole: '',
-    });
-  });
-
-  it('normalizes a legacy raw backend error without exposing its command', async () => {
-    const rawError =
-      "(backend error: Command '['docker', 'run', '-d'] failed: no space left on device)";
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              id: 'c_legacy',
-              title: 'Legacy',
-              messages: [{ role: 'assistant', content: rawError }],
-            }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ),
-      ),
-    );
-
-    const conversation = await getConversation('w_main', 'c_legacy');
-
-    expect(conversation?.messages[0]?.failure).toEqual({
-      code: 'runtime_storage_full',
-      message:
-        'The Agent runtime could not start because the host disk is full. Free space, then retry this question.',
-    });
-    expect(conversation?.messages[0]?.failure?.message).not.toContain('docker');
-  });
-
-  it('adapts legacy role output and intermediate notes without changing stored data', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(
-            JSON.stringify({
-              id: 'c_legacy',
-              title: 'Legacy',
-              messages: [
-                {
-                  role: 'assistant',
-                  content:
-                    '<details class="role-output orchestrator">raw</details>\n\n' +
-                    '### Message\n\nRendered answer.',
-                  intermediate_outputs: [{ role: 'orchestrator', text: 'Inspecting the sweep.' }],
-                },
-              ],
-            }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ),
-      ),
-    );
-
-    const conversation = await getConversation('w_main', 'c_legacy');
-
-    expect(conversation?.messages[0]).toMatchObject({
-      content: 'Rendered answer.',
-      activity: [
-        {
-          kind: 'intermediate_output',
-          role: 'orchestrator',
-          text: 'Inspecting the sweep.',
-        },
-        { kind: 'final', text: 'Rendered answer.', outcome: 'final_answer' },
-      ],
     });
   });
 

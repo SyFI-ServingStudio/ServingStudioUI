@@ -46,10 +46,6 @@ const iterations = [
 ];
 
 describe('orderedIterationIndices', () => {
-  it('leaves run order alone', () => {
-    expect(orderedIterationIndices(iterations, 'run')).toEqual([0, 1, 2]);
-  });
-
   // Sorted ascending, so both extremes of the capture are at the ends of the
   // picker rather than one of them being buried in the middle.
   it('sorts by idle share, least idle first', () => {
@@ -84,7 +80,10 @@ describe('stepSelection', () => {
 describe('iterationAtSlot', () => {
   it('resolves a bar position through the current order', () => {
     const byIdle = orderedIterationIndices(iterations, 'idle');
-    expect(iterationAtSlot(byIdle, iterations, 0)?.iterationId).toBe(6);
+    expect(byIdle[1]).not.toBe(1);
+    expect(iterationAtSlot(byIdle, iterations, 1)?.iterationId).toBe(
+      iterations[byIdle[1]].iterationId,
+    );
   });
 
   it('clamps an out-of-range slot rather than returning nothing', () => {
@@ -96,10 +95,6 @@ describe('iterationAtSlot', () => {
 describe('distinguished iterations', () => {
   it('excludes rows whose only reason for being present is the full capture', () => {
     expect(distinguishedIterations(iterations).map((entry) => entry.iterationId)).toEqual([6, 8]);
-  });
-
-  it('opens on the middle real iteration instead of an edge or outlier', () => {
-    expect(defaultIterationId(iterations)).toBe(7);
   });
 
   it('falls back to the first iteration when none is distinguished', () => {
@@ -114,10 +109,6 @@ describe('distinguished iterations', () => {
 describe('initial alignment selection', () => {
   it('prefers the middle detail-backed timeline row over a board-only example', () => {
     expect(initialAlignmentIterationId([row(6), row(1025), row(2045)], 1995)).toBe(1025);
-  });
-
-  it('uses the board example when an older bundle has no timeline rows', () => {
-    expect(initialAlignmentIterationId([], 1995)).toBe(1995);
   });
 });
 

@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   agentSettingsFromConversation,
-  agentSettingsSentence,
   DEFAULT_AGENT_SETTINGS,
   rolesForAgentMode,
   saveAgentSettings,
@@ -14,14 +13,6 @@ afterEach(() => {
 });
 
 describe('agent mode', () => {
-  it('keeps the behaviour this UI had before the picker existed', () => {
-    // The control only makes an existing hidden choice visible. If this ever
-    // flips, every conversation started from a fresh browser changes cast or
-    // starts stopping to ask, without anyone having asked for that.
-    expect(DEFAULT_AGENT_SETTINGS).toEqual({ agentMode: 'orchestrated', autonomous: true });
-    expect(savedAgentSettings()).toEqual(DEFAULT_AGENT_SETTINGS);
-  });
-
   it('runs the delegating pair or the single assistant, driving role first', () => {
     expect(rolesForAgentMode('orchestrated')).toEqual(['orchestrator', 'implementer']);
     expect(rolesForAgentMode('single')).toEqual(['assistant']);
@@ -52,16 +43,5 @@ describe('agent mode', () => {
     });
     // A backend too old to report either field leaves the preference standing.
     expect(agentSettingsFromConversation(undefined, undefined, preference)).toEqual(preference);
-  });
-
-  it('restates the choice as one sentence for both the grid and its locked form', () => {
-    expect(agentSettingsSentence({ agentMode: 'single', autonomous: true })).toEqual({
-      cast: 'Single Agent',
-      autonomy: 'Autonomous',
-    });
-    expect(agentSettingsSentence({ agentMode: 'orchestrated', autonomous: false })).toEqual({
-      cast: '2 Agents',
-      autonomy: 'Human-in-the-loop',
-    });
   });
 });

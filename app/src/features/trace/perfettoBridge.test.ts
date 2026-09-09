@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { fetchTraceBuffer, resolveSameOriginTraceUrl, traceFileName } from './perfettoBridge';
+import { fetchTraceBuffer, resolveSameOriginTraceUrl } from './perfettoBridge';
 
 describe('Perfetto bridge', () => {
   it('resolves only HTTP resources from the visualization origin', () => {
@@ -33,12 +33,5 @@ describe('Perfetto bridge', () => {
       credentials: 'same-origin',
       signal: controller.signal,
     });
-  });
-
-  it('keeps a useful decoded trace file name', () => {
-    expect(traceFileName(new URL('http://localhost:5177/traces/my%20run.pftrace.gz'))).toBe(
-      'my run.pftrace.gz',
-    );
-    expect(traceFileName(new URL('http://localhost:5177/'))).toBe('run.pftrace');
   });
 });

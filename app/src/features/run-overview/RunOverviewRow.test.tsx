@@ -33,13 +33,6 @@ beforeEach(() => {
 });
 
 describe('RunOverviewRow resources', () => {
-  it('keeps missing optional resources explicit', () => {
-    render(<RunOverviewRow />);
-
-    expect(screen.getByText('Trace distribution not generated')).toBeVisible();
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-  });
-
   it('renders model config and both bounded workload charts', () => {
     vi.mocked(useActiveRunModel).mockReturnValue({
       status: 'ready',

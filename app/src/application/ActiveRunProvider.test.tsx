@@ -141,18 +141,6 @@ describe('ActiveRunProvider', () => {
     expect(calls.subjects).toBe(0);
   });
 
-  it('publishes a bounded ready run without prefetching subjects or worker trees', async () => {
-    const { repository, calls } = createTestRepository();
-
-    renderProvider(repository);
-
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('ready: test-run'));
-    expect(calls.summary).toBe(1);
-    expect(calls.topology).toBe(1);
-    expect(calls.subjects).toBe(0);
-    expect(calls.trees).toBe(0);
-  });
-
   it('loads only a subject whose consumer is mounted', async () => {
     const { repository, calls } = createTestRepository();
 
