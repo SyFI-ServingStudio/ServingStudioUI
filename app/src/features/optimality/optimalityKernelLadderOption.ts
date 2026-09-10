@@ -45,7 +45,7 @@ export function optimalityKernelLadderOption(
   ];
   return {
     textStyle: { fontFamily: theme.font, color: theme.text },
-    grid: chartGrid({ left: 214, right: 24, top: 54, bottom: 42 }),
+    grid: chartGrid({ left: 168, right: 24, top: 54, bottom: 42 }),
     legend: {
       type: 'scroll',
       top: 0,
@@ -76,12 +76,21 @@ export function optimalityKernelLadderOption(
     yAxis: {
       type: 'category',
       inverse: true,
-      data: projection.rows.map((row) =>
-        safeChartText(`${row.label}  ${formatGpuSeconds(row.total)}`),
+      // Rung name and value on separate lines: a one-line label such as
+      // "R6 Segmented necessary 88.7684 GPU·µs" overflows the gutter and
+      // echarts clips it from the left.
+      data: projection.rows.map(
+        (row) => `${safeChartText(row.label)}\n${safeChartText(formatGpuSeconds(row.total))}`,
       ),
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { color: theme.text, fontSize: chartFont(12), fontFamily: theme.font, fontWeight: 600 },
+      axisLabel: {
+        color: theme.text,
+        fontSize: 11,
+        fontFamily: theme.font,
+        fontWeight: 600,
+        lineHeight: 14,
+      },
     },
     series: identities.map((identity) => ({
       name: safeChartText(identity.label),

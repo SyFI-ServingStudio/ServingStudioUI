@@ -2,9 +2,11 @@ import { pageLayout } from '../../theme/metrics';
 import AnalysisPageHeader from '../../components/AnalysisPageHeader';
 import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
+import CloseRounded from '@mui/icons-material/CloseRounded';
 import {
   Box,
   ButtonBase,
+  IconButton,
   Skeleton,
   Stack,
   ToggleButton,
@@ -21,9 +23,17 @@ import {
   usePredictionKernelInputDistributionQuery,
   usePredictionOptimalityQueries,
 } from '../../application/queries';
+import { useAnalyzerRepositoryIfAvailable } from '../../application/RepositoryProvider';
 import { workspaceIdFromLocation } from '../../application/workspaceRoute';
 import SurfaceCard from '../../components/SurfaceCard';
-import { fmtMs, leafById, type JsonValue } from '../../domain/cost-tree';
+import {
+  costTreeDisplayLabel,
+  fmtMs,
+  leafById,
+  nodeById,
+  nodeOrdinalPath,
+  type JsonValue,
+} from '../../domain/cost-tree';
 import type { PredictionAnalyzerSelectionV2 } from '../../domain/analyzerSelection';
 import {
   ANALYZER_NAVIGATION_RESULT_EVENT,
@@ -43,6 +53,13 @@ import {
   OptimalityWaterfallCard,
   projectExactKernelLadder,
   projectIterationOptimalityBreakdown,
+  ScopedOptimalityPanel,
+  componentByLeafName,
+  filterLadderKernels,
+  groupLadderByComponent,
+  normalizeLadderPerCall,
+  perCallDivisors,
+  scopedLeafNames,
 } from '../optimality';
 import { CostTreeEvidence } from '../worker/CostTreeFlow';
 import {
@@ -320,6 +337,40 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
     (candidate) => candidate.operationId === selectedOperationId,
   );
   const costTree = usePredictionCostTreeQuery(predictionId, selectedCaseId, selectedOperationId);
+  const repository = useAnalyzerRepositoryIfAvailable();
+  // Scoped-analysis selection is page-local: it names a sequential container
+  // (an operator like qk_norm) rather than a kernel, and a different
+  // case/operation renders a different tree, so it never survives one.
+  const [scopedNodeId, setScopedNodeId] = useState<number | null>(null);
+  useEffect(() => {
+    setScopedNodeId(null);
+  }, [predictionId, selectedCaseId, selectedOperationId]);
+  const scopedSelection = useMemo(() => {
+    if (costTree.data === undefined || scopedNodeId === null) return null;
+    const node = nodeById(costTree.data.tree, scopedNodeId);
+    if (node === null || node.kind === 'leaf') return null;
+    const ordinals = nodeOrdinalPath(costTree.data.tree, scopedNodeId);
+    if (ordinals === null) return null;
+    const path = ordinals === '' ? costTree.data.section : `${costTree.data.section}/${ordinals}`;
+    const leafNames = scopedLeafNames(costTree.data.tree, scopedNodeId);
+    if (leafNames === null) return null;
+    return {
+      caption: `${node.label ?? `${node.kind} node`} · ${path}`,
+      shortLabel: node.label === undefined ? path : costTreeDisplayLabel(node.label),
+      fullLabel: node.label ?? null,
+      path,
+      leafNames,
+      ms: node.ms,
+      pct: node.pct,
+    };
+  }, [costTree.data, scopedNodeId]);
+  // The kernel ladder and per-kernel sources can render at kernel granularity
+  // or re-keyed to one row per CostTree component (e.g. unified.qk_norm).
+  const [ladderGranularity, setLadderGranularity] = useState<'kernel' | 'component'>('kernel');
+  // Total shows GPU-seconds over the whole iteration (bars sum to the model
+  // rungs); per-call divides each row by its call count from the CostTree, so
+  // a 28-layer operator reads as one invocation.
+  const [ladderNormalization, setLadderNormalization] = useState<'total' | 'per_call'>('total');
   const kernelAnalysis = usePredictionKernelAnalysisQuery(
     predictionId,
     selectedCaseId,
@@ -403,8 +454,39 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
   }, [descriptor.data, inputDistribution.data, inputDistribution.error, inputDistribution.isError]);
 
   const selectedKernelName = selectedLeaf?.slot.name ?? null;
-  const ladderProjection = optimality.ladder.data
-    ? projectExactKernelLadder(optimality.ladder.data, selectedKernelName)
+  const scopedLadderData = useMemo(() => {
+    let data = optimality.ladder.data;
+    if (data === undefined) return undefined;
+    if (scopedSelection !== null) data = filterLadderKernels(data, scopedSelection.leafNames);
+    if (ladderGranularity === 'component' && costTree.data !== undefined) {
+      data = groupLadderByComponent(data, componentByLeafName(costTree.data.tree));
+    }
+    if (ladderNormalization === 'per_call' && costTree.data !== undefined) {
+      data = normalizeLadderPerCall(data, perCallDivisors(costTree.data.tree, ladderGranularity));
+    }
+    return data;
+  }, [
+    costTree.data,
+    ladderGranularity,
+    ladderNormalization,
+    optimality.ladder.data,
+    scopedSelection,
+  ]);
+  // A leaf kernel filter only makes sense at kernel granularity and inside the
+  // active scope; anywhere else it would silently project an empty ladder.
+  const ladderKernelFilter =
+    ladderGranularity === 'kernel' &&
+    (scopedSelection === null ||
+      (selectedKernelName !== null && scopedSelection.leafNames.has(selectedKernelName)))
+      ? selectedKernelName
+      : null;
+  const perCallSuffix = ladderNormalization === 'per_call' ? ' · per call' : '';
+  const ladderScopeSuffix =
+    scopedSelection === null
+      ? `iter ${selectedCaseId ?? '—'}`
+      : `${scopedSelection.shortLabel} · iter ${selectedCaseId ?? '—'}`;
+  const ladderProjection = scopedLadderData
+    ? projectExactKernelLadder(scopedLadderData, ladderKernelFilter)
     : {
         status: optimality.ladder.isError ? ('failed' as const) : ('pending' as const),
         reason: optimality.ladder.isError
@@ -532,6 +614,10 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
           timeBasis={`iter ${selectedCase.caseId} · operation ${selectedOperation.operationId}`}
           selectedLeafId={selectedLeafId}
           selectedParallelId={selectedParallelId}
+          selectedScopeId={scopedNodeId}
+          onSelectScope={(scopeId) =>
+            setScopedNodeId((current) => (current === scopeId ? null : scopeId))
+          }
           onSelectLeaf={(leafId) => {
             updatePredictionSelection({
               panelId: 'cost-tree',
@@ -562,6 +648,49 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             closeLabel="Close selected prediction kernel"
             onClose={() => updatePredictionSelection({ leafId: null })}
           />
+        ) : scopedSelection !== null ? (
+          <SurfaceCard sx={{ height: COST_TREE_FRAME_HEIGHT, boxSizing: 'border-box', p: 1.7 }}>
+            <Stack direction="row" sx={{ alignItems: 'flex-start' }}>
+              <Typography
+                sx={{
+                  fontFamily: tokens.serif,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {scopedSelection.shortLabel}
+              </Typography>
+              <IconButton
+                aria-label="Clear scoped component"
+                size="small"
+                onClick={() => setScopedNodeId(null)}
+                sx={{ ml: 'auto', color: tokens.sub }}
+              >
+                <CloseRounded sx={{ fontSize: 16 }} />
+              </IconButton>
+            </Stack>
+            <Typography
+              sx={{
+                mt: 0.45,
+                color: tokens.sub,
+                fontFamily: tokens.mono,
+                fontSize: 10,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {scopedSelection.fullLabel ?? scopedSelection.path}
+            </Typography>
+            <Typography sx={{ mt: 1, fontFamily: tokens.mono, fontSize: 11 }}>
+              {fmtMs(scopedSelection.ms)} · {scopedSelection.pct.toFixed(1)}% of tree root ·{' '}
+              {scopedSelection.leafNames.size} kernel
+              {scopedSelection.leafNames.size === 1 ? '' : 's'}
+            </Typography>
+            <Typography sx={{ mt: 1, color: tokens.sub, fontFamily: tokens.mono, fontSize: 10 }}>
+              Optimality ladder and per-kernel optimality below are scoped to this component. Select
+              a CostTree leaf to inspect one kernel.
+            </Typography>
+          </SurfaceCard>
         ) : (
           <SurfaceCard
             role="status"
@@ -572,6 +701,8 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
             </Typography>
             <Typography sx={{ mt: 0.45, color: tokens.sub, fontFamily: tokens.body, fontSize: 12 }}>
               Select a CostTree leaf to inspect exact input, backend, and modeled performance.
+              Clicking a container (e.g. an operator like qk_norm) scopes the optimality panels to
+              that component.
             </Typography>
           </SurfaceCard>
         )}
@@ -607,6 +738,23 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
         onPage={setCaseOffset}
       />
       {workbench}
+      {costTree.data !== undefined &&
+        repository !== null &&
+        repository.getPredictionScopedOptimality !== undefined && (
+          <ScopedOptimalityPanel
+            caption={scopedSelection?.caption ?? null}
+            hint="Click a sequential container's header in the CostTree (e.g. an operator like qk_norm) to compute its R0/R5/R6/R7 ladder over this prediction."
+            resetKey={scopedSelection === null ? null : `${predictionId}:${scopedSelection.path}`}
+            compute={
+              scopedSelection === null
+                ? null
+                : () =>
+                    repository.getPredictionScopedOptimality!(predictionId, {
+                      path: scopedSelection.path,
+                    })
+            }
+          />
+        )}
       {costTree.data !== undefined && selectedLeaf !== null && (
         <KernelEvidenceView
           node={selectedLeaf}
@@ -627,7 +775,55 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
           }}
         />
       )}
-      <Stack direction="row" justifyContent="flex-end">
+      <Stack direction="row" justifyContent="flex-end" useFlexGap sx={{ gap: 1 }}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={ladderNormalization}
+          onChange={(_event, nextNormalization: 'total' | 'per_call' | null) => {
+            if (nextNormalization !== null) setLadderNormalization(nextNormalization);
+          }}
+          aria-label="Kernel ladder normalization"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 1,
+              py: 0.2,
+              fontFamily: tokens.mono,
+              fontSize: 9.5,
+              lineHeight: 1.45,
+              color: tokens.sub,
+              borderColor: tokens.hair,
+              '&.Mui-selected': { color: tokens.teal, backgroundColor: tokens.tile2 },
+            },
+          }}
+        >
+          <ToggleButton value="total">Total</ToggleButton>
+          <ToggleButton value="per_call">Per call</ToggleButton>
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={ladderGranularity}
+          onChange={(_event, nextGranularity: 'kernel' | 'component' | null) => {
+            if (nextGranularity !== null) setLadderGranularity(nextGranularity);
+          }}
+          aria-label="Kernel ladder row granularity"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 1,
+              py: 0.2,
+              fontFamily: tokens.mono,
+              fontSize: 9.5,
+              lineHeight: 1.45,
+              color: tokens.sub,
+              borderColor: tokens.hair,
+              '&.Mui-selected': { color: tokens.teal, backgroundColor: tokens.tile2 },
+            },
+          }}
+        >
+          <ToggleButton value="kernel">Kernels</ToggleButton>
+          <ToggleButton value="component">Components</ToggleButton>
+        </ToggleButtonGroup>
         <ToggleButtonGroup
           exclusive
           size="small"
@@ -661,18 +857,18 @@ export default function PredictionPage({ predictionId }: { predictionId: string 
       <OptimalityKernelLadderCard
         idx="b"
         title={
-          selectedKernelName === null
-            ? `Kernel optimality ladder · iter ${selectedCaseId ?? '—'}`
-            : `Kernel optimality ladder · ${selectedKernelName}`
+          ladderKernelFilter === null
+            ? `Kernel optimality ladder · ${ladderScopeSuffix}${perCallSuffix}`
+            : `Kernel optimality ladder · ${ladderKernelFilter}${perCallSuffix}`
         }
         projection={ladderProjection}
       />
       <OptimalityKernelsCard
         idx="c"
         title={
-          selectedKernelName === null
-            ? `Per-kernel optimality · iter ${selectedCaseId ?? '—'}`
-            : `Kernel optimality sources · ${selectedKernelName}`
+          ladderKernelFilter === null
+            ? `Per-kernel optimality · ${ladderScopeSuffix}${perCallSuffix}`
+            : `Kernel optimality sources · ${ladderKernelFilter}${perCallSuffix}`
         }
         projection={ladderProjection}
       />

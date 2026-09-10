@@ -22,6 +22,7 @@ import {
   CostTreeFrame,
   CostTreeStatusViewport,
 } from './CostTreeFrame';
+import ScopedOptimalityCard from './ScopedOptimalityCard';
 import TimeShareBlocks from './TimeShareBlocks';
 import { WorkerOperationTimeline } from '../timeline';
 import WorkerBatchComposition from './WorkerBatchComposition';
@@ -113,6 +114,7 @@ function ReadyWorkerSupplementary() {
     <Stack spacing={2}>
       <KernelEvidence />
       <ParallelDetail />
+      <ScopedOptimalityCard />
       <TimeShareBlocks />
     </Stack>
   );

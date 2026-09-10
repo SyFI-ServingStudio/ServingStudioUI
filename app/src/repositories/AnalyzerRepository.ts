@@ -20,6 +20,10 @@ import type {
   WorkerOperationBuffer,
   WorkerOperationSeekResult,
 } from '../domain/workerOperation';
+import type {
+  ScopedOptimalityReport,
+  ScopedOptimalitySelector,
+} from '../domain/scopedOptimality';
 import type { SweepAnalysis, SweepListItem } from '../domain/sweep';
 import type {
   PredictionCasePage,
@@ -95,6 +99,20 @@ export interface AnalyzerRepository {
   ): Promise<WorkerOperationSeekResult>;
 
   getWorkerCostTree(runId: string, ref: WorkerCostTreeRef): Promise<WorkerCostTreeDetail>;
+
+  /** Optional live detail: scoped optimality (R0/R5/R6/R7) computed on demand
+   * for one CostTree subtree, selected by ordinal path or exact label. */
+  getScopedOptimality?(
+    runId: string,
+    selector: ScopedOptimalitySelector,
+  ): Promise<ScopedOptimalityReport>;
+
+  /** Prediction twin of getScopedOptimality — the artifact layout is the
+   * same, only the catalog naming the directory differs. */
+  getPredictionScopedOptimality?(
+    predictionId: string,
+    selector: ScopedOptimalitySelector,
+  ): Promise<ScopedOptimalityReport>;
 
   /** Optional because static artifact repositories do not have a live Rust
    * cache process. The live HTTP repository implements this capability. */

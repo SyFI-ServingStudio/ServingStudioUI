@@ -58,8 +58,11 @@ interface CostTreeCanvasProps {
   tree: CostTree;
   selectedLeafId: number | null;
   selectedParallelId: number | null;
+  /** Optional scoped-analysis selection for sequential container nodes. */
+  selectedScopeId?: number | null;
   onSelectLeaf: (id: number) => void;
   onSelectParallel: (id: number) => void;
+  onSelectScope?: (id: number) => void;
   onSelectRoot: () => void;
   ariaLabel: string;
   controlLabels: CostTreeCanvasControlLabels;
@@ -91,8 +94,10 @@ export default function CostTreeCanvas({
   tree,
   selectedLeafId,
   selectedParallelId,
+  selectedScopeId = null,
   onSelectLeaf,
   onSelectParallel,
+  onSelectScope,
   onSelectRoot,
   ariaLabel,
   controlLabels,
@@ -388,8 +393,10 @@ export default function CostTreeCanvas({
           criticalContributionByPositionName={criticalContributionByPositionName}
           selId={selectedLeafId}
           parSel={selectedParallelId}
+          scopeSel={selectedScopeId}
           onSelect={onSelectLeaf}
           onPar={onSelectParallel}
+          onScope={onSelectScope}
           onRoot={onSelectRoot}
           density="compact"
         />

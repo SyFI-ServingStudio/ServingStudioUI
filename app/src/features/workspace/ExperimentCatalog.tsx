@@ -1,6 +1,6 @@
 import SearchRounded from '@mui/icons-material/SearchRounded';
 import ArrowForwardRounded from '@mui/icons-material/ArrowForwardRounded';
-import { Box, ButtonBase, InputBase, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 
 import type { ManagedJobKind, ManagedJobListItem } from '../../application/managedJobRepository';
@@ -22,6 +22,11 @@ interface CatalogResult {
   workspaceId: string;
   timestamp: number;
   name: string;
+  /** Undisplayed identifiers (raw name, run/resource IDs) the search box must
+   * still match — agents quote names like `20260809_3_…` whose date prefix the
+   * concise display name strips. */
+  searchText: string;
+  fullName: string;
   subtitle: string;
   deployments: readonly string[];
   traces: readonly string[];
@@ -116,6 +121,10 @@ function catalogResults(
         workspaceId: entry.workspaceId,
         timestamp: simulationTimestamp(entry),
         name: conciseName(entry.displayName),
+        searchText: [entry.displayName, entry.sweepId, ...entry.deployments, ...entry.traces, ...axes]
+          .join(' ')
+          .toLowerCase(),
+        fullName: entry.displayName,
         subtitle: `${entry.numRuns} ${entry.numRuns === 1 ? 'run' : 'runs'}`,
         deployments: entry.deployments,
         traces: entry.traces,
@@ -139,6 +148,17 @@ function catalogResults(
         workspaceId: job?.workspaceId ?? resource.workspaceId,
         timestamp: Date.parse(resource.updatedAt),
         name: conciseName(resource.displayName),
+        searchText: [
+          resource.displayName,
+          resource.resourceId,
+          resource.backend ?? '',
+          resource.gpuName ?? '',
+          resource.selector ?? '',
+          RESULT_LABELS[resource.kind],
+        ]
+          .join(' ')
+          .toLowerCase(),
+        fullName: resource.displayName,
         subtitle: offlineResourceSubtitle(resource),
         deployments: resource.backend ? [resource.backend] : [],
         traces: [],
@@ -163,6 +183,10 @@ function catalogResults(
         workspaceId: job.workspaceId,
         timestamp: job.updatedAt < 1_000_000_000_000 ? job.updatedAt * 1000 : job.updatedAt,
         name: jobName(job),
+        searchText: [jobName(job), job.resourceId, job.analyzerResourceId ?? '', RESULT_LABELS[job.jobKind]]
+          .join(' ')
+          .toLowerCase(),
+        fullName: jobName(job),
         subtitle: 'Awaiting Analyzer discovery',
         deployments: [],
         traces: [],
@@ -194,6 +218,18 @@ function matchesFilters(entry: CatalogResult, selected: SelectedFilters): boolea
   });
 }
 
+/** Every whitespace-separated term must appear somewhere in the entry's
+ * identifiers or its workspace's display name. */
+function matchesQuery(
+  entry: CatalogResult,
+  terms: readonly string[],
+  workspaceName: string | undefined,
+): boolean {
+  if (terms.length === 0) return true;
+  const haystack = `${entry.searchText} ${(workspaceName ?? '').toLowerCase()}`;
+  return terms.every((term) => haystack.includes(term));
+}
+
 export default function ExperimentCatalog({
   entries,
   jobs,
@@ -209,8 +245,9 @@ export default function ExperimentCatalog({
   onActivateOfflineResource: (resource: OfflineResourceCatalogItem, workspaceId: string) => void;
   workspaceNames?: Readonly<Record<string, string>>;
 }) {
-  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SelectedFilters>(EMPTY_FILTERS);
+  const [query, setQuery] = useState('');
+  const queryTerms = useMemo(() => query.toLowerCase().split(/\s+/).filter(Boolean), [query]);
   const results = useMemo(
     () => catalogResults(entries, offlineResources, jobs),
     [entries, jobs, offlineResources],
@@ -236,27 +273,16 @@ export default function ExperimentCatalog({
           .filter(
             (entry) =>
               matchesFilters(entry, selected) &&
-              [
-                entry.name,
-                entry.subtitle,
-                RESULT_LABELS[entry.kind],
-                workspaceNames[entry.workspaceId] ?? entry.workspaceId,
-                ...entry.deployments,
-                ...entry.traces,
-                ...entry.axes,
-              ]
-                .join(' ')
-                .toLocaleLowerCase()
-                .includes(search.trim().toLocaleLowerCase()),
+              matchesQuery(entry, queryTerms, workspaceNames[entry.workspaceId]),
           )
           .map((entry) => entry.identity),
       ),
-    [search, selected, sortedResults, workspaceNames],
+    [queryTerms, selected, sortedResults, workspaceNames],
   );
   const visibleCount = visibleIds.size;
-  const hasFilters = (Object.keys(selected) as FilterKind[]).some(
-    (kind) => selected[kind].length > 0,
-  );
+  const hasFilters =
+    queryTerms.length > 0 ||
+    (Object.keys(selected) as FilterKind[]).some((kind) => selected[kind].length > 0);
   const toggle = (kind: FilterKind, value: string) =>
     setSelected((current) => ({
       ...current,
@@ -271,44 +297,55 @@ export default function ExperimentCatalog({
   };
 
   return (
-    <Box
-      sx={{
-        border: `1px solid ${tokens.hair}`,
-        borderRadius: '12px',
-        background: tokens.tile,
-        overflow: 'hidden',
-      }}
-    >
+    <Box sx={{ borderTop: `1.5px solid ${tokens.ink}` }}>
       <Stack
         direction="row"
         alignItems="center"
         sx={{
-          gap: 1.5,
-          px: 2,
-          py: 1.5,
+          px: { xs: 1.4, md: 1.75 },
+          py: 0.9,
+          gap: 1,
           borderBottom: `1px solid ${tokens.hair}`,
-          flexWrap: 'wrap',
+          background: 'rgba(250,247,240,.55)',
         }}
       >
-        <Stack direction="row" alignItems="center" sx={{ flex: '1 1 240px', gap: 1, minWidth: 0 }}>
-          <SearchRounded sx={{ color: tokens.sub2, fontSize: 20 }} />
-          <InputBase
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search results, workspaces, or deployments"
-            inputProps={{ 'aria-label': 'Search results' }}
-            sx={{ width: '100%', fontSize: 14 }}
-          />
-        </Stack>
-        <Typography sx={{ color: tokens.sub, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-          {visibleCount} of {results.length} results
-        </Typography>
-        {search && (
+        <SearchRounded sx={{ fontSize: 15, color: tokens.sub2 }} />
+        <Box
+          component="input"
+          type="search"
+          value={query}
+          onChange={(event: { target: { value: string } }) => setQuery(event.target.value)}
+          aria-label="Search results"
+          placeholder="Search by name, run ID, workspace, or tag — e.g. 20260809_3_qwen3_vllm_before"
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            border: 0,
+            outline: 0,
+            background: 'transparent',
+            color: tokens.ink,
+            fontFamily: tokens.mono,
+            fontSize: 11.5,
+            '&::placeholder': { color: tokens.sub2, opacity: 0.75 },
+            '&::-webkit-search-cancel-button': { display: 'none' },
+          }}
+        />
+        {query && (
           <ButtonBase
-            onClick={() => setSearch('')}
-            sx={{ color: tokens.teal, fontSize: 12, p: 0.5 }}
+            aria-label="Clear search"
+            onClick={() => setQuery('')}
+            sx={{
+              px: 0.7,
+              py: 0.2,
+              borderRadius: 0.6,
+              color: tokens.sub,
+              fontFamily: tokens.mono,
+              fontSize: 8.5,
+              '&:hover': { color: tokens.ink },
+              '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+            }}
           >
-            Clear search
+            clear
           </ButtonBase>
         )}
       </Stack>
@@ -400,7 +437,10 @@ export default function ExperimentCatalog({
         <ButtonBase
           disabled={!hasFilters}
           aria-label="Reset result filters"
-          onClick={() => setSelected(EMPTY_FILTERS)}
+          onClick={() => {
+            setSelected(EMPTY_FILTERS);
+            setQuery('');
+          }}
           sx={{
             justifySelf: 'end',
             color: tokens.teal,
@@ -444,7 +484,7 @@ export default function ExperimentCatalog({
             '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
           }}
         >
-          No results match this filter combination.
+          No results match this search or filter combination.
         </Typography>
         {sortedResults.map((entry) => {
           const visible = visibleIds.has(entry.identity);
@@ -507,7 +547,7 @@ export default function ExperimentCatalog({
               </Typography>
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  title={entry.name}
+                  title={entry.fullName}
                   sx={{
                     overflow: 'hidden',
                     color: tokens.ink,

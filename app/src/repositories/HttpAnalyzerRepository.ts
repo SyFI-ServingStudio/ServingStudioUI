@@ -41,6 +41,7 @@ import {
   parseKernelProfileDescriptor,
   parseOfflineCatalogs,
 } from '../contracts/analyzer/v1/offlineResource';
+import { parseAnalyzerV1ScopedOptimality } from '../contracts/analyzer/v1/scopedOptimality';
 import { decodeAnalyzerV1SubjectPayload } from '../contracts/analyzer/v1/subjectDecoders';
 import { parseAnalyzerV1TopologyArtifact } from '../contracts/analyzer/v1/topologyArtifact';
 import {
@@ -65,6 +66,7 @@ import type {
   TraceResource,
 } from '../domain/artifacts';
 import type { AlignmentSubjectName } from '../domain/alignment';
+import type { ScopedOptimalitySelector } from '../domain/scopedOptimality';
 import type { Topology } from '../domain/run';
 import type { OptimalityMode } from '../domain/optimality';
 import type { SubjectName, SubjectResult, SubjectStatus } from '../domain/subject';
@@ -398,6 +400,35 @@ export class HttpAnalyzerRepository implements AnalyzerRepository {
     const path = `workers/${poolTag}/${workerId}/operations/${iterId}/${batchId}/${operationId}/cost-tree/${leafId}/kernel-throughput-analysis`;
     const input = await this.client.readJson(this.client.resolve(binding.descriptorUrl, path));
     return parseAnalyzerV1KernelThroughputAnalysis(input, ref, leafId);
+  }
+
+  async getScopedOptimality(runId: string, selector: ScopedOptimalitySelector) {
+    if (!selector.path && !selector.label) {
+      throw new HttpRunBindingError('Scoped optimality requires a CostTree path or label.');
+    }
+    const binding = await this.bindRun(runId);
+    // Scoped folds read raw/cost_log + raw/cost_manifest, the same evidence
+    // the exact worker CostTree detail declares.
+    this.requireReadyDetail(runId, 'worker-cost-tree', binding.descriptor);
+    const resourceUrl = this.client.resolve(binding.descriptorUrl, 'optimality-scoped');
+    if (selector.path !== undefined) resourceUrl.searchParams.set('path', selector.path);
+    if (selector.label !== undefined) resourceUrl.searchParams.set('label', selector.label);
+    const input = await this.client.readJson(resourceUrl);
+    return parseAnalyzerV1ScopedOptimality(input);
+  }
+
+  async getPredictionScopedOptimality(predictionId: string, selector: ScopedOptimalitySelector) {
+    if (!selector.path && !selector.label) {
+      throw new HttpRunBindingError('Scoped optimality requires a CostTree path or label.');
+    }
+    const selectedPredictionId = routeSegment(predictionId, 'Prediction id');
+    const resourceUrl = this.client.endpoint(
+      `predictions/${selectedPredictionId}/optimality-scoped`,
+    );
+    if (selector.path !== undefined) resourceUrl.searchParams.set('path', selector.path);
+    if (selector.label !== undefined) resourceUrl.searchParams.set('label', selector.label);
+    const input = await this.client.readJson(resourceUrl);
+    return parseAnalyzerV1ScopedOptimality(input);
   }
 
   async getIterationOptimalityKernelLadder(
