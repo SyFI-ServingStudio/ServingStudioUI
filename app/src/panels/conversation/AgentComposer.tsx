@@ -494,7 +494,7 @@ export const AgentComposer = memo(function AgentComposer({
               background: 'transparent',
               color: tokens.ink,
               fontFamily: tokens.body,
-              fontSize: 12,
+              fontSize: 16,
               '&::placeholder': { color: tokens.sub2, opacity: 1 },
             }}
           />
