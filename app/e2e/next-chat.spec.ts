@@ -224,22 +224,15 @@ async function open(page: Page, hash: string): Promise<void> {
 }
 
 for (const width of [1440, 390]) {
-  test(`sandbox restores history and remains selectable for the next turn at ${width}px`, async ({
+  test(`historical sandbox is preserved without a picker at ${width}px`, async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     const agent = await stubAgent(page, { sandbox: 'read-only' });
     await open(page, `#/chat/${A}?w=w_main`);
     const picker = page.getByRole('combobox', { name: 'Sandbox', exact: true });
-    await expect(picker).toHaveText('read-only');
-    await picker.click();
-    await page.getByRole('option', { name: 'danger-full-access', exact: true }).click();
-    await expect(picker).toHaveText('danger-full-access');
-    await expect(page.getByRole('listbox', { includeHidden: true })).toHaveCount(0);
-    const box = await picker.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await expect(page.getByRole('textbox', { name: 'Continue the conversation' })).toBeVisible();
+    await expect(picker).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`sandbox-${width}.png`), fullPage: true });
     await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('check sandbox');
     await page.getByRole('textbox', { name: 'Continue the conversation' }).press('Enter');
@@ -250,22 +243,20 @@ for (const width of [1440, 390]) {
       .toHaveLength(1);
     expect(
       agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/messages'))?.body,
-    ).toMatchObject({ sandbox_mode: 'danger-full-access' });
+    ).toMatchObject({ sandbox_mode: 'read-only' });
     agent.finish('sandbox checked');
     await expect(page.getByRole('button', { name: 'Send follow-up' })).toBeVisible();
     await page.reload();
-    await expect(picker).toHaveText('danger-full-access');
+    await expect(picker).toHaveCount(0);
   });
 }
 
-test('sandbox selection reaches both draft creation and its first turn', async ({ page }) => {
+test('new conversations keep the default sandbox without a picker', async ({ page }) => {
   const agent = await stubAgent(page, { sandbox: 'workspace-write' });
   await open(page, '#/chat/new?w=w_main');
   const picker = page.getByRole('combobox', { name: 'Sandbox', exact: true });
-  await expect(picker).toHaveText('workspace-write');
-  await picker.click();
-  await page.getByRole('option', { name: 'read-only', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('new read-only turn');
+  await expect(picker).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('new default turn');
   await page.getByRole('textbox', { name: 'Continue the conversation' }).press('Enter');
   await expect(page).toHaveURL(new RegExp(`#/chat/${B}`));
   await expect
@@ -276,10 +267,10 @@ test('sandbox selection reaches both draft creation and its first turn', async (
   expect(
     agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/conversations'))
       ?.body,
-  ).toMatchObject({ sandbox: 'read-only' });
+  ).toMatchObject({ sandbox: 'workspace-write' });
   expect(
     agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/messages'))?.body,
-  ).toMatchObject({ sandbox_mode: 'read-only' });
+  ).toMatchObject({ sandbox_mode: 'workspace-write' });
   agent.finish();
 });
 

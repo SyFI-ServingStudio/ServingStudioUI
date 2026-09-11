@@ -263,7 +263,7 @@ export default function MarkdownBody({
               ? 'Evidence is no longer available'
               : status === 'unavailable'
                 ? 'Evidence is not ready'
-                : citation.token
+                : `${citation.displayLabel} (${citation.token})`
           }
           sx={{
             display: 'inline',
@@ -282,7 +282,7 @@ export default function MarkdownBody({
             '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
           }}
         >
-          {citation.displayLabel}
+          {citation.displayLabel.split(' · ').at(-1)?.trim() || citation.displayLabel}
           <Box component="sup" sx={{ ml: 0.2, fontFamily: tokens.mono, fontSize: '0.68em' }}>
             {citationIndex + 1}
           </Box>

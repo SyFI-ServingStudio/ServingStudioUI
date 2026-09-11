@@ -5,13 +5,13 @@ import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import PendingActionsRounded from '@mui/icons-material/PendingActionsRounded';
 import ReplayRounded from '@mui/icons-material/ReplayRounded';
 import StopRounded from '@mui/icons-material/StopRounded';
-import { Box, ButtonBase, MenuItem, Select, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, Stack, Typography } from '@mui/material';
 import { type FormEvent, memo, useEffect, useRef, useState } from 'react';
 
 import { tokens, withAlpha } from '../../ui/theme';
 import { WorkingStyleTag } from './AgentModePicker';
 import CodexRuntimePicker from './CodexRuntimePicker';
-import { rolesForAgentMode, SANDBOX_MODES } from './agentMode';
+import { rolesForAgentMode } from './agentMode';
 import { MAX_QUEUED_MESSAGES } from './agentQueue';
 import type {
   AgentSettings,
@@ -259,7 +259,6 @@ export const AgentComposer = memo(function AgentComposer({
   inputUnavailable = false,
   connectionAction = null,
   onRuntimeChange,
-  onSandboxChange,
   onClearSelectionContext,
   onSend,
   onQueue,
@@ -288,9 +287,8 @@ export const AgentComposer = memo(function AgentComposer({
   codexRuntime: CodexRuntimeSelection;
   lockedFamilies: Record<keyof CodexRuntimeSelection, string> | null;
   compactRuntime: boolean;
-  /** Role style is pinned; sandbox remains editable for the next turn. */
+  /** Controls which roles and working style the composer displays. */
   agentSettings: AgentSettings;
-  onSandboxChange: (sandbox: AgentSettings['sandbox']) => void;
   sendUnavailable?: boolean;
   inputUnavailable?: boolean;
   connectionAction?: { readonly label: string; readonly activate: () => void } | null;
@@ -453,21 +451,6 @@ export const AgentComposer = memo(function AgentComposer({
               </Stack>
             </Box>
           </Box>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.75 }}>
-          <Select
-            size="small"
-            value={agentSettings.sandbox}
-            inputProps={{ 'aria-label': 'Sandbox' }}
-            onChange={(event) => onSandboxChange(event.target.value as AgentSettings['sandbox'])}
-            sx={{ maxWidth: '100%', fontSize: 12, '& .MuiSelect-select': { py: 0.65 } }}
-          >
-            {SANDBOX_MODES.map((sandbox) => (
-              <MenuItem key={sandbox} value={sandbox}>
-                {sandbox}
-              </MenuItem>
-            ))}
-          </Select>
         </Box>
         {selectionContext !== null && (
           <AnalyzerSelectionStrip context={selectionContext} onClear={onClearSelectionContext} />

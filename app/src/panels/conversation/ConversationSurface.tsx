@@ -621,11 +621,6 @@ export default function ConversationSurface({
         lockedFamilies={conversation.lockedFamilies}
         compactRuntime={!roomy}
         agentSettings={conversation.agentSettings}
-        onSandboxChange={(sandbox) => {
-          const settings = { ...conversation.agentSettings, sandbox };
-          saveAgentSettings(settings);
-          conversation.setAgentSettings(settings);
-        }}
         sendUnavailable={conversation.sendUnavailable}
         inputUnavailable={conversation.inputUnavailable}
         connectionAction={conversation.connectionAction}

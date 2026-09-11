@@ -4,6 +4,26 @@ import { describe, expect, it, vi } from 'vitest';
 import MarkdownBody from './MarkdownBody';
 
 describe('MarkdownBody navigation boundary', () => {
+  it('shows only the final reference label while retaining its full description and target', () => {
+    const target = { kind: 'prediction', predictionId: 'p_one', caseId: 0, operationId: 0 };
+    const onOpenEvidence = vi.fn();
+    const displayLabel = 'prediction p_one · case 0 · operation 0 · cost-tree';
+    render(
+      <MarkdownBody
+        text="See `pred.result`."
+        citations={[
+          { token: 'pred.result', sourceStart: 4, sourceEnd: 17, displayLabel, target },
+        ]}
+        onOpenEvidence={onOpenEvidence}
+      />,
+    );
+    const reference = screen.getByRole('button', { name: 'cost-tree 1' });
+    expect(reference).toHaveAttribute('title', `${displayLabel} (pred.result)`);
+    expect(reference).not.toHaveTextContent('prediction p_one');
+    fireEvent.click(reference);
+    expect(onOpenEvidence).toHaveBeenCalledWith(target, expect.any(Function));
+  });
+
   it('reports a citation click to its caller and renders the returned status', () => {
     const target = { kind: 'run', id: 'r_one' };
     const onOpenEvidence = vi.fn((_target, onStatus) => onStatus('unavailable'));
