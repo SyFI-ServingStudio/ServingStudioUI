@@ -89,6 +89,7 @@ const sweepRow = z.object({
   traces: z.array(z.string().min(1)),
   axes: z.array(z.string().min(1)),
   kind: z.enum(['sweep', 'singleton']),
+  run_id: resultIdSchema.optional(),
 });
 
 /** The three offline kinds differ only in the name of their id field. */
@@ -192,6 +193,7 @@ const CATALOG_SPEC: Record<ResultKind, KindSpec> = {
     deployments: row.deployments,
     traces: row.traces,
     axes: row.kind === 'singleton' ? ['single run'] : row.axes,
+    ...(row.run_id === undefined ? {} : { runId: row.run_id }),
   })),
   prediction: spec('predictions', predictionRow, (row, kind) => ({
     ...entry(kind, row, row.prediction_id, normalizeStatus(row.status)),

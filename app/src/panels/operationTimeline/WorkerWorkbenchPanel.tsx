@@ -18,7 +18,7 @@ import {
   type OperationSummary,
   type RunResultRef,
 } from '../../artifacts';
-import { segmentOf, selectSegment, upTo, withCursor, withPanel } from '../../location';
+import { segmentOf, selectSegment, upTo, withCursor, withOption, withPanel } from '../../location';
 import AnalysisSection from '../../ui/controls/AnalysisSection';
 import { WorkerAnalysisLevelToggle } from '../../ui/controls/WorkerAnalysisLevelToggle';
 import { tokens } from '../../ui/theme';
@@ -128,14 +128,18 @@ function RunWorkerWorkbenchPanel({ location, navigate }: RunPanelProps) {
       (operation) => operation.ordinal === window.seek?.anchor.ordinal,
     );
     if (anchor === undefined) return;
-    const focus = withCursor(
-      selectSegment(location.focus, {
-        at: 'operation',
-        iter: anchor.ref.iterId,
-        batch: anchor.ref.batchId,
-        op: anchor.ref.operationId,
-      }),
-      location.focus.cursorMs,
+    const focus = withOption(
+      withCursor(
+        selectSegment(location.focus, {
+          at: 'operation',
+          iter: anchor.ref.iterId,
+          batch: anchor.ref.batchId,
+          op: anchor.ref.operationId,
+        }),
+        location.focus.cursorMs,
+      ),
+      'cost-tree-scope',
+      null,
     );
     navigate({ ...location, focus }, 'replace');
   }, [location, navigate, selected, window]);
@@ -215,14 +219,18 @@ function RunWorkerWorkbenchPanel({ location, navigate }: RunPanelProps) {
   }
 
   const select = (operation: OperationSummary) => {
-    const focus = withCursor(
-      selectSegment(location.focus, {
-        at: 'operation',
-        iter: operation.ref.iterId,
-        batch: operation.ref.batchId,
-        op: operation.ref.operationId,
-      }),
-      operation.startMs,
+    const focus = withOption(
+      withCursor(
+        selectSegment(location.focus, {
+          at: 'operation',
+          iter: operation.ref.iterId,
+          batch: operation.ref.batchId,
+          op: operation.ref.operationId,
+        }),
+        operation.startMs,
+      ),
+      'cost-tree-scope',
+      null,
     );
     navigate({ ...location, focus }, 'push');
   };
@@ -231,7 +239,11 @@ function RunWorkerWorkbenchPanel({ location, navigate }: RunPanelProps) {
     descriptor.status === 'ready' &&
     descriptor.value.details['worker-cost-tree']?.status === 'ready';
   const showWorker = () => {
-    const focus = withPanel(upTo(location.focus, 'worker'), null);
+    const focus = withOption(
+      withPanel(upTo(location.focus, 'worker'), null),
+      'cost-tree-scope',
+      null,
+    );
     navigate({ ...location, focus }, 'push');
   };
 

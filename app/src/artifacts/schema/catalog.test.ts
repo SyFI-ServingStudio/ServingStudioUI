@@ -117,6 +117,27 @@ describe('parseCatalog', () => {
     expect(() => parseCatalog('sweep', { sweeps: [incomplete] })).toThrow(/num_runs/);
   });
 
+  it('retains the run identity of a singleton sweep', () => {
+    const parsed = parseCatalog('sweep', {
+      sweeps: [
+        {
+          workspace_id: 'w_main',
+          sweep_id: 's_single',
+          run_id: 'r_single',
+          display_name: 'single run',
+          status: 'ready',
+          updated_at: '2026-09-01T00:00:00Z',
+          num_runs: 1,
+          deployments: ['unified'],
+          traces: ['aime.csv'],
+          axes: [],
+          kind: 'sweep',
+        },
+      ],
+    });
+    expect(parsed.value[0]?.runId).toBe('r_single');
+  });
+
   it('accepts an envelope with no protocol_version, since three endpoints send none', () => {
     const parsed = parseCatalog('alignment', {
       alignments: [

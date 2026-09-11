@@ -26,7 +26,11 @@ const DESCRIPTOR = {
   gpu: { name: 'NVIDIA H200', count: 8 },
   case_count: 1,
   lifecycle: { prediction: 'complete', analysis: 'not_started' },
-  resources: { cases: { views: ['payload'] }, 'kernel-input-distribution': null },
+  resources: {
+    cases: { views: ['payload'] },
+    'kernel-input-distribution': null,
+    'scoped-optimality': { views: ['report'] },
+  },
 };
 const CASES = {
   schema_version: 1,
@@ -67,16 +71,55 @@ const COST_TREE = {
     },
   ],
   tree: {
-    kind: 'leaf',
-    slot: {
-      name: 'model.gemm',
-      kind: 'single_gemm',
-      kernel_config: { dtype: 'bf16' },
-      backend: 'torch',
-    },
-    base: 2.5,
-    stats: { input: { m: 4, n: 128 }, flops: 1024, bytes: 512, tflops: 0.0004, gbps: 0.0002 },
+    kind: 'sum',
+    label: 'attention',
+    children: [
+      {
+        kind: 'sum',
+        label: 'attention projection',
+        children: [
+          {
+            kind: 'leaf',
+            slot: {
+              name: 'model.gemm',
+              kind: 'single_gemm',
+              kernel_config: { dtype: 'bf16' },
+              backend: 'torch',
+            },
+            base: 2.5,
+            stats: {
+              input: { m: 4, n: 128 },
+              flops: 1024,
+              bytes: 512,
+              tflops: 0.0004,
+              gbps: 0.0002,
+            },
+          },
+        ],
+      },
+    ],
   },
+};
+const SCOPED = {
+  schema_version: 1,
+  report_type: 'optimality_scoped_v1',
+  log_dir: '/redacted',
+  selection: {
+    selector: { path: 'attn/0', label: null },
+    section: 'attn',
+    canonical_path: 'attn/0',
+    node_kind: 'sum',
+    node_label: 'attention projection',
+    matched_manifest_workers: 8,
+    matched_cost_log_rows: 32,
+    descendant_leaves: ['model.gemm'],
+  },
+  rungs: {
+    r0_measured: { value_gpu_seconds: 0.02, unit: 'gpu_seconds', definition: 'measured' },
+    r5_hardware_limit: { value_gpu_seconds: 0.01, unit: 'gpu_seconds', definition: 'floor' },
+  },
+  omitted_rungs: [],
+  provenance: {},
 };
 const RUNGS = {
   real: 2.5,
@@ -184,6 +227,9 @@ async function openPrediction(page: Page): Promise<void> {
       },
     });
   });
+  await page.route('**/subjects/scoped-optimality/report*', (route) =>
+    route.fulfill({ json: SCOPED }),
+  );
   await page.goto(`/#/result/prediction/${PREDICTION_ID}?w=w_main&o.optimality=unlocked`);
 }
 
@@ -201,4 +247,14 @@ test('reproduces the timing prediction workbench and stores its mode in Location
   await expect(page.getByText('Optimality waterfall · iter 0')).toBeVisible();
   await page.getByRole('button', { name: 'Batch locked' }).click();
   await expect(page).toHaveURL(/o\.optimality=batch_locked/);
+  await page.getByRole('button', { name: 'Scope analysis to attention projection' }).click();
+  await expect(page).toHaveURL(/o\.cost-tree-scope=0/);
+  await page.getByRole('button', { name: 'Component' }).click();
+  await page.getByRole('button', { name: 'Per call' }).click();
+  await expect(page).toHaveURL(/o\.ladder-granularity=component/);
+  await expect(page).toHaveURL(/o\.ladder-normalization=per_call/);
+  await page.getByRole('button', { name: 'Compute' }).click();
+  await expect(page.getByText(/resolved attention projection/)).toBeVisible();
+  await page.getByTestId('scoped-optimality-card').click();
+  await expect(page).toHaveURL(/o\.evidence-panel=scoped-optimality/);
 });

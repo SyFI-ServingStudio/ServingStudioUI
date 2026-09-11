@@ -23,7 +23,13 @@ export const predictionPageSpec = {
   scope: false,
   kinds: ['prediction'],
   consumes: [],
-  options: ['optimality'],
+  options: [
+    'optimality',
+    'cost-tree-scope',
+    'ladder-granularity',
+    'ladder-normalization',
+    'evidence-panel',
+  ],
   needs,
   load: async () => (await import('./PredictionPage')).PredictionPage,
 } satisfies ContentPanelSpec;
@@ -36,7 +42,13 @@ function pageMode(id: string, title: string, consumes: PageModeSpec['consumes'])
     layoutMode: 'prediction-page',
     kinds: ['prediction'],
     consumes,
-    options: ['optimality'],
+    options: [
+      'optimality',
+      'cost-tree-scope',
+      'ladder-granularity',
+      'ladder-normalization',
+      'evidence-panel',
+    ],
     needs,
   };
 }

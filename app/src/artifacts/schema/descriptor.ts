@@ -31,6 +31,7 @@ const SUBJECT_TO_DOMAIN = {
   'kernel-input-distribution': 'kernelInputDistribution',
   'kernel-time-share': 'kernelTimeShare',
   optimality: 'optimality',
+  'scoped-optimality': 'scopedOptimality',
 } as const satisfies Readonly<Record<string, DescriptorSubjectName>>;
 
 function domainSubjectName(subjectId: string): DescriptorSubjectName | undefined {

@@ -35,6 +35,11 @@ const DESCRIPTOR = {
       schema_version: 1,
       views: ['payload'],
     },
+    'scoped-optimality': {
+      status: 'ready',
+      schema_version: 1,
+      views: ['report'],
+    },
   },
   details: {
     'worker-operation-index': {
@@ -319,6 +324,11 @@ test('commits the exact operation and keeps the existing Worker toggle', async (
   );
   await expect(page.getByTestId('kernel-input-distribution')).toContainText(
     'sampled every 1 iteration(s) · feature 1d',
+  );
+  await expect(page.getByRole('button', { name: 'Compute' })).toBeEnabled();
+  await page.getByTestId('scoped-optimality-card').click();
+  await expect.poll(() => new URL(page.url()).hash).toContain(
+    'o.evidence-panel=scoped-optimality',
   );
   expect(
     urls.some(

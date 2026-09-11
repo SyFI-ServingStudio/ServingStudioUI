@@ -144,6 +144,12 @@ export function artifactUrl(ref: ArtifactRef): string {
       return `${resultPath(ref.result)}/cases/${segment(ref.caseId)}/subjects/optimality-kernel-ladder/payload${query(ref.result, [['mode', ref.mode]])}`;
     case 'predictionOptimalityWaterfall':
       return `${resultPath(ref.result)}/cases/${segment(ref.caseId)}/subjects/optimality-waterfall/payload${query(ref.result, [['mode', ref.mode]])}`;
+    case 'scopedOptimality': {
+      const selector: [string, string][] = [];
+      if (ref.selector.path !== undefined) selector.push(['path', ref.selector.path]);
+      if (ref.selector.label !== undefined) selector.push(['label', ref.selector.label]);
+      return `${resultPath(ref.result)}/subjects/scoped-optimality/report${query(ref.result, selector)}`;
+    }
     case 'workerCostTree': {
       const operation = ref.operation;
       return `${workerPath(ref.result, ref.worker)}/operations/${segment(operation.iterId)}/${segment(operation.batchId)}/${segment(operation.operationId)}/subjects/cost-tree/payload${revision(ref.result)}`;

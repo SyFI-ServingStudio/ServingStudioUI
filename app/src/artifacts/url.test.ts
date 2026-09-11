@@ -36,6 +36,7 @@ import {
   runConcurrencyRef,
   runDescriptorRef,
   runOptimalityRef,
+  scopedOptimalityRef,
   runWorkloadRef,
   operationsSeqRef,
   predictionCasesRef,
@@ -229,6 +230,21 @@ describe('artifactUrl', () => {
     );
     expect(artifactUrl(runOptimalityRef({ ...RUN, revision: 'analysis 2' }, 'batch_locked'))).toBe(
       '/api/analyzer/v1/runs/20260715_1_test/subjects/optimality/variants/batch_locked/payload?rev=analysis%202',
+    );
+  });
+
+  it('addresses scoped optimality for runs and predictions through the artifact API', () => {
+    expect(artifactUrl(scopedOptimalityRef(RUN, { path: 'attn/0/2' }))).toBe(
+      '/api/analyzer/v1/runs/20260715_1_test/subjects/scoped-optimality/report?path=attn%2F0%2F2',
+    );
+    const prediction = {
+      kind: 'prediction' as const,
+      id: 'p_one',
+      workspace: 'w_main',
+      revision: 'analysis 2',
+    };
+    expect(artifactUrl(scopedOptimalityRef(prediction, { label: 'unified.qk_norm' }))).toBe(
+      '/api/analyzer/v1/predictions/p_one/subjects/scoped-optimality/report?label=unified.qk_norm&rev=analysis%202',
     );
   });
 

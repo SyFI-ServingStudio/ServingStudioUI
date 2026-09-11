@@ -24,8 +24,10 @@ interface CostTreeEvidenceProps {
   timeBasis: string;
   selectedLeafId: number | null;
   selectedParallelId: number | null;
+  selectedScopeId?: number | null;
   onSelectLeaf: (leafId: number) => void;
   onSelectParallel: (parallelId: number) => void;
+  onSelectScope?: (scopeId: number) => void;
   onSelectRoot: () => void;
   ariaLabel?: string;
 }
@@ -38,8 +40,10 @@ export function CostTreeEvidence({
   timeBasis,
   selectedLeafId,
   selectedParallelId,
+  selectedScopeId = null,
   onSelectLeaf,
   onSelectParallel,
+  onSelectScope,
   onSelectRoot,
   ariaLabel = 'CostTree canvas',
 }: CostTreeEvidenceProps) {
@@ -71,8 +75,10 @@ export function CostTreeEvidence({
         tree={tree}
         selectedLeafId={selectedLeafId}
         selectedParallelId={selectedParallelId}
+        selectedScopeId={selectedScopeId}
         onSelectLeaf={onSelectLeaf}
         onSelectParallel={onSelectParallel}
+        onSelectScope={onSelectScope}
         onSelectRoot={onSelectRoot}
         ariaLabel={ariaLabel}
         controlLabels={PRODUCTION_CONTROLS}

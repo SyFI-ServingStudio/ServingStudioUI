@@ -31,6 +31,7 @@ export {
   predictionKernelThroughputAnalysisRef,
   predictionOptimalityKernelLadderRef,
   predictionOptimalityWaterfallRef,
+  scopedOptimalityRef,
   kernelTimeShareRef,
   kernelInputDistributionRef,
   hardwareGpuRef,
@@ -97,6 +98,8 @@ export type {
   PredictionOperationRef,
   PredictionOptimalityKernelLadderRef,
   PredictionOptimalityWaterfallRef,
+  ScopedOptimalityRef,
+  ScopedOptimalitySelector,
   KernelComposition,
   KernelBackendSelection,
   KernelInputDistribution,
@@ -222,6 +225,7 @@ export type {
   SweepRun,
 } from './schema/sweep';
 export { OPTIMALITY_EPSILON_GPU_S } from './schema/optimality';
+export type { ScopedOptimalityReport, ScopedOptimalityRung } from './schema/scopedOptimality';
 export type {
   OptimalityIterationWaterfallData,
   Optimality,
