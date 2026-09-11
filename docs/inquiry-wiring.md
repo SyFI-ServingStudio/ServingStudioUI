@@ -71,8 +71,8 @@ managed workflow whenever available. Otherwise it inspects a bounded,
 newest-first catalog:
 
 ```text
-GET /api/v1/sweeps?status=ready&limit=5
-GET /api/v1/sweeps/latest
+GET /api/analyzer/v1/sweeps?status=ready&limit=5
+GET /api/analyzer/v1/sweeps/latest
 ```
 
 Catalog entries expose stable opaque IDs plus the information required for a
@@ -87,7 +87,7 @@ asks about them instead of silently choosing.
 The exact result is then read by ID:
 
 ```text
-GET /api/v1/sweeps/{sweep_id}/payload
+GET /api/analyzer/v1/sweeps/{sweep_id}/subjects/sweep/payload
 ```
 
 ## 5. Managed simulation lifecycle

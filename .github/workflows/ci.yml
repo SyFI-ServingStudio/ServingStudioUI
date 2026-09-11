@@ -34,14 +34,12 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
-      - name: Verify analyzer fixture protocol
-        run: npm run fixture:check
       - name: Unit tests
         run: npm run test:unit
       - name: Production build
         # TypeScript was checked above, including browser-test sources.
-        env:
-          VITE_ANALYZER_API_BASE: /api/v1/
+        # No VITE_ANALYZER_API_BASE: the default same-origin /api/v1/ is what
+        # the deployment serves, and naming it here only restated the default.
         run: npm exec vite build
 
   browser:

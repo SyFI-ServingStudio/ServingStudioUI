@@ -1,0 +1,176 @@
+{
+  "analysis": {
+    "generated_at": "2026-07-15T05:11:27Z",
+    "generator_version": "fixture-export-v1+analyzer-v1",
+    "revision": "fixture-sha256-1c0dcce5c25dfde9efb043145cbf71ee294ce1ff38bc1a76dd963fb2bccd0c25"
+  },
+  "deployment": "afd",
+  "details": {
+    "iteration-detail": {
+      "reason": "No on-demand iteration detail artifact was generated for this run.",
+      "status": "not_generated"
+    },
+    "worker-cost-tree": {
+      "reason": "No versioned hierarchical worker CostTree query is available.",
+      "status": "not_generated"
+    },
+    "worker-iteration-index": {
+      "reason": "No paginated worker iteration index was generated for this run.",
+      "status": "not_generated"
+    }
+  },
+  "display_name": "20260715_1_afd_ui_reanalysis",
+  "kind": "simulation",
+  "lifecycle": {
+    "analysis": "complete",
+    "simulation": "complete"
+  },
+  "model_name": "model/config/qwen3_coder_480b.json",
+  "protocol_version": 1,
+  "provenance": {
+    "fixture_id": "afd-qwen3-duration-reached",
+    "generated_at": "2026-07-15T05:11:27Z",
+    "source": "fixture",
+    "source_run": "logs/20260715_1_afd_ui_reanalysis",
+    "synthetic": false
+  },
+  "run_id": "fixture-afd-qwen3-v1",
+  "subjects": {
+    "backpressure": {
+      "reason": "Pending-queue logging is not yet available from analyzer v1.",
+      "status": "not_generated"
+    },
+    "batch": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "concurrency": {
+      "reason": "No bounded concurrency timeline artifact was generated for this run.",
+      "status": "not_generated"
+    },
+    "kernel-input-distribution": {
+      "code": "missing_kernel_input_columns",
+      "reason": "cost_log has no `slot_backend` column \u2014 this run predates per-slot backend/input logging; re-run the sim to analyze backend selection",
+      "status": "unavailable"
+    },
+    "kernel-throughput": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "kernel-time-share": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "kv-occupancy": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "slo-detailed": {
+      "code": "output_token_times_missing",
+      "reason": "no per-token gaps: output_token_times not logged (io.log_output_token_times was off) or no completed requests",
+      "status": "unavailable"
+    },
+    "slo-general": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "throughput": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "utilization": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    },
+    "workload-conservation": {
+      "schema_version": 1,
+      "status": "ready",
+      "views": [
+        "report",
+        "payload"
+      ]
+    }
+  },
+  "summary": {
+    "views": [
+      "report"
+    ]
+  },
+  "traces": {
+    "perfetto": {
+      "reason": "The cropped fixture does not contain the source run's Perfetto trace.",
+      "status": "not_generated"
+    }
+  },
+  "workers": [
+    {
+      "pool_tag": "attn",
+      "worker_id": 0
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 1
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 2
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 3
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 4
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 5
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 6
+    },
+    {
+      "pool_tag": "attn",
+      "worker_id": 7
+    },
+    {
+      "pool_tag": "ffn",
+      "worker_id": 0
+    },
+    {
+      "pool_tag": "ffn",
+      "worker_id": 1
+    }
+  ],
+  "workspace_id": "w_main"
+}

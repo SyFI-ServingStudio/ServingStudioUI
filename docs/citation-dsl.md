@@ -28,8 +28,8 @@ Resource discovery intentionally exposes Analyzer resource IDs. When the exact
 resource is not already selected, the Agent may inspect a newest-first catalog:
 
 ```text
-GET /api/v1/sweeps?status=ready&limit=5
-GET /api/v1/sweeps/latest
+GET /api/analyzer/v1/sweeps?status=ready&limit=5
+GET /api/analyzer/v1/sweeps/latest
 ```
 
 The Agent compares display name, ordered axes, deployment, trace, status, and

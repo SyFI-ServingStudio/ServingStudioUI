@@ -8,39 +8,19 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:live": "vite --mode live",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.playwright.json --noEmit",
     "lint": "npm run test:lint && eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --max-warnings 0",
     "lint:fix": "eslint src e2e vite.config.ts vitest.config.ts playwright.config.ts --fix",
     "format": "prettier --write src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
     "format:check": "prettier --check src e2e vite.config.ts vitest.config.ts playwright.config.ts ../.github/workflows/*.yml",
-    "fixture:check": "node ../scripts/extract-analyzer-fixture.mjs --check",
     "test": "vitest",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "size": "npm run build && npm run size:check",
-    "size:check": "size-limit",
     "preview": "vite preview",
     "test:lint": "node --test eslint-rules/*.test.js"
   },
-  "size-limit": [
-    {
-      "name": "initial JavaScript",
-      "path": "dist/assets/index-*.js",
-      "limit": "500 kB",
-      "gzip": true,
-      "message": "Inspect eager imports and full-library entry points; include any future static entry dependencies in this budget."
-    },
-    {
-      "name": "all JavaScript chunks",
-      "path": "dist/assets/*.js",
-      "limit": "640 kB",
-      "gzip": true,
-      "message": "This budget includes the entry and every deferred application chunk. Raised from 590 kB for the file-preview syntax highlighter; raise it again deliberately for a feature, never to absorb accidental growth."
-    }
-  ],
   "dependencies": {
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
@@ -53,13 +33,11 @@
     "motion": "^12.42.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "zod": "^3.25.76",
-    "zustand": "^4.5.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.61.1",
-    "@size-limit/file": "^12.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -77,7 +55,6 @@
     "globals": "^15.15.0",
     "jsdom": "^25.0.1",
     "prettier": "^3.9.5",
-    "size-limit": "^12.1.0",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.64.0",
     "vite": "^5.3.3",

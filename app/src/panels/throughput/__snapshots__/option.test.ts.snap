@@ -1,0 +1,196 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`throughputOption > keeps the accepted fine step chart from the same cluster rates 1`] = `
+{
+  "grid": {
+    "bottom": 30,
+    "containLabel": true,
+    "left": 46,
+    "right": 16,
+    "top": 30,
+  },
+  "legend": {
+    "itemHeight": 8,
+    "itemWidth": 14,
+    "right": 0,
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "color": "#8db9e2",
+      "data": [
+        [
+          0,
+          10,
+        ],
+        [
+          1,
+          20,
+        ],
+        [
+          2,
+          20,
+        ],
+      ],
+      "lineStyle": {
+        "color": "#8db9e2",
+        "width": 3.2,
+      },
+      "name": "total",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 3,
+    },
+    {
+      "color": "#f88070",
+      "data": [
+        [
+          0,
+          4,
+        ],
+        [
+          1,
+          8,
+        ],
+        [
+          2,
+          8,
+        ],
+      ],
+      "lineStyle": {
+        "color": "#f88070",
+        "width": 1.6,
+      },
+      "name": "prefill",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 4,
+    },
+    {
+      "color": "#e2c08d",
+      "data": [
+        [
+          0,
+          6,
+        ],
+        [
+          1,
+          12,
+        ],
+        [
+          2,
+          12,
+        ],
+      ],
+      "lineStyle": {
+        "color": "#e2c08d",
+        "width": 1.6,
+      },
+      "name": "decode",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 4,
+    },
+    {
+      "animation": false,
+      "data": [],
+      "markLine": {
+        "data": [
+          {
+            "xAxis": 0.5,
+          },
+        ],
+        "label": {
+          "color": "#f88070",
+          "fontSize": 10.125,
+          "formatter": "iter",
+          "position": "start",
+        },
+        "lineStyle": {
+          "color": "#f88070",
+          "opacity": 0.85,
+          "width": 1.5,
+        },
+        "silent": true,
+        "symbol": [
+          "none",
+          "none",
+        ],
+      },
+      "showSymbol": false,
+      "silent": true,
+      "type": "line",
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "max": 2,
+    "min": 0,
+    "name": "wall-clock · s",
+    "nameGap": 24,
+    "nameLocation": "middle",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "show": false,
+    },
+    "type": "value",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "name": "tok/s",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+}
+`;

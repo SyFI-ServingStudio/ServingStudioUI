@@ -4,6 +4,18 @@ interface QualityFixtures {
   qualityGuard: void;
 }
 
+interface QualityOptions {
+  /**
+   * Console errors this test provokes on purpose.
+   *
+   * A test that asserts how the application reports a failing request has to
+   * cause one, and the browser logs every non-2xx response itself. Each pattern
+   * must be narrow enough to name that one request: a blanket opt-out would
+   * turn the guard off for everything else the test does.
+   */
+  expectedConsoleErrors: RegExp[];
+}
+
 function formatConsole(message: ConsoleMessage): string {
   const location = message.location();
   const source = location.url ? ` (${location.url}:${location.lineNumber ?? 0})` : '';
@@ -13,11 +25,12 @@ function formatConsole(message: ConsoleMessage): string {
 /** Automatically turns browser errors and uncaught exceptions into
  * test failures. Network failures stay outside this guard because external
  * fonts are not part of the simulation UI contract. */
-export const test = base.extend<QualityFixtures>({
+export const test = base.extend<QualityFixtures & QualityOptions>({
+  expectedConsoleErrors: [[], { option: true }],
   qualityGuard: [
-    async ({ page }, use) => {
+    async ({ page, expectedConsoleErrors }, use) => {
       const failures: string[] = [];
-      await page.route('**/api/workspaces', async (route) => {
+      await page.route('**/api/agent/v1/workspaces', async (route) => {
         await route.fulfill({
           contentType: 'application/json',
           body: JSON.stringify({
@@ -34,10 +47,12 @@ export const test = base.extend<QualityFixtures>({
           }),
         });
       });
+      await page.route('**/api/agent/v1/jobs', (route) => route.fulfill({ json: { jobs: [] } }));
       const onConsole = (message: ConsoleMessage) => {
-        if (message.type() === 'error') {
-          failures.push(formatConsole(message));
-        }
+        if (message.type() !== 'error') return;
+        const formatted = formatConsole(message);
+        if (expectedConsoleErrors.some((pattern) => pattern.test(formatted))) return;
+        failures.push(formatted);
       };
       const onPageError = (error: Error) =>
         failures.push(`pageerror: ${error.stack ?? error.message}`);

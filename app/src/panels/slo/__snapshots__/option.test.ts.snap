@@ -1,0 +1,146 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`sloMetricOption > keeps the accepted latency CDF option from the same samples 1`] = `
+{
+  "grid": {
+    "bottom": 30,
+    "left": 46,
+    "right": 16,
+    "top": 30,
+  },
+  "legend": {
+    "itemHeight": 8,
+    "itemWidth": 14,
+    "right": 0,
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "areaStyle": {
+        "color": "#f88070",
+        "opacity": 0.08,
+      },
+      "data": [
+        [
+          3.8,
+          33.33,
+        ],
+        [
+          4.1,
+          66.67,
+        ],
+        [
+          4.4,
+          100,
+        ],
+      ],
+      "lineStyle": {
+        "color": "#f88070",
+        "width": 2.4,
+      },
+      "markLine": {
+        "data": [
+          {
+            "xAxis": 4.35,
+          },
+        ],
+        "label": {
+          "color": "#a0a0a0",
+          "fontSize": 11.25,
+          "formatter": "p90",
+        },
+        "lineStyle": {
+          "color": "#f88070",
+          "opacity": 0.5,
+          "type": "dotted",
+        },
+        "silent": true,
+        "symbol": "none",
+      },
+      "name": "TPOT (ms/token)",
+      "smooth": true,
+      "symbol": "none",
+      "type": "line",
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "axisPointer": {
+      "snap": true,
+      "type": "line",
+    },
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "formatter": [Function],
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "axisPointer": {
+      "snap": true,
+    },
+    "max": 4.424,
+    "min": 3.776,
+    "name": "latency · ms/token",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "show": false,
+    },
+    "type": "value",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "max": 100,
+    "name": "CDF %",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+}
+`;
+
+exports[`sloMetricOption > keeps the accepted latency CDF option from the same samples 2`] = `
+"latency: 4.1235 ms/token
+CDF: 92.31%"
+`;

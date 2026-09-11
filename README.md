@@ -172,13 +172,11 @@ Run these commands from `app/`:
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Develop against bundled Analyzer fixtures. |
-| `npm run dev:live` | Use live Analyzer and Agent APIs through Vite proxies. |
+| `npm run dev` | Develop against a running Analyzer and Agent backend through the Vite proxies. Start them with `just start` from the workspace root. |
 | `npm run test:unit` | Run adapter, calculation, routing, and interaction tests. |
 | `npm run typecheck` | Check application and browser-test TypeScript. |
 | `npm run lint` / `npm run format:check` | Check source quality and formatting. |
-| `npm run fixture:check` | Verify checked-in Analyzer fixture consistency. |
-| `npm run build` | Typecheck and bundle; set the API base for live output. |
+| `npm run build` | Typecheck and bundle. |
 | `npm run size:check` | Check the existing production bundle against size budgets. |
 
 <details>
@@ -229,7 +227,6 @@ See the [documentation index](docs/README.md) for contract versions and source o
 | [Analyzer data protocol](docs/data-protocol.md) | Catalogs, resource identities, and payload adapters. |
 | [Agent–Analyzer integration](docs/inquiry-wiring.md) | Workspaces, conversations, execution, and result relationships. |
 | [Evidence citations](docs/citation-dsl.md) | Selectable evidence and navigation from Agent messages. |
-| [Fixture policy](docs/fixture-policy.md) | Test data selection, provenance, and reproducibility. |
 | [Themes](docs/themes.md) | Theme selection and shared visual tokens. |
 
 <details>
