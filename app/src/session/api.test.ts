@@ -185,6 +185,22 @@ describe('exact Agent metadata', () => {
     });
   });
 
+  it('preserves connection IDs through catalog defaults, history and runtime updates', async () => {
+    const runtime = {
+      orchestrator: { ...RUNTIME.orchestrator, provider: 'work' },
+      implementer: { ...RUNTIME.implementer, provider: 'personal' },
+      assistant: { ...RUNTIME.assistant, provider: 'personal' },
+    };
+    answer({ models: [], defaults: runtime });
+    expect((await listCodexBackends()).defaults).toEqual(runtime);
+    const conversation = { id: 'c1', title: 'Connections', messages: [], codex_runtime: runtime };
+    answer(conversation);
+    expect((await getConversation(REF)).codex_runtime).toEqual(runtime);
+    answer(conversation);
+    expect((await updateConversationRuntime(REF, runtime)).codex_runtime).toEqual(runtime);
+    expect(JSON.parse(sent.at(-1)!.body!)).toEqual({ codex_runtime: runtime });
+  });
+
   it('patches runtime and deletes a conversation at its canonical session address', async () => {
     answer({
       id: 'c1',

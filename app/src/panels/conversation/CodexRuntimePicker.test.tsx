@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { CodexModelOption, CodexRoleRuntime, CodexRuntimeSelection } from './agentTypes';
 import type { CodexRoleName } from './agentMode';
 import CodexRuntimePicker from './CodexRuntimePicker';
+import { runtimeModel } from './codexRuntime';
 
 const MODELS: readonly CodexModelOption[] = [
   ...['sonnet', 'opus'].map((model) => ({
@@ -70,21 +71,85 @@ function Harness({
     implementer: initialRuntime,
     assistant: initialRuntime,
   });
-  const family = models.find((model) => model.id === initialRuntime.model)?.family ?? 'gpt';
+  const family = initialRuntime.provider ?? runtimeModel(models, initialRuntime)?.family ?? '';
   return (
-    <CodexRuntimePicker
-      models={models}
-      selection={selection}
-      roles={roles}
-      lockedFamilies={
-        locked ? { orchestrator: family, implementer: family, assistant: family } : null
-      }
-      onChange={(role, runtime) => setSelection((current) => ({ ...current, [role]: runtime }))}
-    />
+    <>
+      <output data-testid="runtime-selection">{JSON.stringify(selection)}</output>
+      <CodexRuntimePicker
+        models={models}
+        selection={selection}
+        roles={roles}
+        lockedFamilies={
+          locked ? { orchestrator: family, implementer: family, assistant: family } : null
+        }
+        onChange={(role, runtime) => setSelection((current) => ({ ...current, [role]: runtime }))}
+      />
+    </>
   );
 }
 
 describe('Agent runtime picker', () => {
+  const CONNECTION_MODELS = ['work', 'personal'].map((connection) => ({
+    ...MODELS[0]!,
+    family: connection,
+    familyLabel: connection,
+  }));
+
+  it('restores and selects the exact connection when model IDs are shared', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        roles={['assistant']}
+        models={CONNECTION_MODELS}
+        initialRuntime={{
+          provider: 'personal',
+          model: 'claude-sonnet-5',
+          effort: 'high',
+          serviceTier: 'default',
+        }}
+      />,
+    );
+    await user.click(screen.getByLabelText('Assistant Agent runtime'));
+    const cells = screen.getAllByRole('radio', { name: 'Claude Sonnet 5 at high' });
+    expect(cells[0]).not.toBeChecked();
+    expect(cells[1]).toBeChecked();
+    await user.click(cells[0]!);
+    expect(cells[0]).toBeChecked();
+    expect(cells[1]).not.toBeChecked();
+    expect(
+      JSON.parse(screen.getByTestId('runtime-selection').textContent!).assistant.provider,
+    ).toBe('work');
+  });
+
+  it('locks a historical session to its actual connection, including shared model IDs', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        locked
+        roles={['assistant']}
+        models={CONNECTION_MODELS}
+        initialRuntime={{
+          provider: 'personal',
+          model: 'claude-sonnet-5',
+          effort: 'high',
+          serviceTier: 'default',
+        }}
+      />,
+    );
+    await user.click(screen.getByLabelText('Assistant Agent runtime'));
+    const cells = screen.getAllByRole('radio', { name: 'Claude Sonnet 5 at high' });
+    expect(cells[0]).toBeDisabled();
+    expect(cells[1]).not.toBeDisabled();
+    expect(cells[1]).toBeChecked();
+  });
+
+  it('does not guess an ambiguous legacy connection or substitute a missing connection', () => {
+    const runtime = { model: 'claude-sonnet-5', effort: 'high', serviceTier: 'default' as const };
+    expect(runtimeModel(CONNECTION_MODELS, runtime)).toBeUndefined();
+    expect(runtimeModel(CONNECTION_MODELS, { ...runtime, provider: 'retired' })).toBeUndefined();
+    expect(runtimeModel(MODELS, runtime)?.family).toBe('claude');
+  });
+
   it('selects Claude for one role and resets an unsupported Fast tier', async () => {
     const user = userEvent.setup();
     render(<Harness />);

@@ -65,6 +65,48 @@ afterEach(() => {
 });
 
 describe('AgentHost', () => {
+  it('restores the saved provider and locks history to it despite duplicate model IDs', async () => {
+    const saved = { ...runtime, assistant: { ...runtime.assistant, provider: 'personal' } };
+    vi.stubGlobal('fetch', async (input: string) => {
+      const url = new URL(String(input), 'http://fixture').pathname;
+      if (url.endsWith('/codex-backends'))
+        return json({
+          defaults: runtime,
+          models: ['work', 'personal'].map((family) => ({
+            ...catalog().models[0],
+            family,
+            familyLabel: family,
+          })),
+        });
+      if (url.endsWith('/workspaces/w_main'))
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      if (url.endsWith('/conversations')) return json({ conversations: [] });
+      if (url.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/c_provider'))
+        return json({
+          id: 'c_provider',
+          agent_mode: 'single',
+          autonomous: false,
+          codex_runtime: saved,
+          messages: [{ id: 1, role: 'user', content: 'Saved connection' }],
+        });
+      throw new Error(`unexpected request: ${url}`);
+    });
+    render(
+      host(
+        { view: 'chat', chat: { state: 'created', workspace: 'w_main', id: 'c_provider' } },
+        vi.fn<Navigate>(),
+      ),
+    );
+    await screen.findByText('Saved connection');
+    fireEvent.click(await screen.findByLabelText('Assistant Agent runtime'));
+    const options = screen.getAllByRole('radio', { name: 'GPT-6 at high' });
+    expect(options[0]).toBeDisabled();
+    expect(options[0]).not.toBeChecked();
+    expect(options[1]).not.toBeDisabled();
+    expect(options[1]).toBeChecked();
+  });
+
   it.each([
     { visibleAnchor: false, userScrolled: false },
     { visibleAnchor: true, userScrolled: false },

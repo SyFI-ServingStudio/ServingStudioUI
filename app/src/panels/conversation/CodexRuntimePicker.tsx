@@ -6,6 +6,7 @@ import { Fragment, useMemo, useState } from 'react';
 import type { CodexModelOption, CodexRoleRuntime, CodexRuntimeSelection } from './agentTypes';
 import { tokens, withAlpha } from '../../ui/theme';
 import { rolesForAgentMode, type CodexRoleName } from './agentMode';
+import { runtimeModel } from './codexRuntime';
 
 /**
  * Which roles get a chip is the caller's business: it depends on the
@@ -169,7 +170,7 @@ function RuntimePanel({
     return [...grouped.entries()];
   }, [models]);
   const efforts = useMemo(() => effortColumns(models), [models]);
-  const selectedModel = models.find((model) => model.id === runtime.model);
+  const selectedModel = runtimeModel(models, runtime);
   const fastAvailable = selectedModel?.serviceTiers?.includes('fast') ?? false;
   return (
     <Box sx={{ p: 1.4, pt: 1.2 }}>
@@ -301,10 +302,10 @@ function RuntimePanel({
                 <Box sx={{ flex: 1, borderTop: `1px solid ${tokens.hair}` }} />
               </Stack>
               {group.models.map((model) => {
-                const onRow = model.id === runtime.model;
+                const onRow = model === selectedModel;
                 const pickedIndex = onRow ? efforts.indexOf(runtime.effort) : -1;
                 return (
-                  <Fragment key={model.id}>
+                  <Fragment key={JSON.stringify([model.family, model.id])}>
                     <Tooltip
                       title={
                         model.available
@@ -343,6 +344,7 @@ function RuntimePanel({
                         locked={cellDisabled}
                         onSelect={() =>
                           onChange({
+                            provider: model.family,
                             model: model.id,
                             effort,
                             serviceTier: model.serviceTiers?.includes(runtime.serviceTier)
@@ -363,7 +365,7 @@ function RuntimePanel({
         // Kept to one short line: a wrapping paragraph would widen the panel,
         // and the locked family already carries its own padlock above.
         <Tooltip
-          title="An Agent session can only be resumed by the family that recorded it. Start a new conversation to use another family."
+          title="An Agent session can only be resumed by the connection that recorded it. Start a new conversation to use another connection."
           placement="bottom"
         >
           <Stack
@@ -401,7 +403,7 @@ function RuntimeChip({
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const style = sizeStyles[size];
-  const selectedModel = models.find((model) => model.id === runtime.model);
+  const selectedModel = runtimeModel(models, runtime);
   // The chip sits on a centred row, so a label-width change would shift both
   // chips on every pick. Each half reserves the widest value the catalog can put
   // in it and centres inside that; the chip is monospaced, so `ch` is exact.
@@ -539,8 +541,8 @@ function RuntimeChip({
 
 /**
  * Both role chips. `lockedFamilies` marks conversations that already have turns:
- * the model may still move within its family and the effort is always free, but
- * crossing families would orphan the Codex session that carries the history.
+ * the model may still move within its connection and the effort is always free,
+ * but crossing connections would orphan the provider session carrying history.
  */
 export default function CodexRuntimePicker({
   models,

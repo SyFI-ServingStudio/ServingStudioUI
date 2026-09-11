@@ -38,7 +38,7 @@ import type {
   CodexRuntimeSelection,
 } from '../panels/conversation/agentTypes';
 import { savedAgentSettings } from '../panels/conversation/agentMode';
-import { EMPTY_RUNTIME_SELECTION } from '../panels/conversation/codexRuntime';
+import { EMPTY_RUNTIME_SELECTION, runtimeModel } from '../panels/conversation/codexRuntime';
 import ConversationSurface, {
   type AgentConversationViewModel,
 } from '../panels/conversation/ConversationSurface';
@@ -729,7 +729,7 @@ function CreatedAgent({
   const lockedFamilies = useMemo(() => {
     if (state.messages.length === 0 || state.codexRuntime === null) return null;
     const family = (runtime: CodexRoleRuntime) =>
-      shared.modelOptions.find((model) => model.id === runtime.model)?.family ?? '';
+      runtime.provider ?? runtimeModel(shared.modelOptions, runtime)?.family ?? '';
     return {
       orchestrator: family(state.codexRuntime.orchestrator),
       implementer: family(state.codexRuntime.implementer),

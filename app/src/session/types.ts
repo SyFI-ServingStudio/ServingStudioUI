@@ -43,6 +43,7 @@ export type CodexServiceTier = z.infer<typeof codexServiceTierSchema>;
 
 export const codexRoleRuntimeSchema = z
   .object({
+    provider: nonEmpty.optional(),
     model: text,
     effort: text,
     serviceTier: codexServiceTierSchema,

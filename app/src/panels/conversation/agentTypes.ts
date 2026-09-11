@@ -11,6 +11,7 @@ export type AgentTerminalOutcome = 'final_answer' | 'request_user_input' | 'canc
 export type CodexServiceTier = 'default' | 'fast';
 
 export interface CodexRoleRuntime {
+  readonly provider?: string;
   readonly model: string;
   readonly effort: string;
   readonly serviceTier: CodexServiceTier;

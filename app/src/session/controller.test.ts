@@ -176,7 +176,7 @@ describe('sessionController', () => {
         title: 'GPU analysis',
         naming_state: 'generated',
         codex_runtime: {
-          orchestrator: { model: 'gpt-6', effort: 'high', serviceTier: 'fast' },
+          orchestrator: { provider: 'work', model: 'gpt-6', effort: 'high', serviceTier: 'fast' },
           implementer: { model: 'gpt-6', effort: 'medium', serviceTier: 'default' },
           assistant: { model: 'gpt-6', effort: 'high', serviceTier: 'default' },
         },
@@ -195,7 +195,7 @@ describe('sessionController', () => {
       title: 'GPU analysis',
       namingState: 'generated',
       codexRuntime: {
-        orchestrator: { model: 'gpt-6', effort: 'high', serviceTier: 'fast' },
+        orchestrator: { provider: 'work', model: 'gpt-6', effort: 'high', serviceTier: 'fast' },
       },
       agentSettings: { agentMode: 'single', autonomous: true, sandbox: 'read-only' },
     });
