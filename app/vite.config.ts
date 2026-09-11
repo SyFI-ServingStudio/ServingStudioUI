@@ -1,5 +1,7 @@
-import { defineConfig, loadEnv } from 'vite';
+import { fileURLToPath } from 'node:url';
+
 import react from '@vitejs/plugin-react';
+import { defineConfig, loadEnv } from 'vite';
 
 function commaSeparatedValues(value: string | undefined): string[] | undefined {
   const values = value
@@ -20,6 +22,14 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     plugins: [react()],
+    build: {
+      rollupOptions: {
+        // The Location-first application is the single production entry.
+        input: {
+          main: fileURLToPath(new URL('index.html', import.meta.url)),
+        },
+      },
+    },
     server: {
       host: serverHost,
       port: 5177,
@@ -28,19 +38,20 @@ export default defineConfig(({ mode }) => {
       // The browser remains same-origin; only Vite knows where the local Rust
       // service listens. Rewriting Host lets the analyzer enforce its own
       // target-host allowlist instead of trusting the browser-facing hostname.
+      // One entry per service, because each prefix now names the service that
+      // owns it. The table used to list eight overlapping paths, which is what
+      // happens when two services share a bare `/api/`: nothing about a route
+      // said where it belonged, so every route had to be enumerated.
       proxy: {
-        // The Rust Analyzer owns only its versioned, read-only artifact API.
-        // Workspace, conversation, and managed-run state belong to the shared
-        // conversation backend; explicit prefixes prevent accidental overlap.
-        '/api/v1': { target: analyzerTarget, changeOrigin: true },
-        '/api/codex-backends': { target: conversationTarget, changeOrigin: true },
-        '/api/conversations': { target: conversationTarget, changeOrigin: true },
-        '/api/jobs': { target: conversationTarget, changeOrigin: true },
-        '/api/workspaces': { target: conversationTarget, changeOrigin: true },
-        '/api/agent': { target: conversationTarget, changeOrigin: true },
-        '/api/file': { target: conversationTarget, changeOrigin: true },
-        '/api/internal': { target: conversationTarget, changeOrigin: true },
-        '/api/eval': { target: conversationTarget, changeOrigin: true },
+        // The Rust Analyzer's versioned, read-only artifact API.
+        '/api/analyzer/v1': { target: analyzerTarget, changeOrigin: true },
+        // Its browser-profiling sink, deliberately outside the read-only
+        // prefix above so a deployment can expose one without the other.
+        '/api/dev': { target: analyzerTarget, changeOrigin: true },
+        // The conversation backend: workspaces, conversations, jobs, files,
+        // the token-gated `/tools/` surface other agents call, and the
+        // `/internal/` callbacks managed runs post to.
+        '/api/agent/v1': { target: conversationTarget, changeOrigin: true },
       },
     },
     preview: { host: serverHost, port: 8778, allowedHosts },

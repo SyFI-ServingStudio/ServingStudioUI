@@ -1,0 +1,330 @@
+/**
+ * The conversation backend's read and command surface.
+ *
+ * Plain async functions over `fetch`, one per endpoint, each validating what
+ * comes back. No component state, no caching, no retries: those are decisions
+ * about *when* to call, and they belong to `controller.ts`.
+ *
+ * Addresses are built here and only here. Every identifier that becomes a path
+ * segment is escaped, because workspace and conversation ids are server-issued
+ * opaque strings — validated at the edge by `parseSessionRef`, escaped again
+ * here so a token that slips through cannot address a different route.
+ */
+import { z } from 'zod';
+
+import {
+  codexModelOptionSchema,
+  codexRuntimeSelectionSchema,
+  conversationSchema,
+  conversationSummarySchema,
+  managedJobSchema,
+  workspaceSchema,
+  type CodexRuntimeCatalog,
+  type CodexRuntimeSelection,
+  type Conversation,
+  type ConversationSummary,
+  type ManagedJob,
+  type SessionRef,
+  type Workspace,
+} from './types';
+
+/**
+ * The conversation backend, mounted beside the Analyzer.
+ *
+ * Relative, and the prefix names the service rather than the deployment: the
+ * dev server proxies `/api/agent/v1` to the backend and production serves both
+ * from one origin, so there is no host to configure and no CORS surface.
+ */
+const AGENT_BASE = '/api/agent/v1/';
+
+/**
+ * Raised for every failure a caller can act on.
+ *
+ * `status` is the HTTP status, or 0 when the request never got one — a
+ * transport failure, which is the case a caller cannot distinguish from the
+ * message alone and the one where "the backend said no" would be a lie.
+ */
+export class SessionApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'SessionApiError';
+  }
+}
+
+/**
+ * A failure in a sentence, for a reader rather than a log.
+ *
+ * Here rather than in each caller so that "could not reach the backend" is
+ * phrased once: a transport failure reaches the UI through several paths, and
+ * three spellings of it read as three different problems.
+ */
+export function describeError(error: unknown): string {
+  if (error instanceof SessionApiError) {
+    return error.status === 0
+      ? `could not reach the conversation backend: ${error.message}`
+      : error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+function segment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+export function conversationPath(ref: SessionRef): string {
+  return `${AGENT_BASE}workspaces/${segment(ref.workspace)}/conversations/${segment(ref.conversation)}`;
+}
+
+function workspacePath(workspace: string): string {
+  return `${AGENT_BASE}workspaces/${segment(workspace)}`;
+}
+
+/**
+ * Every request this module and `stream.ts` make, and the one way they fail.
+ *
+ * Shared rather than written twice because the two callers want the same four
+ * decisions and only differ in what they do with a successful response: a JSON
+ * read decodes it, a stream reads it as it arrives. Written twice, the copies
+ * drifted — one released the body of a failed response and the other did not —
+ * and the way that shows up is a page that has retried a few times quietly
+ * running out of connections.
+ *
+ * A successful response is returned unread, including the 2xx codes that carry
+ * nothing: `204` is how the backend says a conversation is idle, and that is
+ * the stream caller's business to interpret, not an error.
+ */
+export async function sessionFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch (error) {
+    // An abort is the caller's own doing and is rethrown as itself; wrapping it
+    // as a backend failure would put "could not reach the conversation backend"
+    // on a screen the reader had simply navigated away from.
+    if (init.signal?.aborted) throw error;
+    throw new SessionApiError(error instanceof Error ? error.message : String(error), 0);
+  }
+  if (response.ok) return response;
+  // The body is released before the throw. An error response still has one,
+  // and a body that is never read nor cancelled holds its connection until the
+  // garbage collector happens to run — which, on a page that retries, is a slow
+  // leak of the browser's small per-host connection budget.
+  void response.body?.cancel().catch(() => {
+    // Cancelling a body nobody read cannot fail in a way anyone can act on.
+  });
+  throw new SessionApiError(
+    `${response.status} ${response.statusText} for ${url}`,
+    response.status,
+  );
+}
+
+async function readJson<T>(url: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
+  const response = await sessionFetch(url, init);
+  const parsed = schema.safeParse(await response.json());
+  if (!parsed.success) {
+    const where = parsed.error.issues[0];
+    throw new SessionApiError(
+      `${url} returned a shape this build does not read: ${where?.path.join('.') || '<root>'} ${where?.message ?? ''}`,
+      response.status,
+    );
+  }
+  return parsed.data;
+}
+
+/**
+ * The workspaces this backend serves.
+ *
+ * The wire names are converted here, in one place, so nothing above this module
+ * has to know that a workspace calls itself `workspace_id`. A descriptor with
+ * no `display_name` falls back to its id rather than to an empty label: an
+ * unnamed workspace still has to be pickable.
+ */
+export async function listWorkspaces(signal?: AbortSignal): Promise<readonly Workspace[]> {
+  const body = await readJson(
+    `${AGENT_BASE}workspaces`,
+    z.object({ workspaces: z.array(workspaceSchema) }),
+    { signal },
+  );
+  return body.workspaces.map((descriptor) => ({
+    id: descriptor.workspace_id,
+    label: descriptor.display_name ?? descriptor.workspace_id,
+    archived: descriptor.state === 'archived',
+    storageKind:
+      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+        ? 'external'
+        : 'managed',
+    createdAt: descriptor.created_at ?? 0,
+    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
+    namingState: descriptor.naming_state ?? 'manual',
+  }));
+}
+
+/** Lifecycle rows that have not necessarily appeared in the Analyzer catalog yet. */
+export async function listManagedJobs(signal?: AbortSignal): Promise<readonly ManagedJob[]> {
+  const body = await readJson(`${AGENT_BASE}jobs`, z.object({ jobs: z.array(managedJobSchema) }), {
+    signal,
+  });
+  return body.jobs.map((job) => ({
+    workspaceId: job.workspace_id,
+    jobId: job.job_id,
+    conversationId: job.conversation_id,
+    conversationTitle: job.conversation_title,
+    resourceId: job.resource_id,
+    analyzerResourceId: job.analyzer_resource_id,
+    jobKind: job.job_kind,
+    status: job.status,
+    createdAt: job.created_at,
+    updatedAt: job.updated_at,
+  }));
+}
+
+export async function getWorkspace(workspace: string, signal?: AbortSignal): Promise<Workspace> {
+  const descriptor = await readJson(workspacePath(workspace), workspaceSchema, { signal });
+  return {
+    id: descriptor.workspace_id,
+    label: descriptor.display_name ?? descriptor.workspace_id,
+    archived: descriptor.state === 'archived',
+    storageKind:
+      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+        ? 'external'
+        : 'managed',
+    createdAt: descriptor.created_at ?? 0,
+    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
+    namingState: descriptor.naming_state ?? 'manual',
+  };
+}
+
+/** Create the managed workspace selected by the catalog's new-conversation flow. */
+export async function createWorkspace(
+  displayName: string,
+  signal?: AbortSignal,
+): Promise<Workspace> {
+  const descriptor = await readJson(`${AGENT_BASE}workspaces`, workspaceSchema, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, autoName: true }),
+    signal,
+  });
+  return {
+    id: descriptor.workspace_id,
+    label: descriptor.display_name ?? descriptor.workspace_id,
+    archived: descriptor.state === 'archived',
+    storageKind:
+      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+        ? 'external'
+        : 'managed',
+    createdAt: descriptor.created_at ?? 0,
+    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
+    namingState: descriptor.naming_state ?? 'manual',
+  };
+}
+
+/** Server-owned model choices; a picker must never invent a model or effort. */
+export async function listCodexBackends(signal?: AbortSignal): Promise<CodexRuntimeCatalog> {
+  return readJson(
+    `${AGENT_BASE}codex-backends`,
+    z.object({
+      models: z.array(codexModelOptionSchema),
+      defaults: codexRuntimeSelectionSchema,
+    }),
+    { signal },
+  );
+}
+
+export async function listConversations(
+  workspace: string,
+  signal?: AbortSignal,
+): Promise<readonly ConversationSummary[]> {
+  const body = await readJson(
+    `${workspacePath(workspace)}/conversations`,
+    z.object({ conversations: z.array(conversationSummarySchema) }),
+    { signal },
+  );
+  return body.conversations;
+}
+
+/**
+ * Read a conversation, or one page of it backwards.
+ *
+ * Omitting `limit` asks for the whole history, which is the backend's original
+ * contract and what a short conversation should use. `before` is the absolute
+ * position of the oldest message already held, so paging is a single number and
+ * never a page count that could drift as the conversation grows.
+ */
+export async function getConversation(
+  ref: SessionRef,
+  page?: { limit: number; before?: number },
+  signal?: AbortSignal,
+): Promise<Conversation> {
+  const query =
+    page === undefined
+      ? ''
+      : `?limit=${page.limit}${page.before === undefined ? '' : `&before=${page.before}`}`;
+  return readJson(`${conversationPath(ref)}${query}`, conversationSchema, { signal });
+}
+
+export async function createConversation(
+  workspace: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<ConversationSummary> {
+  return readJson(`${workspacePath(workspace)}/conversations`, conversationSummarySchema, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
+
+export async function updateConversationRuntime(
+  ref: SessionRef,
+  codexRuntime: CodexRuntimeSelection,
+  signal?: AbortSignal,
+): Promise<Conversation> {
+  return readJson(`${conversationPath(ref)}/runtime`, conversationSchema, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ codex_runtime: codexRuntime }),
+    signal,
+  });
+}
+
+export async function deleteConversation(ref: SessionRef, signal?: AbortSignal): Promise<void> {
+  await readJson(conversationPath(ref), z.object({ ok: z.boolean() }), {
+    method: 'DELETE',
+    signal,
+  });
+}
+
+/**
+ * Ask the backend to stop the running turn, and wait for it to say it did.
+ *
+ * This is not `detach`. Cancelling ends work on the server and is confirmed by
+ * the response; detaching only stops this browser listening. Merging them would
+ * make closing a panel kill a turn the user wanted to keep — or leave a
+ * runaway turn running because a tab was closed.
+ */
+export async function cancelTurn(
+  ref: SessionRef,
+  options: { turnId?: string | null; signal?: AbortSignal } = {},
+): Promise<{ cancelled: boolean; interruptedRole: string }> {
+  // Named, or not. `/cancel` addresses the conversation, so an unnamed request
+  // means "whatever is running" — which is what a reader pressing Stop means,
+  // and is the only thing a caller who has not yet been told a turn id can ask
+  // for. A caller that *does* know which turn it means says so, and the backend
+  // refuses rather than substituting: see `cancel_message` in `backend/app.py`.
+  const named = options.turnId ?? null;
+  const query = named === null ? '' : `?turn_id=${encodeURIComponent(named)}`;
+  const body = await readJson(
+    `${conversationPath(ref)}/cancel${query}`,
+    z.object({ cancelled: z.boolean().optional(), interrupted_role: z.string().optional() }),
+    { method: 'POST', signal: options.signal },
+  );
+  return {
+    cancelled: body.cancelled === true,
+    interruptedRole: body.interrupted_role ?? '',
+  };
+}

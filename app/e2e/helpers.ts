@@ -1,73 +1,5 @@
 import { expect, type Page } from '@playwright/test';
 
-export const REAL_RUN_ID = '20260715_1_afd_ui_reanalysis';
-
-export async function openRealRun(page: Page): Promise<void> {
-  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
-  await page.goto('/#/run');
-  await expect(page.getByText('Current run', { exact: true })).toBeVisible();
-  await expect(page.getByText(REAL_RUN_ID, { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Model overview', level: 3 })).toBeVisible();
-}
-
-/** The checked-in alignment bundle, three iterations wide. Built by
- * `scripts/extract-alignment-fixture.mjs` from a real capture, so the page is
- * exercised against the shapes the analyzer actually emits. */
-export const FIXTURE_ALIGNMENT_ID = 'al_fixture_llama3_8b_tp4';
-
-export async function openAlignmentFixture(page: Page): Promise<void> {
-  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
-  await page.goto(`/#/alignment?workspace=w_main&alignment=${FIXTURE_ALIGNMENT_ID}`);
-  await expect(page.getByRole('heading', { name: 'Every iteration, paired' })).toBeVisible();
-  await expect(
-    page.getByRole('application', { name: /measured and modelled per iteration/i }),
-  ).toBeVisible();
-}
-
-export async function scopeToPool(page: Page, poolTag: string): Promise<void> {
-  await page.getByRole('button', { name: `Scope to pool ${poolTag}` }).click();
-  await expect(page.getByRole('heading', { name: `Pool · ${poolTag}`, level: 2 })).toBeVisible();
-}
-
-export async function scopeToWorker(page: Page, workerKey: string): Promise<void> {
-  await page
-    .getByRole('button', { name: `Scope to worker ${workerKey}` })
-    .first()
-    .click();
-  await expect(
-    page.getByRole('heading', { name: `Worker · ${workerKey}`, level: 2 }),
-  ).toBeVisible();
-}
-
-export async function expectRenderedCharts(page: Page): Promise<void> {
-  const chartSvgs = page.locator('[role="img"] .echarts-for-react svg');
-  await expect(chartSvgs.first()).toBeVisible();
-  await expect(async () => {
-    const invalidCharts = await chartSvgs.evaluateAll((svgs) =>
-      svgs
-        .map((element, index) => {
-          const svg = element instanceof SVGSVGElement ? element : null;
-          const bounds = element.getBoundingClientRect();
-          return {
-            index,
-            layout: [bounds.width, bounds.height],
-            intrinsic: [svg?.width.baseVal.value ?? 0, svg?.height.baseVal.value ?? 0],
-            textNodes: svg?.querySelectorAll('text').length ?? 0,
-          };
-        })
-        .filter(
-          ({ layout, intrinsic, textNodes }) =>
-            layout[0] <= 0 ||
-            layout[1] <= 0 ||
-            intrinsic[0] <= 0 ||
-            intrinsic[1] <= 0 ||
-            textNodes <= 0,
-        ),
-    );
-    expect(invalidCharts, JSON.stringify(invalidCharts, null, 2)).toEqual([]);
-  }).toPass({ timeout: 5_000 });
-}
-
 export async function expectKernelShareGeometry(page: Page): Promise<void> {
   const bar = page.getByRole('group', { name: 'Kernel position time share' });
   await expect(bar).toBeVisible();
@@ -206,9 +138,29 @@ export const WORKING_STYLES = [
  * empty so the only thing that can move or fail is the control under test.
  */
 export async function openAgentStart(page: Page): Promise<void> {
-  await page.route('**/api/codex-backends', (route) => route.fulfill({ json: CODEX_CATALOG }));
-  await page.route('**/api/jobs', (route) => route.fulfill({ json: { jobs: [] } }));
-  await page.route('**/api/conversations', (route) =>
+  const emptyCatalogs: Record<string, string> = {
+    runs: 'runs',
+    sweeps: 'sweeps',
+    predictions: 'predictions',
+    alignments: 'alignments',
+    'kernel-profiles': 'kernel_profiles',
+    'kernel-measurements': 'kernel_measurements',
+  };
+  for (const [path, key] of Object.entries(emptyCatalogs)) {
+    await page.route(`**/api/analyzer/v1/${path}`, (route) =>
+      route.fulfill({
+        json: { protocol_version: 1, generated_at: '2026-09-10T00:00:00Z', [key]: [] },
+      }),
+    );
+  }
+  await page.route('**/api/agent/v1/codex-backends', (route) =>
+    route.fulfill({ json: CODEX_CATALOG }),
+  );
+  await page.route('**/api/agent/v1/workspaces', (route) =>
+    route.fulfill({ json: { workspaces: [] } }),
+  );
+  await page.route('**/api/agent/v1/jobs', (route) => route.fulfill({ json: { jobs: [] } }));
+  await page.route('**/api/agent/v1/conversations', (route) =>
     route.fulfill({ json: { conversations: [] } }),
   );
   await page.goto('/');

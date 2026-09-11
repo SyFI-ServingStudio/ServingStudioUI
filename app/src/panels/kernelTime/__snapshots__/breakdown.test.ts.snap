@@ -1,0 +1,117 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`kernel-time chart projection > keeps the accepted aggregate chart option 1`] = `
+{
+  "grid": {
+    "bottom": 28,
+    "left": 156,
+    "right": 22,
+    "top": 30,
+  },
+  "legend": {
+    "itemHeight": 8,
+    "itemWidth": 12,
+    "right": 0,
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "barMaxWidth": 34,
+      "data": [
+        60,
+        100,
+        42.857142857142854,
+      ],
+      "itemStyle": {
+        "color": "#7192b1",
+      },
+      "name": "Dense GEMM",
+      "stack": "kernel",
+      "type": "bar",
+    },
+    {
+      "barMaxWidth": 34,
+      "data": [
+        40,
+        0,
+        57.14285714285714,
+      ],
+      "itemStyle": {
+        "color": "#5e9e74",
+      },
+      "name": "Attention",
+      "stack": "kernel",
+      "type": "bar",
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "axisPointer": {
+      "type": "shadow",
+    },
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+    "valueFormatter": [Function],
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+      "formatter": "{value}%",
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "max": 100,
+    "name": "% of CostTree root kernel time",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+      "fontWeight": 600,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "data": [
+      "cluster · 100.00 ms",
+      "prefill · 30.00 ms",
+      "decode · 70.00 ms",
+    ],
+    "inverse": true,
+    "type": "category",
+  },
+}
+`;

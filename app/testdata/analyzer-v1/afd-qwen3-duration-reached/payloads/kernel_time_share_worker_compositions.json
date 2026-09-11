@@ -1,0 +1,424 @@
+{
+  "attn/0": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 0
+    },
+    "kernel_time_ms": 1394618.7568870764,
+    "raw_rows": 5478370,
+    "sampled_rows": 24800,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1394309.1581704337,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.9778004766454
+      },
+      {
+        "kernel_time_ms": 309.59871664466954,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.02219952335473558
+      }
+    ]
+  },
+  "attn/1": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 1
+    },
+    "kernel_time_ms": 1395455.8838239703,
+    "raw_rows": 5478060,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1394929.1954923866,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.9622568984309
+      },
+      {
+        "kernel_time_ms": 526.6883315781322,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.03774310156870364
+      }
+    ]
+  },
+  "attn/2": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 2
+    },
+    "kernel_time_ms": 1407415.165658502,
+    "raw_rows": 5478184,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1406996.4656102234,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.97025042372039
+      },
+      {
+        "kernel_time_ms": 418.700048282497,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.029749576279902844
+      }
+    ]
+  },
+  "attn/3": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 3
+    },
+    "kernel_time_ms": 1390141.2861713646,
+    "raw_rows": 5478246,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1390141.2861713648,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 100.00000000000001
+      }
+    ]
+  },
+  "attn/4": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 4
+    },
+    "kernel_time_ms": 1397606.0250869235,
+    "raw_rows": 5478431,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1397343.8647212156,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.98124218406318
+      },
+      {
+        "kernel_time_ms": 262.1603657074516,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.018757815936801408
+      }
+    ]
+  },
+  "attn/5": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 5
+    },
+    "kernel_time_ms": 1396505.3220971134,
+    "raw_rows": 5478184,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1395751.3057712454,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.9460069135479
+      },
+      {
+        "kernel_time_ms": 754.0163258649136,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.05399308645187383
+      }
+    ]
+  },
+  "attn/6": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 6
+    },
+    "kernel_time_ms": 1391215.0056370283,
+    "raw_rows": 5478060,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1390750.557940016,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.96661567801308
+      },
+      {
+        "kernel_time_ms": 464.44769701052047,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.03338432198679836
+      }
+    ]
+  },
+  "attn/7": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "attn",
+      "worker_id": 7
+    },
+    "kernel_time_ms": 1394994.7198941298,
+    "raw_rows": 5478122,
+    "sampled_rows": 24738,
+    "sample_stride": 220,
+    "segments": [
+      {
+        "kernel_time_ms": 1394580.822023642,
+        "kind": "flashinfer_attn_decode",
+        "position": "afd.attn.decode",
+        "share_pct": 99.97032978945475
+      },
+      {
+        "kernel_time_ms": 413.89787049039995,
+        "kind": "flashinfer_attn_prefill",
+        "position": "afd.attn.prefill",
+        "share_pct": 0.029670210545442915
+      }
+    ]
+  },
+  "ffn/0": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "ffn",
+      "worker_id": 0
+    },
+    "kernel_time_ms": 1300056.2594110202,
+    "raw_rows": 2871282,
+    "sampled_rows": 24738,
+    "sample_stride": 115,
+    "segments": [
+      {
+        "kernel_time_ms": 523842.2708743342,
+        "kind": "grouped_gemm",
+        "position": "afd.moe_expert_compute.gate_up",
+        "share_pct": 40.293815523926376
+      },
+      {
+        "kernel_time_ms": 283365.10280892416,
+        "kind": "grouped_gemm",
+        "position": "afd.moe_expert_compute.down",
+        "share_pct": 21.79637233063286
+      },
+      {
+        "kernel_time_ms": 84426.97038437583,
+        "kind": "single_gemm",
+        "position": "afd.pre_attn.qkv_proj",
+        "share_pct": 6.4941012954796875
+      },
+      {
+        "kernel_time_ms": 73539.23298490031,
+        "kind": "single_gemm",
+        "position": "afd.lm_head",
+        "share_pct": 5.656619277247022
+      },
+      {
+        "kernel_time_ms": 73859.1116613541,
+        "kind": "all_reduce",
+        "position": "afd.post_attn.tp_allreduce",
+        "share_pct": 5.6812242644649364
+      },
+      {
+        "kernel_time_ms": 72952.12233923424,
+        "kind": "single_gemm",
+        "position": "afd.post_attn.o_proj",
+        "share_pct": 5.611458874270918
+      },
+      {
+        "kernel_time_ms": 39345.61957062597,
+        "kind": "p2p_intra",
+        "position": "afd.moe_combine.combine_intra_reduce",
+        "share_pct": 3.02645514652198
+      },
+      {
+        "kernel_time_ms": 31928.778602548082,
+        "kind": "single_gemm",
+        "position": "afd.post_attn.moe_router.router_gemm",
+        "share_pct": 2.455953607501044
+      },
+      {
+        "kernel_time_ms": 31708.79117628586,
+        "kind": "p2p_intra",
+        "position": "afd.moe_combine.combine_intra_fanout",
+        "share_pct": 2.4390322300860476
+      },
+      {
+        "kernel_time_ms": 31123.8111168744,
+        "kind": "p2p_intra",
+        "position": "afd.moe_dispatch.dispatch_intra",
+        "share_pct": 2.3940357112679713
+      },
+      {
+        "kernel_time_ms": 16184.728811568184,
+        "kind": "rms_norm",
+        "position": "afd.pre_attn.input_norm",
+        "share_pct": 1.2449252633805665
+      },
+      {
+        "kernel_time_ms": 16143.223454407942,
+        "kind": "rms_norm",
+        "position": "afd.post_attn.moe_router.post_attn_norm",
+        "share_pct": 1.2417326817626722
+      },
+      {
+        "kernel_time_ms": 11508.358332672104,
+        "kind": "elementwise",
+        "position": "afd.moe_expert_compute.activation",
+        "share_pct": 0.88522002408464
+      },
+      {
+        "kernel_time_ms": 9505.57272830319,
+        "kind": "elementwise",
+        "position": "afd.moe_local_reduce",
+        "share_pct": 0.7311662598824463
+      },
+      {
+        "kernel_time_ms": 380.2145643286229,
+        "kind": "rms_norm",
+        "position": "afd.final_norm",
+        "share_pct": 0.029246008515114257
+      },
+      {
+        "kernel_time_ms": 242.3500003060368,
+        "kind": "elementwise",
+        "position": "afd.embedding",
+        "share_pct": 0.01864150097749089
+      }
+    ]
+  },
+  "ffn/1": {
+    "schema_version": 2,
+    "scope": {
+      "kind": "worker",
+      "pool_tag": "ffn",
+      "worker_id": 1
+    },
+    "kernel_time_ms": 1311365.4956083256,
+    "raw_rows": 2872299,
+    "sampled_rows": 24375,
+    "sample_stride": 115,
+    "segments": [
+      {
+        "kernel_time_ms": 523400.5039173497,
+        "kind": "grouped_gemm",
+        "position": "afd.moe_expert_compute.gate_up",
+        "share_pct": 39.91263348549146
+      },
+      {
+        "kernel_time_ms": 283095.036802413,
+        "kind": "grouped_gemm",
+        "position": "afd.moe_expert_compute.down",
+        "share_pct": 21.587805821525667
+      },
+      {
+        "kernel_time_ms": 84032.75966334416,
+        "kind": "single_gemm",
+        "position": "afd.pre_attn.qkv_proj",
+        "share_pct": 6.408034979169742
+      },
+      {
+        "kernel_time_ms": 86040.73038979832,
+        "kind": "single_gemm",
+        "position": "afd.lm_head",
+        "share_pct": 6.561155580037976
+      },
+      {
+        "kernel_time_ms": 73830.65129883123,
+        "kind": "all_reduce",
+        "position": "afd.post_attn.tp_allreduce",
+        "share_pct": 5.630059014522274
+      },
+      {
+        "kernel_time_ms": 72974.71764119802,
+        "kind": "single_gemm",
+        "position": "afd.post_attn.o_proj",
+        "share_pct": 5.564788602840735
+      },
+      {
+        "kernel_time_ms": 39370.63910431286,
+        "kind": "p2p_intra",
+        "position": "afd.moe_combine.combine_intra_reduce",
+        "share_pct": 3.0022628501483735
+      },
+      {
+        "kernel_time_ms": 31896.496878550133,
+        "kind": "single_gemm",
+        "position": "afd.post_attn.moe_router.router_gemm",
+        "share_pct": 2.4323117380600103
+      },
+      {
+        "kernel_time_ms": 31701.0860628838,
+        "kind": "p2p_intra",
+        "position": "afd.moe_combine.combine_intra_fanout",
+        "share_pct": 2.417410414491505
+      },
+      {
+        "kernel_time_ms": 31110.661251618556,
+        "kind": "p2p_intra",
+        "position": "afd.moe_dispatch.dispatch_intra",
+        "share_pct": 2.3723867492172133
+      },
+      {
+        "kernel_time_ms": 16109.835905630076,
+        "kind": "rms_norm",
+        "position": "afd.pre_attn.input_norm",
+        "share_pct": 1.228477946047904
+      },
+      {
+        "kernel_time_ms": 16133.94907519399,
+        "kind": "rms_norm",
+        "position": "afd.post_attn.moe_router.post_attn_norm",
+        "share_pct": 1.2303167293348418
+      },
+      {
+        "kernel_time_ms": 11504.786291622953,
+        "kind": "elementwise",
+        "position": "afd.moe_expert_compute.activation",
+        "share_pct": 0.8773134820270706
+      },
+      {
+        "kernel_time_ms": 9495.95262944341,
+        "kind": "elementwise",
+        "position": "afd.moe_local_reduce",
+        "share_pct": 0.7241270767947391
+      },
+      {
+        "kernel_time_ms": 445.63021775349085,
+        "kind": "rms_norm",
+        "position": "afd.final_norm",
+        "share_pct": 0.033982152134235374
+      },
+      {
+        "kernel_time_ms": 222.05847836842477,
+        "kind": "elementwise",
+        "position": "afd.embedding",
+        "share_pct": 0.016933378155219395
+      }
+    ]
+  }
+}

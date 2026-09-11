@@ -67,8 +67,8 @@ it('enforces production code while permitting theme definitions and test fixture
   const eslint = new ESLint();
   for (const [filePath, expected] of [
     ['src/components/TokenProbe.tsx', 1],
-    ['src/theme/palettes.ts', 0],
-    ['src/theme.ts', 0],
+    ['src/ui/theme/palettes.ts', 0],
+    ['src/ui/theme/index.ts', 0],
     ['src/components/TokenProbe.test.tsx', 0],
   ]) {
     const [result] = await eslint.lintText("export const probe = { color: '#abcdef' };", {

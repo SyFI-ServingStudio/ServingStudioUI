@@ -1,0 +1,541 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`request-state options > keeps the accepted cluster chart including its cursor 1`] = `
+{
+  "grid": {
+    "bottom": 30,
+    "left": 46,
+    "right": 16,
+    "top": 30,
+  },
+  "legend": {
+    "data": [
+      "pending",
+      "active",
+      "done",
+    ],
+    "itemHeight": 8,
+    "itemWidth": 14,
+    "right": 0,
+    "selectedMode": "multiple",
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "areaStyle": {
+        "color": "#f88070",
+        "opacity": 0.58,
+      },
+      "color": "#f88070",
+      "data": [
+        5,
+        7,
+        7,
+      ],
+      "emphasis": {
+        "focus": "series",
+      },
+      "lineStyle": {
+        "color": "#f88070",
+        "opacity": 0.9,
+        "width": 0.8,
+      },
+      "name": "pending",
+      "stack": "request-state-categories",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+    },
+    {
+      "areaStyle": {
+        "color": "#8db9e2",
+        "opacity": 0.58,
+      },
+      "color": "#8db9e2",
+      "data": [
+        2,
+        3,
+        3,
+      ],
+      "emphasis": {
+        "focus": "series",
+      },
+      "lineStyle": {
+        "color": "#8db9e2",
+        "opacity": 0.9,
+        "width": 1.4,
+      },
+      "name": "active",
+      "stack": "request-state-categories",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+    },
+    {
+      "areaStyle": {
+        "color": "#a0a0a0",
+        "opacity": 0.3,
+      },
+      "color": "#a0a0a0",
+      "data": [
+        0,
+        2,
+        2,
+      ],
+      "emphasis": {
+        "focus": "series",
+      },
+      "lineStyle": {
+        "color": "#a0a0a0",
+        "opacity": 0.9,
+        "width": 0.8,
+      },
+      "name": "done",
+      "stack": "request-state-categories",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+    },
+    {
+      "animation": false,
+      "data": [],
+      "markLine": {
+        "data": [
+          {
+            "xAxis": "5.00",
+          },
+        ],
+        "label": {
+          "color": "#f88070",
+          "fontSize": 10.125,
+          "formatter": "iter",
+          "position": "start",
+        },
+        "lineStyle": {
+          "color": "#f88070",
+          "opacity": 0.85,
+          "width": 1.5,
+        },
+        "silent": true,
+        "symbol": [
+          "none",
+          "none",
+        ],
+      },
+      "showSymbol": false,
+      "silent": true,
+      "type": "line",
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "formatter": [Function],
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+      "formatter": [Function],
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "boundaryGap": false,
+    "data": [
+      "0.00",
+      "5.00",
+      "10.00",
+    ],
+    "name": "s",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "show": false,
+    },
+    "type": "category",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "min": 0,
+    "name": "requests",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+}
+`;
+
+exports[`request-state options > keeps the accepted cluster chart including its cursor 2`] = `
+{
+  "axis": "5",
+  "tooltip": "5.0s
+pending: 2.0 requests",
+}
+`;
+
+exports[`request-state options > keeps the accepted pool aggregate, average, and worker lines 1`] = `
+{
+  "grid": {
+    "bottom": 30,
+    "left": 62,
+    "right": 18,
+    "top": 34,
+  },
+  "legend": {
+    "data": [
+      "pool aggregate",
+      "worker average",
+      "worker 0",
+      "worker 1",
+    ],
+    "itemHeight": 8,
+    "itemWidth": 14,
+    "right": 0,
+    "selectedMode": "multiple",
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "color": "#f88070",
+      "data": [
+        5,
+        7,
+        7,
+      ],
+      "lineStyle": {
+        "color": "#f88070",
+        "opacity": 1,
+        "width": 2.8,
+      },
+      "name": "pool aggregate",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 5,
+    },
+    {
+      "color": "#8db9e2",
+      "data": [
+        2.5,
+        3.5,
+        3.5,
+      ],
+      "lineStyle": {
+        "color": "#8db9e2",
+        "opacity": 1,
+        "type": "dashed",
+        "width": 2.1,
+      },
+      "name": "worker average",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 4,
+    },
+    {
+      "color": "#e2c08d",
+      "data": [
+        2,
+        3,
+        3,
+      ],
+      "emphasis": {
+        "focus": "series",
+        "lineStyle": {
+          "opacity": 1,
+          "width": 2,
+        },
+      },
+      "lineStyle": {
+        "color": "#e2c08d",
+        "opacity": 0.48,
+        "width": 1,
+      },
+      "name": "worker 0",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 2,
+    },
+    {
+      "color": "#73c991",
+      "data": [
+        3,
+        4,
+        4,
+      ],
+      "emphasis": {
+        "focus": "series",
+        "lineStyle": {
+          "opacity": 1,
+          "width": 2,
+        },
+      },
+      "lineStyle": {
+        "color": "#73c991",
+        "opacity": 0.48,
+        "width": 1,
+      },
+      "name": "worker 1",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+      "z": 2,
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "formatter": [Function],
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+      "formatter": [Function],
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "boundaryGap": false,
+    "data": [
+      "0.00",
+      "5.00",
+      "10.00",
+    ],
+    "name": "s",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "show": false,
+    },
+    "type": "category",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "min": 0,
+    "name": "pending requests",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+}
+`;
+
+exports[`request-state options > keeps the accepted pool aggregate, average, and worker lines 2`] = `
+{
+  "axis": "5",
+  "tooltip": "5.0s
+pending: 2.0 requests",
+}
+`;
+
+exports[`request-state options > keeps the accepted selected-worker category stack 1`] = `
+{
+  "grid": {
+    "bottom": 30,
+    "left": 46,
+    "right": 16,
+    "top": 30,
+  },
+  "legend": {
+    "data": [
+      "pending",
+    ],
+    "itemHeight": 8,
+    "itemWidth": 14,
+    "right": 0,
+    "selectedMode": "multiple",
+    "textStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "top": 0,
+  },
+  "series": [
+    {
+      "areaStyle": {
+        "color": "#f88070",
+        "opacity": 0.58,
+      },
+      "color": "#f88070",
+      "data": [
+        2,
+        3,
+        3,
+      ],
+      "emphasis": {
+        "focus": "series",
+      },
+      "lineStyle": {
+        "color": "#f88070",
+        "opacity": 0.9,
+        "width": 0.8,
+      },
+      "name": "pending",
+      "stack": "request-state-categories",
+      "step": "end",
+      "symbol": "none",
+      "type": "line",
+    },
+  ],
+  "textStyle": {
+    "color": "#cccccc",
+    "fontFamily": "'Geist', Arial, sans-serif",
+  },
+  "tooltip": {
+    "backgroundColor": "#333333",
+    "borderWidth": 0,
+    "formatter": [Function],
+    "renderMode": "richText",
+    "textStyle": {
+      "color": "#cccccc",
+      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontSize": 13.5,
+    },
+    "trigger": "axis",
+  },
+  "xAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+      "formatter": [Function],
+    },
+    "axisLine": {
+      "lineStyle": {
+        "color": "#3c3c3c",
+      },
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "boundaryGap": false,
+    "data": [
+      "0.00",
+      "5.00",
+      "10.00",
+    ],
+    "name": "s",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "show": false,
+    },
+    "type": "category",
+  },
+  "yAxis": {
+    "axisLabel": {
+      "color": "#a0a0a0",
+      "fontSize": 12.375,
+    },
+    "axisLine": {
+      "show": false,
+    },
+    "axisTick": {
+      "show": false,
+    },
+    "min": 0,
+    "name": "pending requests",
+    "nameTextStyle": {
+      "color": "#a0a0a0",
+      "fontSize": 11.25,
+    },
+    "splitLine": {
+      "lineStyle": {
+        "color": "rgba(160,160,160,0.12)",
+        "type": "dashed",
+      },
+    },
+    "type": "value",
+  },
+}
+`;
+
+exports[`request-state options > keeps the accepted selected-worker category stack 2`] = `
+{
+  "axis": "5",
+  "tooltip": "5.0s
+pending: 2.0 requests",
+}
+`;

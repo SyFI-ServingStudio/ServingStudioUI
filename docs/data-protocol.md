@@ -124,7 +124,7 @@ descriptor，而不是改变 analyzer 现有 root `manifest.json` 的复现语�
 ### 4.1 Catalog
 
 Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览器不接收 logs root，
-也不扫描文件系统。catalog route 固定为 `GET /api/v1/runs`：
+也不扫描文件系统。catalog route 固定为 `GET /api/analyzer/v1/runs`：
 
 ```json
 {
@@ -135,7 +135,6 @@ Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览
       "run_id": "r_01JZX8NQJ9YFJ5KQ7Q3T9F1M2P",
       "kind": "simulation",
       "display_name": "20260715_1_afd_ui_reanalysis",
-      "descriptor_href": "runs/r_01JZX8NQJ9YFJ5KQ7Q3T9F1M2P/descriptor",
       "lifecycle": { "simulation": "complete", "analysis": "complete" },
       "updated_at": "2026-07-15T05:11:53Z"
     }
@@ -150,8 +149,9 @@ Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览
   `display_name`。
 - catalog 包含可描述的 pending/failed run；只有 cache-build 临时目录和完全没有 run
   sidecar 的壳目录被排除。列表按 `updated_at` 降序、再按 `run_id` 排序。
-- `descriptor_href` 相对 catalog URL 解析。服务对 catalog 和 descriptor 返回
-  `ETag`。catalog 在前台每 30 秒 conditional refetch，并在窗口重新聚焦时
+- catalog row 只给 id，不给地址；descriptor 位于 `runs/{run_id}/descriptor`，由
+  §4.4 的寻址语法推出。`updated_at` 变化即表示该 run 的 descriptor 需要重读。
+  服务对 catalog 和 descriptor 返回 `ETag`。catalog 在前台每 30 秒 conditional refetch，并在窗口重新聚焦时
   刷新。descriptor 在 simulation 或 analysis 为 `pending` 时每 2 秒刷新；
   terminal `complete`/`failed` 停止定时轮询，但仍在窗口聚焦时刷新。
   simulation 已完成而 analysis 仍为 `not_started` 可能是 launcher 在写入
@@ -160,8 +160,7 @@ Rust 服务由显式配置的一个或多个 logs root 递归发现 run；浏览
 
 ### 4.2 Descriptor
 
-`GET /api/v1/runs/{run_id}/descriptor` 返回下列合同；静态 artifact export 使用相同
-JSON 作为 `run_descriptor.json`：
+`GET /api/analyzer/v1/runs/{run_id}/descriptor` 返回下列合同：
 
 ```json
 {
@@ -175,15 +174,14 @@ JSON 作为 `run_descriptor.json`：
     "simulation": "complete",
     "analysis": "complete"
   },
-  "summary": { "href": "summary.json" },
-  "model": { "href": "artifacts/model.json", "schema_version": 2 },
-  "topology": { "href": "artifacts/topology.json" },
+  "summary": { "views": ["report"] },
+  "model": { "views": ["payload"], "schema_version": 2 },
+  "topology": { "views": ["payload"] },
   "subjects": {
     "slo-general": {
       "status": "ready",
       "schema_version": 1,
-      "report_href": "revisions/20260715T050953Z-7a31c2f/reports/slo-general",
-      "payload_href": "revisions/20260715T050953Z-7a31c2f/payloads/slo-general"
+      "views": ["report", "payload"]
     },
     "backpressure": {
       "status": "not_generated"
@@ -198,10 +196,7 @@ JSON 作为 `run_descriptor.json`：
     "iteration-detail": { "status": "not_generated" }
   },
   "traces": {
-    "perfetto": {
-      "status": "ready",
-      "href": "revisions/20260715T050953Z-7a31c2f/traces/perfetto"
-    }
+    "perfetto": { "status": "ready", "href": "traces/perfetto" }
   },
   "analysis": {
     "revision": "20260715T050953Z-7a31c2f",
@@ -213,18 +208,24 @@ JSON 作为 `run_descriptor.json`：
 
 `protocol_version` 描述 descriptor；每个 subject 的 `schema_version` 描述其 payload。两者独立演进。
 
+descriptor 是**能力清单**：它只声明某个 artifact 存不存在、有哪几种读法
+（`views`）、payload 是第几版，从不声明它在哪里。地址由 §4.4 的语法推出。把
+URL 写进 descriptor 会让同一件事有两个真相来源——router 一改，descriptor 里的
+字符串就悄悄过期，而客户端跟着一条不存在的链接走时看到的是 404，不是协议错误。
+`traces` 是唯一的例外：它指向一个不参与 subject 语法的原始下载，因此仍带 `href`。
+
 model resource v2 保留原始 `config`，并增加可空的 `parameter_counts`：`total`、
 `active`（`model.work` 的 `activated.with_embed_head`）、`active_layers` 和固定
 `active_definition="with_embed_head"`。不支持的 architecture 只令该字段为 `null`，
 不会使 model config resource 整体失败；UI 仍兼容没有此字段的 v1 resource。
 
 同一 subject 的显式 counterfactual 使用 ready subject 的可选 `variants` map 发布；variant
-继承 subject `schema_version`，并拥有独立 `report_href` / `payload_href`。primary href 保持
-旧客户端兼容。`optimality.variants.batch_locked` 与 primary unlocked payload 同时存在，UI
+继承 subject `schema_version`，只声明自己的 `views`。variant 的 key 同时就是它的地址
+段，因此限制为 `[A-Za-z0-9_-]+`。`optimality.variants.batch_locked` 与 primary unlocked payload 同时存在，UI
 switch 必须同时切换 aggregate payload 和 exact iteration 请求，不能混用两种 mode。
 
-`details` 中每一种高基数资源也拥有独立 `schema_version` 和 endpoint/index
-`href`；不能借用 `kernel-time-share` 的版本。当前由 kernel-time-share worker
+`details` 中每一种高基数资源也拥有独立 `schema_version` 和 `views`；不能借用
+`kernel-time-share` 的版本。当前由 kernel-time-share worker
 composition 投影的扁平 run aggregate 不是 hierarchical worker/iteration CostTree，
 不得在 descriptor 中声称后者 ready。iteration index 必须分页，iteration detail 只在
 用户选择后请求。
@@ -287,7 +288,8 @@ composition/statistics 使用 analyzer 声明的 regular iteration-stride sample
 simulation 完成，因为 launcher 在它之后才运行 analyzer；旧 schema v1 的语义修复也
 必须通过 generator version/revision 区分，不能只依赖 `schema_version`。当
 `lifecycle.analysis` 为 `complete` 时 `analysis` 必须存在；每次重新生成 artifact 都必须
-发布新的 `revision`，即使 href 和 subject `schema_version` 没有变化。
+发布新的 `revision`，即使 subject `schema_version` 没有变化。它是 UI query key 的
+scope：地址不再随 generation 改变，所以缓存要靠 revision 而不是靠 URL 分辨新旧。
 
 HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览器直接读取两个
 任意 raw 路径：
@@ -304,9 +306,33 @@ HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览�
 调用与静态 artifact 相同的 `parseAnalyzerV1Topology`。这样 topology resource 可以独立
 版本化，同时不会产生第二套 deployment/worker 语义。
 
-### 4.3 href 与错误边界
+### 4.3 寻址语法
 
-- JSON/trace href 必须是同源相对引用，按包含它的 catalog/descriptor URL 解析。
+所有可读 artifact 共用一条语法：
+
+```
+/api/analyzer/v1/{kind}/{id}[/{scope}]/subjects/{name}[/variants/{variant}]/{report|payload}
+```
+
+- `{kind}` 是六种 catalog 之一：`runs`、`sweeps`、`predictions`、`alignments`、
+  `kernel-profiles`、`kernel-measurements`。
+- `{scope}` 把 run 内更细的定位写进路径而不是 query：
+  `workers/{pool_tag}/{worker_id}`、`.../iterations/{iter_id}`、
+  `.../operations/{iter_id}/{batch_id}/{operation_id}`、`.../leaves/{leaf_id}`，
+  以及 prediction 的 `cases/{case_id}`。
+- `{report|payload}` 与 descriptor 的 `views` 一一对应：descriptor 说有哪些读法，
+  语法说去哪里读。两者合起来才能构造地址，任何一半都不足以单独伪造一个 URL。
+- 少数不是 subject 的资源保留自己的末段：`descriptor`、
+  `workers/{pool}/{id}/subjects/operations/seek`、
+  `alignments/{id}/subjects/{name}/iterations/{iteration_id}`、
+  `kernel-measurements/{id}/plots/{plot_name}`、`hardware/gpus`。
+- 服务前缀是 `/api/analyzer/v1`。它命名的是服务而不是产品，因此 conversation
+  backend 可以挂在 `/api/agent/v1` 旁边，没有哪一方独占裸 `/api/`。唯一接受
+  request body 的写入端点位于另一条前缀 `/api/dev/v1/` 下，只读路由表不含它。
+
+### 4.4 href 与错误边界
+
+- 仍带 `href` 的 trace，以及客户端自己拼出的每一条路径，都必须是同源相对引用。
   protocol v1 拒绝绝对 URL、scheme-relative URL、反斜线、空 path segment、`..`、
   percent-encoded percent/dot/slash/backslash 等可逃逸形式。禁止 encoded percent 是为
   防止代理或 router 解码一层后产生 double-encoded traversal。
@@ -314,12 +340,12 @@ HTTP descriptor 的 `topology` 是一个有界兼容 envelope，而不是浏览�
   路径仍在配置的 logs root 和该 run 下；URL 参数不得直接 `join` 到文件系统路径。
 - artifact allowlist 只有 descriptor 声明的有界 JSON、trace 和明确的 detail endpoint。
   `raw/*.parquet`、`raw/gpu_cluster/**`、临时文件永不对浏览器开放。
-- HTTP service 中所有 ready subject 和 trace href 必须位于 descriptor
-  `analysis.revision` 对应的 `revisions/{revision}/...` 路径下。请求期间如果
-  analyzer 已发布新 generation，旧 href 返回 `409` 和稳定 code
-  `artifact_generation_changed`，调用方重新获取 descriptor；不允许回退到无
-  revision 的固定路径。静态 export 可以使用其自身的不可变相对文件布局，
-  但 descriptor schema 和 generation 一致性语义不变。
+- 地址不含 generation：同一 artifact 永远只有一个 URL，内容随重新分析而变。
+  缓存因此建立在 validator 而不是路径上——服务对每个响应发弱 ETag（未压缩 body 的
+  SHA-256），默认 `Cache-Control: no-cache`，即存下来但每次重验。客户端可以把
+  ETag 里的 hash 作为 `?rev=<hash>` 钉在 URL 上；钉住且匹配时服务改发
+  `max-age=31536000, immutable`。因为 revision 就是内容 hash，"钉住的地址返回了
+  别的内容"这件事在这套编码里无法表达。
 - ready resource 返回 404/损坏时，服务使用 RFC 9457 Problem Details 加稳定 `code`
   （如 `artifact_missing`、`artifact_incompatible`）。可选 subject 映射为其自己的
   failed/incompatible 状态；summary/topology 失败才阻止基础 run 页面。
@@ -381,15 +407,15 @@ Sweep analysis is an independent cross-run resource, not an optional subject of
 the active run. The HTTP transport is:
 
 ```text
-GET /api/v1/sweeps
-GET /api/v1/sweeps?status=ready&limit=5
-GET /api/v1/sweeps/latest
-GET /api/v1/sweeps/{sweep_id}/payload
+GET /api/analyzer/v1/sweeps
+GET /api/analyzer/v1/sweeps?status=ready&limit=5
+GET /api/analyzer/v1/sweeps/latest
+GET /api/analyzer/v1/sweeps/{sweep_id}/subjects/sweep/payload
 ```
 
 The sweep catalog is ordered newest-first by experiment date and then artifact
 update time. `status` accepts `ready` or `pending`; `limit` accepts `1..=100`.
-`GET /api/v1/sweeps/latest` is an exact convenience alias for the newest ready
+`GET /api/analyzer/v1/sweeps/latest` is an exact convenience alias for the newest ready
 entry and returns the same catalog envelope with zero or one `sweeps` member.
 These discovery endpoints expose the opaque `sweep_id` intentionally: an Agent
 uses the id together with display name, axes, deployment, trace, status, and
@@ -403,34 +429,35 @@ identity. Its public hierarchy is prediction -> case/iteration -> operation ->
 CostTree -> kernel:
 
 ```text
-GET /api/v1/predictions
-GET /api/v1/predictions/{prediction_id}/descriptor
-GET /api/v1/predictions/{prediction_id}/cases?offset=<u64>&limit=<u64>
-GET /api/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/cost-tree
-GET /api/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/cost-tree/{leaf_id}/kernel-throughput-analysis
-GET /api/v1/predictions/{prediction_id}/cases/{case_id}/optimality-kernel-ladder?mode=unlocked|batch_locked
-GET /api/v1/predictions/{prediction_id}/cases/{case_id}/optimality-waterfall?mode=unlocked|batch_locked
-GET /api/v1/predictions/{prediction_id}/subjects/kernel-input-distribution/payload
+GET /api/analyzer/v1/predictions
+GET /api/analyzer/v1/predictions/{prediction_id}/descriptor
+GET /api/analyzer/v1/predictions/{prediction_id}/subjects/cases/payload?offset=<u64>&limit=<u64>
+GET /api/analyzer/v1/predictions/{prediction_id}/subjects/kernel-input-distribution/payload
+GET /api/analyzer/v1/predictions/{prediction_id}/cases/{case_id}/subjects/optimality-kernel-ladder/payload?mode=unlocked|batch_locked
+GET /api/analyzer/v1/predictions/{prediction_id}/cases/{case_id}/subjects/optimality-waterfall/payload?mode=unlocked|batch_locked
+GET /api/analyzer/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/subjects/cost-tree/payload
+GET /api/analyzer/v1/predictions/{prediction_id}/cases/{case_id}/operations/{operation_id}/leaves/{leaf_id}/subjects/kernel-throughput-analysis/payload
 ```
 
 The cases endpoint returns snapshotted case input plus exact operation summaries.
 Case and operation ids are opaque strings in the browser contract. A
 single-operation case is selected automatically, but the CostTree request still
 retains operation identity so a future predictor can emit more than one operation
-per case without changing the detail contract. Repository code owns these hrefs;
-features never parse artifact paths or the predictor's internal cost-log source.
+per case without changing the detail contract. Repository code owns address
+construction; features never parse artifact paths or the predictor's internal
+cost-log source.
 
 Kernel jobs are two additional first-class Analyzer families:
 
 ```text
-GET /api/v1/kernel-profiles
-GET /api/v1/kernel-profiles/{profile_id}/descriptor
-GET /api/v1/kernel-profiles/{profile_id}/curve
-GET /api/v1/kernel-measurements
-GET /api/v1/kernel-measurements/{measurement_id}/descriptor
-GET /api/v1/kernel-measurements/{measurement_id}/summary
-GET /api/v1/kernel-measurements/{measurement_id}/plots/{declared_plot_name}
-GET /api/v1/hardware/gpus?name=<gpu_name>
+GET /api/analyzer/v1/kernel-profiles
+GET /api/analyzer/v1/kernel-profiles/{profile_id}/descriptor
+GET /api/analyzer/v1/kernel-profiles/{profile_id}/subjects/curve/payload
+GET /api/analyzer/v1/kernel-measurements
+GET /api/analyzer/v1/kernel-measurements/{measurement_id}/descriptor
+GET /api/analyzer/v1/kernel-measurements/{measurement_id}/subjects/summary/report
+GET /api/analyzer/v1/kernel-measurements/{measurement_id}/plots/{declared_plot_name}
+GET /api/analyzer/v1/hardware/gpus?name=<gpu_name>
 ```
 
 Profile curves preserve KernelArgs declaration order for axes and carry
@@ -438,10 +465,11 @@ Analyzer-enriched per-row hardware limits. Dense TFLOPS and HBM bandwidth come
 from `gpu/spec.json`; interconnect exposes the catalog's bidirectional value and
 the derived one-way value. An unavailable GPU/dtype remains explicitly
 unavailable. The frontend may draw a catalog peak only when the row declares a
-numeric limit. Measurement plot URLs come only from the descriptor allowlist;
-the conversation backend never serves these bytes.
+numeric limit. A measurement descriptor lists plot *names*, and the URL is built
+from the measurement id and the name; the conversation backend never serves
+these bytes.
 
-`GET /api/v1/sweeps` 的每个 entry 除 identity、axes 与 lifecycle 外，还包含
+`GET /api/analyzer/v1/sweeps` 的每个 entry 除 identity、axes 与 lifecycle 外，还包含
 `experiment_date: "YYYY-MM-DD" | null`、`deployments: string[]` 和
 `traces: string[]`。这些字段只用于 catalog selection/filtering：manifest sweep
 仅合并 manifest members 的 params metadata，singleton 仅使用自身 metadata；
@@ -490,8 +518,21 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 ## 7. 加载策略
 
 - model、simulation、trace overview、SLO、throughput、utilization 等聚合信息使用有界 JSON artifact。
+- `kernel-time-share`（schema 2）按 scope 拆开发。cluster read
+  `GET /api/analyzer/v1/runs/{run_id}/subjects/kernel-time-share/payload`
+  完整给出 `overall`、`pools[]`（含 segments）、`positions`、`definitions`、`meta`，
+  但 `workers[]` 只是**索引**：`pool_tag`、`worker_id`、`kernel_time_ms`、`raw_rows`、
+  `sampled_rows`、`sample_stride`，**没有 segments**。单个 worker 的构成走自己的地址
+  `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/subjects/kernel-time-share/payload`，
+  返回 `scope`、该 worker 的 `kernel_time_ms`、采样三元组与 `segments`；不重复
+  `definitions`/`positions`（那是 run 的属性，不是 scope 的）。
+  拆法按「读者到底要什么」而不是按文件形状：入口视图本身就是 pool 之间的对比，
+  所以 pools 不拆；随集群规模膨胀的是 `workers × positions`，所以拆的是它。
+  实测 10-worker 的 fixture：整份 22,735 B → cluster read 13,303 B，单个 worker 约 1.1 KB。
+  UI 侧 worker index entry 的 schema 是 `.strict()` 的——它存在的意义就是不带 composition，
+  旧服务把 `segments` 带回来必须直接失败，而不是被默默接受。
 - worker operation index 按 worker 有界加载：
-  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations?offset=<u64>&limit=<u64>`。
+  `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/subjects/operations/payload?offset=<u64>&limit=<u64>`。
   普通 range 的标准 limit 为 64。响应携带 `worker_kind`、`batch_role`、`total_operations`、
   全局 `span`、`range`，以及平坦的 `operations[]`。
 - 每个 `OperationSummary` 为
@@ -500,7 +541,7 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
   或 Terminal，也不得填补真实时间空隙。`operation_id` 由服务签发并在其 parent batch 内
   唯一；UI 不从 section/layer 反推 identity。
 - worker wall-clock 反查使用
-  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/seek?at_ms=<f64>`。
+  `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/subjects/operations/seek?at_ms=<f64>`。
   响应包含所有 half-open interval `[start_ms, end_ms)` 命中的 `hits`、`anchor`、
   `suggested_viewport`，以及围绕 anchor 的
   `buffer: {offset, limit: 192, returned, operations}`。零候选也返回最近的完整有界 buffer；
@@ -508,7 +549,7 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
   operation 画在同一 Canvas 供直接改选。seek 已融合 nearby range，UI 不得再为可见区域
   发第二个串行请求。
 - exact CostTree 路由为
-  `GET /api/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/cost-tree`。
+  `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/subjects/cost-tree/payload`。
   响应 identity 回显 `operation_id`、`section` 和 `layer`，tree 仅由该 operation 的单行事实
   构造。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
 - exact operation CostTree 只在用户选择后加载。
@@ -532,8 +573,8 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 和合法空结果保持独立状态，不生成替代曲线。fixture 只裁剪真实 artifact 或明确标记的
 synthetic 协议测试案例，后者不能成为生产指标来源。
 
-Analyzer HTTP 路由仍为 `/api/v1/`。浏览器导航、selection 和 frozen evidence 使用
-独立的 `vibesim.analyzer/v2` 合同；它们不要求将所有 subject schema 升为 v2。
+Analyzer HTTP 路由前缀为 `/api/analyzer/v1/`。浏览器导航、selection 和 frozen
+evidence 使用独立的 `vibesim.analyzer/v2` 合同；它们不要求将所有 subject schema 升为 v2。
 
 ## 9. 演进规则
 
