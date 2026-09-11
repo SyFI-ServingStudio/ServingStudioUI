@@ -19,25 +19,37 @@ describe('agent mode', () => {
   });
 
   it('round-trips a non-default choice and clears the keys on the way back', () => {
-    saveAgentSettings({ agentMode: 'single', autonomous: false });
-    expect(savedAgentSettings()).toEqual({ agentMode: 'single', autonomous: false });
+    saveAgentSettings({ agentMode: 'single', autonomous: false, sandbox: 'read-only' });
+    expect(savedAgentSettings()).toEqual({
+      agentMode: 'single',
+      autonomous: false,
+      sandbox: 'read-only',
+    });
 
     saveAgentSettings(DEFAULT_AGENT_SETTINGS);
     expect(savedAgentSettings()).toEqual(DEFAULT_AGENT_SETTINGS);
     expect(window.localStorage.getItem('vibesim.agent.mode')).toBeNull();
     expect(window.localStorage.getItem('vibesim.agent.autonomous')).toBeNull();
+    expect(window.localStorage.getItem('vibesim_sandbox')).toBe('workspace-write');
   });
 
   it('ignores a stored mode the backend would not accept', () => {
     window.localStorage.setItem('vibesim.agent.mode', 'duo');
+    window.localStorage.setItem('vibesim_sandbox', 'invalid');
 
     expect(savedAgentSettings().agentMode).toBe('orchestrated');
+    expect(savedAgentSettings().sandbox).toBe('workspace-write');
   });
 
   it('lets the conversation record override the browser preference', () => {
-    const preference = { agentMode: 'single', autonomous: false } as const;
+    const preference = {
+      agentMode: 'single',
+      autonomous: false,
+      sandbox: 'danger-full-access',
+    } as const;
 
-    expect(agentSettingsFromConversation('orchestrated', true, preference)).toEqual({
+    expect(agentSettingsFromConversation('orchestrated', true, preference, 'read-only')).toEqual({
+      sandbox: 'read-only',
       agentMode: 'orchestrated',
       autonomous: true,
     });

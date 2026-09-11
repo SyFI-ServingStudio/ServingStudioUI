@@ -181,6 +181,7 @@ describe('sessionController', () => {
           assistant: { model: 'gpt-6', effort: 'high', serviceTier: 'default' },
         },
         agent_mode: 'single',
+        sandbox: 'read-only',
         autonomous: true,
         messages: [{ id: 1, role: 'user', content: 'hi' }],
       }),
@@ -196,7 +197,7 @@ describe('sessionController', () => {
       codexRuntime: {
         orchestrator: { model: 'gpt-6', effort: 'high', serviceTier: 'fast' },
       },
-      agentSettings: { agentMode: 'single', autonomous: true },
+      agentSettings: { agentMode: 'single', autonomous: true, sandbox: 'read-only' },
     });
   });
 

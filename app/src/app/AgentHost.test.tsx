@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Location, Navigate } from '../location';
-import { resetSessionControllers } from '../session/controller';
+import { resetSessionControllers, sessionController } from '../session/controller';
 import AgentHost from './AgentHost';
 
 const draft: Location = {
@@ -64,6 +65,134 @@ afterEach(() => {
 });
 
 describe('AgentHost', () => {
+  it.each([
+    { visibleAnchor: false, userScrolled: false },
+    { visibleAnchor: true, userScrolled: false },
+    { visibleAnchor: true, userScrolled: true },
+  ])(
+    'preserves paging position and respects input (anchor: $visibleAnchor, user scrolled: $userScrolled)',
+    async ({ visibleAnchor, userScrolled }) => {
+      let release = () => {};
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let height = 2000;
+      vi.stubGlobal('fetch', async (input: string) => {
+        const url = new URL(String(input), 'http://fixture');
+        if (url.pathname.endsWith('/codex-backends')) return json(catalog());
+        if (url.pathname.endsWith('/workspaces/w_main')) {
+          return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+        }
+        if (url.pathname.endsWith('/conversations')) return json({ conversations: [] });
+        if (url.pathname.endsWith('/stream')) return new Response(null, { status: 204 });
+        if (url.pathname.endsWith('/c_paged')) {
+          const older = url.searchParams.has('before');
+          if (older) await pending;
+          return json({
+            id: 'c_paged',
+            agent_mode: 'single',
+            sandbox: 'read-only',
+            autonomous: false,
+            codex_runtime: runtime,
+            messages: [{ id: older ? 1 : 2, role: 'user', content: older ? 'Earlier' : 'Current' }],
+            message_page: {
+              start_index: older ? 0 : 1,
+              end_index: older ? 1 : 2,
+              total_messages: 2,
+              has_more: !older,
+            },
+          });
+        }
+        throw new Error(`unexpected request: ${url}`);
+      });
+      render(
+        host(
+          { view: 'chat', chat: { state: 'created', workspace: 'w_main', id: 'c_paged' } },
+          vi.fn<Navigate>(),
+        ),
+      );
+      await screen.findByRole('button', { name: 'Load earlier messages' });
+      const column = screen.getByTestId('agent-message-column');
+      Object.defineProperty(column, 'scrollHeight', { configurable: true, get: () => height });
+      column.scrollTop = 100;
+      if (visibleAnchor) {
+        const anchor = column.querySelector<HTMLElement>('[data-outline-block="t1"]')!;
+        // New content above adds 400px while unrelated content below adds another 200px.
+        vi.spyOn(anchor, 'getBoundingClientRect').mockImplementation(
+          () => new DOMRect(0, (height === 2000 ? 340 : 740) - column.scrollTop, 100, 50),
+        );
+      }
+      fireEvent.click(screen.getByRole('button', { name: 'Load earlier messages' }));
+      await screen.findByRole('button', { name: 'Loading earlier…' });
+      expect(column.scrollTop).toBe(100);
+      if (userScrolled) {
+        fireEvent.wheel(column);
+        column.scrollTop = 225;
+      }
+      await act(async () => {
+        height = 2600;
+        release();
+        await pending;
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: 'Loading earlier…' })).not.toBeInTheDocument(),
+      );
+      expect(column.scrollTop).toBe(userScrolled ? 225 : visibleAnchor ? 500 : 700);
+    },
+  );
+
+  it('restores cached settings under StrictMode without discarding an unsent sandbox choice', async () => {
+    const ref = { workspace: 'w_main', conversation: 'c_cached' };
+    let reads = 0;
+    vi.stubGlobal('fetch', async (input: string) => {
+      const url = new URL(String(input), 'http://fixture');
+      if (url.pathname.endsWith('/codex-backends')) return json(catalog());
+      if (url.pathname.endsWith('/workspaces/w_main')) {
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      }
+      if (url.pathname.endsWith('/conversations')) return json({ conversations: [] });
+      if (url.pathname.endsWith('/stream')) return new Response(null, { status: 204 });
+      if (url.pathname.endsWith('/c_cached')) {
+        reads += 1;
+        return json({
+          id: ref.conversation,
+          sandbox: 'read-only',
+          agent_mode: 'single',
+          autonomous: false,
+          codex_runtime: runtime,
+          messages: [{ id: 1, role: 'user', content: 'Stored history' }],
+        });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const controller = sessionController(ref);
+    const release = controller.observe();
+    await waitFor(() => expect(controller.getState().agentSettings?.sandbox).toBe('read-only'));
+    release();
+    const location: Location = {
+      view: 'chat',
+      chat: { state: 'created', workspace: 'w_main', id: 'c_cached' },
+    };
+    const navigate = vi.fn<Navigate>();
+    const view = render(<StrictMode>{host(location, navigate)}</StrictMode>);
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Sandbox' })).toHaveTextContent('read-only'),
+    );
+    expect(screen.getByText('single')).toBeInTheDocument();
+    expect(screen.getByText('human')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sandbox' }));
+    fireEvent.click(screen.getByRole('option', { name: 'danger-full-access' }));
+    const before = reads;
+    view.rerender(<StrictMode>{host(location, navigate, false)}</StrictMode>);
+    view.rerender(<StrictMode>{host(location, navigate, true)}</StrictMode>);
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+    await waitFor(() => expect(controller.getState().status).toBe('idle'));
+    expect(screen.getByRole('combobox', { name: 'Sandbox' })).toHaveTextContent(
+      'danger-full-access',
+    );
+  });
+
   it('renders the exact Agent surface and replaces a draft only after starting its canonical turn', async () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
@@ -116,6 +245,7 @@ describe('AgentHost', () => {
     expect(JSON.parse(String(turn?.init?.body))).toMatchObject({
       text: 'inspect this result',
       autonomous_mode: true,
+      sandbox_mode: 'workspace-write',
       agent_mode: 'orchestrated',
       analyzer_context: { protocol: 'vibesim.conversation-context/v2' },
     });

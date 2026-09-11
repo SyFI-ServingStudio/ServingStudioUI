@@ -7,7 +7,7 @@ import type { AgentSettings } from './agentTypes';
 import AgentModePicker from './AgentModePicker';
 
 function Harness({
-  initial = { agentMode: 'orchestrated', autonomous: true } as AgentSettings,
+  initial = { agentMode: 'orchestrated', autonomous: true, sandbox: 'read-only' } as AgentSettings,
   locked = false,
   disabled = false,
   onChange,
@@ -42,13 +42,19 @@ describe('agent mode picker', () => {
 
     await user.click(screen.getByRole('radio', { name: 'Single Agent, Human-in-the-loop' }));
 
-    expect(onChange).toHaveBeenCalledWith({ agentMode: 'single', autonomous: false });
+    expect(onChange).toHaveBeenCalledWith({
+      agentMode: 'single',
+      autonomous: false,
+      sandbox: 'read-only',
+    });
     expect(checkedCells()).toHaveLength(1);
     expect(checkedCells()[0]).toHaveAccessibleName('Single Agent, Human-in-the-loop');
   });
 
   it('drops the grid once the first message pins the working style', () => {
-    render(<Harness initial={{ agentMode: 'single', autonomous: true }} locked />);
+    render(
+      <Harness initial={{ agentMode: 'single', autonomous: true, sandbox: 'read-only' }} locked />,
+    );
 
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);

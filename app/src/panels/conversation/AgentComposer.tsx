@@ -5,13 +5,13 @@ import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded';
 import PendingActionsRounded from '@mui/icons-material/PendingActionsRounded';
 import ReplayRounded from '@mui/icons-material/ReplayRounded';
 import StopRounded from '@mui/icons-material/StopRounded';
-import { Box, ButtonBase, Stack, Typography } from '@mui/material';
+import { Box, ButtonBase, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { type FormEvent, memo, useEffect, useRef, useState } from 'react';
 
 import { tokens, withAlpha } from '../../ui/theme';
 import { WorkingStyleTag } from './AgentModePicker';
 import CodexRuntimePicker from './CodexRuntimePicker';
-import { rolesForAgentMode } from './agentMode';
+import { rolesForAgentMode, SANDBOX_MODES } from './agentMode';
 import { MAX_QUEUED_MESSAGES } from './agentQueue';
 import type {
   AgentSettings,
@@ -259,6 +259,7 @@ export const AgentComposer = memo(function AgentComposer({
   inputUnavailable = false,
   connectionAction = null,
   onRuntimeChange,
+  onSandboxChange,
   onClearSelectionContext,
   onSend,
   onQueue,
@@ -287,8 +288,9 @@ export const AgentComposer = memo(function AgentComposer({
   codexRuntime: CodexRuntimeSelection;
   lockedFamilies: Record<keyof CodexRuntimeSelection, string> | null;
   compactRuntime: boolean;
-  /** Only for which roles the model chips cover; the style itself is set elsewhere. */
+  /** Role style is pinned; sandbox remains editable for the next turn. */
   agentSettings: AgentSettings;
+  onSandboxChange: (sandbox: AgentSettings['sandbox']) => void;
   sendUnavailable?: boolean;
   inputUnavailable?: boolean;
   connectionAction?: { readonly label: string; readonly activate: () => void } | null;
@@ -360,7 +362,10 @@ export const AgentComposer = memo(function AgentComposer({
       >
         <Box
           data-testid="agent-runtime-picker"
-          sx={{ mb: compactRuntime ? 0.35 : selectionContext !== null ? 0.8 : 1 }}
+          sx={{
+            mb: compactRuntime ? 0.35 : selectionContext !== null ? 0.8 : 1,
+            containerType: 'inline-size',
+          }}
         >
           {compactRuntime && (
             <Stack direction="row" justifyContent="center">
@@ -412,29 +417,57 @@ export const AgentComposer = memo(function AgentComposer({
                 direction="row"
                 alignItems="center"
                 justifyContent="space-between"
-                sx={{ width: '100%', gap: 0.85, pt: compactRuntime ? 0.45 : 0 }}
+                sx={{
+                  width: '100%',
+                  minWidth: 0,
+                  gap: 0.85,
+                  pt: compactRuntime ? 0.45 : 0,
+                  '@container (max-width: 500px)': { flexWrap: 'wrap' },
+                }}
               >
                 <WorkingStyleTag axis="cast" settings={agentSettings} />
-                <CodexRuntimePicker
-                  models={modelOptions}
-                  selection={codexRuntime}
-                  roles={rolesForAgentMode(agentSettings.agentMode)}
-                  lockedFamilies={lockedFamilies}
-                  compact={compactRuntime}
-                  // Deliberately editable mid-turn. Every turn pushes the
-                  // runtime it is about to use, so a change made now lands on
-                  // the next call — including a queued message, which runs with
-                  // whatever is selected when it is finally sent. `lockedFamilies`
-                  // still forbids the one change that cannot work: a rollout is
-                  // only resumable by the family that recorded it.
-                  disabled={false}
-                  unavailable={catalogUnavailable}
-                  onChange={onRuntimeChange}
-                />
+                <Box
+                  sx={{
+                    minWidth: 0,
+                    '@container (max-width: 500px)': { width: '100%', order: 1 },
+                  }}
+                >
+                  <CodexRuntimePicker
+                    models={modelOptions}
+                    selection={codexRuntime}
+                    roles={rolesForAgentMode(agentSettings.agentMode)}
+                    lockedFamilies={lockedFamilies}
+                    compact={compactRuntime}
+                    // Deliberately editable mid-turn. Every turn pushes the
+                    // runtime it is about to use, so a change made now lands on
+                    // the next call — including a queued message, which runs with
+                    // whatever is selected when it is finally sent. `lockedFamilies`
+                    // still forbids the one change that cannot work: a rollout is
+                    // only resumable by the family that recorded it.
+                    disabled={false}
+                    unavailable={catalogUnavailable}
+                    onChange={onRuntimeChange}
+                  />
+                </Box>
                 <WorkingStyleTag axis="autonomy" settings={agentSettings} />
               </Stack>
             </Box>
           </Box>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.75 }}>
+          <Select
+            size="small"
+            value={agentSettings.sandbox}
+            inputProps={{ 'aria-label': 'Sandbox' }}
+            onChange={(event) => onSandboxChange(event.target.value as AgentSettings['sandbox'])}
+            sx={{ maxWidth: '100%', fontSize: 12, '& .MuiSelect-select': { py: 0.65 } }}
+          >
+            {SANDBOX_MODES.map((sandbox) => (
+              <MenuItem key={sandbox} value={sandbox}>
+                {sandbox}
+              </MenuItem>
+            ))}
+          </Select>
         </Box>
         {selectionContext !== null && (
           <AnalyzerSelectionStrip context={selectionContext} onClear={onClearSelectionContext} />

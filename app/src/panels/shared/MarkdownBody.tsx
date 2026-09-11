@@ -267,6 +267,9 @@ export default function MarkdownBody({
           }
           sx={{
             display: 'inline',
+            maxWidth: '100%',
+            overflowWrap: 'anywhere',
+            textAlign: 'inherit',
             px: 0.2,
             borderRadius: 0.35,
             borderBottom: `1px solid ${tokens.teal}`,

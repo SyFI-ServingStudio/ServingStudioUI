@@ -6,7 +6,15 @@
  * view model it used before the refactor. Browser-only queue and picker state
  * stay here because neither is shared or addressable.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   conversationIdSchema,
@@ -104,7 +112,7 @@ interface SharedAgentState {
   readonly codexRuntime: CodexRuntimeSelection;
   readonly setCodexRuntime: AgentConversationViewModel['setCodexRuntime'];
   readonly agentSettings: AgentSettings;
-  readonly setAgentSettings: (settings: AgentSettings) => void;
+  readonly setAgentSettings: Dispatch<SetStateAction<AgentSettings>>;
   readonly refreshHistory: () => Promise<readonly AgentConversationSummary[] | null>;
   readonly startNew: () => Promise<void>;
   readonly selectConversation: (id: string) => Promise<void>;
@@ -557,14 +565,14 @@ function CreatedAgent({
     if (state.agentSettings !== null) {
       const incoming = state.agentSettings;
       const previous = serverSettings.current;
-      setSharedSettings(
-        previous === null || JSON.stringify(shared.agentSettings) === JSON.stringify(previous)
+      setSharedSettings((current) =>
+        previous === null || JSON.stringify(current) === JSON.stringify(previous)
           ? incoming
-          : shared.agentSettings,
+          : current,
       );
       serverSettings.current = incoming;
     }
-  }, [setSharedSettings, shared.agentSettings, state.agentSettings]);
+  }, [setSharedSettings, state.agentSettings]);
 
   useEffect(() => {
     const ending = terminalResult(state.live);
@@ -606,6 +614,7 @@ function CreatedAgent({
         ...(context === null ? {} : { analyzer_context: context }),
         agent_mode: shared.agentSettings.agentMode,
         autonomous_mode: shared.agentSettings.autonomous,
+        sandbox_mode: shared.agentSettings.sandbox,
         ...(resumeRole === '' ? {} : { resume_role: resumeRole }),
       });
       void turn.then(() => shared.refreshHistory());

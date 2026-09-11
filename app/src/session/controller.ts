@@ -808,6 +808,7 @@ class Controller implements SessionController {
             : {
                 agentMode: conversation.agent_mode,
                 autonomous: conversation.autonomous,
+                sandbox: conversation.sandbox ?? 'workspace-write',
               },
         messages: conversation.messages,
         startIndex: page?.start_index ?? 0,

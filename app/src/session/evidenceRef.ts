@@ -25,10 +25,8 @@ const operationRefSchema = z
   .strict();
 
 /**
- * The five selection shapes, mirroring the backend's pydantic models field for
- * field — including which fields are `null` and which are absent, because the
- * two spellings appear in stored events and `.strict()` would reject a value
- * that used the other one.
+ * Frozen targets omit null selectors, while live dictionaries retain them.
+ * Normalize absent nullable selectors on read without rewriting stored events.
  */
 export const agentV1AggregateEvidenceRefSchema = z
   .object({
@@ -50,15 +48,15 @@ export const agentV1RunEvidenceRefSchema = z
     kind: z.literal('run'),
     workspaceId: nonEmptyString,
     runId: nonEmptyString,
-    panelId: nonEmptyString.nullable(),
+    panelId: nonEmptyString.nullable().default(null),
     scope: z.enum(['cluster', 'pool', 'worker', 'kernel', 'parallel']),
-    poolRole: nonEmptyString.nullable(),
-    workerKey: nonEmptyString.nullable(),
-    leafId: z.number().int().nonnegative().nullable(),
-    parId: z.number().int().nonnegative().nullable(),
-    cursorMs: z.number().finite().nonnegative().nullable(),
+    poolRole: nonEmptyString.nullable().default(null),
+    workerKey: nonEmptyString.nullable().default(null),
+    leafId: z.number().int().nonnegative().nullable().default(null),
+    parId: z.number().int().nonnegative().nullable().default(null),
+    cursorMs: z.number().finite().nonnegative().nullable().default(null),
     cursorNeedsSeek: z.boolean(),
-    operation: operationRefSchema.nullable(),
+    operation: operationRefSchema.nullable().default(null),
     workerAnalysisLevel: z.enum(['worker', 'iteration']),
   })
   .strict();
@@ -69,11 +67,11 @@ export const agentV1PredictionEvidenceRefSchema = z
     kind: z.literal('prediction'),
     workspaceId: nonEmptyString,
     predictionId: nonEmptyString,
-    panelId: nonEmptyString.nullable(),
-    caseId: nonEmptyString.nullable(),
-    operationId: nonEmptyString.nullable(),
-    leafId: z.number().int().nonnegative().nullable(),
-    parallelId: z.number().int().nonnegative().nullable(),
+    panelId: nonEmptyString.nullable().default(null),
+    caseId: nonEmptyString.nullable().default(null),
+    operationId: nonEmptyString.nullable().default(null),
+    leafId: z.number().int().nonnegative().nullable().default(null),
+    parallelId: z.number().int().nonnegative().nullable().default(null),
     optimalityMode: z.enum(['unlocked', 'batch_locked']),
   })
   .strict();
@@ -84,8 +82,8 @@ export const agentV1KernelProfileEvidenceRefSchema = z
     kind: z.literal('kernel_profile'),
     workspaceId: nonEmptyString,
     profileId: nonEmptyString,
-    panelId: nonEmptyString.nullable(),
-    metricKey: nonEmptyString.nullable(),
+    panelId: nonEmptyString.nullable().default(null),
+    metricKey: nonEmptyString.nullable().default(null),
   })
   .strict();
 
@@ -95,9 +93,9 @@ export const agentV1KernelMeasurementEvidenceRefSchema = z
     kind: z.literal('kernel_measurement'),
     workspaceId: nonEmptyString,
     measurementId: nonEmptyString,
-    panelId: nonEmptyString.nullable(),
-    metricKey: nonEmptyString.nullable(),
-    plotName: nonEmptyString.nullable(),
+    panelId: nonEmptyString.nullable().default(null),
+    metricKey: nonEmptyString.nullable().default(null),
+    plotName: nonEmptyString.nullable().default(null),
   })
   .strict();
 

@@ -16,6 +16,50 @@ const FLASH_MS = 900;
 /** Two-ish seconds of frames is far more than a lazy block needs to mount. */
 const MAX_MOUNT_FRAMES = 72;
 
+/** Keep a paged message still while deferred content settles; user input takes ownership back. */
+export function preserveTranscriptAnchor(
+  container: HTMLElement,
+  anchor: HTMLElement | null,
+  offset: number,
+  onCancel: () => void = () => {},
+): () => void {
+  let cancelled = false;
+  let observer: ResizeObserver | null = null;
+  const inputs = ['wheel', 'touchstart', 'pointerdown'] as const;
+  const cancel = () => {
+    if (cancelled) return;
+    cancelled = true;
+    observer?.disconnect();
+    for (const type of inputs) container.removeEventListener(type, cancel, true);
+    window.removeEventListener('keydown', cancel, true);
+    onCancel();
+  };
+  const restore = () => {
+    if (cancelled || anchor === null) return;
+    if (!container.contains(anchor)) {
+      cancel();
+      return;
+    }
+    const delta =
+      anchor.getBoundingClientRect().top - container.getBoundingClientRect().top - offset;
+    if (Math.abs(delta) > 0.5) container.scrollTop += delta;
+  };
+  restore();
+  if (cancelled) return cancel;
+  if (anchor !== null && typeof ResizeObserver !== 'undefined') {
+    let transcript = anchor;
+    while (transcript.parentElement && transcript.parentElement !== container) {
+      transcript = transcript.parentElement;
+    }
+    observer = new ResizeObserver(restore);
+    observer.observe(transcript);
+  }
+  for (const type of inputs)
+    container.addEventListener(type, cancel, { passive: true, capture: true });
+  window.addEventListener('keydown', cancel, true);
+  return cancel;
+}
+
 // Ids come from `conversationOutline` and are always `[a-z0-9-]`, so they need
 // no selector escaping.
 function findAnchor(container: HTMLElement, anchorId: string): HTMLElement | null {

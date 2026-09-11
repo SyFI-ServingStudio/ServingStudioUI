@@ -23,8 +23,10 @@ export interface CodexRuntimeSelection {
 }
 
 export type AgentMode = 'orchestrated' | 'single';
+export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
 export interface AgentSettings {
+  readonly sandbox: SandboxMode;
   readonly agentMode: AgentMode;
   readonly autonomous: boolean;
 }

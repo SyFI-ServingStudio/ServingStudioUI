@@ -61,8 +61,11 @@ export type CodexRuntimeSelection = z.infer<typeof codexRuntimeSelectionSchema>;
 
 export const agentModeSchema = z.enum(['orchestrated', 'single']);
 export type AgentMode = z.infer<typeof agentModeSchema>;
+export const sandboxModeSchema = z.enum(['read-only', 'workspace-write', 'danger-full-access']);
+export type SandboxMode = z.infer<typeof sandboxModeSchema>;
 
 export interface AgentSettings {
+  readonly sandbox: SandboxMode;
   readonly agentMode: AgentMode;
   readonly autonomous: boolean;
 }
@@ -203,6 +206,7 @@ export const conversationSchema = z
     naming_state: text.nullish(),
     codex_runtime: codexRuntimeSelectionSchema.nullish(),
     agent_mode: agentModeSchema.nullish(),
+    sandbox: sandboxModeSchema.nullish(),
     autonomous: z.boolean().nullish(),
     messages: z.array(messageSchema),
     message_page: messagePageSchema.optional(),

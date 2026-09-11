@@ -1,0 +1,229 @@
+[
+  {
+    "kind": "aggregate",
+    "text": "Evidence `exp.tp2.throughput`.",
+    "dictionary": {
+      "protocol": "vibesim.citation-dictionary/v2",
+      "identity": "aggregate-83xgqq",
+      "document": "## Analyzer citation references\n\nUse only these exact Markdown inline-code references. Citation text never navigates until the user clicks it.\n\nExperiment `exp`\n- axes, in launcher declaration order:\n  - `tp<value>`: tensor_parallel; valid segments: `tp2`\n- valid members:\n  - `tp2`\n- metrics:\n  - `throughput`: Throughput, tok/s\n- forms: `exp.<metric>` and `exp.<member>.<metric>`",
+      "entries": [
+        {
+          "token": "exp.throughput",
+          "displayLabel": "Throughput \u00b7 all coordinates",
+          "target": {
+            "kind": "aggregate",
+            "workspaceId": "w_main",
+            "experimentId": "e_private",
+            "panelId": "total_tps",
+            "metricKey": "total_tps",
+            "statistic": null,
+            "runId": null,
+            "coordinates": null,
+            "protocol": "vibesim.analyzer/v2"
+          }
+        },
+        {
+          "token": "exp.tp2.throughput",
+          "displayLabel": "tensor_parallel=2 \u00b7 Throughput",
+          "target": {
+            "kind": "aggregate",
+            "workspaceId": "w_main",
+            "experimentId": "e_private",
+            "panelId": "total_tps",
+            "metricKey": "total_tps",
+            "statistic": null,
+            "runId": "r_private",
+            "coordinates": {
+              "tensor_parallel": 2
+            },
+            "protocol": "vibesim.analyzer/v2"
+          }
+        }
+      ]
+    },
+    "citation": {
+      "protocol": "vibesim.citation/v2",
+      "token": "exp.tp2.throughput",
+      "sourceStart": 9,
+      "sourceEnd": 29,
+      "displayLabel": "tensor_parallel=2 \u00b7 Throughput",
+      "target": {
+        "kind": "aggregate",
+        "workspaceId": "w_main",
+        "experimentId": "e_private",
+        "panelId": "total_tps",
+        "metricKey": "total_tps",
+        "runId": "r_private",
+        "coordinates": {
+          "tensor_parallel": 2
+        },
+        "protocol": "vibesim.analyzer/v2"
+      }
+    }
+  },
+  {
+    "kind": "run",
+    "text": "Evidence `run.cluster.concurrency`.",
+    "dictionary": {
+      "protocol": "vibesim.citation-dictionary/v2",
+      "identity": "run-ci8wxr",
+      "document": "Use `run.cluster.concurrency` for run r_private \u00b7 concurrency.",
+      "entries": [
+        {
+          "token": "run.cluster.concurrency",
+          "displayLabel": "run r_private \u00b7 concurrency",
+          "target": {
+            "kind": "run",
+            "workspaceId": "w_main",
+            "runId": "r_private",
+            "panelId": "concurrency",
+            "scope": "cluster",
+            "poolRole": null,
+            "workerKey": null,
+            "leafId": null,
+            "parId": null,
+            "cursorMs": null,
+            "cursorNeedsSeek": false,
+            "operation": null,
+            "workerAnalysisLevel": "worker",
+            "protocol": "vibesim.analyzer/v2"
+          }
+        }
+      ]
+    },
+    "citation": {
+      "protocol": "vibesim.citation/v2",
+      "token": "run.cluster.concurrency",
+      "sourceStart": 9,
+      "sourceEnd": 34,
+      "displayLabel": "run r_private \u00b7 concurrency",
+      "target": {
+        "kind": "run",
+        "workspaceId": "w_main",
+        "runId": "r_private",
+        "panelId": "concurrency",
+        "scope": "cluster",
+        "cursorNeedsSeek": false,
+        "workerAnalysisLevel": "worker",
+        "protocol": "vibesim.analyzer/v2"
+      }
+    }
+  },
+  {
+    "kind": "prediction",
+    "text": "Evidence `pred.overview`.",
+    "dictionary": {
+      "protocol": "vibesim.citation-dictionary/v2",
+      "identity": "prediction-195t6wr",
+      "document": "Use `pred.overview` for prediction p_private \u00b7 overview.",
+      "entries": [
+        {
+          "token": "pred.overview",
+          "displayLabel": "prediction p_private \u00b7 overview",
+          "target": {
+            "kind": "prediction",
+            "workspaceId": "w_main",
+            "predictionId": "p_private",
+            "panelId": null,
+            "caseId": null,
+            "operationId": null,
+            "leafId": null,
+            "parallelId": null,
+            "optimalityMode": "unlocked",
+            "protocol": "vibesim.analyzer/v2"
+          }
+        }
+      ]
+    },
+    "citation": {
+      "protocol": "vibesim.citation/v2",
+      "token": "pred.overview",
+      "sourceStart": 9,
+      "sourceEnd": 24,
+      "displayLabel": "prediction p_private \u00b7 overview",
+      "target": {
+        "kind": "prediction",
+        "workspaceId": "w_main",
+        "predictionId": "p_private",
+        "optimalityMode": "unlocked",
+        "protocol": "vibesim.analyzer/v2"
+      }
+    }
+  },
+  {
+    "kind": "kernel_profile",
+    "text": "Evidence `kprof.overview`.",
+    "dictionary": {
+      "protocol": "vibesim.citation-dictionary/v2",
+      "identity": "kernel-profile-qexnwo",
+      "document": "Use `kprof.overview` for kp_private \u00b7 overview.",
+      "entries": [
+        {
+          "token": "kprof.overview",
+          "displayLabel": "kp_private \u00b7 overview",
+          "target": {
+            "kind": "kernel_profile",
+            "workspaceId": "w_main",
+            "profileId": "kp_private",
+            "panelId": "overview",
+            "metricKey": null,
+            "protocol": "vibesim.analyzer/v2"
+          }
+        }
+      ]
+    },
+    "citation": {
+      "protocol": "vibesim.citation/v2",
+      "token": "kprof.overview",
+      "sourceStart": 9,
+      "sourceEnd": 25,
+      "displayLabel": "kp_private \u00b7 overview",
+      "target": {
+        "kind": "kernel_profile",
+        "workspaceId": "w_main",
+        "profileId": "kp_private",
+        "panelId": "overview",
+        "protocol": "vibesim.analyzer/v2"
+      }
+    }
+  },
+  {
+    "kind": "kernel_measurement",
+    "text": "Evidence `kmeasure.summary.median`.",
+    "dictionary": {
+      "protocol": "vibesim.citation-dictionary/v2",
+      "identity": "kernel-measurement-puskr8",
+      "document": "Use `kmeasure.summary.median` for km_private \u00b7 summary \u00b7 median.",
+      "entries": [
+        {
+          "token": "kmeasure.summary.median",
+          "displayLabel": "km_private \u00b7 summary \u00b7 median",
+          "target": {
+            "kind": "kernel_measurement",
+            "workspaceId": "w_main",
+            "measurementId": "km_private",
+            "panelId": "summary",
+            "metricKey": "median",
+            "plotName": null,
+            "protocol": "vibesim.analyzer/v2"
+          }
+        }
+      ]
+    },
+    "citation": {
+      "protocol": "vibesim.citation/v2",
+      "token": "kmeasure.summary.median",
+      "sourceStart": 9,
+      "sourceEnd": 34,
+      "displayLabel": "km_private \u00b7 summary \u00b7 median",
+      "target": {
+        "kind": "kernel_measurement",
+        "workspaceId": "w_main",
+        "measurementId": "km_private",
+        "panelId": "summary",
+        "metricKey": "median",
+        "protocol": "vibesim.analyzer/v2"
+      }
+    }
+  }
+]

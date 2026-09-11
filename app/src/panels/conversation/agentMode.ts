@@ -1,16 +1,20 @@
-import type { AgentMode, AgentSettings } from './agentTypes';
+import type { AgentMode, AgentSettings, SandboxMode } from './agentTypes';
 
 /**
- * The conversation-level agent contract: how many Codex roles run a turn, and
- * whether the agent may decide on its own instead of stopping to ask.
+ * Agent mode and autonomy select the conversation's role contract.
  *
- * Both values are pinned by the first message — the Codex sessions a turn
- * builds are per role, so a mid-conversation switch would strand them. The
- * picker therefore reads as a setup choice, not a live toggle.
+ * Those two values are pinned by the first message. Sandbox is separate:
+ * its durable preference remains editable and is sent with every turn.
  */
 
 const AGENT_MODE_KEY = 'vibesim.agent.mode';
 const AUTONOMOUS_KEY = 'vibesim.agent.autonomous';
+const SANDBOX_KEY = 'vibesim_sandbox';
+export const SANDBOX_MODES: readonly SandboxMode[] = [
+  'read-only',
+  'workspace-write',
+  'danger-full-access',
+];
 
 /**
  * Defaults deliberately reproduce what this UI did before the picker existed
@@ -18,6 +22,7 @@ const AUTONOMOUS_KEY = 'vibesim.agent.autonomous';
  * so adding the control changes nobody's behavior until they touch it.
  */
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = {
+  sandbox: 'workspace-write',
   agentMode: 'orchestrated',
   autonomous: true,
 };
@@ -70,6 +75,7 @@ function agentModeFrom(value: unknown): AgentMode | null {
 export function savedAgentSettings(): AgentSettings {
   try {
     return {
+      sandbox: sandboxFrom(window.localStorage.getItem(SANDBOX_KEY)) ?? 'workspace-write',
       agentMode: agentModeFrom(window.localStorage.getItem(AGENT_MODE_KEY)) ?? 'orchestrated',
       // Absent means the default, so only the non-default state is written.
       autonomous: window.localStorage.getItem(AUTONOMOUS_KEY) !== 'false',
@@ -83,6 +89,7 @@ export function savedAgentSettings(): AgentSettings {
 
 export function saveAgentSettings(settings: AgentSettings): void {
   try {
+    window.localStorage.setItem(SANDBOX_KEY, settings.sandbox);
     if (settings.agentMode === DEFAULT_AGENT_SETTINGS.agentMode) {
       window.localStorage.removeItem(AGENT_MODE_KEY);
     } else {
@@ -103,9 +110,15 @@ export function agentSettingsFromConversation(
   agentMode: AgentMode | undefined,
   autonomous: boolean | undefined,
   fallback: AgentSettings,
+  sandbox?: SandboxMode,
 ): AgentSettings {
   return {
+    sandbox: sandboxFrom(sandbox) ?? fallback.sandbox,
     agentMode: agentModeFrom(agentMode) ?? fallback.agentMode,
     autonomous: typeof autonomous === 'boolean' ? autonomous : fallback.autonomous,
   };
+}
+
+function sandboxFrom(value: unknown): SandboxMode | null {
+  return SANDBOX_MODES.find((mode) => mode === value) ?? null;
 }

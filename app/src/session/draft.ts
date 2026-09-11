@@ -28,7 +28,7 @@ import {
 } from './types';
 
 export interface StartConversationOptions {
-  /** Values pinned by the backend when the first message starts. */
+  /** Initial conversation settings; sandbox can change on subsequent turns. */
   readonly create?: {
     readonly codexRuntime: CodexRuntimeSelection;
     readonly agentSettings: AgentSettings;
@@ -70,7 +70,7 @@ export async function startConversation(
     settings === undefined
       ? {}
       : {
-          sandbox: 'workspace-write',
+          sandbox: settings.agentSettings.sandbox,
           autonomous: settings.agentSettings.autonomous,
           agent_mode: settings.agentSettings.agentMode,
           codex_runtime: settings.codexRuntime,
@@ -95,6 +95,7 @@ export async function startConversation(
       : {
           agent_mode: settings.agentSettings.agentMode,
           autonomous_mode: settings.agentSettings.autonomous,
+          sandbox_mode: settings.agentSettings.sandbox,
         }),
   });
   // After sending, so this counts a watcher rather than starting a load: `send`

@@ -212,6 +212,19 @@ describe('exact Agent metadata', () => {
 });
 
 describe('getConversation', () => {
+  it.each(['read-only', 'workspace-write', 'danger-full-access'])(
+    'retains the stored sandbox %s',
+    async (sandbox) => {
+      answer({ id: 'c1', sandbox, agent_mode: 'single', autonomous: false, messages: [] });
+      await expect(getConversation(REF)).resolves.toMatchObject({ sandbox });
+    },
+  );
+
+  it('rejects an unsupported stored sandbox', async () => {
+    answer({ id: 'c1', sandbox: 'unrestricted', messages: [] });
+    await expect(getConversation(REF)).rejects.toThrow();
+  });
+
   it('accepts a timestamp as the number the store keeps', async () => {
     // `ts` is a REAL column. A schema expecting a string would reject every
     // message the backend has ever written.

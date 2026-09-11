@@ -1,0 +1,90 @@
+{
+  "producer_repository": "VibeSimAgent",
+  "base_commit": "e26ad6dc11b08c225e5744a02fcc8a956f7adcd6",
+  "producer_revision": "Uncommitted Agent refactor source; base_commit does not contain this module. source_sha256 identifies the producer bytes.",
+  "source_path": "vibesim_agent/domain/evidence.py",
+  "source_sha256": "3d81d29f892b09109b69aca5cafc5780c81c885ed9c665f2f7fa5a2343b01a07",
+  "golden_sha256": "6270a48e324c53c377fe793ca202fa151e17978faf928211e26d25ed6c0360b3",
+  "generator": "tmp/agent-ui-freeze-citations.py",
+  "inputs": [
+    [
+      "aggregate",
+      "build_aggregate_citation_dictionary",
+      {
+        "analysis": {
+          "protocol_version": 1,
+          "schema_version": 1,
+          "sweep_id": "e_private",
+          "axes": [
+            "tensor_parallel"
+          ],
+          "metrics": [
+            {
+              "key": "total_tps",
+              "label": "Throughput",
+              "group": "throughput",
+              "unit": "tok/s"
+            }
+          ],
+          "runs": [
+            {
+              "run_id": "r_private",
+              "coordinates": {
+                "tensor_parallel": 2
+              },
+              "labels": {},
+              "metrics": {
+                "total_tps": 42
+              }
+            }
+          ]
+        },
+        "workspace_id": "w_main",
+        "experiment_id": "e_private"
+      }
+    ],
+    [
+      "run",
+      "build_run_citation_dictionary",
+      {
+        "workspace_id": "w_main",
+        "run_id": "r_private",
+        "resource_path": "/api/v1/runs/r_private/subjects/concurrency/payload"
+      }
+    ],
+    [
+      "prediction",
+      "build_prediction_citation_dictionary",
+      {
+        "workspace_id": "w_main",
+        "prediction_id": "p_private",
+        "resource_path": "/api/v1/predictions/p_private/descriptor"
+      }
+    ],
+    [
+      "kernel_profile",
+      "build_kernel_profile_citation_dictionary",
+      {
+        "workspace_id": "w_main",
+        "profile_id": "kp_private",
+        "resource_path": "/api/v1/kernel-profiles/kp_private/descriptor",
+        "analysis": {}
+      }
+    ],
+    [
+      "kernel_measurement",
+      "build_kernel_measurement_citation_dictionary",
+      {
+        "workspace_id": "w_main",
+        "measurement_id": "km_private",
+        "resource_path": "/api/v1/kernel-measurements/km_private/summary",
+        "analysis": {
+          "runtime_ms": {
+            "median": 1.2
+          }
+        }
+      }
+    ]
+  ],
+  "method": "Actual current Agent builders then freeze_citations; synthetic inputs; no null completion or UI-generated expected data."
+}

@@ -58,9 +58,15 @@ function sse(events: [string, unknown][]): string {
  */
 async function stubAgent(
   page: Page,
-  options: { deleted?: string; holdCreate?: Promise<void>; streamFails?: boolean } = {},
+  options: {
+    deleted?: string;
+    holdCreate?: Promise<void>;
+    streamFails?: boolean;
+    sandbox?: string;
+  } = {},
 ): Promise<Agent> {
   const calls: Agent['calls'] = [];
+  let sandbox = options.sandbox;
   let release: ((ending: { text: string; outcome: string | null }) => void) | null = null;
   // What the store would hold for the turn once it has ended. The controller
   // refetches the conversation as the stream closes and the live row is
@@ -122,6 +128,7 @@ async function stubAgent(
       });
     }
     if (options.holdCreate !== undefined) await options.holdCreate;
+    if (options.sandbox !== undefined) sandbox = route.request().postDataJSON().sandbox;
     return route.fulfill({ json: { id: B, title: 'New conversation' } });
   });
 
@@ -133,22 +140,27 @@ async function stubAgent(
     }
     return route
       .fulfill({
-        json: conversation(id, [
-          { id: 1, role: 'user', content: `question in ${id}` },
-          {
-            id: 2,
-            role: 'assistant',
-            content: `answer in ${id}`,
-            // As the backend stores it: the answer is appended to the activity
-            // list and saved as the message content.
-            activity: [
-              { kind: 'role_start', role: 'planner' },
-              { kind: 'decision', action: 'inspect', task: 'the run' },
-              { kind: 'final', text: `answer in ${id}` },
-            ],
-          },
-          ...(stored === null ? [] : [stored]),
-        ]),
+        json: {
+          ...conversation(id, [
+            { id: 1, role: 'user', content: `question in ${id}` },
+            {
+              id: 2,
+              role: 'assistant',
+              content: `answer in ${id}`,
+              // As the backend stores it: the answer is appended to the activity
+              // list and saved as the message content.
+              activity: [
+                { kind: 'role_start', role: 'planner' },
+                { kind: 'decision', action: 'inspect', task: 'the run' },
+                { kind: 'final', text: `answer in ${id}` },
+              ],
+            },
+            ...(stored === null ? [] : [stored]),
+          ]),
+          ...(sandbox === undefined
+            ? {}
+            : { sandbox, agent_mode: 'orchestrated', autonomous: true }),
+        },
       })
       .catch(() => undefined);
   });
@@ -163,6 +175,7 @@ async function stubAgent(
 
   await page.route('**/api/agent/v1/workspaces/w_main/conversations/*/messages', async (route) => {
     record(route);
+    if (options.sandbox !== undefined) sandbox = route.request().postDataJSON().sandbox_mode;
     const { text, outcome } = await new Promise<{ text: string; outcome: string | null }>(
       (resolve) => {
         release = resolve;
@@ -209,6 +222,66 @@ async function open(page: Page, hash: string): Promise<void> {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
   await page.goto(`/${hash}`);
 }
+
+for (const width of [1440, 390]) {
+  test(`sandbox restores history and remains selectable for the next turn at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    const agent = await stubAgent(page, { sandbox: 'read-only' });
+    await open(page, `#/chat/${A}?w=w_main`);
+    const picker = page.getByRole('combobox', { name: 'Sandbox', exact: true });
+    await expect(picker).toHaveText('read-only');
+    await picker.click();
+    await page.getByRole('option', { name: 'danger-full-access', exact: true }).click();
+    await expect(picker).toHaveText('danger-full-access');
+    await expect(page.getByRole('listbox', { includeHidden: true })).toHaveCount(0);
+    const box = await picker.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath(`sandbox-${width}.png`), fullPage: true });
+    await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('check sandbox');
+    await page.getByRole('textbox', { name: 'Continue the conversation' }).press('Enter');
+    await expect
+      .poll(() =>
+        agent.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/messages')),
+      )
+      .toHaveLength(1);
+    expect(
+      agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/messages'))?.body,
+    ).toMatchObject({ sandbox_mode: 'danger-full-access' });
+    agent.finish('sandbox checked');
+    await expect(page.getByRole('button', { name: 'Send follow-up' })).toBeVisible();
+    await page.reload();
+    await expect(picker).toHaveText('danger-full-access');
+  });
+}
+
+test('sandbox selection reaches both draft creation and its first turn', async ({ page }) => {
+  const agent = await stubAgent(page, { sandbox: 'workspace-write' });
+  await open(page, '#/chat/new?w=w_main');
+  const picker = page.getByRole('combobox', { name: 'Sandbox', exact: true });
+  await expect(picker).toHaveText('workspace-write');
+  await picker.click();
+  await page.getByRole('option', { name: 'read-only', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('new read-only turn');
+  await page.getByRole('textbox', { name: 'Continue the conversation' }).press('Enter');
+  await expect(page).toHaveURL(new RegExp(`#/chat/${B}`));
+  await expect
+    .poll(() =>
+      agent.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/messages')),
+    )
+    .toHaveLength(1);
+  expect(
+    agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/conversations'))
+      ?.body,
+  ).toMatchObject({ sandbox: 'read-only' });
+  expect(
+    agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/messages'))?.body,
+  ).toMatchObject({ sandbox_mode: 'read-only' });
+  agent.finish();
+});
 
 test('opens a conversation from its address with nothing stored', async ({ page }) => {
   const agent = await stubAgent(page);

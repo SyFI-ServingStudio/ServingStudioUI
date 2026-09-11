@@ -32,6 +32,7 @@ import { savedHistoryPinned, saveHistoryPinned } from './historyPreference';
 import {
   activeOutlineAnchor,
   outlineAnchorOnScreen,
+  preserveTranscriptAnchor,
   scrollToOutlineAnchor,
 } from './outlineNavigation';
 import type { ConversationCard, ConversationRole } from './agentTimeline';
@@ -155,12 +156,19 @@ export default function ConversationSurface({
     send: sendConversationMessage,
   } = conversation;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pendingScrollRestoreRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null);
+  const pendingScrollRestoreRef = useRef<{
+    startIndex: number;
+    scrollHeight: number;
+    scrollTop: number;
+    anchor: HTMLElement | null;
+    anchorTop: number;
+  } | null>(null);
   const stickToBottomRef = useRef(true);
   const lastScrollTopRef = useRef(0);
   const lastScrollHeightRef = useRef(0);
   const scrollFrameRef = useRef(0);
   const cancelOutlineJumpRef = useRef<(() => void) | null>(null);
+  const cancelScrollRestoreRef = useRef<(() => void) | null>(null);
   const pinnedAnchorRef = useRef<string | null>(null);
   const pinnedArrivedRef = useRef(false);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
@@ -232,6 +240,7 @@ export default function ConversationSurface({
       // drop every later read.
       scrollFrameRef.current = 0;
       cancelOutlineJumpRef.current?.();
+      cancelScrollRestoreRef.current?.();
     },
     [],
   );
@@ -239,6 +248,7 @@ export default function ConversationSurface({
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
     cancelOutlineJumpRef.current?.();
+    cancelScrollRestoreRef.current?.();
     stickToBottomRef.current = false;
     pinnedAnchorRef.current = entry.anchorId;
     pinnedArrivedRef.current = false;
@@ -257,18 +267,46 @@ export default function ConversationSurface({
     setHistoryOpen(!nextPinned);
   };
   const loadEarlierMessages = useCallback(async () => {
+    cancelScrollRestoreRef.current?.();
     const scrollElement = scrollRef.current;
-    if (scrollElement) {
-      pendingScrollRestoreRef.current = {
-        scrollHeight: scrollElement.scrollHeight,
-        scrollTop: scrollElement.scrollTop,
-      };
+    const columnTop = scrollElement?.getBoundingClientRect().top ?? 0;
+    const anchor = scrollElement
+      ? (Array.from(scrollElement.querySelectorAll<HTMLElement>('[data-outline-block]')).find(
+          (element) =>
+            /^t\d+$/.test(element.dataset.outlineBlock ?? '') &&
+            element.getBoundingClientRect().bottom > columnTop,
+        ) ?? null)
+      : null;
+    const restore = scrollElement
+      ? {
+          startIndex: conversation.messageStartIndex,
+          scrollHeight: scrollElement.scrollHeight,
+          scrollTop: scrollElement.scrollTop,
+          anchor,
+          anchorTop: (anchor?.getBoundingClientRect().top ?? columnTop) - columnTop,
+        }
+      : null;
+    pendingScrollRestoreRef.current = restore;
+    if (scrollElement && restore) {
+      cancelScrollRestoreRef.current = preserveTranscriptAnchor(
+        scrollElement,
+        anchor,
+        restore.anchorTop,
+        () => {
+          if (pendingScrollRestoreRef.current === restore) pendingScrollRestoreRef.current = null;
+        },
+      );
     }
+    stickToBottomRef.current = false;
     const loaded = await loadEarlierConversationMessages();
-    if (!loaded) pendingScrollRestoreRef.current = null;
-  }, [loadEarlierConversationMessages]);
+    if (!loaded && pendingScrollRestoreRef.current === restore) {
+      cancelScrollRestoreRef.current?.();
+      pendingScrollRestoreRef.current = null;
+    }
+  }, [conversation.messageStartIndex, loadEarlierConversationMessages]);
   const sendMessage = useCallback(
     (message: string) => {
+      cancelScrollRestoreRef.current?.();
       // A new question always re-attaches the reader to the newest output.
       stickToBottomRef.current = true;
       void sendConversationMessage(message);
@@ -281,8 +319,18 @@ export default function ConversationSurface({
     if (!scrollElement) return;
     const pendingRestore = pendingScrollRestoreRef.current;
     if (pendingRestore) {
-      scrollElement.scrollTop =
-        pendingRestore.scrollTop + (scrollElement.scrollHeight - pendingRestore.scrollHeight);
+      // Loading state also rerenders messages; only a prepended page can restore the position.
+      if (conversation.messageStartIndex >= pendingRestore.startIndex) return;
+      // Total height can also change below the reader as deferred messages mount.
+      if (pendingRestore.anchor?.isConnected) {
+        scrollElement.scrollTop +=
+          pendingRestore.anchor.getBoundingClientRect().top -
+          scrollElement.getBoundingClientRect().top -
+          pendingRestore.anchorTop;
+      } else {
+        scrollElement.scrollTop =
+          pendingRestore.scrollTop + (scrollElement.scrollHeight - pendingRestore.scrollHeight);
+      }
       lastScrollTopRef.current = scrollElement.scrollTop;
       pendingScrollRestoreRef.current = null;
       readScrollPosition();
@@ -573,6 +621,11 @@ export default function ConversationSurface({
         lockedFamilies={conversation.lockedFamilies}
         compactRuntime={!roomy}
         agentSettings={conversation.agentSettings}
+        onSandboxChange={(sandbox) => {
+          const settings = { ...conversation.agentSettings, sandbox };
+          saveAgentSettings(settings);
+          conversation.setAgentSettings(settings);
+        }}
         sendUnavailable={conversation.sendUnavailable}
         inputUnavailable={conversation.inputUnavailable}
         connectionAction={conversation.connectionAction}

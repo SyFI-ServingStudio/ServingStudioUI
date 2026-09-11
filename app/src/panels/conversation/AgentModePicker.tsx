@@ -221,7 +221,9 @@ export default function AgentModePicker({
           }
           disabled={disabled}
           size={size}
-          onSelect={() => onChange({ agentMode: plate.agentMode, autonomous: plate.autonomous })}
+          onSelect={() =>
+            onChange({ ...settings, agentMode: plate.agentMode, autonomous: plate.autonomous })
+          }
         />
       ))}
     </Box>

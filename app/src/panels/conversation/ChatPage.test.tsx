@@ -150,7 +150,7 @@ describe('a draft that is answered late', () => {
         startOptions={{
           create: {
             codexRuntime: runtime,
-            agentSettings: { agentMode: 'single', autonomous: false },
+            agentSettings: { agentMode: 'single', autonomous: false, sandbox: 'read-only' },
           },
           turn: { analyzer_context: { protocol: 'vibesim.conversation-context/v2' } },
         }}
@@ -162,7 +162,7 @@ describe('a draft that is answered late', () => {
 
     const create = requests.find(({ url }) => url.endsWith('/conversations'));
     expect(JSON.parse(String(create?.init?.body))).toEqual({
-      sandbox: 'workspace-write',
+      sandbox: 'read-only',
       autonomous: false,
       agent_mode: 'single',
       codex_runtime: runtime,
@@ -172,6 +172,7 @@ describe('a draft that is answered late', () => {
       analyzer_context: { protocol: 'vibesim.conversation-context/v2' },
       agent_mode: 'single',
       autonomous_mode: false,
+      sandbox_mode: 'read-only',
       text: 'inspect this result',
     });
   });
