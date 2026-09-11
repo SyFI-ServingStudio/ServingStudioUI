@@ -17,14 +17,22 @@ import {
   type SubjectArtifact,
   type WorkerCostTreeDetail,
 } from '../../artifacts';
-import { annotate, leafById, nodeById, type LeafNode } from '../costTreeModel';
+import {
+  annotate,
+  leafById,
+  nodeById,
+  nodeByOrdinalPath,
+  nodeOrdinalPath,
+  type LeafNode,
+} from '../costTreeModel';
 import type { SubjectResult } from '../subjectResult';
-import { segmentOf, selectSegment, upTo, withPanel } from '../../location';
+import { segmentOf, selectSegment, upTo, withOption, withPanel } from '../../location';
 import { CostTreeEvidence } from '../CostTreeEvidence';
 import { KernelInspectorView } from '../KernelInspectorView';
 import { KernelEvidenceView, type KernelAnalysisState } from '../KernelEvidenceView';
 import { ParallelDetailView } from '../ParallelDetailView';
 import { TimeShareBlocksView } from '../TimeShareBlocksView';
+import ScopedOptimalityCard from '../ScopedOptimalityCard';
 import {
   COST_TREE_FRAME_HEIGHT,
   WORKER_WORKBENCH_HEIGHT,
@@ -271,6 +279,9 @@ function ReadyTree({
   const parallel = segmentOf(location.focus.path, 'parallel');
   const selectedNode = leafById(tree, leaf?.id ?? null);
   const selectedLeaf = selectedNode === null ? null : selectedNode.id;
+  const selectedScope = nodeByOrdinalPath(tree, location.focus.options['cost-tree-scope'] ?? null);
+  const selectedScopeId =
+    selectedScope !== null && selectedScope.kind !== 'leaf' ? selectedScope.id : null;
   const workbenchRef = useRef<HTMLDivElement | null>(null);
   const lastScrolledTreeRef = useRef<string | null>(null);
   const lastScrolledKernelRef = useRef<string | null>(null);
@@ -346,6 +357,14 @@ function ReadyTree({
         timeBasis={`iter ${detail.operation.iterId} · batch ${detail.operation.batchId} · operation ${detail.operation.operationId}`}
         selectedLeafId={selectedLeaf}
         selectedParallelId={parallel?.id ?? null}
+        selectedScopeId={selectedScopeId}
+        onSelectScope={(scopeId) => {
+          const scopePath = scopeId === selectedScopeId ? null : nodeOrdinalPath(tree, scopeId);
+          navigate(
+            { ...location, focus: withOption(location.focus, 'cost-tree-scope', scopePath) },
+            'push',
+          );
+        }}
         onSelectLeaf={(id) => selectNode('leaf', id)}
         onSelectParallel={(id) => selectNode('parallel', id)}
         onSelectRoot={returnToWorker}
@@ -608,11 +627,13 @@ function ExactTreeSupplementary({
   navigate,
   analysisRevision,
   distributionCapability,
+  scopedOptimalityAvailable,
 }: {
   readonly location: RunLocation;
   readonly navigate: Navigate;
   readonly analysisRevision: string;
   readonly distributionCapability: SubjectArtifact | undefined;
+  readonly scopedOptimalityAvailable: boolean;
 }) {
   const ref = useMemo(
     () => workerCostTreeRef({ ...location.ref, revision: analysisRevision }, location.focus.path),
@@ -628,6 +649,9 @@ function ExactTreeSupplementary({
   const parallel = segmentOf(location.focus.path, 'parallel');
   const selectedLeaf = leafById(tree, leaf?.id ?? null);
   const selectedParallel = nodeById(tree, parallel?.id ?? null);
+  const selectedScope = nodeByOrdinalPath(tree, location.focus.options['cost-tree-scope'] ?? null);
+  const selectedScopeId =
+    selectedScope !== null && selectedScope.kind !== 'leaf' ? selectedScope.id : null;
   const returnToWorker = () => {
     navigate({ ...location, focus: withPanel(upTo(location.focus, 'worker'), null) }, 'push');
   };
@@ -652,6 +676,25 @@ function ExactTreeSupplementary({
           onClose={returnToWorker}
         />
       )}
+      <ScopedOptimalityCard
+        result={location.ref}
+        tree={tree}
+        section={result.value.section}
+        selectedScopeId={selectedScopeId ?? selectedLeaf?.id ?? selectedParallel?.id ?? null}
+        available={scopedOptimalityAvailable}
+        evidence={{
+          evidenceId: 'scoped-optimality',
+          selectedForAgent: location.focus.options['evidence-panel'] === 'scoped-optimality',
+          onEvidenceSelect: () =>
+            navigate(
+              {
+                ...location,
+                focus: withOption(location.focus, 'evidence-panel', 'scoped-optimality'),
+              },
+              'replace',
+            ),
+        }}
+      />
       <TimeShareBlocksView
         tree={tree}
         selectedLeafId={selectedLeaf?.id ?? null}
@@ -677,6 +720,8 @@ export function CostTreeSupplementary({
     descriptor.status === 'ready' ? descriptor.value.analysis?.revision : undefined;
   const distributionCapability =
     descriptor.status === 'ready' ? descriptor.value.subjects.kernelInputDistribution : undefined;
+  const scopedOptimalityAvailable =
+    descriptor.status === 'ready' && descriptor.value.subjects.scopedOptimality?.status === 'ready';
   if (operation === null || capability?.status !== 'ready' || analysisRevision === undefined) {
     return null;
   }
@@ -686,6 +731,7 @@ export function CostTreeSupplementary({
       navigate={navigate}
       analysisRevision={analysisRevision}
       distributionCapability={distributionCapability}
+      scopedOptimalityAvailable={scopedOptimalityAvailable}
     />
   );
 }

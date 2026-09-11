@@ -34,6 +34,7 @@ import type {
   PredictionOptimalityWaterfall,
 } from './schema/optimality';
 import type { SweepAnalysis } from './schema/sweep';
+import type { ScopedOptimalityReport } from './schema/scopedOptimality';
 import type {
   AlignmentBreakdown,
   AlignmentDescriptor,
@@ -161,6 +162,7 @@ export interface PredictionDescriptor {
     readonly analysis: 'not_started' | 'complete';
   };
   readonly kernelInputDistributionAvailable: boolean;
+  readonly scopedOptimalityAvailable: boolean;
 }
 
 export interface PredictionOperationSummary {
@@ -240,6 +242,17 @@ export interface PredictionOptimalityWaterfallRef {
   readonly result: ResultRef & { readonly kind: 'prediction' };
   readonly caseId: string;
   readonly mode: 'unlocked' | 'batch_locked';
+}
+
+/** On-demand R0/R5/R6/R7 analysis for one CostTree subtree. */
+export type ScopedOptimalitySelector =
+  | { readonly path: string; readonly label?: string }
+  | { readonly path?: string; readonly label: string };
+
+export interface ScopedOptimalityRef {
+  readonly kind: 'scopedOptimality';
+  readonly result: RunResultRef | (ResultRef & { readonly kind: 'prediction' });
+  readonly selector: ScopedOptimalitySelector;
 }
 
 /** The complete bounded aggregate grid for one sweep result. */
@@ -634,6 +647,7 @@ export type ArtifactRef =
   | PredictionKernelThroughputAnalysisRef
   | PredictionOptimalityKernelLadderRef
   | PredictionOptimalityWaterfallRef
+  | ScopedOptimalityRef
   | WorkerCostTreeRef
   | KernelThroughputAnalysisRef
   | KernelTimeShareRef
@@ -745,6 +759,13 @@ export function artifactKey(ref: ArtifactRef): string {
         ...resultParts(ref.result),
         ref.caseId,
         ref.mode,
+      ]);
+    case 'scopedOptimality':
+      return JSON.stringify([
+        'scoped-optimality',
+        ...resultParts(ref.result),
+        ref.selector.path ?? null,
+        ref.selector.label ?? null,
       ]);
     case 'workerCostTree':
       return JSON.stringify([
@@ -988,6 +1009,13 @@ export function predictionOptimalityWaterfallRef(
   return { kind: 'predictionOptimalityWaterfall', result, caseId, mode };
 }
 
+export function scopedOptimalityRef(
+  result: RunResultRef | (ResultRef & { readonly kind: 'prediction' }),
+  selector: ScopedOptimalitySelector,
+): ScopedOptimalityRef {
+  return { kind: 'scopedOptimality', result, selector };
+}
+
 export function kernelTimeShareRef(result: ResultRef): KernelTimeShareRef {
   return { kind: 'kernelTimeShare', result };
 }
@@ -1227,69 +1255,71 @@ export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
                                 ? PredictionOptimalityKernelLadder
                                 : R extends PredictionOptimalityWaterfallRef
                                   ? PredictionOptimalityWaterfall
-                                  : R extends IterationOptimalityKernelLadderRef
-                                    ? OptimalityKernelLadder
-                                    : R extends IterationOptimalityWaterfallRef
-                                      ? OptimalityIterationWaterfall
-                                      : R extends WorkerCostTreeRef
-                                        ? WorkerCostTreeDetail
-                                        : R extends KernelThroughputAnalysisRef
-                                          ? KernelThroughputAnalysis
-                                          : R extends KernelTimeShareRef
-                                            ? KernelTimeShare
-                                            : R extends WorkerKernelTimeShareRef
-                                              ? WorkerKernelComposition
-                                              : R extends RunSummaryRef
-                                                ? RunSummary
-                                                : R extends RunLatencyRef
-                                                  ? RunLatency
-                                                  : R extends RunConcurrencyRef
-                                                    ? RunConcurrency
-                                                    : R extends RunDescriptorRef
-                                                      ? RunDescriptor
-                                                      : R extends KernelInputDistributionRef
-                                                        ? KernelInputDistribution
-                                                        : R extends TopologyRef
-                                                          ? RunTopology
-                                                          : R extends RunModelRef
-                                                            ? RunModel
-                                                            : R extends RunWorkloadRef
-                                                              ? RunWorkload
-                                                              : R extends RequestStateRef
-                                                                ? RunRequestState
-                                                                : R extends RequestStateSeriesRef
-                                                                  ? RequestStateTimeline
-                                                                  : R extends UtilizationRef
-                                                                    ? RunUtilization
-                                                                    : R extends UtilizationSeriesRef
-                                                                      ? UtilizationTimeline
-                                                                      : R extends KvOccupancyRef
-                                                                        ? RunKvOccupancy
-                                                                        : R extends KvOccupancySeriesRef
-                                                                          ? KvOccupancyTimeline
-                                                                          : R extends BatchCompositionRef
-                                                                            ? RunBatchComposition
-                                                                            : R extends BatchSeriesRef
-                                                                              ? BatchTimeline
-                                                                              : R extends RunThroughputRef
-                                                                                ? RunThroughput
-                                                                                : R extends ThroughputSeriesRef
-                                                                                  ? ThroughputTimeline
-                                                                                  : R extends ConservationRef
-                                                                                    ? RunConservation
-                                                                                    : R extends RunOptimalityRef
-                                                                                      ? OptimalityDecodeResult
-                                                                                      : R extends KernelProfileDescriptorRef
-                                                                                        ? KernelProfileDescriptor
-                                                                                        : R extends KernelProfileCurveRef
-                                                                                          ? KernelProfileCurve
-                                                                                          : R extends KernelMeasurementDescriptorRef
-                                                                                            ? KernelMeasurementDescriptor
-                                                                                            : R extends KernelMeasurementSummaryRef
-                                                                                              ? KernelMeasurementSummary
-                                                                                              : R extends HardwareGpuRef
-                                                                                                ? HardwareGpu
-                                                                                                : never;
+                                  : R extends ScopedOptimalityRef
+                                    ? ScopedOptimalityReport
+                                    : R extends IterationOptimalityKernelLadderRef
+                                      ? OptimalityKernelLadder
+                                      : R extends IterationOptimalityWaterfallRef
+                                        ? OptimalityIterationWaterfall
+                                        : R extends WorkerCostTreeRef
+                                          ? WorkerCostTreeDetail
+                                          : R extends KernelThroughputAnalysisRef
+                                            ? KernelThroughputAnalysis
+                                            : R extends KernelTimeShareRef
+                                              ? KernelTimeShare
+                                              : R extends WorkerKernelTimeShareRef
+                                                ? WorkerKernelComposition
+                                                : R extends RunSummaryRef
+                                                  ? RunSummary
+                                                  : R extends RunLatencyRef
+                                                    ? RunLatency
+                                                    : R extends RunConcurrencyRef
+                                                      ? RunConcurrency
+                                                      : R extends RunDescriptorRef
+                                                        ? RunDescriptor
+                                                        : R extends KernelInputDistributionRef
+                                                          ? KernelInputDistribution
+                                                          : R extends TopologyRef
+                                                            ? RunTopology
+                                                            : R extends RunModelRef
+                                                              ? RunModel
+                                                              : R extends RunWorkloadRef
+                                                                ? RunWorkload
+                                                                : R extends RequestStateRef
+                                                                  ? RunRequestState
+                                                                  : R extends RequestStateSeriesRef
+                                                                    ? RequestStateTimeline
+                                                                    : R extends UtilizationRef
+                                                                      ? RunUtilization
+                                                                      : R extends UtilizationSeriesRef
+                                                                        ? UtilizationTimeline
+                                                                        : R extends KvOccupancyRef
+                                                                          ? RunKvOccupancy
+                                                                          : R extends KvOccupancySeriesRef
+                                                                            ? KvOccupancyTimeline
+                                                                            : R extends BatchCompositionRef
+                                                                              ? RunBatchComposition
+                                                                              : R extends BatchSeriesRef
+                                                                                ? BatchTimeline
+                                                                                : R extends RunThroughputRef
+                                                                                  ? RunThroughput
+                                                                                  : R extends ThroughputSeriesRef
+                                                                                    ? ThroughputTimeline
+                                                                                    : R extends ConservationRef
+                                                                                      ? RunConservation
+                                                                                      : R extends RunOptimalityRef
+                                                                                        ? OptimalityDecodeResult
+                                                                                        : R extends KernelProfileDescriptorRef
+                                                                                          ? KernelProfileDescriptor
+                                                                                          : R extends KernelProfileCurveRef
+                                                                                            ? KernelProfileCurve
+                                                                                            : R extends KernelMeasurementDescriptorRef
+                                                                                              ? KernelMeasurementDescriptor
+                                                                                              : R extends KernelMeasurementSummaryRef
+                                                                                                ? KernelMeasurementSummary
+                                                                                                : R extends HardwareGpuRef
+                                                                                                  ? HardwareGpu
+                                                                                                  : never;
 
 /**
  * One population at one scope: how many requests were in it, on average and at
@@ -1872,6 +1902,8 @@ export interface CatalogEntry {
   readonly deployments?: readonly string[];
   readonly traces?: readonly string[];
   readonly axes?: readonly string[];
+  /** A singleton sweep can open its only run directly when the Analyzer names it. */
+  readonly runId?: string;
   /** Page 0 metadata retained from the catalog wire so the migrated result
    * directory can reproduce the existing subtitles and tags exactly. */
   readonly caseCount?: number;
@@ -2113,7 +2145,8 @@ export type DescriptorSubjectName =
   | 'conservation'
   | 'kernelInputDistribution'
   | 'kernelTimeShare'
-  | 'optimality';
+  | 'optimality'
+  | 'scopedOptimality';
 
 /** Full analyzer-v1 run capability manifest. */
 export interface RunDescriptor {

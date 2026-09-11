@@ -487,12 +487,17 @@ export default function ResultCatalog({
               tabIndex={visible ? 0 : -1}
               onClick={() => {
                 if (entry.entry === null) return;
+                const targetKind =
+                  entry.entry.kind === 'sweep' && entry.entry.runId !== undefined
+                    ? 'run'
+                    : entry.entry.kind;
+                const targetId = entry.entry.runId ?? entry.entry.id;
                 navigate(
                   {
                     view: 'result',
                     ref: {
-                      kind: entry.entry.kind,
-                      id: entry.entry.id,
+                      kind: targetKind,
+                      id: targetId,
                       workspace: entry.entry.workspace,
                     },
                     focus: EMPTY_FOCUS,

@@ -577,6 +577,43 @@ export function nodeById(root: CostNode, id: number | null): CostNode | null {
   return found;
 }
 
+/** Ordinal trail from the tree root to the node with `id`, formatted the way
+ * the analyzer's scoped-optimality `path` selector expects: child indexes
+ * joined by `/`, excluding the root itself. Returns `''` for the root node
+ * (callers address the root as the bare section name) and null when the id is
+ * absent from the tree. */
+export function nodeOrdinalPath(root: CostNode, id: number | null): string | null {
+  if (id == null) return null;
+  let found: string | null = null;
+  function walk(node: CostNode, trail: readonly number[]): void {
+    if (found !== null) return;
+    if (node.id === id) {
+      found = trail.join('/');
+      return;
+    }
+    if (node.kind === 'leaf') return;
+    node.children.forEach((child, index) => walk(child, [...trail, index]));
+  }
+  walk(root, []);
+  return found;
+}
+
+/** Resolve an Analyzer ordinal path back to the annotated node rendered by the
+ * current CostTree. Invalid or stale paths resolve to null, so URL selection
+ * cannot accidentally point at a different node after the operation changes. */
+export function nodeByOrdinalPath(root: CostNode, path: string | null): CostNode | null {
+  if (path === null) return null;
+  if (path === '') return root;
+  let node: CostNode = root;
+  for (const part of path.split('/')) {
+    if (!/^\d+$/.test(part) || node.kind === 'leaf') return null;
+    const child = node.children[Number(part)];
+    if (child === undefined) return null;
+    node = child;
+  }
+  return node;
+}
+
 export function leafByName(root: CostNode, name: string): LeafNode | null {
   let found: LeafNode | null = null;
   function walk(node: CostNode): void {

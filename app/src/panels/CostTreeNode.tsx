@@ -37,6 +37,11 @@ interface NodeProps<Node extends CostNode = CostNode> {
   onRoot?: () => void;
   parSel?: number | null;
   onPar?: (id: number) => void;
+  /** Scoped-analysis selection for sequential containers (e.g. an operator
+   * like qk_norm). Distinct from `parSel`, which drives the parallel
+   * critical-path inspector on max nodes. */
+  scopeSel?: number | null;
+  onScope?: (id: number) => void;
   density?: 'default' | 'compact';
 }
 
@@ -526,6 +531,8 @@ export default function CostTreeNode({
   onRoot,
   parSel,
   onPar,
+  scopeSel,
+  onScope,
   density = 'default',
 }: NodeProps) {
   const compact = density === 'compact';
@@ -545,6 +552,8 @@ export default function CostTreeNode({
     const kids = node.children;
     const isRoot = node.depth === 0 && !!onRoot;
     const subSel = selId != null || parSel != null;
+    const scoped = scopeSel != null && scopeSel === node.id;
+    const scopeClickable = !isRoot && !!onScope;
     // Keep nested sequential surfaces opaque so tint does not accumulate.
     const sequentialBorderAlpha = Math.min(0.34 + node.depth * 0.1, 0.54);
     return (
@@ -557,17 +566,25 @@ export default function CostTreeNode({
           display: 'flex',
           flexDirection: 'column',
           gap: compact ? 0.4 : 1,
-          // Green sequential boundaries complement amber Max and violet Scale.
-          border: `1px solid ${
-            isRoot && subSel ? tokens.olive : withAlpha(tokens.olive, sequentialBorderAlpha)
-          }`,
+          // Green sequential boundaries complement amber Max and violet Scale;
+          // a scoped node lifts and thickens its olive border.
+          border: scoped
+            ? `1.5px solid ${tokens.olive}`
+            : `1px solid ${
+                isRoot && subSel ? tokens.olive : withAlpha(tokens.olive, sequentialBorderAlpha)
+              }`,
+          boxShadow: scoped ? tokens.shadowLift : 'none',
           background: node.depth === 0 ? tokens.tile2 : colors.sumSurface,
         }}
       >
         <NodeControl
-          ariaLabel="Scope to worker CostTree root"
-          pressed={isRoot && !subSel}
-          onActivate={isRoot ? onRoot : undefined}
+          ariaLabel={
+            isRoot
+              ? 'Scope to worker CostTree root'
+              : `Scope analysis to ${costTreeDisplayLabel(node.label ?? 'sequential group')}`
+          }
+          pressed={isRoot ? isRoot && !subSel : scoped}
+          onActivate={isRoot ? onRoot : scopeClickable ? () => onScope?.(node.id) : undefined}
           sx={{
             display: 'block',
             textAlign: 'left',
@@ -575,9 +592,11 @@ export default function CostTreeNode({
             px: 0.5,
             py: compact ? 0 : 0.25,
             borderRadius: 1,
-            cursor: isRoot ? 'pointer' : 'default',
+            cursor: isRoot || scopeClickable ? 'pointer' : 'default',
             transition: `background .2s ${tokens.ease}`,
-            ...(isRoot ? { '&:hover': { background: withAlpha(tokens.olive, 0.07) } } : {}),
+            ...(isRoot || scopeClickable
+              ? { '&:hover': { background: withAlpha(tokens.olive, 0.07) } }
+              : {}),
           }}
         >
           <WrapLabel
@@ -605,6 +624,8 @@ export default function CostTreeNode({
                 onSelect={onSelect}
                 parSel={parSel}
                 onPar={onPar}
+                scopeSel={scopeSel}
+                onScope={onScope}
                 density={density}
               />
               {i < kids.length - 1 && (
@@ -701,6 +722,8 @@ export default function CostTreeNode({
               onSelect={onSelect}
               parSel={parSel}
               onPar={onPar}
+              scopeSel={scopeSel}
+              onScope={onScope}
               density={density}
             />
           ))}
@@ -764,6 +787,8 @@ export default function CostTreeNode({
         onSelect={onSelect}
         parSel={parSel}
         onPar={onPar}
+        scopeSel={scopeSel}
+        onScope={onScope}
         density={density}
       />
     </Box>

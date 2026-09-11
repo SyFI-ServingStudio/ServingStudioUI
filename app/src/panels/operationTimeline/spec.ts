@@ -16,7 +16,7 @@ export const workerIterationWorkbenchSpec: PanelSpec = {
   scope: false,
   kinds: ['run'],
   consumes: ['pool', 'worker'],
-  options: [],
+  options: ['cost-tree-scope', 'evidence-panel'],
   needs(location) {
     if (location.ref.kind !== 'run' || workerOf(location.focus) === null) return [];
     return [

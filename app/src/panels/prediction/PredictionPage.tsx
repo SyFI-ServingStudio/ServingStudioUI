@@ -27,7 +27,15 @@ import {
 import { segmentOf, selectSegment, upTo, withOption, withPanel, withPath } from '../../location';
 import type { ResultRef } from '../../location';
 import type { PanelProps } from '../types';
-import { annotate, fmtMs, leafById, type JsonValue } from '../costTreeModel';
+import {
+  annotate,
+  costTreeDisplayLabel,
+  fmtMs,
+  leafById,
+  nodeByOrdinalPath,
+  nodeOrdinalPath,
+  type JsonValue,
+} from '../costTreeModel';
 import type { SubjectResult } from '../subjectResult';
 import type { OptimalityMode } from '../../artifacts';
 import AnalysisPageHeader from '../../ui/controls/AnalysisPageHeader';
@@ -42,6 +50,15 @@ import { TimeShareBlocksView } from '../TimeShareBlocksView';
 import { OptimalityWaterfallCard } from '../shared/OptimalityBreakdownCard';
 import OptimalityKernelLadderCard from '../shared/OptimalityKernelLadderCard';
 import OptimalityKernelsCard from '../shared/OptimalityKernelsCard';
+import ScopedOptimalityCard from '../ScopedOptimalityCard';
+import {
+  componentByLeafName,
+  filterLadderKernels,
+  groupLadderByComponent,
+  normalizeLadderPerCall,
+  perCallDivisors,
+  scopedLeafNames,
+} from '../shared/ladderScope';
 import { projectIterationOptimalityBreakdown } from '../shared/optimalityBreakdown';
 import { projectExactKernelLadder } from '../shared/optimalityKernelLadder';
 
@@ -227,6 +244,10 @@ type SelectionPatch = {
   readonly leafId?: number | null;
   readonly parallelId?: number | null;
   readonly optimalityMode?: OptimalityMode;
+  readonly scopePath?: string | null;
+  readonly ladderGranularity?: 'kernel' | 'component';
+  readonly ladderNormalization?: 'total' | 'per_call';
+  readonly evidencePanel?: string;
 };
 
 function resultReason(result: ArtifactResult<unknown>): string {
@@ -288,6 +309,14 @@ function PredictionContent({
       if (patch.panelId !== undefined) focus = withPanel(focus, patch.panelId);
       if (patch.optimalityMode !== undefined)
         focus = withOption(focus, 'optimality', patch.optimalityMode);
+      if (patch.scopePath !== undefined)
+        focus = withOption(focus, 'cost-tree-scope', patch.scopePath);
+      if (patch.ladderGranularity !== undefined)
+        focus = withOption(focus, 'ladder-granularity', patch.ladderGranularity);
+      if (patch.ladderNormalization !== undefined)
+        focus = withOption(focus, 'ladder-normalization', patch.ladderNormalization);
+      if (patch.evidencePanel !== undefined)
+        focus = withOption(focus, 'evidence-panel', patch.evidencePanel);
       navigate({ ...location, focus }, 'replace');
     },
     [location, navigate],
@@ -307,6 +336,7 @@ function PredictionContent({
         operationId: null,
         leafId: null,
         parallelId: null,
+        scopePath: null,
       });
     } else if (
       selectedCase !== undefined &&
@@ -317,6 +347,7 @@ function PredictionContent({
         operationId: selectedCase.operations[0].operationId,
         leafId: null,
         parallelId: null,
+        scopePath: null,
       });
     }
   }, [casePage, selectedCaseId, selectedOperationId, updatePredictionSelection]);
@@ -356,10 +387,21 @@ function PredictionContent({
         offset={casePage.value.offset}
         total={casePage.value.total}
         onSelectCase={(caseId) =>
-          updatePredictionSelection({ caseId, operationId: null, leafId: null, parallelId: null })
+          updatePredictionSelection({
+            caseId,
+            operationId: null,
+            leafId: null,
+            parallelId: null,
+            scopePath: null,
+          })
         }
         onSelectOperation={(operationId) =>
-          updatePredictionSelection({ operationId, leafId: null, parallelId: null })
+          updatePredictionSelection({
+            operationId,
+            leafId: null,
+            parallelId: null,
+            scopePath: null,
+          })
         }
         onPage={(offset) =>
           updatePredictionSelection({
@@ -367,6 +409,7 @@ function PredictionContent({
             operationId: null,
             leafId: null,
             parallelId: null,
+            scopePath: null,
           })
         }
       />
@@ -417,6 +460,11 @@ function SelectedPrediction({
   const selectedParallelId = segmentOf(location.focus.path, 'parallel')?.id ?? null;
   const optimalityMode: OptimalityMode =
     location.focus.options.optimality === 'batch_locked' ? 'batch_locked' : 'unlocked';
+  const scopePath = location.focus.options['cost-tree-scope'] ?? null;
+  const ladderGranularity =
+    location.focus.options['ladder-granularity'] === 'component' ? 'component' : 'kernel';
+  const ladderNormalization =
+    location.focus.options['ladder-normalization'] === 'per_call' ? 'per_call' : 'total';
   const costTree = useArtifact(
     predictionCostTreeRef(result, selectedCase.caseId, selectedOperationId),
   );
@@ -431,10 +479,32 @@ function SelectedPrediction({
     [costTree],
   );
   const selectedLeaf = tree === null ? null : leafById(tree, selectedLeafId);
+  const selectedScope = tree === null ? null : nodeByOrdinalPath(tree, scopePath);
+  const selectedScopeId =
+    selectedScope !== null && selectedScope.kind !== 'leaf' ? selectedScope.id : null;
+  const scopedNames =
+    tree !== null && selectedScopeId !== null ? scopedLeafNames(tree, selectedScopeId) : null;
   const selectedKernelName = selectedLeaf?.slot.name ?? null;
+  const scopedLadder = useMemo(() => {
+    if (ladder.status !== 'ready') return null;
+    let value = ladder.value;
+    if (scopedNames !== null) value = filterLadderKernels(value, scopedNames);
+    if (tree !== null && ladderGranularity === 'component') {
+      value = groupLadderByComponent(value, componentByLeafName(tree));
+    }
+    if (tree !== null && ladderNormalization === 'per_call') {
+      value = normalizeLadderPerCall(value, perCallDivisors(tree, ladderGranularity));
+    }
+    return value;
+  }, [ladder, ladderGranularity, ladderNormalization, scopedNames, tree]);
+  const ladderKernelFilter =
+    ladderGranularity === 'kernel' &&
+    (scopedNames === null || (selectedKernelName !== null && scopedNames.has(selectedKernelName)))
+      ? selectedKernelName
+      : null;
   const ladderProjection =
-    ladder.status === 'ready'
-      ? projectExactKernelLadder(ladder.value, selectedKernelName)
+    scopedLadder !== null
+      ? projectExactKernelLadder(scopedLadder, ladderKernelFilter)
       : {
           status: ladder.status === 'pending' ? ('pending' as const) : ('failed' as const),
           reason:
@@ -491,6 +561,12 @@ function SelectedPrediction({
           timeBasis={`iter ${selectedCase.caseId} · operation ${selectedOperationId}`}
           selectedLeafId={selectedLeafId}
           selectedParallelId={selectedParallelId}
+          selectedScopeId={selectedScopeId}
+          onSelectScope={(scopeId) => {
+            const next = scopeId === selectedScopeId ? null : scopeId;
+            const findPath = next === null ? null : nodeOrdinalPath(tree, next);
+            updateSelection({ scopePath: findPath });
+          }}
           onSelectLeaf={(leafId) =>
             updateSelection({ panelId: 'cost-tree', leafId, parallelId: null })
           }
@@ -548,7 +624,39 @@ function SelectedPrediction({
           }
         />
       )}
-      <Stack direction="row" justifyContent="flex-end">
+      {tree !== null && (
+        <ScopedOptimalityCard
+          result={result}
+          tree={tree}
+          section={costTree.status === 'ready' ? costTree.value.section : ''}
+          selectedScopeId={selectedScopeId ?? selectedLeafId ?? selectedParallelId}
+          available={descriptor.scopedOptimalityAvailable}
+          evidence={{
+            evidenceId: 'scoped-optimality',
+            selectedForAgent: location.focus.options['evidence-panel'] === 'scoped-optimality',
+            onEvidenceSelect: () => updateSelection({ evidencePanel: 'scoped-optimality' }),
+          }}
+        />
+      )}
+      <Stack
+        direction="row"
+        justifyContent="flex-end"
+        useFlexGap
+        flexWrap="wrap"
+        sx={{
+          gap: 0.8,
+          '& .MuiToggleButton-root': {
+            px: 1,
+            py: 0.2,
+            fontFamily: tokens.body,
+            fontSize: 12,
+            lineHeight: 1.45,
+            color: tokens.sub,
+            borderColor: tokens.hair,
+            '&.Mui-selected': { color: tokens.teal, backgroundColor: tokens.tile2 },
+          },
+        }}
+      >
         <ToggleButtonGroup
           exclusive
           size="small"
@@ -557,21 +665,33 @@ function SelectedPrediction({
             if (nextMode !== null) updateSelection({ optimalityMode: nextMode });
           }}
           aria-label="Prediction optimality batch-size mode"
-          sx={{
-            '& .MuiToggleButton-root': {
-              px: 1,
-              py: 0.2,
-              fontFamily: tokens.body,
-              fontSize: 12,
-              lineHeight: 1.45,
-              color: tokens.sub,
-              borderColor: tokens.hair,
-              '&.Mui-selected': { color: tokens.teal, backgroundColor: tokens.tile2 },
-            },
-          }}
         >
           <ToggleButton value="unlocked">Batch unlocked</ToggleButton>
           <ToggleButton value="batch_locked">Batch locked</ToggleButton>
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={ladderGranularity}
+          onChange={(_event, value: 'kernel' | 'component' | null) => {
+            if (value !== null) updateSelection({ ladderGranularity: value });
+          }}
+          aria-label="Prediction ladder granularity"
+        >
+          <ToggleButton value="kernel">Kernel</ToggleButton>
+          <ToggleButton value="component">Component</ToggleButton>
+        </ToggleButtonGroup>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={ladderNormalization}
+          onChange={(_event, value: 'total' | 'per_call' | null) => {
+            if (value !== null) updateSelection({ ladderNormalization: value });
+          }}
+          aria-label="Prediction ladder normalization"
+        >
+          <ToggleButton value="total">Total</ToggleButton>
+          <ToggleButton value="per_call">Per call</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
       <OptimalityWaterfallCard
@@ -586,11 +706,11 @@ function SelectedPrediction({
       />
       <OptimalityKernelLadderCard
         idx="b"
-        title={
-          selectedKernelName === null
-            ? `Kernel optimality ladder · iter ${selectedCase.caseId}`
-            : `Kernel optimality ladder · ${selectedKernelName}`
-        }
+        title={`${ladderGranularity === 'component' ? 'Component' : 'Kernel'} optimality ladder · ${
+          selectedScope?.kind !== 'leaf' && selectedScope?.label
+            ? costTreeDisplayLabel(selectedScope.label)
+            : `iter ${selectedCase.caseId}`
+        }${ladderNormalization === 'per_call' ? ' · per call' : ''}`}
         projection={ladderProjection}
         evidence={{
           evidenceId: 'optimality-kernel-ladder',
@@ -600,11 +720,11 @@ function SelectedPrediction({
       />
       <OptimalityKernelsCard
         idx="c"
-        title={
-          selectedKernelName === null
-            ? `Per-kernel optimality · iter ${selectedCase.caseId}`
-            : `Kernel optimality sources · ${selectedKernelName}`
-        }
+        title={`${ladderGranularity === 'component' ? 'Per-component' : 'Per-kernel'} optimality · ${
+          selectedScope?.kind !== 'leaf' && selectedScope?.label
+            ? costTreeDisplayLabel(selectedScope.label)
+            : (selectedKernelName ?? `iter ${selectedCase.caseId}`)
+        }${ladderNormalization === 'per_call' ? ' · per call' : ''}`}
         projection={ladderProjection}
         evidence={{
           evidenceId: 'optimality-kernels',

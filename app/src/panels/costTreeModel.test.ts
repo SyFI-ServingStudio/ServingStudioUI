@@ -11,6 +11,8 @@ import {
   leafTotals,
   max,
   nodeById,
+  nodeByOrdinalPath,
+  nodeOrdinalPath,
   scale,
   sum,
 } from './costTreeModel';
@@ -119,6 +121,22 @@ describe('CostTree annotation', () => {
     });
     expect(totals.positions[0]?.pct).toBeCloseTo(200 / 3);
     expect(totals.positions[1]?.pct).toBeCloseTo(100 / 3);
+  });
+
+  it('round-trips stable Analyzer ordinal paths and rejects stale paths', () => {
+    const tree = annotate(
+      sum(
+        'root',
+        leaf('first', 'single_gemm', {}, 1),
+        scale('layers', 2, leaf('nested', 'rms_norm', {}, 1)),
+      ),
+    );
+    const nested = nodeByOrdinalPath(tree, '1/0');
+    expect(nested?.kind).toBe('leaf');
+    expect(nodeOrdinalPath(tree, nested?.id ?? null)).toBe('1/0');
+    expect(nodeByOrdinalPath(tree, '')).toBe(tree);
+    expect(nodeByOrdinalPath(tree, '1/9')).toBeNull();
+    expect(nodeByOrdinalPath(tree, 'one')).toBeNull();
   });
 
   it('attributes Sum, Scale, Max, and overlap to root critical-path time', () => {

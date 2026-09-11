@@ -69,4 +69,27 @@ describe('ResultCatalog', () => {
     expect(screen.getByText('Awaiting Analyzer discovery')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Kernel study/ })).toBeDisabled();
   });
+
+  it('opens a singleton sweep through its analyzer-issued run identity', async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    render(
+      <ResultCatalog
+        entries={[{ ...entry, workspace: 'w_main', numRuns: 1, runId: 'r_single' }]}
+        filter={filter}
+        navigate={navigate}
+      />,
+    );
+
+    await user.click(screen.getByRole('option', { name: /Open Simulation result/ }));
+    expect(navigate).toHaveBeenCalledWith(
+      {
+        view: 'result',
+        ref: { kind: 'run', id: 'r_single', workspace: 'w_main' },
+        focus: expect.objectContaining({ path: [], panel: null, options: {} }),
+        chat: null,
+      },
+      'push',
+    );
+  });
 });

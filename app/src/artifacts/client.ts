@@ -36,6 +36,11 @@ import {
 } from './schema/optimality';
 import { AnalyzerV1SweepContractError, parseAnalyzerV1SweepPayload } from './schema/sweep';
 import {
+  IncompatibleScopedOptimalityError,
+  SCOPED_OPTIMALITY_SCHEMA_VERSION,
+  parseAnalyzerV1ScopedOptimality,
+} from './schema/scopedOptimality';
+import {
   parseAnalyzerV1AlignmentBreakdown,
   parseAnalyzerV1AlignmentDescriptor,
   parseAnalyzerV1AlignmentE2eSeries,
@@ -425,6 +430,12 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
         schemaVersion: 1,
         revision: responseRevision(headers, ref.result.revision),
       };
+    case 'scopedOptimality':
+      return {
+        value: parseAnalyzerV1ScopedOptimality(body),
+        schemaVersion: SCOPED_OPTIMALITY_SCHEMA_VERSION,
+        revision: responseRevision(headers, ref.result.revision),
+      };
     case 'iterationOptimalityKernelLadder':
       return {
         value: decodeAnalyzerV1IterationOptimalityKernelLadder(body, ref.worker, ref.iterId),
@@ -645,6 +656,14 @@ export async function fetchArtifact(
       };
     }
     if (error instanceof IncompatiblePredictionOptimalityError) {
+      return {
+        status: 'incompatible',
+        reason: error.message,
+        received: error.received,
+        issues: error.issues,
+      };
+    }
+    if (error instanceof IncompatibleScopedOptimalityError) {
       return {
         status: 'incompatible',
         reason: error.message,

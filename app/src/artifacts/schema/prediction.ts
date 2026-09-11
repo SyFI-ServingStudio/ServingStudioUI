@@ -59,6 +59,7 @@ const descriptorSchema = z
       .object({
         cases: analyzerV1CapabilitySchema,
         'kernel-input-distribution': analyzerV1CapabilitySchema.nullable(),
+        'scoped-optimality': analyzerV1CapabilitySchema.nullable().optional(),
       })
       .strict(),
   })
@@ -168,6 +169,7 @@ export function parsePredictionDescriptor(
     caseCount: value.case_count,
     lifecycle: Object.freeze(value.lifecycle),
     kernelInputDistributionAvailable: value.resources['kernel-input-distribution'] !== null,
+    scopedOptimalityAvailable: value.resources['scoped-optimality'] != null,
   });
 }
 

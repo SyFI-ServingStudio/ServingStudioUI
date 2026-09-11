@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf } from './costTreeModel';
+import { annotate, leaf, sum } from './costTreeModel';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
 const controls = {
@@ -50,6 +50,28 @@ afterAll(() => vi.unstubAllGlobals());
 afterEach(() => vi.restoreAllMocks());
 
 describe('CostTreeCanvas', () => {
+  it('forwards selection from a nested sequential scope', async () => {
+    const onSelectScope = vi.fn();
+    const tree = annotate(
+      sum('root', sum('projection', leaf('first.kernel', 'single_gemm', {}, 1))),
+    );
+    render(
+      <CostTreeCanvas
+        tree={tree}
+        selectedLeafId={null}
+        selectedParallelId={null}
+        onSelectLeaf={vi.fn()}
+        onSelectParallel={vi.fn()}
+        onSelectScope={onSelectScope}
+        onSelectRoot={vi.fn()}
+        ariaLabel="Test CostTree canvas"
+        controlLabels={controls}
+      />,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Scope analysis to projection' }));
+    expect(onSelectScope).toHaveBeenCalledWith(1);
+  });
+
   it('owns native viewport controls and resets the view for a new exact-operation tree', async () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
       this: HTMLElement,
