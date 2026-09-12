@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Location, Navigate } from '../location';
 import { resetSessionControllers, sessionController } from '../session/controller';
 import AgentHost from './AgentHost';
+import { storeEntryDraft } from './entryDraft';
 
 const draft: Location = {
   view: 'chat',
@@ -62,6 +63,7 @@ afterEach(() => {
   resetSessionControllers();
   vi.unstubAllGlobals();
   window.localStorage.clear();
+  window.sessionStorage.clear();
 });
 
 describe('AgentHost', () => {
@@ -183,7 +185,7 @@ describe('AgentHost', () => {
     },
   );
 
-  it('restores cached settings under StrictMode without discarding an unsent sandbox choice', async () => {
+  it('restores cached settings under StrictMode and reconnects after visibility changes', async () => {
     const ref = { workspace: 'w_main', conversation: 'c_cached' };
     let reads = 0;
     vi.stubGlobal('fetch', async (input: string) => {
@@ -217,25 +219,20 @@ describe('AgentHost', () => {
     };
     const navigate = vi.fn<Navigate>();
     const view = render(<StrictMode>{host(location, navigate)}</StrictMode>);
-    await waitFor(() =>
-      expect(screen.getByRole('combobox', { name: 'Sandbox' })).toHaveTextContent('read-only'),
-    );
+    await screen.findByText('Stored history');
     expect(screen.getByText('single')).toBeInTheDocument();
     expect(screen.getByText('human')).toBeInTheDocument();
+    expect(controller.getState().agentSettings?.sandbox).toBe('read-only');
 
-    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Sandbox' }));
-    fireEvent.click(screen.getByRole('option', { name: 'danger-full-access' }));
     const before = reads;
     view.rerender(<StrictMode>{host(location, navigate, false)}</StrictMode>);
     view.rerender(<StrictMode>{host(location, navigate, true)}</StrictMode>);
     await waitFor(() => expect(reads).toBeGreaterThan(before));
     await waitFor(() => expect(controller.getState().status).toBe('idle'));
-    expect(screen.getByRole('combobox', { name: 'Sandbox' })).toHaveTextContent(
-      'danger-full-access',
-    );
+    expect(controller.getState().agentSettings?.sandbox).toBe('read-only');
   });
 
-  it('renders the exact Agent surface and replaces a draft only after starting its canonical turn', async () => {
+  it('submits an entry-page draft exactly once before replacing it with its canonical turn', async () => {
     const requests: { url: string; init?: RequestInit }[] = [];
     vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
       const url = String(input);
@@ -258,13 +255,12 @@ describe('AgentHost', () => {
       throw new Error(`unexpected request: ${url}`);
     });
     const navigate = vi.fn<Navigate>();
-    render(host(draft, navigate));
-
-    await screen.findAllByText('GPT-6');
-    fireEvent.change(screen.getByRole('textbox', { name: 'Continue the conversation' }), {
-      target: { value: 'inspect this result' },
+    storeEntryDraft({
+      workspace: 'w_main',
+      prompt: 'inspect this result',
+      runtime,
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Send follow-up' }));
+    render(<StrictMode>{host(draft, navigate)}</StrictMode>);
 
     await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
     expect(navigate).toHaveBeenCalledWith(
@@ -277,6 +273,9 @@ describe('AgentHost', () => {
     const create = requests.find(
       ({ url, init }) => url.endsWith('/conversations') && init?.method === 'POST',
     );
+    expect(
+      requests.filter(({ url, init }) => url.endsWith('/conversations') && init?.method === 'POST'),
+    ).toHaveLength(1);
     expect(JSON.parse(String(create?.init?.body))).toMatchObject({
       sandbox: 'workspace-write',
       autonomous: true,
@@ -284,6 +283,7 @@ describe('AgentHost', () => {
       codex_runtime: runtime,
     });
     const turn = requests.find(({ url }) => url.endsWith('/messages'));
+    expect(requests.filter(({ url }) => url.endsWith('/messages'))).toHaveLength(1);
     expect(JSON.parse(String(turn?.init?.body))).toMatchObject({
       text: 'inspect this result',
       autonomous_mode: true,
@@ -291,6 +291,7 @@ describe('AgentHost', () => {
       agent_mode: 'orchestrated',
       analyzer_context: { protocol: 'vibesim.conversation-context/v2' },
     });
+    expect(window.sessionStorage).toHaveLength(0);
   });
 
   it('locks the composer without exposing fake Stop or Queue actions during creation', async () => {

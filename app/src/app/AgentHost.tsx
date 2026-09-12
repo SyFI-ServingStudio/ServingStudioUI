@@ -436,6 +436,8 @@ function DraftAgent({
     version: entryDraft === null ? 0 : 1,
   });
   const mounted = useRef(true);
+  const startingRef = useRef(false);
+  const entryDraftStarted = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -444,11 +446,11 @@ function DraftAgent({
   }, []);
   const send = useCallback(
     async (text: string) => {
-      if (starting) return;
+      if (startingRef.current) return;
+      startingRef.current = true;
       setStarting(true);
       setError(null);
       try {
-        clearEntryDraft(shared.workspace);
         const started = await startConversation(shared.workspace, text, {
           create: {
             codexRuntime: shared.codexRuntime,
@@ -458,8 +460,10 @@ function DraftAgent({
             ...(analyzerContext === null ? {} : { analyzer_context: analyzerContext }),
           },
         });
+        clearEntryDraft(shared.workspace);
         onCreated(started.session.conversation as ConversationId, started.release);
       } catch (failure) {
+        startingRef.current = false;
         if (mounted.current) {
           setError(describeError(failure));
           setStarting(false);
@@ -467,8 +471,13 @@ function DraftAgent({
         }
       }
     },
-    [analyzerContext, onCreated, shared, starting],
+    [analyzerContext, onCreated, shared],
   );
+  useEffect(() => {
+    if (entryDraft === null || entryDraftStarted.current) return;
+    entryDraftStarted.current = true;
+    void send(entryDraft.prompt);
+  }, [entryDraft, send]);
   const conversation: AgentConversationViewModel = {
     ...commonViewModel(shared),
     conversationId: null,

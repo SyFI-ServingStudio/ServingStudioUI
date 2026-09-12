@@ -22,7 +22,7 @@ checked-in data source; `app/testdata/` is sample input to unit tests only.
 
 CI commands live in `app/package.json` and `.github/workflows/ci.yml`. Default
 checks cover lint, types, behavioral tests and bundling.
-Formatting and bundle-size budgets are optional local
+Formatting checks are optional local
 tools. Build success alone does not establish browser or Agent/GPU readiness.
 
 Update the relevant contract when behavior changes. Keep temporary plans and

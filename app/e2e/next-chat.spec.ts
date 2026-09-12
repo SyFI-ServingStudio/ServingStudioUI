@@ -274,6 +274,62 @@ test('new conversations keep the default sandbox without a picker', async ({ pag
   agent.finish();
 });
 
+test('the entry page sends its question as the first turn', async ({ page }) => {
+  const agent = await stubAgent(page);
+  const emptyCatalogs: Record<string, string> = {
+    sweeps: 'sweeps',
+    predictions: 'predictions',
+    alignments: 'alignments',
+    'kernel-profiles': 'kernel_profiles',
+    'kernel-measurements': 'kernel_measurements',
+  };
+  for (const [path, key] of Object.entries(emptyCatalogs)) {
+    await page.route(`**/api/analyzer/v1/${path}`, (route) =>
+      route.fulfill({
+        json: { protocol_version: 1, generated_at: '2026-09-11T00:00:00Z', [key]: [] },
+      }),
+    );
+  }
+  await page.route('**/api/agent/v1/workspaces', (route) =>
+    route.fulfill({
+      json: {
+        workspaces: [
+          {
+            workspace_id: 'w_main',
+            display_name: 'Main',
+            state: 'active',
+            storage_kind: 'external',
+          },
+        ],
+      },
+    }),
+  );
+  await open(page, '');
+
+  await page.getByRole('tab', { name: 'New conversation' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Agent working style' })
+    .getByRole('radio', { name: 'Single Agent, Human-in-the-loop' })
+    .click();
+  await page.getByRole('option', { name: 'Select Main' }).click();
+  await page.getByRole('textbox', { name: 'Ask VibeSim Agent' }).fill('send this once');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`#/chat/${B}`));
+  await expect
+    .poll(() =>
+      agent.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/messages')),
+    )
+    .toHaveLength(1);
+  expect(
+    agent.calls.find((call) => call.method === 'POST' && call.path.endsWith('/messages'))?.body,
+  ).toMatchObject({ text: 'send this once' });
+  expect(
+    agent.calls.filter((call) => call.method === 'POST' && call.path.endsWith('/conversations')),
+  ).toHaveLength(1);
+  agent.finish();
+});
+
 test('opens a conversation from its address with nothing stored', async ({ page }) => {
   const agent = await stubAgent(page);
   await open(page, `#/chat/${A}?w=w_main`);

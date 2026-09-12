@@ -177,7 +177,6 @@ Run these commands from `app/`:
 | `npm run typecheck` | Check application and browser-test TypeScript. |
 | `npm run lint` / `npm run format:check` | Check source quality and formatting. |
 | `npm run build` | Typecheck and bundle. |
-| `npm run size:check` | Check the existing production bundle against size budgets. |
 
 <details>
 <summary><strong>Manual proxy and remote-access configuration</strong></summary>
@@ -206,7 +205,7 @@ PLAYWRIGHT_PORT=63042 npm run test:e2e
 Failure traces, screenshots, videos, and reports are saved under
 `.artifacts/playwright-test/`. The [CI workflow](.github/workflows/ci.yml) runs
 lint/type checks, fixture validation, unit tests, a live production bundle,
-and browser tests. Formatting and bundle budgets are optional local tools; browser
+and browser tests. Formatting checks are optional local tools; browser
 errors and uncaught exceptions fail tests, while warnings do not. The suite
 checks keyboard and navigation behavior without full-page WCAG audits. Run the
 relevant checks before submitting changes; keep fixture data bounded and preserve
