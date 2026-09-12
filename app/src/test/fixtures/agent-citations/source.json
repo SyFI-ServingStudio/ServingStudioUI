@@ -15,9 +15,7 @@
           "protocol_version": 1,
           "schema_version": 1,
           "sweep_id": "e_private",
-          "axes": [
-            "tensor_parallel"
-          ],
+          "axes": ["tensor_parallel"],
           "metrics": [
             {
               "key": "total_tps",

@@ -68,7 +68,9 @@ describe('CostTreeCanvas', () => {
         controlLabels={controls}
       />,
     );
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Scope analysis to projection' }));
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Scope analysis to projection' }));
     expect(onSelectScope).toHaveBeenCalledWith(1);
   });
 

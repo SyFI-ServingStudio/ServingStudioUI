@@ -11,9 +11,7 @@ describe('MarkdownBody navigation boundary', () => {
     render(
       <MarkdownBody
         text="See `pred.result`."
-        citations={[
-          { token: 'pred.result', sourceStart: 4, sourceEnd: 17, displayLabel, target },
-        ]}
+        citations={[{ token: 'pred.result', sourceStart: 4, sourceEnd: 17, displayLabel, target }]}
         onOpenEvidence={onOpenEvidence}
       />,
     );

@@ -327,9 +327,7 @@ test('commits the exact operation and keeps the existing Worker toggle', async (
   );
   await expect(page.getByRole('button', { name: 'Compute' })).toBeEnabled();
   await page.getByTestId('scoped-optimality-card').click();
-  await expect.poll(() => new URL(page.url()).hash).toContain(
-    'o.evidence-panel=scoped-optimality',
-  );
+  await expect.poll(() => new URL(page.url()).hash).toContain('o.evidence-panel=scoped-optimality');
   expect(
     urls.some(
       (url) =>
