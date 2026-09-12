@@ -554,7 +554,7 @@ function SweepContent({
               textTransform: 'none',
             }}
           >
-            VibeSim Analyzer
+            ServingStudio Analyzer
           </Typography>
           <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
         </Stack>

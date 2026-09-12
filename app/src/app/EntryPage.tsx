@@ -282,7 +282,7 @@ function AgentStart({
                 ref={inputRef}
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
-                aria-label="Ask VibeSim Agent"
+                aria-label="Ask ServingStudio Agent"
                 placeholder="What would you like to learn or optimize?"
                 sx={{
                   width: '100%',
@@ -396,7 +396,7 @@ export default function EntryPage({
   const [mode, setMode] = useState<EntryMode>('experiments');
   const [workspaces, setWorkspaces] = useState<readonly Workspace[]>([]);
   useEffect(() => {
-    document.title = 'VibeSim';
+    document.title = 'ServingStudio UI';
     const abort = new AbortController();
     void listWorkspaces(abort.signal)
       .then(setWorkspaces)
@@ -416,18 +416,23 @@ export default function EntryPage({
         gridTemplateRows: 'auto minmax(0,1fr) auto',
       }}
     >
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        sx={{ flexWrap: 'wrap', gap: 1 }}
+      >
         <Stack direction="row" alignItems="center" sx={{ gap: 1 }}>
           <Box
             component="img"
-            src="./vibesim-logo.png"
+            src="./servingstudio-symbol.svg"
             alt=""
             sx={{ width: 34, height: 30, objectFit: 'contain' }}
           />
           <Typography
             sx={{ color: tokens.ink, fontWeight: 500, fontSize: 25, letterSpacing: '-.06em' }}
           >
-            VibeSim
+            ServingStudio UI
           </Typography>
         </Stack>
         {mode !== 'new-conversation' && <ThemePicker />}
@@ -471,7 +476,7 @@ export default function EntryPage({
         </Box>
       </Box>
       <Stack direction="row" justifyContent="space-between" sx={{ color: tokens.sub2 }}>
-        <Typography sx={{ fontSize: 12 }}>VibeSim · Performance analysis</Typography>
+        <Typography sx={{ fontSize: 12 }}>ServingStudio UI · Performance analysis</Typography>
         <Typography sx={{ fontSize: 12 }}>Simulate. Inspect. Compare.</Typography>
       </Stack>
     </Box>

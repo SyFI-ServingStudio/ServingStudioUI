@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="app/public/vibesim-logo.svg" alt="VibeSim logo" width="64">
+  <img src="app/public/servingstudio-symbol.svg" alt="ServingStudio logo" width="64">
 </p>
 
-<h1 align="center">VibeSim UI</h1>
+<h1 align="center">ServingStudio UI</h1>
 
 <p align="center">
   <strong>A web workspace for Agent-driven experiments and interactive performance analysis.</strong>
@@ -17,20 +17,20 @@
 
 ---
 
-VibeSim UI is the web workspace for running and understanding LLM serving
-experiments. Work with VibeSim Agent to plan and run experiments,
+ServingStudio UI is the web workspace for running and understanding LLM serving
+experiments. Work with ServingStudio Agent to plan and run experiments,
 follow its progress, and explore the results through interactive visualizations.
 Compare deployments, examine execution details, and check predictions against
 measured performance.
 
-[VibeSim](https://github.com/SyFI-VibeSim/VibeSim) supplies the Analyzer and
-numerical results; [VibeSimAgent](https://github.com/SyFI-VibeSim/VibeSimAgent)
+[ServingStudio Sim](https://github.com/SyFI-ServingStudio/ServingStudioSim) supplies the Analyzer and
+numerical results; [ServingStudio Agent](https://github.com/SyFI-ServingStudio/ServingStudioAgent)
 manages experiment execution and conversation history. Move between conversations
 and analysis with shared result context and citations that link answers to evidence.
 
 ## 📣 News
 
-- **September 2026:** VibeSim UI is now available!
+- **September 2026:** ServingStudio UI is now available!
 
 ---
 
@@ -61,7 +61,7 @@ measurement.
 
 ### 💬 Agent integration
 
-Work with VibeSim Agent in a full conversation page or alongside an analysis
+Work with ServingStudio Agent in a full conversation page or alongside an analysis
 view to plan experiments, follow execution, and investigate results.
 
 - **Choose a connection.** Select a configured provider, model, and its supported
@@ -76,7 +76,7 @@ view to plan experiments, follow execution, and investigate results.
 A shared catalog brings together results and conversations across workspaces.
 Light, dark, and paper themes are available throughout the application.
 Provider availability comes from the Agent backend's
-[configuration](https://github.com/SyFI-VibeSim/VibeSimAgent/blob/agent-http-api/doc/providers.md).
+[configuration](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/agent-http-api/doc/providers.md).
 
 ---
 
@@ -85,7 +85,7 @@ Provider availability comes from the Agent backend's
 ## 🗂️ Repository map
 
 ```text
-VibeSimUI/
+ServingStudioUI/
 ├── app/
 │   ├── src/
 │   │   ├── app/          Application shell and Agent integration
@@ -107,17 +107,17 @@ VibeSimUI/
 ## 🚀 Quick start
 
 > [!TIP]
-> **Recommended: set up through [VibeSimWorkspace](https://github.com/SyFI-VibeSim/VibeSimWorkspace).**
+> **Recommended: set up through [ServingStudio](https://github.com/SyFI-ServingStudio/ServingStudio).**
 > It pins compatible simulator, Analyzer, Agent, and UI revisions and provides
 > shared build and service commands. Follow its
-> [setup guide](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md)
+> [setup guide](https://github.com/SyFI-ServingStudio/ServingStudio/blob/main/reproduce.md)
 > for the complete application, then use `just start` to launch the local stack.
 
 ### Requirements
 
 - **Node.js 22**, **npm**, and **Git** for frontend development and builds.
-- A running **VibeSim Analyzer** to browse results.
-- **VibeSimAgent** with a configured provider and runner to use conversations.
+- A running **ServingStudio Analyzer** to browse results.
+- **ServingStudio Agent** with a configured provider and runner to use conversations.
 
 The frontend itself does not require a GPU. Simulator and Agent prerequisites
 are covered by the workspace setup guide.
@@ -127,8 +127,8 @@ are covered by the workspace setup guide.
 For a standalone UI checkout, with backend services already running:
 
 ```bash
-git clone https://github.com/SyFI-VibeSim/VibeSimUI.git
-cd VibeSimUI/app
+git clone https://github.com/SyFI-ServingStudio/ServingStudioUI.git
+cd ServingStudioUI/app
 npm ci
 
 # Set these to the addresses of your existing services.
@@ -144,8 +144,8 @@ sample-data mode. See [deployment](docs/deployment.md) for remote-access setting
 ### 2. Explore a result
 
 Open an existing result from the catalog. For a new installation, run the
-[Llama 3 8B example](https://github.com/SyFI-VibeSim/VibeSim#quick-start) in the
-VibeSim checkout served by Analyzer, then refresh the catalog. Open the run to
+[Llama 3 8B example](https://github.com/SyFI-ServingStudio/ServingStudioSim#quick-start) in the
+ServingStudio Sim checkout served by Analyzer, then refresh the catalog. Open the run to
 inspect execution, or open Agent alongside it to investigate the selected result.
 
 ### 3. Build for production
@@ -157,7 +157,7 @@ npm run build
 ```
 
 Serve `app/dist/` through a static web server and proxy `/api/analyzer/v1/` to
-Analyzer and `/api/agent/v1/` to VibeSimAgent. Preserve Agent streaming responses
+Analyzer and `/api/agent/v1/` to ServingStudio Agent. Preserve Agent streaming responses
 and apply access control at the deployment boundary. See the
 [deployment guide](docs/deployment.md) for the routing contract.
 

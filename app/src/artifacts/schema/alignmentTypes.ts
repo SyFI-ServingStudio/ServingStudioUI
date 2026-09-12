@@ -1,5 +1,5 @@
 /**
- * Alignment bundles: a measured vLLM capture set beside the VibeSim prediction
+ * Alignment bundles: a measured vLLM capture set beside the ServingStudioSim prediction
  * of the same shapes.
  *
  * A bundle is a first-class Analyzer resource like a run or a timing

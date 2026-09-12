@@ -1,6 +1,6 @@
-# VibeSim Visualization App
+# ServingStudio Sim Visualization App
 
-React 18 + TypeScript + Vite application for the integrated VibeSim result and
+React 18 + TypeScript + Vite application for the integrated ServingStudio Sim result and
 Agent workspace. It uses MUI, ECharts, Motion, TanStack Query, and
 runtime-validated Analyzer artifact schemas.
 
@@ -10,7 +10,7 @@ Node.js 22 is required.
 
 ```bash
 npm ci
-npm run dev          # proxies to a running Analyzer + VibeSimAgent
+npm run dev          # proxies to a running Analyzer + ServingStudioAgent
 npm run format:check
 npm run typecheck
 npm run lint

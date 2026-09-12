@@ -79,7 +79,7 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
               boxShadow: `0 0 0 4px ${withAlpha(tokens.terra, 0.14)}`,
             }}
           />
-          <span>VibeSim Analyzer</span>
+          <span>ServingStudio Analyzer</span>
           <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
           <ButtonBase
             aria-label="Return to aggregate overview"

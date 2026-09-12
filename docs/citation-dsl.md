@@ -1,4 +1,4 @@
-# VibeSim Citation DSL v2
+# ServingStudio Evidence Citation DSL v2
 
 This document defines how an Agent cites Analyzer evidence in natural language
 and how a user click resolves that citation to an aggregate coordinate, metric,

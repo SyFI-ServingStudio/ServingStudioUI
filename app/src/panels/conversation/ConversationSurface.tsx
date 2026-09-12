@@ -363,7 +363,7 @@ export default function ConversationSurface({
   return (
     <Box
       component="aside"
-      aria-label="VibeSim Agent"
+      aria-label="ServingStudio Agent"
       sx={{
         width: '100%',
         height: '100%',
@@ -399,7 +399,7 @@ export default function ConversationSurface({
             <Typography
               sx={{ color: tokens.ink, fontFamily: tokens.serif, fontSize: 16, fontWeight: 600 }}
             >
-              VibeSim Agent
+              ServingStudio Agent
             </Typography>
             <Typography noWrap sx={{ color: tokens.sub2, fontFamily: tokens.body, fontSize: 12 }}>
               {workspaceName

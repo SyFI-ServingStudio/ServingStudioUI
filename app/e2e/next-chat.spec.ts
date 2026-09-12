@@ -312,7 +312,7 @@ test('the entry page sends its question as the first turn', async ({ page }) => 
     .getByRole('radio', { name: 'Single Agent, Human-in-the-loop' })
     .click();
   await page.getByRole('option', { name: 'Select Main' }).click();
-  await page.getByRole('textbox', { name: 'Ask VibeSim Agent' }).fill('send this once');
+  await page.getByRole('textbox', { name: 'Ask ServingStudio Agent' }).fill('send this once');
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page).toHaveURL(new RegExp(`#/chat/${B}`));
@@ -353,7 +353,7 @@ test('a draft becomes a conversation without adding a history entry', async ({ p
   await open(page, '#/chat/new?w=w_main');
   const start = page.url();
 
-  await expect(page.getByRole('complementary', { name: 'VibeSim Agent' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'ServingStudio Agent' })).toBeVisible();
   await page.getByRole('textbox', { name: 'Continue the conversation' }).fill('why is attn slow?');
   await page.getByRole('textbox', { name: 'Continue the conversation' }).press('Enter');
 

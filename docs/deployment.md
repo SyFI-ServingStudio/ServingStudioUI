@@ -2,7 +2,7 @@
 
 ## Local development
 
-Follow the [workspace setup guide](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md)
+Follow the [workspace setup guide](https://github.com/SyFI-ServingStudio/ServingStudio/blob/main/reproduce.md)
 to build and configure compatible services. From the configured workspace root,
 `just start` launches the stack; `just services-status` reports its status and
 `just stop` stops its service sessions.
@@ -43,7 +43,7 @@ proxy routes, preserving each request path:
 Disable proxy buffering for Agent streams and allow long-lived connections.
 Apply authentication and access control at the HTTP entry point. The Agent tools
 token does not replace browser access control; see the
-[Agent operations guide](https://github.com/SyFI-VibeSim/VibeSimAgent/blob/agent-http-api/doc/service-operations.md)
+[Agent operations guide](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/agent-http-api/doc/service-operations.md)
 for authentication boundaries and runner networking.
 
 Vite's development proxy is not included in `dist/`. Neither `npm run dev` nor

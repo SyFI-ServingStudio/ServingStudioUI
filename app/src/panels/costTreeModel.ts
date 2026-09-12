@@ -1,5 +1,5 @@
 /*
- * CostTree is the UI's validated view of VibeSim's cost-manifest structure.
+ * CostTree is the UI's validated view of ServingStudioSim's cost-manifest structure.
  * Raw nodes mirror the wire combinators; annotated nodes are immutable copies
  * carrying stable preorder ids and finite derived costs. Keeping the two forms
  * distinct prevents transport-shaped partial objects from leaking into views.

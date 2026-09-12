@@ -1,4 +1,4 @@
-# VibeSim UI documentation
+# ServingStudio UI documentation
 
 Start with the [repository README](../README.md) for quickstart, live builds and
 service setup. These documents cover the implementation contracts.
