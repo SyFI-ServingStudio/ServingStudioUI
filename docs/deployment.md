@@ -43,7 +43,7 @@ proxy routes, preserving each request path:
 Disable proxy buffering for Agent streams and allow long-lived connections.
 Apply authentication and access control at the HTTP entry point. The Agent tools
 token does not replace browser access control; see the
-[Agent operations guide](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/agent-http-api/doc/service-operations.md)
+[Agent operations guide](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/main/doc/service-operations.md)
 for authentication boundaries and runner networking.
 
 Vite's development proxy is not included in `dist/`. Neither `npm run dev` nor

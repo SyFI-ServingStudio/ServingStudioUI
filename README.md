@@ -76,7 +76,7 @@ view to plan experiments, follow execution, and investigate results.
 A shared catalog brings together results and conversations across workspaces.
 Light, dark, and paper themes are available throughout the application.
 Provider availability comes from the Agent backend's
-[configuration](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/agent-http-api/doc/providers.md).
+[configuration](https://github.com/SyFI-ServingStudio/ServingStudioAgent/blob/main/doc/providers.md).
 
 ---
 
