@@ -1,242 +1,176 @@
-<div align="center">
-
-<img src="app/public/vibesim-logo.svg" alt="VibeSim logo" width="96" />
-
-<h1>VibeSim UI</h1>
-
-<p><strong>Understand serving performance. Follow the evidence.</strong></p>
-<p>Simulation · Timing prediction · Kernel profiling · Agent investigation</p>
-
-<p>
-  <a href="#quickstart"><strong>Get started</strong></a> &nbsp;·&nbsp;
-  <a href="#what-you-can-do">Explore features</a> &nbsp;·&nbsp;
-  <a href="#production-build">Deploy</a> &nbsp;·&nbsp;
-  <a href="#documentation">Documentation</a>
+<p align="center">
+  <img src="app/public/vibesim-logo.svg" alt="VibeSim logo" width="64">
 </p>
 
-<p>
-  <img src="https://img.shields.io/badge/Node.js-22-43853d?style=flat-square" alt="Node.js 22 required" />
-  <img src="https://img.shields.io/badge/React-18-149eca?style=flat-square" alt="React 18" />
-  <img src="https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square" alt="TypeScript 5" />
+<h1 align="center">VibeSim UI</h1>
+
+<p align="center">
+  <strong>A web workspace for Agent-driven experiments and interactive performance analysis.</strong>
 </p>
 
-</div>
+<p align="center">
+  <a href="#key-features">Features</a> ·
+  <a href="#repository-map">Repository map</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="docs/README.md">Documentation</a>
+</p>
 
 ---
 
-VibeSim UI brings simulation results, timing predictions, kernel measurements,
-and Agent conversations into one browser workspace. Compare configurations,
-follow a bottleneck through the cost tree, and attach the evidence to a
-conversation without losing the result you were inspecting.
+VibeSim UI is the web workspace for running and understanding LLM serving
+experiments. Work with VibeSim Agent to plan and run experiments,
+follow its progress, and explore the results through interactive visualizations.
+Compare deployments, examine execution details, and check predictions against
+measured performance.
 
-## What you can do
+[VibeSim](https://github.com/SyFI-VibeSim/VibeSim) supplies the Analyzer and
+numerical results; [VibeSimAgent](https://github.com/SyFI-VibeSim/VibeSimAgent)
+manages experiment execution and conversation history. Move between conversations
+and analysis with shared result context and citations that link answers to evidence.
 
-| Explore | What you can do |
-| --- | --- |
-| **Serving configurations** | Explore sweep heatmaps and select runs by workload and deployment coordinates. |
-| **Simulation results** | Navigate cluster, pool, worker, iteration, and kernel views; inspect timelines, utilization, and optimality. |
-| **Timing predictions** | Explore offline timing predictions through model and kernel cost trees. |
-| **Kernel measurements** | Browse kernel profile curves, measurement summaries, and plots. |
-| **Agent conversations** | Start or resume conversations, attach selected Analyzer evidence, and navigate back from cited results. |
+## 📣 News
 
-The Agent pane can be docked, resized, or expanded. Conversations retain their
-history and reconnect to running turns after a refresh. Dark, light, and paper
-themes support different reading environments.
+- **September 2026:** VibeSim UI is now available!
 
 ---
 
-## Quickstart
+<a id="key-features"></a>
 
-Choose the fixture-backed UI to explore the interface, or the complete workspace
-to work with live results and Agent conversations. Both paths require **Node.js 22
-and npm**.
+## ✨ Key features
 
-### Explore the included results
+### Result views
 
-This path needs no simulator build, GPU, Docker image, or Agent credentials.
-It uses checked-in Analyzer artifacts; Agent execution requires the live stack.
+Six result views cover configuration exploration, execution analysis, and
+measurement.
+
+- 📊 **Simulation sweeps.** Compare workload and deployment configurations in
+  heatmaps, then open individual runs for detailed analysis.
+- 🔎 **Simulation runs.** Follow execution from cluster and pool to worker,
+  iteration, and kernel. Inspect throughput, latency, memory, utilization,
+  timelines, and optimality.
+- ⏱️ **Timing predictions.** Inspect offline predictions for explicit batch
+  shapes. Expand the CostTree to see how model operations and kernels
+  contribute to execution time.
+- ⚖️ **Framework alignment.** Compare simulated and measured execution through
+  paired iterations, operation mappings, timing breakdowns, and end-to-end
+  performance.
+- 📈 **Kernel profiles.** Explore kernel performance curves across input shapes
+  and compare the available profiling series.
+- 🔬 **Kernel measurements.** Inspect individual measurement results through
+  metric summaries and plots.
+
+### 💬 Agent integration
+
+Work with VibeSim Agent in a full conversation page or alongside an analysis
+view to plan experiments, follow execution, and investigate results.
+
+- **Choose a connection.** Select a configured provider, model, and its supported
+  reasoning effort.
+- **Ask with context.** Carry the current Analyzer selection into a conversation
+  to investigate the relevant result.
+- **Follow experiments.** Open managed job results from the conversation and
+  navigate from evidence citations to the corresponding analysis.
+- **Resume your work.** Reopen conversation history and reconnect to ongoing
+  turns after a refresh.
+
+A shared catalog brings together results and conversations across workspaces.
+Light, dark, and paper themes are available throughout the application.
+Provider availability comes from the Agent backend's
+[configuration](https://github.com/SyFI-VibeSim/VibeSimAgent/blob/agent-http-api/doc/providers.md).
+
+---
+
+<a id="repository-map"></a>
+
+## 🗂️ Repository map
+
+```text
+VibeSimUI/
+├── app/
+│   ├── src/
+│   │   ├── app/          Application shell and Agent integration
+│   │   ├── artifacts/    Typed Analyzer resources and data access
+│   │   ├── layouts/      Result view composition
+│   │   ├── location/     Navigation and result selection
+│   │   ├── panels/       Analysis views and conversations
+│   │   ├── session/      Agent API and streamed conversation state
+│   │   └── ui/           Shared controls and themes
+│   ├── e2e/              Browser tests
+│   └── public/           Application assets
+└── docs/                 Architecture, protocols, and deployment
+```
+
+---
+
+<a id="quick-start"></a>
+
+## 🚀 Quick start
+
+> [!TIP]
+> **Recommended: set up through [VibeSimWorkspace](https://github.com/SyFI-VibeSim/VibeSimWorkspace).**
+> It pins compatible simulator, Analyzer, Agent, and UI revisions and provides
+> shared build and service commands. Follow its
+> [setup guide](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md)
+> for the complete application, then use `just start` to launch the local stack.
+
+### Requirements
+
+- **Node.js 22**, **npm**, and **Git** for frontend development and builds.
+- A running **VibeSim Analyzer** to browse results.
+- **VibeSimAgent** with a configured provider and runner to use conversations.
+
+The frontend itself does not require a GPU. Simulator and Agent prerequisites
+are covered by the workspace setup guide.
+
+### 1. Install and run
+
+For a standalone UI checkout, with backend services already running:
 
 ```bash
 git clone https://github.com/SyFI-VibeSim/VibeSimUI.git
 cd VibeSimUI/app
 npm ci
 
-# Pick an unused port; override UI_PORT on shared hosts if necessary.
-UI_PORT=${UI_PORT:-$((60030 + 3 * $(id -u)))}
-npm run dev -- --port "$UI_PORT" --strictPort
+# Set these to the addresses of your existing services.
+ANALYZER_PROXY_TARGET=http://127.0.0.1:8787 \
+CONVERSATION_PROXY_TARGET=http://127.0.0.1:8765 \
+npm run dev -- --port 5177 --strictPort
 ```
 
-Open the localhost URL printed by Vite. The default binds to `127.0.0.1`.
-Choose a port between 1024 and 65535; `--strictPort` fails on a conflict instead
-of silently choosing another port. This server stays in the foreground; use
-`tmux` when it needs to outlive your terminal.
+Open the localhost URL printed by Vite. Select an unused port if 5177 is occupied.
+The application reads live Analyzer resources; it does not include a standalone
+sample-data mode. See [deployment](docs/deployment.md) for remote-access settings.
 
-### Work with live results and Agents
+### 2. Explore a result
 
-[VibeSimWorkspace](https://github.com/SyFI-VibeSim/VibeSimWorkspace) pins compatible
-revisions of the simulator/Analyzer, Agent backend, UI, and introduction site.
-Install the [host prerequisites](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md#host-setup)
-first, including Python 3, uv, Rust, just, and native build tools. Agent execution
-also needs Docker and an authenticated Codex or Claude installation.
+Open an existing result from the catalog. For a new installation, run the
+[Llama 3 8B example](https://github.com/SyFI-VibeSim/VibeSim#quick-start) in the
+VibeSim checkout served by Analyzer, then refresh the catalog. Open the run to
+inspect execution, or open Agent alongside it to investigate the selected result.
+
+### 3. Build for production
+
+From `app/`:
 
 ```bash
-git clone --recurse-submodules \
-  https://github.com/SyFI-VibeSim/VibeSimWorkspace.git vibesim-workspace
-cd vibesim-workspace
-just setup-env
-
-# Run builds in a persistent shell.
-tmux new-session -s vibesim-setup
-# Inside tmux, from the workspace root:
-source .env
-just build
-just build-runner-image
-just start
-just smoke-local
+npm run build
 ```
 
-Open the URL printed by `just start`. It starts one UI, Agent backend, and Analyzer
-in workspace-specific tmux sessions and waits for the application routes to respond.
-`just services-status` inspects them; `just stop` stops those three sessions.
-
-The workspace assigns three ports starting at `60030 + 3 × UID` and checks for
-conflicts. Set `VIBESIM_PORT_BASE` in the local `.env` when using another port
-range or running multiple workspaces. `.env` also contains absolute scratch and
-uv-cache paths; root `just` loads it automatically. See the
-[setup guide](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md)
-for credentials, image configuration, GPU checks, logs, and troubleshooting.
+Serve `app/dist/` through a static web server and proxy `/api/analyzer/v1/` to
+Analyzer and `/api/agent/v1/` to VibeSimAgent. Preserve Agent streaming responses
+and apply access control at the deployment boundary. See the
+[deployment guide](docs/deployment.md) for the routing contract.
 
 ---
 
-## Production build
-
-Build a live application from `app/`:
-
-```bash
-npm ci
-VITE_ANALYZER_API_BASE=/api/v1/ npm run build
-```
-
-The output is `app/dist/`.
-
-> [!IMPORTANT]
-> Set `VITE_ANALYZER_API_BASE` **at build time**. Without it, the default build
-> reads bundled fixtures. Changing the static server's environment does not
-> change an already-built application.
-
-Serve `dist/` through your HTTP server and route API requests on the same origin:
-
-| Route | Destination |
-| --- | --- |
-| `/api/v1/*` | Rust Analyzer: result catalogs, descriptors, payloads, plots, and hardware data. |
-| Other `/api/*` | VibeSimAgent: workspaces, conversations, turns, and job lifecycle. |
-| Application assets | Files from `app/dist/`. |
-
-The Vite proxy configuration is for development; it is not bundled into `dist/`.
-Preserve streaming responses for Agent turns. When exposing Agent APIs beyond
-localhost, configure `VIBESIM_API_TOKEN` and send it as a bearer token from API
-clients. Runner networking and authentication are documented in the
-[Agent setup](https://github.com/SyFI-VibeSim/VibeSimAgent#run).
-
----
-
-## How the pieces fit
-
-```mermaid
-flowchart LR
-    Browser[Browser UI] --> Origin[Same-origin HTTP entry]
-    Origin -->|/api/v1/*| Analyzer[Rust Analyzer]
-    Origin -->|other /api/*| Agent[VibeSimAgent]
-    Analyzer --> Results[Simulation and profiling artifacts]
-    Agent --> Runners[Codex or Claude runners]
-```
-
-**Analyzer owns result data.** The UI reads its versioned resources through
-`AnalyzerRepository` adapters rather than parsing files or Parquet in components.
-Missing, failed, unavailable, and incompatible results remain explicit states.
-
-**The Agent owns execution and conversation state.** Its job catalog contributes
-ownership and lifecycle information; the UI joins it to Analyzer results using
-stable resource IDs. Agent messages can cite selectable evidence that opens the
-corresponding result view.
-
-TanStack Query manages server state. Zustand holds local selection and layout
-state. React, TypeScript, MUI, ECharts, and Canvas provide the application and
-visualization layers.
-
----
-
-## Development
-
-Run these commands from `app/`:
-
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Develop against a running Analyzer and Agent backend through the Vite proxies. Start them with `just start` from the workspace root. |
-| `npm run test:unit` | Run adapter, calculation, routing, and interaction tests. |
-| `npm run typecheck` | Check application and browser-test TypeScript. |
-| `npm run lint` / `npm run format:check` | Check source quality and formatting. |
-| `npm run build` | Typecheck and bundle. |
-
-<details>
-<summary><strong>Manual proxy and remote-access configuration</strong></summary>
-
-For a manually started live dev server, set `ANALYZER_PROXY_TARGET` and
-`CONVERSATION_PROXY_TARGET` to your selected backend addresses. Vite otherwise
-uses ports 8787 and 8765. `VIBESIM_UI_HOST` controls the bind address;
-`VIBESIM_UI_ALLOWED_HOSTS` supplies an explicit hostname allowlist for remote access.
-The workspace `just start` command wires these values together.
-
-</details>
-
-<details>
-<summary><strong>Browser tests and CI checks</strong></summary>
-
-Browser checks run the functional suite on desktop Chromium and responsive cases
-at 390px. Install the
-browser before the first run:
-
-```bash
-npx playwright install --with-deps chromium
-# Select a free port so tests cannot attach to another user's development server.
-PLAYWRIGHT_PORT=63042 npm run test:e2e
-```
-
-Failure traces, screenshots, videos, and reports are saved under
-`.artifacts/playwright-test/`. The [CI workflow](.github/workflows/ci.yml) runs
-lint/type checks, fixture validation, unit tests, a live production bundle,
-and browser tests. Formatting checks are optional local tools; browser
-errors and uncaught exceptions fail tests, while warnings do not. The suite
-checks keyboard and navigation behavior without full-page WCAG audits. Run the
-relevant checks before submitting changes; keep fixture data bounded and preserve
-its provenance.
-
-</details>
-
----
-
-## Documentation
-
-See the [documentation index](docs/README.md) for contract versions and source ownership.
+## 📚 Documentation
 
 | Guide | Covers |
 | --- | --- |
-| [Workspace setup](https://github.com/SyFI-VibeSim/VibeSimWorkspace/blob/main/reproduce.md) | Reproducible installation, services, Docker runners, and smoke checks. |
-| [Frontend architecture](docs/frontend-architecture.md) | Code ownership, state boundaries, and rendering contracts. |
-| [Analyzer data protocol](docs/data-protocol.md) | Catalogs, resource identities, and payload adapters. |
-| [Agent–Analyzer integration](docs/inquiry-wiring.md) | Workspaces, conversations, execution, and result relationships. |
+| [Application development](app/README.md) | Dependencies, commands, and tests. |
+| [Deployment](docs/deployment.md) | Development proxies, static hosting, and API routing. |
+| [Frontend architecture](docs/frontend-architecture.md) | Code ownership, state, and rendering contracts. |
+| [Analyzer data protocol](docs/data-protocol.md) | Resource identities and payload contracts. |
+| [Agent integration](docs/inquiry-wiring.md) | Conversations, execution, and result relationships. |
 | [Evidence citations](docs/citation-dsl.md) | Selectable evidence and navigation from Agent messages. |
 | [Themes](docs/themes.md) | Theme selection and shared visual tokens. |
-
-<details>
-<summary><strong>Repository layout</strong></summary>
-
-```text
-VibeSimUI/
-├── app/                   Application, unit/browser tests, and build configuration
-├── docs/                  Architecture and data contracts
-├── fixtures/analyzer-v1/  Bounded Analyzer artifacts for development and tests
-└── scripts/               Fixture extraction and validation
-```
-
-</details>

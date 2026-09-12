@@ -20,8 +20,8 @@ npm run test:e2e
 npm run build
 ```
 
-See the repository-level [`README.md`](../README.md) for the three-service live
-startup and proxy configuration.
+See the repository-level [`README.md`](../README.md) for getting started and
+[`deployment.md`](../docs/deployment.md) for service and proxy configuration.
 
 ## Application surfaces
 
@@ -30,6 +30,7 @@ startup and proxy configuration.
 - Per-run deployment, pool, worker, iteration, kernel, trace, and optimality
   analysis.
 - Offline timing-prediction cost trees and optimality analysis.
+- Framework alignment: paired iterations, operation mappings, and end-to-end comparisons.
 - Kernel profile curves and kernel measurement results.
 - Dockable, resizable, and full-page Agent conversation UI with durable SSE
   reconnection and Analyzer evidence navigation.

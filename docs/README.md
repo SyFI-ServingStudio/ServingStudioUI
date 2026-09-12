@@ -5,6 +5,7 @@ service setup. These documents cover the implementation contracts.
 
 | Document | Read it when working on |
 | --- | --- |
+| [Deployment](deployment.md) | Development proxies, static hosting, and service routing. |
 | [Frontend architecture](frontend-architecture.md) | Feature ownership, state, rendering and interaction boundaries. |
 | [Analyzer data protocol](data-protocol.md) | Resource identities, units, availability, HTTP routes and adapters. |
 | [Agent–Analyzer integration](inquiry-wiring.md) | Workspace/conversation ownership and execution-to-result relationships. |
