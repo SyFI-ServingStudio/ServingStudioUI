@@ -151,14 +151,26 @@ async function failureMessage(response: Response, url: string): Promise<string> 
  * listed with one shape and fetched with another.
  */
 function toWorkspace(descriptor: z.infer<typeof workspaceSchema>): Workspace {
+  const storageKind =
+    descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+      ? 'external'
+      : 'managed';
+  // Derived, not required. A backend that predates the kind axis still
+  // describes both facts, just indirectly: a copy is managed and a real git
+  // tree is not. Reading them this way is what lets this build ship first.
+  const kind = descriptor.workspace_kind ?? (storageKind === 'managed' ? 'copy' : 'checkout');
   return {
     id: descriptor.workspace_id,
     label: descriptor.display_name ?? descriptor.workspace_id,
     archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
+    storageKind,
+    kind,
+    // A backend that names the kind also names where it runs, so the fallback
+    // here only ever applies to one that has neither — and such a backend runs
+    // every workspace in a container, external ones included. Deriving `host`
+    // from `checkout` would put a false "not sandboxed" warning on that screen.
+    execution: descriptor.execution ?? 'container',
+    branch: descriptor.worktree_branch ?? null,
     createdAt: descriptor.created_at ?? 0,
     lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
     namingState: descriptor.naming_state ?? 'manual',

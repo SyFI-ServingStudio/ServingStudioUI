@@ -119,6 +119,9 @@ describe('listWorkspaces', () => {
         label: 'Main',
         archived: false,
         storageKind: 'external',
+        kind: 'checkout',
+        execution: 'container',
+        branch: null,
         createdAt: 1,
         lastAccessedAt: 2,
         namingState: 'manual',
@@ -135,6 +138,9 @@ describe('listWorkspaces', () => {
       label: 'w_7',
       archived: false,
       storageKind: 'managed',
+      kind: 'copy',
+      execution: 'container',
+      branch: null,
       createdAt: 0,
       lastAccessedAt: 0,
       namingState: 'manual',
@@ -144,6 +150,36 @@ describe('listWorkspaces', () => {
   it('reads the archived flag from the state field', async () => {
     answer({ workspaces: [{ workspace_id: 'w_old', state: 'archived' }] });
     expect((await listWorkspaces())[0].archived).toBe(true);
+  });
+
+  it('reads the kind and execution a newer backend states outright', async () => {
+    answer({
+      workspaces: [
+        {
+          workspace_id: 'w_wt',
+          storage_kind: 'external',
+          workspace_kind: 'worktree',
+          execution: 'host',
+          worktree_branch: 'wt-decode-slow',
+        },
+      ],
+    });
+    expect((await listWorkspaces())[0]).toMatchObject({
+      kind: 'worktree',
+      execution: 'host',
+      branch: 'wt-decode-slow',
+    });
+  });
+
+  it('calls a backend without the axis a container, whatever its storage', async () => {
+    // The fallback is not cosmetic: a backend that does not name `execution`
+    // runs every workspace in a container, so reporting `host` for the shared
+    // checkout would print a "not sandboxed" warning that is simply untrue.
+    answer({ workspaces: [{ workspace_id: 'w_main', storage_kind: 'local' }] });
+    expect((await listWorkspaces())[0]).toMatchObject({
+      kind: 'checkout',
+      execution: 'container',
+    });
   });
 });
 
@@ -155,6 +191,9 @@ describe('exact Agent metadata', () => {
       label: 'Main',
       archived: false,
       storageKind: 'managed',
+      kind: 'copy',
+      execution: 'container',
+      branch: null,
       createdAt: 0,
       lastAccessedAt: 0,
       namingState: 'manual',

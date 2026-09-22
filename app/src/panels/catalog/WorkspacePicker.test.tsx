@@ -11,6 +11,9 @@ function workspace(overrides: Partial<Workspace> = {}): Workspace {
     label: 'Main',
     archived: false,
     storageKind: 'external',
+    kind: 'checkout',
+    execution: 'host',
+    branch: null,
     createdAt: 1,
     lastAccessedAt: 10,
     namingState: 'manual',
@@ -22,6 +25,8 @@ const copy = workspace({
   id: 'w_copy',
   label: 'Throughput study',
   storageKind: 'managed',
+  kind: 'copy',
+  execution: 'container',
   lastAccessedAt: 20,
 });
 
