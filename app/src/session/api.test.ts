@@ -179,6 +179,16 @@ describe('listWorkspaces', () => {
     );
   });
 
+  it('leaves the branch out when the box was left empty', async () => {
+    // A blank field is not a request for a branch named "", which the server
+    // would have to refuse; it is how the caller asks the server to name one.
+    answer({ workspace_id: 'w_wt', storage_kind: 'external', workspace_kind: 'worktree' });
+    await createWorkspace('Profile decode', { kind: 'worktree', branch: '  ' });
+    expect(sent[0]?.body).toBe(
+      JSON.stringify({ displayName: 'Profile decode', autoName: true, kind: 'worktree' }),
+    );
+  });
+
   it('reads the kind and execution a newer backend states outright', async () => {
     answer({
       workspaces: [

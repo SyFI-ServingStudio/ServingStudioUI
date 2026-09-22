@@ -78,6 +78,11 @@ export default function AgentStart({
   // page has always made, and a worktree is never created without being asked
   // for — it puts an unsandboxed agent on a real branch.
   const [choice, setChoice] = useState<WorkspaceChoice>({ create: 'copy' });
+  // Optional, and empty means "you name it". The placeholder does not guess
+  // what the server would pick: the branch it chose comes back in the
+  // descriptor, and a second derivation here would eventually disagree with
+  // the repository.
+  const [branch, setBranch] = useState('');
   const [openStep, setOpenStep] = useState<1 | 2 | 3>(1);
   const [styleAnswered, setStyleAnswered] = useState(false);
   const [workspaceAnswered, setWorkspaceAnswered] = useState(false);
@@ -169,6 +174,7 @@ export default function AgentStart({
     creationRequest.current = controller;
     void createWorkspace(workspaceNameFromPrompt(text), {
       kind: choice.create,
+      branch: choice.create === 'worktree' ? branch : undefined,
       signal: controller.signal,
     })
       .then((workspace) => {
@@ -254,6 +260,41 @@ export default function AgentStart({
                 background: tokens.tile,
               }}
             >
+              {'create' in choice && choice.create === 'worktree' && (
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  sx={{
+                    mb: 1,
+                    px: 1,
+                    py: 0.6,
+                    gap: 1,
+                    border: `1px solid ${tokens.hair}`,
+                    borderRadius: 0.8,
+                  }}
+                >
+                  <Typography sx={{ flex: 'none', color: tokens.sub2, fontSize: 12 }}>
+                    Branch
+                  </Typography>
+                  <Box
+                    component="input"
+                    value={branch}
+                    onChange={(event) => setBranch(event.target.value)}
+                    aria-label="Branch for the new worktree"
+                    placeholder="optional — the server names it from your question"
+                    sx={{
+                      width: '100%',
+                      border: 0,
+                      outline: 0,
+                      background: 'transparent',
+                      color: tokens.ink,
+                      fontFamily: tokens.body,
+                      fontSize: 12,
+                      '&::placeholder': { color: tokens.sub2 },
+                    }}
+                  />
+                </Stack>
+              )}
               <Box
                 component="textarea"
                 ref={inputRef}

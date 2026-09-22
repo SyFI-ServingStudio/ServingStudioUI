@@ -51,6 +51,26 @@ beforeEach(() => {
 
 afterEach(() => vi.clearAllMocks());
 
+/** Walk the first two steps, stopping where the composer appears. */
+async function open({
+  workspace,
+  create = 'sandboxed copy',
+  kinds = ['copy', 'worktree'] as WorkspaceKind[],
+}: {
+  workspace?: string;
+  create?: 'sandboxed copy' | 'git worktree';
+  kinds?: WorkspaceKind[] | null;
+} = {}) {
+  const user = userEvent.setup();
+  const navigate = vi.fn();
+  render(<AgentStart workspaces={[existing]} kinds={kinds} navigate={navigate} />);
+  await user.click(screen.getAllByRole('radio')[0]);
+  await user.click(
+    screen.getByRole('option', { name: workspace ? `Select ${workspace}` : `Create a ${create}` }),
+  );
+  return { navigate, user };
+}
+
 /** Walk the three steps and submit; returns the navigate spy. */
 async function ask(
   prompt: string,
@@ -64,15 +84,7 @@ async function ask(
     kinds?: WorkspaceKind[] | null;
   } = {},
 ) {
-  const user = userEvent.setup();
-  const navigate = vi.fn();
-  render(<AgentStart workspaces={[existing]} kinds={kinds} navigate={navigate} />);
-  await user.click(screen.getAllByRole('radio')[0]);
-  await user.click(
-    screen.getByRole('option', {
-      name: workspace ? `Select ${workspace}` : `Create a ${create}`,
-    }),
-  );
+  const { navigate, user } = await open({ workspace, create, kinds });
   await user.type(screen.getByRole('textbox', { name: 'Ask ServingStudio Agent' }), prompt);
   await user.click(screen.getByRole('button', { name: 'Send' }));
   return { navigate, user };
@@ -98,6 +110,33 @@ describe('AgentStart', () => {
 
     await waitFor(() => expect(createWorkspace).toHaveBeenCalled());
     expect(createWorkspace.mock.calls[0]?.[1]).toMatchObject({ kind: 'worktree' });
+  });
+
+  it('has no branch box for a sandboxed copy', async () => {
+    // A copy is not a branch, and a field that names one would be asking for
+    // something the workspace cannot have.
+    await open({ create: 'sandboxed copy' });
+    expect(screen.queryByRole('textbox', { name: 'Branch for the new worktree' })).toBeNull();
+  });
+
+  it('sends the branch typed for a worktree', async () => {
+    createWorkspace.mockResolvedValue({ ...existing, id: 'w_wt', kind: 'worktree' });
+    const { user } = await open({ create: 'git worktree' });
+    await user.type(
+      screen.getByRole('textbox', { name: 'Branch for the new worktree' }),
+      'decode-study',
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Ask ServingStudio Agent' }),
+      'Profile decode',
+    );
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(createWorkspace).toHaveBeenCalled());
+    expect(createWorkspace.mock.calls[0]?.[1]).toMatchObject({
+      kind: 'worktree',
+      branch: 'decode-study',
+    });
   });
 
   it('does not create anything when an existing workspace was chosen', async () => {

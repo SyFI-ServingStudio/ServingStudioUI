@@ -258,8 +258,9 @@ export async function getWorkspace(workspace: string, signal?: AbortSignal): Pro
  */
 export async function createWorkspace(
   displayName: string,
-  options: { kind?: WorkspaceKind; signal?: AbortSignal } = {},
+  options: { kind?: WorkspaceKind; branch?: string; signal?: AbortSignal } = {},
 ): Promise<Workspace> {
+  const branch = options.branch?.trim();
   const descriptor = await readJson(`${AGENT_BASE}workspaces`, workspaceSchema, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -267,6 +268,10 @@ export async function createWorkspace(
       displayName,
       autoName: true,
       ...(options.kind === undefined ? {} : { kind: options.kind }),
+      // An empty box is not a request for a branch called "". Omitting the key
+      // is how the caller says "you name it", and the server then picks a free
+      // name instead of refusing an invalid ref.
+      ...(branch ? { branch } : {}),
     }),
     signal: options.signal,
   });

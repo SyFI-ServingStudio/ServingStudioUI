@@ -107,6 +107,29 @@ describe('WorkspacePicker', () => {
     );
   });
 
+  it('names the branch a worktree owns beside where it runs', () => {
+    render(
+      <WorkspacePicker
+        workspaces={[
+          workspace({
+            id: 'w_wt',
+            label: 'Decode study',
+            kind: 'worktree',
+            branch: 'decode-study',
+          }),
+        ]}
+        kinds={['copy', 'worktree']}
+        selection={{ create: 'copy' }}
+        onSelect={vi.fn()}
+      />,
+    );
+    // The branch is how someone finds this work in their own checkout, and it
+    // is the server's answer rather than anything derived here.
+    expect(screen.getByRole('option', { name: 'Select Decode study' })).toHaveTextContent(
+      'worktree · host · decode-study',
+    );
+  });
+
   it('hides the creation rows while a search is narrowing the list', async () => {
     const user = userEvent.setup();
     show();

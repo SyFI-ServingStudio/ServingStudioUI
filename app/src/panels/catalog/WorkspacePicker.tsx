@@ -236,7 +236,9 @@ export default function WorkspacePicker({
                     workspace has no sandbox around the agent. So the same fact
                     is repeated in the sub-line, which is always visible. */}
                 <Typography noWrap sx={{ color: tokens.sub2, fontSize: 12 }}>
-                  {workspace.kind} · {workspace.execution}
+                  {[workspace.kind, workspace.execution, workspace.branch]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Typography>
               </Box>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
