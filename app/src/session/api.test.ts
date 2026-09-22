@@ -277,25 +277,44 @@ describe('getConversation', () => {
     await expect(getConversation(REF)).rejects.toMatchObject({ status: 409 });
   });
 
-  it('lets go of the body of a response it is not going to read', async () => {
+  it('lets go of the body of a failed response, and keeps what it said', async () => {
     // An error response still has a body, and one that is never read nor
     // cancelled holds its connection until the collector happens to run. On a
     // page that retries that is a slow leak of a small per-host budget.
-    let released = false;
+    // Reading it releases the connection just as cancelling did, and unlike
+    // cancelling it keeps the one part a reader can act on.
+    let pulled = false;
     vi.stubGlobal('fetch', () =>
       Promise.resolve(
         new Response(
           new ReadableStream({
-            cancel() {
-              released = true;
+            start(controller: ReadableStreamDefaultController<Uint8Array>) {
+              pulled = true;
+              controller.enqueue(
+                new TextEncoder().encode(JSON.stringify({ detail: 'branch already exists' })),
+              );
+              controller.close();
             },
           }),
-          { status: 503 },
+          { status: 409 },
         ),
       ),
     );
-    await expect(getConversation(REF)).rejects.toBeInstanceOf(SessionApiError);
-    expect(released).toBe(true);
+    await expect(getConversation(REF)).rejects.toMatchObject({
+      status: 409,
+      message: 'branch already exists (409)',
+    });
+    expect(pulled).toBe(true);
+  });
+
+  it('falls back to the status line when the body explains nothing', async () => {
+    for (const body of ['<html>gateway</html>', JSON.stringify({ detail: '   ' }), '']) {
+      vi.stubGlobal('fetch', () => Promise.resolve(new Response(body, { status: 502 })));
+      // A garbled excerpt on screen is worse than no excerpt.
+      await expect(getConversation(REF)).rejects.toMatchObject({
+        message: expect.stringContaining('502') as unknown as string,
+      });
+    }
   });
 });
 

@@ -108,17 +108,61 @@ export async function sessionFetch(url: string, init: RequestInit = {}): Promise
     throw new SessionApiError(error instanceof Error ? error.message : String(error), 0);
   }
   if (response.ok) return response;
-  // The body is released before the throw. An error response still has one,
-  // and a body that is never read nor cancelled holds its connection until the
-  // garbage collector happens to run — which, on a page that retries, is a slow
-  // leak of the browser's small per-host connection budget.
-  void response.body?.cancel().catch(() => {
-    // Cancelling a body nobody read cannot fail in a way anyone can act on.
-  });
+  // The body is read rather than cancelled. Either releases the connection —
+  // the leak this guards against is a body left neither read nor cancelled —
+  // but only reading it keeps what the backend actually said. The detail is
+  // the whole message for a rejected workspace name or a branch that already
+  // exists, and a bare "409 Conflict" leaves the reader nothing to act on.
   throw new SessionApiError(
-    `${response.status} ${response.statusText} for ${url}`,
+    await failureMessage(response, url),
     response.status,
   );
+}
+
+/**
+ * What the backend said, when it said anything a reader can use.
+ *
+ * FastAPI puts the explanation in `detail`, and it is written for a person:
+ * "branch already exists", "worktree workspaces are not enabled". Anything
+ * else — HTML from a proxy, a truncated body, a network error mid-read — falls
+ * back to the status line, because a garbled excerpt is worse than none.
+ *
+ * The code is kept either way. A detail alone can be as unhelpful as "gone",
+ * and the number is the one part of a failure that is always worth reporting.
+ */
+async function failureMessage(response: Response, url: string): Promise<string> {
+  const status = `${response.status} ${response.statusText} for ${url}`;
+  let detail: unknown;
+  try {
+    detail = ((await response.json()) as { detail?: unknown } | null)?.detail;
+  } catch {
+    return status;
+  }
+  return typeof detail === 'string' && detail.trim()
+    ? `${detail.trim()} (${response.status})`
+    : status;
+}
+
+/**
+ * One wire descriptor, as the browser names a workspace.
+ *
+ * Written once. The three call sites that each had their own copy drifted
+ * apart the moment a field was added, and the failure is silent: a workspace
+ * listed with one shape and fetched with another.
+ */
+function toWorkspace(descriptor: z.infer<typeof workspaceSchema>): Workspace {
+  return {
+    id: descriptor.workspace_id,
+    label: descriptor.display_name ?? descriptor.workspace_id,
+    archived: descriptor.state === 'archived',
+    storageKind:
+      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+        ? 'external'
+        : 'managed',
+    createdAt: descriptor.created_at ?? 0,
+    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
+    namingState: descriptor.naming_state ?? 'manual',
+  };
 }
 
 async function readJson<T>(url: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
@@ -148,18 +192,7 @@ export async function listWorkspaces(signal?: AbortSignal): Promise<readonly Wor
     z.object({ workspaces: z.array(workspaceSchema) }),
     { signal },
   );
-  return body.workspaces.map((descriptor) => ({
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  }));
+  return body.workspaces.map(toWorkspace);
 }
 
 /** Lifecycle rows that have not necessarily appeared in the Analyzer catalog yet. */
@@ -183,18 +216,7 @@ export async function listManagedJobs(signal?: AbortSignal): Promise<readonly Ma
 
 export async function getWorkspace(workspace: string, signal?: AbortSignal): Promise<Workspace> {
   const descriptor = await readJson(workspacePath(workspace), workspaceSchema, { signal });
-  return {
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  };
+  return toWorkspace(descriptor);
 }
 
 /** Create the managed workspace selected by the catalog's new-conversation flow. */
@@ -208,18 +230,7 @@ export async function createWorkspace(
     body: JSON.stringify({ displayName, autoName: true }),
     signal,
   });
-  return {
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  };
+  return toWorkspace(descriptor);
 }
 
 /** Server-owned model choices; a picker must never invent a model or effort. */
