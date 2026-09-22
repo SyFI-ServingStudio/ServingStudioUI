@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import type { CatalogFilter, Navigate } from '../location';
 import { listWorkspaces } from '../session/api';
-import type { Workspace } from '../session/types';
+import type { WorkspaceCatalog } from '../session/types';
 import ThemePicker from '../ui/controls/ThemePicker';
 import { tokens, withAlpha } from '../ui/theme';
 import { pageLayout } from '../ui/theme/metrics';
@@ -62,13 +62,13 @@ export default function EntryPage({
   navigate: Navigate;
 }) {
   const [mode, setMode] = useState<EntryMode>('experiments');
-  const [workspaces, setWorkspaces] = useState<readonly Workspace[]>([]);
+  const [catalog, setCatalog] = useState<WorkspaceCatalog>({ workspaces: [], kinds: null });
   useEffect(() => {
     document.title = 'ServingStudio UI';
     const abort = new AbortController();
     void listWorkspaces(abort.signal)
-      .then(setWorkspaces)
-      .catch(() => setWorkspaces([]));
+      .then(setCatalog)
+      .catch(() => setCatalog({ workspaces: [], kinds: null }));
     return () => abort.abort();
   }, []);
   return (
@@ -120,12 +120,12 @@ export default function EntryPage({
           }}
         >
           {mode === 'experiments' ? (
-            <CatalogPage filter={filter} navigate={navigate} workspaces={workspaces} />
+            <CatalogPage filter={filter} navigate={navigate} workspaces={catalog.workspaces} />
           ) : mode === 'new-conversation' ? (
-            <AgentStart workspaces={workspaces} navigate={navigate} />
+            <AgentStart workspaces={catalog.workspaces} kinds={catalog.kinds} navigate={navigate} />
           ) : (
             <ConversationCatalog
-              workspaces={workspaces}
+              workspaces={catalog.workspaces}
               onActivate={(conversation) =>
                 navigate(
                   {

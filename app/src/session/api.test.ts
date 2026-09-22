@@ -113,26 +113,29 @@ describe('listWorkspaces', () => {
         },
       ],
     });
-    await expect(listWorkspaces()).resolves.toEqual([
-      {
-        id: 'w_main',
-        label: 'Main',
-        archived: false,
-        storageKind: 'external',
-        kind: 'checkout',
-        execution: 'container',
-        branch: null,
-        createdAt: 1,
-        lastAccessedAt: 2,
-        namingState: 'manual',
-      },
-    ]);
+    await expect(listWorkspaces()).resolves.toMatchObject({
+      workspaces: [
+        {
+          id: 'w_main',
+          label: 'Main',
+          archived: false,
+          storageKind: 'external',
+          kind: 'checkout',
+          execution: 'container',
+          branch: null,
+          createdAt: 1,
+          lastAccessedAt: 2,
+          namingState: 'manual',
+        },
+      ],
+      kinds: null,
+    });
   });
 
   it('falls back to the id when a workspace has no name', async () => {
     // An unnamed workspace still has to be pickable.
     answer({ workspaces: [{ workspace_id: 'w_7' }] });
-    const [only] = await listWorkspaces();
+    const [only] = (await listWorkspaces()).workspaces;
     expect(only).toEqual({
       id: 'w_7',
       label: 'w_7',
@@ -149,7 +152,31 @@ describe('listWorkspaces', () => {
 
   it('reads the archived flag from the state field', async () => {
     answer({ workspaces: [{ workspace_id: 'w_old', state: 'archived' }] });
-    expect((await listWorkspaces())[0].archived).toBe(true);
+    expect((await listWorkspaces()).workspaces[0].archived).toBe(true);
+  });
+
+  it('reports the kinds a backend announces, and null when it announces none', async () => {
+    // Three states, not two: absent is an old server and an empty-ish list is
+    // the feature switched off. The picker treats them differently.
+    answer({ workspaces: [], capabilities: { workspaceKinds: ['copy', 'worktree'] } });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: ['copy', 'worktree'] });
+    answer({ workspaces: [], capabilities: { workspaceKinds: ['copy'] } });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: ['copy'] });
+    answer({ workspaces: [] });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: null });
+  });
+
+  it('asks for a kind only when one was chosen', async () => {
+    // A backend that predates the field would reject nothing, but sending
+    // `kind: "copy"` to it still states an intent this UI cannot check was
+    // honoured. Omitting it asks for the default, which is the same workspace.
+    answer({ workspace_id: 'w_wt', storage_kind: 'external', workspace_kind: 'worktree' });
+    await expect(createWorkspace('Profile decode', { kind: 'worktree' })).resolves.toMatchObject({
+      kind: 'worktree',
+    });
+    expect(sent[0]?.body).toBe(
+      JSON.stringify({ displayName: 'Profile decode', autoName: true, kind: 'worktree' }),
+    );
   });
 
   it('reads the kind and execution a newer backend states outright', async () => {
@@ -164,7 +191,7 @@ describe('listWorkspaces', () => {
         },
       ],
     });
-    expect((await listWorkspaces())[0]).toMatchObject({
+    expect((await listWorkspaces()).workspaces[0]).toMatchObject({
       kind: 'worktree',
       execution: 'host',
       branch: 'wt-decode-slow',
@@ -176,7 +203,7 @@ describe('listWorkspaces', () => {
     // runs every workspace in a container, so reporting `host` for the shared
     // checkout would print a "not sandboxed" warning that is simply untrue.
     answer({ workspaces: [{ workspace_id: 'w_main', storage_kind: 'local' }] });
-    expect((await listWorkspaces())[0]).toMatchObject({
+    expect((await listWorkspaces()).workspaces[0]).toMatchObject({
       kind: 'checkout',
       execution: 'container',
     });

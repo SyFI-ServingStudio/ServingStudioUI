@@ -26,6 +26,8 @@ import {
   type ManagedJob,
   type SessionRef,
   type Workspace,
+  type WorkspaceCatalog,
+  type WorkspaceKind,
 } from './types';
 
 /**
@@ -113,10 +115,7 @@ export async function sessionFetch(url: string, init: RequestInit = {}): Promise
   // but only reading it keeps what the backend actually said. The detail is
   // the whole message for a rejected workspace name or a branch that already
   // exists, and a bare "409 Conflict" leaves the reader nothing to act on.
-  throw new SessionApiError(
-    await failureMessage(response, url),
-    response.status,
-  );
+  throw new SessionApiError(await failureMessage(response, url), response.status);
 }
 
 /**
@@ -198,13 +197,27 @@ async function readJson<T>(url: string, schema: z.ZodType<T>, init?: RequestInit
  * no `display_name` falls back to its id rather than to an empty label: an
  * unnamed workspace still has to be pickable.
  */
-export async function listWorkspaces(signal?: AbortSignal): Promise<readonly Workspace[]> {
+export async function listWorkspaces(signal?: AbortSignal): Promise<WorkspaceCatalog> {
   const body = await readJson(
     `${AGENT_BASE}workspaces`,
-    z.object({ workspaces: z.array(workspaceSchema) }),
+    z.object({
+      workspaces: z.array(workspaceSchema),
+      // Optional, and the difference between absent and empty is the point: a
+      // backend from before the axis says nothing, one with the feature off
+      // says so with a list that omits `worktree`. Collapsing them would make
+      // the picker either hide a switched-off feature or offer a missing one.
+      capabilities: z
+        .object({ workspaceKinds: z.array(z.enum(['copy', 'worktree', 'checkout'])) })
+        .partial()
+        .passthrough()
+        .nullish(),
+    }),
     { signal },
   );
-  return body.workspaces.map(toWorkspace);
+  return {
+    workspaces: body.workspaces.map(toWorkspace),
+    kinds: body.capabilities?.workspaceKinds ?? null,
+  };
 }
 
 /** Lifecycle rows that have not necessarily appeared in the Analyzer catalog yet. */
@@ -231,16 +244,31 @@ export async function getWorkspace(workspace: string, signal?: AbortSignal): Pro
   return toWorkspace(descriptor);
 }
 
-/** Create the managed workspace selected by the catalog's new-conversation flow. */
+/**
+ * Create the workspace selected by the catalog's new-conversation flow.
+ *
+ * `kind` is only sent when it is asked for. A copy is what every backend makes
+ * by default, so omitting the field keeps this callable against one that does
+ * not know the word — and the picker only offers `worktree` to a backend that
+ * has announced it.
+ *
+ * Branch and base are the server's to choose. It answers with the branch it
+ * actually used, and that is the name the UI shows: deriving a second one here
+ * would eventually disagree with the repository.
+ */
 export async function createWorkspace(
   displayName: string,
-  signal?: AbortSignal,
+  options: { kind?: WorkspaceKind; signal?: AbortSignal } = {},
 ): Promise<Workspace> {
   const descriptor = await readJson(`${AGENT_BASE}workspaces`, workspaceSchema, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, autoName: true }),
-    signal,
+    body: JSON.stringify({
+      displayName,
+      autoName: true,
+      ...(options.kind === undefined ? {} : { kind: options.kind }),
+    }),
+    signal: options.signal,
   });
   return toWorkspace(descriptor);
 }

@@ -16,6 +16,7 @@ import type {
   CodexRoleRuntime,
   CodexRuntimeSelection,
   Workspace,
+  WorkspaceKind,
 } from '../session/types';
 import { tokens, withAlpha } from '../ui/theme';
 import AgentModePicker from '../panels/conversation/AgentModePicker';
@@ -29,7 +30,7 @@ import {
 import CodexRuntimePicker from '../panels/conversation/CodexRuntimePicker';
 import { EMPTY_RUNTIME_SELECTION } from '../panels/conversation/codexRuntime';
 import SetupStep from '../panels/catalog/SetupStep';
-import WorkspacePicker from '../panels/catalog/WorkspacePicker';
+import WorkspacePicker, { type WorkspaceChoice } from '../panels/catalog/WorkspacePicker';
 import { storeEntryDraft } from './entryDraft';
 
 const PROMPT_STARTERS = [
@@ -55,15 +56,28 @@ function workspaceNameFromPrompt(prompt: string): string {
   return normalized.length <= 56 ? normalized : `${normalized.slice(0, 53).trimEnd()}…`;
 }
 
+/** What step 2 shows once it is folded. */
+function choiceSummary(choice: WorkspaceChoice, workspaces: readonly Workspace[]): string {
+  if ('existing' in choice) {
+    return workspaces.find((workspace) => workspace.id === choice.existing)?.label ?? 'A workspace';
+  }
+  return choice.create === 'worktree' ? 'A new git worktree' : 'A new sandboxed copy';
+}
+
 export default function AgentStart({
   workspaces,
+  kinds,
   navigate,
 }: {
   workspaces: readonly Workspace[];
+  kinds: readonly WorkspaceKind[] | null;
   navigate: Navigate;
 }) {
   const [prompt, setPrompt] = useState('');
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  // A copy by default: the reader who never opens this step gets what this
+  // page has always made, and a worktree is never created without being asked
+  // for — it puts an unsandboxed agent on a real branch.
+  const [choice, setChoice] = useState<WorkspaceChoice>({ create: 'copy' });
   const [openStep, setOpenStep] = useState<1 | 2 | 3>(1);
   const [styleAnswered, setStyleAnswered] = useState(false);
   const [workspaceAnswered, setWorkspaceAnswered] = useState(false);
@@ -75,7 +89,6 @@ export default function AgentStart({
   const [agentSettings, setAgentSettings] = useState<AgentSettings>(savedAgentSettings);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const creationRequest = useRef<AbortController | null>(null);
-  const selectedWorkspace = workspaces.find((workspace) => workspace.id === selectedWorkspaceId);
   const styleSentence = agentSettingsSentence(agentSettings);
 
   useEffect(() => {
@@ -121,8 +134,8 @@ export default function AgentStart({
     setStyleAnswered(true);
     setOpenStep(workspaceAnswered ? 3 : 2);
   };
-  const answerWorkspace = (workspaceId: string | null) => {
-    setSelectedWorkspaceId(workspaceId);
+  const answerWorkspace = (answer: WorkspaceChoice) => {
+    setChoice(answer);
     setWorkspaceAnswered(true);
     setOpenStep(3);
   };
@@ -147,14 +160,17 @@ export default function AgentStart({
         return false;
       }
     };
-    if (selectedWorkspaceId !== null) {
-      enter(selectedWorkspaceId);
+    if ('existing' in choice) {
+      enter(choice.existing);
       return;
     }
     const controller = new AbortController();
     creationRequest.current?.abort();
     creationRequest.current = controller;
-    void createWorkspace(workspaceNameFromPrompt(text), controller.signal)
+    void createWorkspace(workspaceNameFromPrompt(text), {
+      kind: choice.create,
+      signal: controller.signal,
+    })
       .then((workspace) => {
         if (creationRequest.current !== controller || controller.signal.aborted) return;
         enter(workspace.id);
@@ -208,13 +224,14 @@ export default function AgentStart({
           <SetupStep
             index={2}
             label="Workspace"
-            summary={selectedWorkspace?.label ?? 'A new workspace'}
+            summary={choiceSummary(choice, workspaces)}
             open={openStep === 2}
             onReopen={() => setOpenStep(2)}
           >
             <WorkspacePicker
               workspaces={workspaces}
-              selectedWorkspaceId={selectedWorkspaceId}
+              kinds={kinds}
+              selection={choice}
               onSelect={answerWorkspace}
             />
           </SetupStep>

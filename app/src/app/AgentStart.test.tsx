@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Workspace } from '../session/types';
+import type { Workspace, WorkspaceKind } from '../session/types';
 import AgentStart from './AgentStart';
 
 vi.mock('../session/api', () => ({
@@ -52,14 +52,25 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 /** Walk the three steps and submit; returns the navigate spy. */
-async function ask(prompt: string, { workspace }: { workspace?: string } = {}) {
+async function ask(
+  prompt: string,
+  {
+    workspace,
+    create = 'sandboxed copy',
+    kinds = ['copy', 'worktree'] as WorkspaceKind[],
+  }: {
+    workspace?: string;
+    create?: 'sandboxed copy' | 'git worktree';
+    kinds?: WorkspaceKind[] | null;
+  } = {},
+) {
   const user = userEvent.setup();
   const navigate = vi.fn();
-  render(<AgentStart workspaces={[existing]} navigate={navigate} />);
+  render(<AgentStart workspaces={[existing]} kinds={kinds} navigate={navigate} />);
   await user.click(screen.getAllByRole('radio')[0]);
   await user.click(
     screen.getByRole('option', {
-      name: workspace ? `Select ${workspace}` : 'Create a new workspace',
+      name: workspace ? `Select ${workspace}` : `Create a ${create}`,
     }),
   );
   await user.type(screen.getByRole('textbox', { name: 'Ask ServingStudio Agent' }), prompt);
@@ -74,10 +85,19 @@ describe('AgentStart', () => {
 
     await waitFor(() => expect(createWorkspace).toHaveBeenCalled());
     expect(createWorkspace.mock.calls[0]?.[0]).toBe('Why is decode slow?');
+    expect(createWorkspace.mock.calls[0]?.[1]).toMatchObject({ kind: 'copy' });
     expect(navigate).toHaveBeenLastCalledWith(
       { view: 'chat', chat: { state: 'draft', workspace: 'w_new' } },
       'push',
     );
+  });
+
+  it('asks for a worktree when the reader picked one', async () => {
+    createWorkspace.mockResolvedValue({ ...existing, id: 'w_wt', kind: 'worktree' });
+    await ask('Profile the decode kernels', { create: 'git worktree' });
+
+    await waitFor(() => expect(createWorkspace).toHaveBeenCalled());
+    expect(createWorkspace.mock.calls[0]?.[1]).toMatchObject({ kind: 'worktree' });
   });
 
   it('does not create anything when an existing workspace was chosen', async () => {

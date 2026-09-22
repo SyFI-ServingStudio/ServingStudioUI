@@ -17,7 +17,7 @@ test('the three setup steps reveal and fold in order', { tag: '@desktop' }, asyn
   await expect(page.getByRole('listbox', { name: 'Workspace for new conversation' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Ask ServingStudio Agent' })).toHaveCount(0);
 
-  await page.getByRole('option', { name: 'Create a new workspace' }).click();
+  await page.getByRole('option', { name: 'Create a sandboxed copy' }).click();
   await expect(page.getByRole('button', { name: /Change step 2/ })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Ask ServingStudio Agent' })).toBeVisible();
 
