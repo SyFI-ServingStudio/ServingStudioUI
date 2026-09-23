@@ -133,7 +133,7 @@ exports[`request-state options > keeps the accepted cluster chart including its 
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -142,7 +142,7 @@ exports[`request-state options > keeps the accepted cluster chart including its 
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -329,7 +329,7 @@ exports[`request-state options > keeps the accepted pool aggregate, average, and
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -338,7 +338,7 @@ exports[`request-state options > keeps the accepted pool aggregate, average, and
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -460,7 +460,7 @@ exports[`request-state options > keeps the accepted selected-worker category sta
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -469,7 +469,7 @@ exports[`request-state options > keeps the accepted selected-worker category sta
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",

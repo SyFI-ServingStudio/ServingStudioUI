@@ -113,28 +113,37 @@ describe('listWorkspaces', () => {
         },
       ],
     });
-    await expect(listWorkspaces()).resolves.toEqual([
-      {
-        id: 'w_main',
-        label: 'Main',
-        archived: false,
-        storageKind: 'external',
-        createdAt: 1,
-        lastAccessedAt: 2,
-        namingState: 'manual',
-      },
-    ]);
+    await expect(listWorkspaces()).resolves.toMatchObject({
+      workspaces: [
+        {
+          id: 'w_main',
+          label: 'Main',
+          archived: false,
+          storageKind: 'external',
+          kind: 'checkout',
+          execution: 'container',
+          branch: null,
+          createdAt: 1,
+          lastAccessedAt: 2,
+          namingState: 'manual',
+        },
+      ],
+      kinds: null,
+    });
   });
 
   it('falls back to the id when a workspace has no name', async () => {
     // An unnamed workspace still has to be pickable.
     answer({ workspaces: [{ workspace_id: 'w_7' }] });
-    const [only] = await listWorkspaces();
+    const [only] = (await listWorkspaces()).workspaces;
     expect(only).toEqual({
       id: 'w_7',
       label: 'w_7',
       archived: false,
       storageKind: 'managed',
+      kind: 'copy',
+      execution: 'container',
+      branch: null,
       createdAt: 0,
       lastAccessedAt: 0,
       namingState: 'manual',
@@ -143,7 +152,71 @@ describe('listWorkspaces', () => {
 
   it('reads the archived flag from the state field', async () => {
     answer({ workspaces: [{ workspace_id: 'w_old', state: 'archived' }] });
-    expect((await listWorkspaces())[0].archived).toBe(true);
+    expect((await listWorkspaces()).workspaces[0].archived).toBe(true);
+  });
+
+  it('reports the kinds a backend announces, and null when it announces none', async () => {
+    // Three states, not two: absent is an old server and an empty-ish list is
+    // the feature switched off. The picker treats them differently.
+    answer({ workspaces: [], capabilities: { workspaceKinds: ['copy', 'worktree'] } });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: ['copy', 'worktree'] });
+    answer({ workspaces: [], capabilities: { workspaceKinds: ['copy'] } });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: ['copy'] });
+    answer({ workspaces: [] });
+    await expect(listWorkspaces()).resolves.toMatchObject({ kinds: null });
+  });
+
+  it('asks for a kind only when one was chosen', async () => {
+    // A backend that predates the field would reject nothing, but sending
+    // `kind: "copy"` to it still states an intent this UI cannot check was
+    // honoured. Omitting it asks for the default, which is the same workspace.
+    answer({ workspace_id: 'w_wt', storage_kind: 'external', workspace_kind: 'worktree' });
+    await expect(createWorkspace('Profile decode', { kind: 'worktree' })).resolves.toMatchObject({
+      kind: 'worktree',
+    });
+    expect(sent[0]?.body).toBe(
+      JSON.stringify({ displayName: 'Profile decode', autoName: true, kind: 'worktree' }),
+    );
+  });
+
+  it('leaves the branch out when the box was left empty', async () => {
+    // A blank field is not a request for a branch named "", which the server
+    // would have to refuse; it is how the caller asks the server to name one.
+    answer({ workspace_id: 'w_wt', storage_kind: 'external', workspace_kind: 'worktree' });
+    await createWorkspace('Profile decode', { kind: 'worktree', branch: '  ' });
+    expect(sent[0]?.body).toBe(
+      JSON.stringify({ displayName: 'Profile decode', autoName: true, kind: 'worktree' }),
+    );
+  });
+
+  it('reads the kind and execution a newer backend states outright', async () => {
+    answer({
+      workspaces: [
+        {
+          workspace_id: 'w_wt',
+          storage_kind: 'external',
+          workspace_kind: 'worktree',
+          execution: 'host',
+          worktree_branch: 'wt-decode-slow',
+        },
+      ],
+    });
+    expect((await listWorkspaces()).workspaces[0]).toMatchObject({
+      kind: 'worktree',
+      execution: 'host',
+      branch: 'wt-decode-slow',
+    });
+  });
+
+  it('calls a backend without the axis a container, whatever its storage', async () => {
+    // The fallback is not cosmetic: a backend that does not name `execution`
+    // runs every workspace in a container, so reporting `host` for the shared
+    // checkout would print a "not sandboxed" warning that is simply untrue.
+    answer({ workspaces: [{ workspace_id: 'w_main', storage_kind: 'local' }] });
+    expect((await listWorkspaces()).workspaces[0]).toMatchObject({
+      kind: 'checkout',
+      execution: 'container',
+    });
   });
 });
 
@@ -155,6 +228,9 @@ describe('exact Agent metadata', () => {
       label: 'Main',
       archived: false,
       storageKind: 'managed',
+      kind: 'copy',
+      execution: 'container',
+      branch: null,
       createdAt: 0,
       lastAccessedAt: 0,
       namingState: 'manual',
@@ -277,25 +353,44 @@ describe('getConversation', () => {
     await expect(getConversation(REF)).rejects.toMatchObject({ status: 409 });
   });
 
-  it('lets go of the body of a response it is not going to read', async () => {
+  it('lets go of the body of a failed response, and keeps what it said', async () => {
     // An error response still has a body, and one that is never read nor
     // cancelled holds its connection until the collector happens to run. On a
     // page that retries that is a slow leak of a small per-host budget.
-    let released = false;
+    // Reading it releases the connection just as cancelling did, and unlike
+    // cancelling it keeps the one part a reader can act on.
+    let pulled = false;
     vi.stubGlobal('fetch', () =>
       Promise.resolve(
         new Response(
           new ReadableStream({
-            cancel() {
-              released = true;
+            start(controller: ReadableStreamDefaultController<Uint8Array>) {
+              pulled = true;
+              controller.enqueue(
+                new TextEncoder().encode(JSON.stringify({ detail: 'branch already exists' })),
+              );
+              controller.close();
             },
           }),
-          { status: 503 },
+          { status: 409 },
         ),
       ),
     );
-    await expect(getConversation(REF)).rejects.toBeInstanceOf(SessionApiError);
-    expect(released).toBe(true);
+    await expect(getConversation(REF)).rejects.toMatchObject({
+      status: 409,
+      message: 'branch already exists (409)',
+    });
+    expect(pulled).toBe(true);
+  });
+
+  it('falls back to the status line when the body explains nothing', async () => {
+    for (const body of ['<html>gateway</html>', JSON.stringify({ detail: '   ' }), '']) {
+      vi.stubGlobal('fetch', () => Promise.resolve(new Response(body, { status: 502 })));
+      // A garbled excerpt on screen is worse than no excerpt.
+      await expect(getConversation(REF)).rejects.toMatchObject({
+        message: expect.stringContaining('502') as unknown as string,
+      });
+    }
   });
 });
 

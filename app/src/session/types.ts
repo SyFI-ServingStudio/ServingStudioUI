@@ -240,11 +240,29 @@ export const workspaceSchema = z
     display_name: text.nullish(),
     state: text.nullish(),
     storage_kind: z.enum(['external', 'managed', 'local']).nullish(),
+    // All four are nullish so this build keeps reading a backend that predates
+    // them: an older server simply omits them and the fallbacks below apply.
+    workspace_kind: z.enum(['copy', 'worktree', 'checkout']).nullish(),
+    execution: z.enum(['container', 'host']).nullish(),
+    worktree_branch: text.nullish(),
+    base_revision: text.nullish(),
     created_at: z.number().finite().nullish(),
     last_accessed_at: z.number().finite().nullish(),
     naming_state: z.enum(['pending', 'generated', 'manual']).nullish(),
   })
   .passthrough();
+
+/**
+ * What the workspace is, which `storageKind` alone cannot say.
+ *
+ * A worktree and the shared checkout are both external and both run on the
+ * host, but they are not the same thing to a reader: one is a branch this
+ * workspace owns, the other is where everyone starts.
+ */
+export type WorkspaceKind = 'copy' | 'worktree' | 'checkout';
+
+/** Where its turns run. Derived from the kind, never chosen per conversation. */
+export type ExecutionMode = 'container' | 'host';
 
 /** A workspace, as the browser names one. */
 export interface Workspace {
@@ -252,9 +270,19 @@ export interface Workspace {
   readonly label: string;
   readonly archived: boolean;
   readonly storageKind: 'external' | 'managed';
+  readonly kind: WorkspaceKind;
+  readonly execution: ExecutionMode;
+  /** The branch a worktree workspace owns; the server chooses it, not the UI. */
+  readonly branch: string | null;
   readonly createdAt: number;
   readonly lastAccessedAt: number;
   readonly namingState: 'pending' | 'generated' | 'manual';
+}
+
+/** What this backend can create. A missing key means a server without the axis. */
+export interface WorkspaceCatalog {
+  readonly workspaces: readonly Workspace[];
+  readonly kinds: readonly WorkspaceKind[] | null;
 }
 
 export const managedJobSchema = z

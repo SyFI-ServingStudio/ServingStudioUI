@@ -392,8 +392,9 @@ function UserMessage({ children }: { children: ReactNode }) {
         borderRadius: '10px 10px 3px 10px',
         background: tokens.tile,
         color: tokens.ink,
-        fontSize: 12,
-        lineHeight: 1.45,
+        // The same reading size as the answer it sits beside.
+        fontSize: 14,
+        lineHeight: 1.7,
         whiteSpace: 'pre-wrap',
       }}
     >

@@ -26,6 +26,8 @@ import {
   type ManagedJob,
   type SessionRef,
   type Workspace,
+  type WorkspaceCatalog,
+  type WorkspaceKind,
 } from './types';
 
 /**
@@ -108,17 +110,70 @@ export async function sessionFetch(url: string, init: RequestInit = {}): Promise
     throw new SessionApiError(error instanceof Error ? error.message : String(error), 0);
   }
   if (response.ok) return response;
-  // The body is released before the throw. An error response still has one,
-  // and a body that is never read nor cancelled holds its connection until the
-  // garbage collector happens to run — which, on a page that retries, is a slow
-  // leak of the browser's small per-host connection budget.
-  void response.body?.cancel().catch(() => {
-    // Cancelling a body nobody read cannot fail in a way anyone can act on.
-  });
-  throw new SessionApiError(
-    `${response.status} ${response.statusText} for ${url}`,
-    response.status,
-  );
+  // The body is read rather than cancelled. Either releases the connection —
+  // the leak this guards against is a body left neither read nor cancelled —
+  // but only reading it keeps what the backend actually said. The detail is
+  // the whole message for a rejected workspace name or a branch that already
+  // exists, and a bare "409 Conflict" leaves the reader nothing to act on.
+  throw new SessionApiError(await failureMessage(response, url), response.status);
+}
+
+/**
+ * What the backend said, when it said anything a reader can use.
+ *
+ * FastAPI puts the explanation in `detail`, and it is written for a person:
+ * "branch already exists", "worktree workspaces are not enabled". Anything
+ * else — HTML from a proxy, a truncated body, a network error mid-read — falls
+ * back to the status line, because a garbled excerpt is worse than none.
+ *
+ * The code is kept either way. A detail alone can be as unhelpful as "gone",
+ * and the number is the one part of a failure that is always worth reporting.
+ */
+async function failureMessage(response: Response, url: string): Promise<string> {
+  const status = `${response.status} ${response.statusText} for ${url}`;
+  let detail: unknown;
+  try {
+    detail = ((await response.json()) as { detail?: unknown } | null)?.detail;
+  } catch {
+    return status;
+  }
+  return typeof detail === 'string' && detail.trim()
+    ? `${detail.trim()} (${response.status})`
+    : status;
+}
+
+/**
+ * One wire descriptor, as the browser names a workspace.
+ *
+ * Written once. The three call sites that each had their own copy drifted
+ * apart the moment a field was added, and the failure is silent: a workspace
+ * listed with one shape and fetched with another.
+ */
+function toWorkspace(descriptor: z.infer<typeof workspaceSchema>): Workspace {
+  const storageKind =
+    descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
+      ? 'external'
+      : 'managed';
+  // Derived, not required. A backend that predates the kind axis still
+  // describes both facts, just indirectly: a copy is managed and a real git
+  // tree is not. Reading them this way is what lets this build ship first.
+  const kind = descriptor.workspace_kind ?? (storageKind === 'managed' ? 'copy' : 'checkout');
+  return {
+    id: descriptor.workspace_id,
+    label: descriptor.display_name ?? descriptor.workspace_id,
+    archived: descriptor.state === 'archived',
+    storageKind,
+    kind,
+    // A backend that names the kind also names where it runs, so the fallback
+    // here only ever applies to one that has neither — and such a backend runs
+    // every workspace in a container, external ones included. Deriving `host`
+    // from `checkout` would put a false "not sandboxed" warning on that screen.
+    execution: descriptor.execution ?? 'container',
+    branch: descriptor.worktree_branch ?? null,
+    createdAt: descriptor.created_at ?? 0,
+    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
+    namingState: descriptor.naming_state ?? 'manual',
+  };
 }
 
 async function readJson<T>(url: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
@@ -142,24 +197,27 @@ async function readJson<T>(url: string, schema: z.ZodType<T>, init?: RequestInit
  * no `display_name` falls back to its id rather than to an empty label: an
  * unnamed workspace still has to be pickable.
  */
-export async function listWorkspaces(signal?: AbortSignal): Promise<readonly Workspace[]> {
+export async function listWorkspaces(signal?: AbortSignal): Promise<WorkspaceCatalog> {
   const body = await readJson(
     `${AGENT_BASE}workspaces`,
-    z.object({ workspaces: z.array(workspaceSchema) }),
+    z.object({
+      workspaces: z.array(workspaceSchema),
+      // Optional, and the difference between absent and empty is the point: a
+      // backend from before the axis says nothing, one with the feature off
+      // says so with a list that omits `worktree`. Collapsing them would make
+      // the picker either hide a switched-off feature or offer a missing one.
+      capabilities: z
+        .object({ workspaceKinds: z.array(z.enum(['copy', 'worktree', 'checkout'])) })
+        .partial()
+        .passthrough()
+        .nullish(),
+    }),
     { signal },
   );
-  return body.workspaces.map((descriptor) => ({
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  }));
+  return {
+    workspaces: body.workspaces.map(toWorkspace),
+    kinds: body.capabilities?.workspaceKinds ?? null,
+  };
 }
 
 /** Lifecycle rows that have not necessarily appeared in the Analyzer catalog yet. */
@@ -183,43 +241,41 @@ export async function listManagedJobs(signal?: AbortSignal): Promise<readonly Ma
 
 export async function getWorkspace(workspace: string, signal?: AbortSignal): Promise<Workspace> {
   const descriptor = await readJson(workspacePath(workspace), workspaceSchema, { signal });
-  return {
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  };
+  return toWorkspace(descriptor);
 }
 
-/** Create the managed workspace selected by the catalog's new-conversation flow. */
+/**
+ * Create the workspace selected by the catalog's new-conversation flow.
+ *
+ * `kind` is only sent when it is asked for. A copy is what every backend makes
+ * by default, so omitting the field keeps this callable against one that does
+ * not know the word — and the picker only offers `worktree` to a backend that
+ * has announced it.
+ *
+ * Branch and base are the server's to choose. It answers with the branch it
+ * actually used, and that is the name the UI shows: deriving a second one here
+ * would eventually disagree with the repository.
+ */
 export async function createWorkspace(
   displayName: string,
-  signal?: AbortSignal,
+  options: { kind?: WorkspaceKind; branch?: string; signal?: AbortSignal } = {},
 ): Promise<Workspace> {
+  const branch = options.branch?.trim();
   const descriptor = await readJson(`${AGENT_BASE}workspaces`, workspaceSchema, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, autoName: true }),
-    signal,
+    body: JSON.stringify({
+      displayName,
+      autoName: true,
+      ...(options.kind === undefined ? {} : { kind: options.kind }),
+      // An empty box is not a request for a branch called "". Omitting the key
+      // is how the caller says "you name it", and the server then picks a free
+      // name instead of refusing an invalid ref.
+      ...(branch ? { branch } : {}),
+    }),
+    signal: options.signal,
   });
-  return {
-    id: descriptor.workspace_id,
-    label: descriptor.display_name ?? descriptor.workspace_id,
-    archived: descriptor.state === 'archived',
-    storageKind:
-      descriptor.storage_kind === 'external' || descriptor.storage_kind === 'local'
-        ? 'external'
-        : 'managed',
-    createdAt: descriptor.created_at ?? 0,
-    lastAccessedAt: descriptor.last_accessed_at ?? descriptor.created_at ?? 0,
-    namingState: descriptor.naming_state ?? 'manual',
-  };
+  return toWorkspace(descriptor);
 }
 
 /** Server-owned model choices; a picker must never invent a model or effort. */

@@ -7443,7 +7443,7 @@ exports[`kvOption > keeps the accepted option from the Analyzer payload 1`] = `
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -7451,7 +7451,7 @@ exports[`kvOption > keeps the accepted option from the Analyzer payload 1`] = `
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",

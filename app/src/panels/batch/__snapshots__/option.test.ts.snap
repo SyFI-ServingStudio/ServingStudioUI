@@ -101,7 +101,7 @@ exports[`batch options > reproduces the old decode_requests pool aggregate and a
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -109,7 +109,7 @@ exports[`batch options > reproduces the old decode_requests pool aggregate and a
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -241,7 +241,7 @@ exports[`batch options > reproduces the old decode_requests single-scope chart 1
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -249,7 +249,7 @@ exports[`batch options > reproduces the old decode_requests single-scope chart 1
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -404,7 +404,7 @@ exports[`batch options > reproduces the old prefill_tokens pool aggregate and av
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -412,7 +412,7 @@ exports[`batch options > reproduces the old prefill_tokens pool aggregate and av
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -544,7 +544,7 @@ exports[`batch options > reproduces the old prefill_tokens single-scope chart 1`
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -552,7 +552,7 @@ exports[`batch options > reproduces the old prefill_tokens single-scope chart 1`
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -707,7 +707,7 @@ exports[`batch options > reproduces the old total_tokens pool aggregate and aver
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -715,7 +715,7 @@ exports[`batch options > reproduces the old total_tokens pool aggregate and aver
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -847,7 +847,7 @@ exports[`batch options > reproduces the old total_tokens single-scope chart 1`] 
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "backgroundColor": "#333333",
@@ -855,7 +855,7 @@ exports[`batch options > reproduces the old total_tokens single-scope chart 1`] 
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
