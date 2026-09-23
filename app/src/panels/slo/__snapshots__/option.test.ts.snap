@@ -69,7 +69,7 @@ exports[`sloMetricOption > keeps the accepted latency CDF option from the same s
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "axisPointer": {
@@ -82,7 +82,7 @@ exports[`sloMetricOption > keeps the accepted latency CDF option from the same s
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",

@@ -50,7 +50,7 @@ exports[`kernel-time chart projection > keeps the accepted aggregate chart optio
   ],
   "textStyle": {
     "color": "#cccccc",
-    "fontFamily": "'Geist', Arial, sans-serif",
+    "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
   },
   "tooltip": {
     "axisPointer": {
@@ -61,7 +61,7 @@ exports[`kernel-time chart projection > keeps the accepted aggregate chart optio
     "renderMode": "richText",
     "textStyle": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
     },
     "trigger": "axis",
@@ -95,7 +95,7 @@ exports[`kernel-time chart projection > keeps the accepted aggregate chart optio
   "yAxis": {
     "axisLabel": {
       "color": "#cccccc",
-      "fontFamily": "'Geist', Arial, sans-serif",
+      "fontFamily": "'Geist', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC', sans-serif",
       "fontSize": 13.5,
       "fontWeight": 600,
     },

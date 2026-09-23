@@ -16,6 +16,12 @@ export const palette = activeTheme.palette;
 const derivedColors = createDetailColors(palette, activeTheme.mode);
 export const colors = { ...derivedColors, syntax: activeTheme.syntax ?? derivedColors.syntax };
 
+// Neither Geist nor Arial has CJK glyphs, so Chinese fell through to the
+// generic family, which with `lang="en"` often resolves to a Japanese face on
+// Linux and Windows. Name Simplified Chinese faces for each platform instead.
+const cjk =
+  "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans SC'";
+
 // Historical token names remain aliases to preserve feature color semantics.
 export const tokens = {
   paper: palette.background,
@@ -38,9 +44,9 @@ export const tokens = {
   operationColorPanel: colors.operationPanel,
   shadow: 'none',
   shadowLift: colors.shadowLift,
-  serif: "'Geist', Arial, sans-serif",
-  body: "'Geist', Arial, sans-serif",
-  mono: "ui-monospace, 'SFMono-Regular', Consolas, monospace",
+  serif: `'Geist', Arial, ${cjk}, sans-serif`,
+  body: `'Geist', Arial, ${cjk}, sans-serif`,
+  mono: `ui-monospace, 'SFMono-Regular', Consolas, ${cjk}, monospace`,
   ease: 'cubic-bezier(.22,.61,.36,1)',
 };
 
