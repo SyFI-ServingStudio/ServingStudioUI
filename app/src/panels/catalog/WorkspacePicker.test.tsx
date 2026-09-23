@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -130,19 +130,33 @@ describe('WorkspacePicker', () => {
     );
   });
 
-  it('hides the creation rows while a search is narrowing the list', async () => {
+  it('narrows only the existing workspaces while a search is typed', async () => {
     const user = userEvent.setup();
     show();
 
     await user.type(screen.getByRole('textbox', { name: 'Search workspaces' }), 'through');
-    // Searching is how someone says they want an existing workspace, so an
-    // unfiltered creation row on top of the results would be in the way.
-    expect(screen.queryByRole('option', { name: /^Create/ })).toBeNull();
-    expect(screen.getAllByRole('option')).toHaveLength(1);
+    // The search sits with the existing workspaces and filters only them; the
+    // two ways to start fresh stay where they are.
+    const existing = screen.getByRole('listbox', { name: 'Existing workspaces' });
+    expect(within(existing).getAllByRole('option')).toHaveLength(1);
+    expect(screen.getByRole('option', { name: 'Create a sandboxed copy' })).toBeVisible();
 
     await user.clear(screen.getByRole('textbox', { name: 'Search workspaces' }));
     await user.type(screen.getByRole('textbox', { name: 'Search workspaces' }), 'nothing');
     expect(screen.getByRole('status')).toHaveTextContent('No workspace matches this search.');
+  });
+
+  it('has no existing-workspace section when there is nothing to continue', () => {
+    render(
+      <WorkspacePicker
+        workspaces={[]}
+        kinds={['copy', 'worktree']}
+        selection={{ create: 'copy' }}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole('listbox', { name: 'Existing workspaces' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Search workspaces' })).toBeNull();
   });
 
   it('matches on the workspace id as well as its label', async () => {
@@ -151,8 +165,11 @@ describe('WorkspacePicker', () => {
 
     // An unnamed workspace is labelled with its id, so the id has to be findable.
     await user.type(screen.getByRole('textbox', { name: 'Search workspaces' }), 'w_copy');
+    const existing = screen.getByRole('listbox', { name: 'Existing workspaces' });
     expect(
-      screen.getAllByRole('option').map((option) => option.getAttribute('aria-label')),
+      within(existing)
+        .getAllByRole('option')
+        .map((option) => option.getAttribute('aria-label')),
     ).toEqual(['Select Throughput study']);
   });
 });

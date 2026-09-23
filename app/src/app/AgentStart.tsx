@@ -193,7 +193,7 @@ export default function AgentStart({
 
   return (
     <Box>
-      <Box sx={{ maxWidth: 760, mx: 'auto', textAlign: 'left' }}>
+      <Box sx={{ maxWidth: 920, mx: 'auto', textAlign: 'left' }}>
         <Typography
           component="h1"
           sx={{
@@ -211,7 +211,7 @@ export default function AgentStart({
           Analyzer.
         </Typography>
       </Box>
-      <Stack sx={{ maxWidth: 760, mx: 'auto', mt: 3.6, gap: 1.5 }}>
+      <Stack sx={{ maxWidth: 920, mx: 'auto', mt: 3.6, gap: 1.5 }}>
         <SetupStep
           index={1}
           label="Working style"
