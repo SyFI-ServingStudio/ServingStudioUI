@@ -135,8 +135,8 @@ export function pairedSeries(series: AlignmentIterationSeries): PairedSeries {
     families: [
       {
         key: 'critical_path',
-        label: 'Replica critical path',
-        measuredLabel: 'Measured replica critical path',
+        label: 'Critical path',
+        measuredLabel: 'Measured critical path',
         simulatedLabel: 'Timing-predict',
         unit: 'kernel time (ms)',
         definition: definitions.relative_diff_pct,

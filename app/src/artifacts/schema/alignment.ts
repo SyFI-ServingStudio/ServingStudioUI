@@ -228,7 +228,7 @@ const decodeMappedOperation = (row: z.infer<typeof mappedOperationSchema>) =>
   });
 
 const iterationReportSchema = z.object({
-  schema_version: z.union([z.literal(1), z.literal(2)]),
+  schema_version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   available: z.boolean(),
   definitions,
   meta: z.object({
@@ -619,7 +619,7 @@ const sequenceDetailIndexSchema = z.object({
 });
 
 const iterationSeriesSchema = z.object({
-  schema_version: z.union([z.literal(1), z.literal(2)]),
+  schema_version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
   definitions,
   meta: z.object({
     recommended_gpu_time_multiplier: finite.positive(),
@@ -663,6 +663,9 @@ const breakdownSchema = z.object({
   // Added without a schema bump. Old single-stream artifacts are equivalent
   // to zero hidden work, so absence has an exact backwards-compatible value.
   measured_concurrent_hidden_ms: nonNegative.optional(),
+  // Schema 3's name for the same quantity on the barrier critical path: winner
+  // launch time already covered by a launch on another stream.
+  hidden_cross_stream_ms: nonNegative.optional(),
   // The iteration's modelled cost. `simulated_leaf_workload_ms` is the sum over
   // every fan-out child (one per EP rank / DP group), so under a Max fan-out it
   // is several times the cost actually paid; only the critical path is
@@ -747,7 +750,8 @@ export function parseAnalyzerV1AlignmentBreakdown(
     stage: record.stage,
     measuredCriticalPathMs,
     measuredKernelSumMs: record.measured_kernel_sum_ms,
-    measuredConcurrentHiddenMs: record.measured_concurrent_hidden_ms ?? 0,
+    measuredConcurrentHiddenMs:
+      record.measured_concurrent_hidden_ms ?? record.hidden_cross_stream_ms ?? 0,
     simulatedCriticalPathMs: record.simulated_critical_path_ms ?? null,
     simulatedLeafWorkloadMs: record.simulated_leaf_workload_ms,
     unmappedMeasuredMs: record.unmapped_measured_ms,

@@ -71,10 +71,10 @@ interface MeasuredAttribution {
  * Read the analyzer's critical-path attribution without recomputing it.
  *
  * `measured_ms`, per-kernel `duration_ms`, operation `measured_ms`, and
- * `unmapped_measured_ms` are produced by the same selected-device reduction.
- * `measured_concurrent_hidden_ms` is audit evidence for only cross-track
- * overlap; subtracting it here misses same-track PDL overlap and collective
- * arrival wait, creating a second, incompatible definition of critical time.
+ * `unmapped_measured_ms` are produced by the same critical-path reduction.
+ * The hidden time is audit evidence for only cross-stream overlap; subtracting
+ * it here would miss same-stream PDL overlap and collective skew, creating a
+ * second, incompatible definition of critical time.
  */
 function measuredAttribution(breakdown: AlignmentBreakdown): MeasuredAttribution {
   return {

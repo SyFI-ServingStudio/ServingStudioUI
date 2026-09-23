@@ -92,13 +92,16 @@ it('maps alignment schema and identity failures to structured incompatible resul
   expect(identity.status === 'incompatible' && identity.issues?.join('\n')).toContain('identity');
 });
 
-it('preserves the accepted alignment wire schema version in artifact metadata', async () => {
-  stubFetch(respond({ ...alignmentIterationSeriesJson, schema_version: 2 }));
-  await expect(fetchArtifact(alignmentIterationSeriesRef(ALIGNMENT))).resolves.toMatchObject({
-    status: 'ready',
-    schemaVersion: 2,
-  });
-});
+it.each([2, 3])(
+  'preserves the accepted alignment wire schema version %i in artifact metadata',
+  async (schemaVersion) => {
+    stubFetch(respond({ ...alignmentIterationSeriesJson, schema_version: schemaVersion }));
+    await expect(fetchArtifact(alignmentIterationSeriesRef(ALIGNMENT))).resolves.toMatchObject({
+      status: 'ready',
+      schemaVersion,
+    });
+  },
+);
 
 const READY_BODY = {
   protocol_version: 1,
