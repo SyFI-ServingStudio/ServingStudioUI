@@ -452,7 +452,7 @@ export default function MarkdownBody({
           key={`list-${line.start}`}
           sx={{
             my: compact ? 0.55 : 0.8,
-            pl: 2.25,
+            pl: 3,
             color: tokens.sub,
             fontSize: 13,
             lineHeight: 1.7,
