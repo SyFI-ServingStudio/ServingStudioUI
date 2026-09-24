@@ -231,6 +231,64 @@ describe('session conversation view projection', () => {
     );
   });
 
+  function renderTranscript(message: StoredMessage) {
+    render(
+      <ConversationTranscript
+        workspaceId="w_main"
+        messages={[messageForConversation(message)]}
+        messageStartIndex={0}
+        liveEvents={[]}
+        toolCall=""
+        streaming={false}
+        error={null}
+        canLoadEarlier={false}
+        loadingEarlier={false}
+        onLoadEarlier={vi.fn()}
+        drivingRole="orchestrator"
+        renderMarkdown={(text) => text}
+        onOpenManagedResult={vi.fn()}
+      />,
+    );
+  }
+
+  it('keeps the work of a failed turn and closes it with the recorded cause', () => {
+    renderTranscript({
+      role: 'assistant',
+      content: 'The orchestrator repeatedly stopped at a progress checkpoint.',
+      activity: [
+        { kind: 'role_start', role: 'orchestrator' },
+        {
+          kind: 'intermediate_output',
+          role: 'orchestrator',
+          level: 'milestone',
+          text: 'Capture parsed.',
+        },
+        { kind: 'implementer', text: 'Phase 0 is done.' },
+        { kind: 'error', text: 'The orchestrator repeatedly stopped at a progress checkpoint.' },
+      ],
+      failure: {
+        code: 'agent_runtime_failure',
+        message: 'The Agent runtime failed before producing an answer.',
+      },
+    } as StoredMessage);
+
+    expect(screen.getByText('Capture parsed.')).toBeInTheDocument();
+    expect(screen.getByText('Phase 0 is done.')).toBeInTheDocument();
+    expect(
+      screen.getByText('The orchestrator repeatedly stopped at a progress checkpoint.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('The Agent runtime failed before producing an answer.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the failure message in place of a legacy error answer', () => {
+    renderTranscript({ role: 'assistant', content: '(backend error: No space left on device)' });
+
+    expect(screen.getByText(/host disk is full/)).toBeInTheDocument();
+    expect(screen.queryByText('(backend error: No space left on device)')).not.toBeInTheDocument();
+  });
+
   it('keeps the newest tool line outside the timeline cards', () => {
     expect(
       activeToolCall([

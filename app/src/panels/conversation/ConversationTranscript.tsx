@@ -767,6 +767,24 @@ const TimelineCardView = memo(function TimelineCardView({
   );
 });
 
+/**
+ * A failed turn keeps the work it did before failing.
+ *
+ * Hours of implementer rounds can precede a failure, and they are the record of
+ * what landed. So the cards stay, and the failure closes the timeline: the
+ * turn's own error card when it recorded one — that text names the cause — or
+ * else the stored failure message. A trailing answer card is dropped, because a
+ * failed turn's stored answer is only that failure text again.
+ */
+function failedTurnCards(
+  cards: readonly ConversationCard[],
+  failure: string | undefined,
+): readonly ConversationCard[] {
+  if (failure === undefined) return cards;
+  const body = cards.at(-1)?.type === 'response' ? cards.slice(0, -1) : cards;
+  return body.at(-1)?.type === 'error' ? body : [...body, { type: 'error', text: failure }];
+}
+
 function AssistantTimeline({
   message,
   events,
@@ -790,21 +808,12 @@ function AssistantTimeline({
   renderMarkdown: RenderAgentMarkdown;
   onOpenManagedResult: (card: Extract<ConversationCard, { type: 'job' }>) => void;
 }) {
-  const cards = conversationCards(events);
+  const cards = failedTurnCards(conversationCards(events), message?.failure?.message);
   // A stored turn carries its own cast, so an old orchestrated transcript keeps
   // its colours no matter what the conversation runs today.
   const drivingRole =
     cards.find((card): card is Extract<ConversationCard, { type: 'role' }> => card.type === 'role')
       ?.role ?? expectedDrivingRole;
-  if (message?.failure) {
-    return (
-      <FailureCard
-        text={message.failure.message}
-        workspaceId={workspaceId}
-        renderMarkdown={renderMarkdown}
-      />
-    );
-  }
   if (streaming && cards.length === 0) {
     return (
       <RoleCard
