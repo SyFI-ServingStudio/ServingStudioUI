@@ -108,3 +108,10 @@ export interface AgentConversationSummary {
   readonly title: string;
   readonly updated_at?: ConversationUpdatedAt;
 }
+
+/** Another workspace's conversations, listed so the history rail can jump there. */
+export interface AgentWorkspaceConversations {
+  readonly id: string;
+  readonly label: string;
+  readonly conversations: readonly AgentConversationSummary[];
+}

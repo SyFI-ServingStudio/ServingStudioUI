@@ -18,6 +18,7 @@ import {
 
 import {
   conversationIdSchema,
+  workspaceIdSchema,
   workspaceOf,
   type ChatRef,
   type ConversationId,
@@ -34,6 +35,7 @@ import {
 import type {
   AgentConversationSummary,
   AgentSettings,
+  AgentWorkspaceConversations,
   CodexRoleRuntime,
   CodexRuntimeSelection,
 } from '../panels/conversation/agentTypes';
@@ -54,6 +56,8 @@ import {
   getWorkspace,
   listCodexBackends,
   listConversations,
+  listWorkspaces,
+  renameConversation as renameConversationTitle,
   updateConversationRuntime,
 } from '../session/api';
 import type { Unsubscribe } from '../session/controller';
@@ -105,6 +109,7 @@ interface SharedAgentState {
   readonly workspace: WorkspaceId;
   readonly workspaceName?: string;
   readonly conversations: readonly AgentConversationSummary[];
+  readonly otherWorkspaces: readonly AgentWorkspaceConversations[];
   readonly historyLoading: boolean;
   readonly historyError: string | null;
   readonly modelOptions: AgentConversationViewModel['modelOptions'];
@@ -115,7 +120,8 @@ interface SharedAgentState {
   readonly setAgentSettings: Dispatch<SetStateAction<AgentSettings>>;
   readonly refreshHistory: () => Promise<readonly AgentConversationSummary[] | null>;
   readonly startNew: () => Promise<void>;
-  readonly selectConversation: (id: string) => Promise<void>;
+  readonly renameConversation: (id: string, workspace: string, title: string) => Promise<void>;
+  readonly selectConversation: (id: string, workspace?: string) => Promise<void>;
   readonly removeConversation: (id: string) => Promise<void>;
 }
 
@@ -154,6 +160,9 @@ function AddressedAgentHost({
       : null;
   const [workspaceName, setWorkspaceName] = useState<string>();
   const [conversations, setConversations] = useState<readonly AgentConversationSummary[]>([]);
+  const [otherWorkspaces, setOtherWorkspaces] = useState<readonly AgentWorkspaceConversations[]>(
+    [],
+  );
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [modelOptions, setModelOptions] = useState<AgentConversationViewModel['modelOptions']>([]);
@@ -235,6 +244,41 @@ function AddressedAgentHost({
     return () => abort.abort();
   }, [isCurrentWorkspace, refreshHistory, workspace]);
 
+  // The other workspaces are only a way to jump elsewhere, so each is read once
+  // per visit and a workspace that fails to list is left out rather than
+  // reported: the rail's error line belongs to the workspace on screen.
+  useEffect(() => {
+    const abort = new AbortController();
+    setOtherWorkspaces([]);
+    void listWorkspaces(abort.signal)
+      .then(async (catalog) => {
+        const others = catalog.workspaces.filter(
+          (candidate) => !candidate.archived && candidate.id !== workspace,
+        );
+        const listed = await Promise.allSettled(
+          others.map(async (candidate) => ({
+            id: candidate.id,
+            label: candidate.label,
+            conversations: (await listConversations(candidate.id, abort.signal)).map(
+              summaryForPanel,
+            ),
+          })),
+        );
+        if (abort.signal.aborted || !isCurrentWorkspace()) return;
+        setOtherWorkspaces(
+          listed.flatMap((result) =>
+            result.status === 'fulfilled' && result.value.conversations.length > 0
+              ? [result.value]
+              : [],
+          ),
+        );
+      })
+      .catch(() => {
+        // Without the catalog the rail still lists this workspace's conversations.
+      });
+    return () => abort.abort();
+  }, [isCurrentWorkspace, workspace]);
+
   const setCodexRuntime = useCallback<AgentConversationViewModel['setCodexRuntime']>((update) => {
     setCodexRuntimeState((current) => update(current));
   }, []);
@@ -242,19 +286,62 @@ function AddressedAgentHost({
     navigate(startNewConversation(locationRef.current, workspace), 'push');
   }, [navigate, workspace]);
   const selectConversation = useCallback(
-    async (id: string) => {
+    async (id: string, target: string = workspace) => {
       const parsed = conversationIdSchema.safeParse(id);
-      if (!parsed.success) return;
+      const targetWorkspace = workspaceIdSchema.safeParse(target);
+      if (!parsed.success || !targetWorkspace.success) return;
       navigate(
         showConversation(locationRef.current, {
           state: 'created',
-          workspace,
+          workspace: targetWorkspace.data,
           id: parsed.data,
         }),
         'push',
       );
     },
     [navigate, workspace],
+  );
+  const renameConversation = useCallback(
+    async (id: string, target: string, title: string) => {
+      const parsed = conversationIdSchema.safeParse(id);
+      const targetWorkspace = workspaceIdSchema.safeParse(target);
+      if (!parsed.success || !targetWorkspace.success) return;
+      const applyTitle = (next: string) => {
+        const retitle = (items: readonly AgentConversationSummary[]) =>
+          items.map((item) => (item.id === parsed.data ? { ...item, title: next } : item));
+        if (targetWorkspace.data === workspace) {
+          setConversations(retitle);
+        } else {
+          setOtherWorkspaces((groups) =>
+            groups.map((group) =>
+              group.id === targetWorkspace.data
+                ? { ...group, conversations: retitle(group.conversations) }
+                : group,
+            ),
+          );
+        }
+      };
+      const listed =
+        targetWorkspace.data === workspace
+          ? conversations
+          : otherWorkspaces.find((group) => group.id === targetWorkspace.data)?.conversations;
+      const previous = listed?.find((item) => item.id === parsed.data)?.title;
+      // Shown at once: waiting for the round trip put the old name back on
+      // screen the moment the field closed, which read as the rename not taking.
+      applyTitle(title);
+      try {
+        const renamed = await renameConversationTitle(
+          { workspace: targetWorkspace.data, conversation: parsed.data },
+          title,
+        );
+        if (isCurrentWorkspace()) applyTitle(renamed);
+      } catch (error) {
+        if (!isCurrentWorkspace()) return;
+        if (previous !== undefined) applyTitle(previous);
+        setHistoryError(describeError(error));
+      }
+    },
+    [conversations, isCurrentWorkspace, otherWorkspaces, workspace],
   );
   const removeConversation = useCallback(
     async (id: string) => {
@@ -295,6 +382,7 @@ function AddressedAgentHost({
     workspace,
     ...(workspaceName === undefined ? {} : { workspaceName }),
     conversations,
+    otherWorkspaces,
     historyLoading,
     historyError,
     modelOptions,
@@ -306,6 +394,7 @@ function AddressedAgentHost({
     refreshHistory,
     startNew,
     selectConversation,
+    renameConversation,
     removeConversation,
   };
   const close = () => navigate(closeConversation(locationRef.current), 'push');
@@ -366,6 +455,7 @@ function commonViewModel(
 ): Pick<
   AgentConversationViewModel,
   | 'conversations'
+  | 'otherWorkspaces'
   | 'historyLoading'
   | 'historyError'
   | 'modelOptions'
@@ -376,10 +466,12 @@ function commonViewModel(
   | 'setAgentSettings'
   | 'selectConversation'
   | 'startConversation'
+  | 'renameConversation'
   | 'removeConversation'
 > {
   return {
     conversations: shared.conversations,
+    otherWorkspaces: shared.otherWorkspaces,
     historyLoading: shared.historyLoading,
     historyError: shared.historyError,
     modelOptions: shared.modelOptions,
@@ -390,6 +482,7 @@ function commonViewModel(
     setAgentSettings: shared.setAgentSettings,
     selectConversation: shared.selectConversation,
     startConversation: shared.startNew,
+    renameConversation: shared.renameConversation,
     removeConversation: shared.removeConversation,
   };
 }

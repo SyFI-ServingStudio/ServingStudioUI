@@ -348,6 +348,23 @@ export async function updateConversationRuntime(
   });
 }
 
+/** Give a conversation the reader's title; the backend then stops naming it automatically. */
+export async function renameConversation(
+  ref: SessionRef,
+  title: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  // Only the title is read back: the rest of the reply is the whole history,
+  // which a rename has no use for.
+  const body = await readJson(conversationPath(ref), z.object({ title: z.string() }), {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ title }),
+    signal,
+  });
+  return body.title;
+}
+
 export async function deleteConversation(ref: SessionRef, signal?: AbortSignal): Promise<void> {
   await readJson(conversationPath(ref), z.object({ ok: z.boolean() }), {
     method: 'DELETE',

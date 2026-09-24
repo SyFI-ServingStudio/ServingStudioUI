@@ -497,12 +497,131 @@ describe('AgentHost', () => {
       host({ view: 'chat', chat: { state: 'draft', workspace: 'w_old' } }, navigate),
     );
     view.rerender(host({ view: 'chat', chat: { state: 'draft', workspace: 'w_new' } }, navigate));
-    fireEvent.click(screen.getByRole('button', { name: 'Open conversation history' }));
+    // The full page pins history by default, so it is already on screen.
     await screen.findByText('New conversation');
 
     releaseOld();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText('Old conversation')).not.toBeInTheDocument();
     expect(screen.getByText('New conversation')).toBeInTheDocument();
+  });
+
+  it('lists other workspaces, jumps into them, and saves a rename', async () => {
+    const patches: { url: string; body: unknown }[] = [];
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/codex-backends')) return json(catalog());
+      if (url.endsWith('/workspaces')) {
+        return json({
+          workspaces: [
+            { workspace_id: 'w_main', display_name: 'Main', state: 'active' },
+            { workspace_id: 'w_other', display_name: 'Other study', state: 'active' },
+            { workspace_id: 'w_gone', display_name: 'Archived', state: 'archived' },
+          ],
+        });
+      }
+      if (url.endsWith('/workspaces/w_main')) {
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      }
+      if (url.endsWith('/workspaces/w_main/conversations')) {
+        return json({ conversations: [{ id: 'c_here', title: 'Here', updated_at: 1 }] });
+      }
+      if (url.endsWith('/workspaces/w_other/conversations')) {
+        return json({ conversations: [{ id: 'c_there', title: 'There', updated_at: 2 }] });
+      }
+      if (url.endsWith('/workspaces/w_other/conversations/c_there') && init?.method === 'PATCH') {
+        patches.push({ url, body: JSON.parse(String(init.body)) });
+        return json({ id: 'c_there', title: 'Renamed', messages: [] });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const navigate = vi.fn<Navigate>();
+    render(host(draft, navigate));
+
+    const other = await screen.findByRole('region', { name: 'Workspace Other study' });
+    expect(screen.queryByRole('region', { name: 'Workspace Archived' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open There' }));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith(
+        { view: 'chat', chat: { state: 'created', workspace: 'w_other', id: 'c_there' } },
+        'push',
+      ),
+    );
+    // Deletion stays with the workspace on screen.
+    expect(screen.queryByRole('button', { name: 'Delete There' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename There' }));
+    const field = screen.getByRole('textbox', { name: 'Rename There' });
+    fireEvent.change(field, { target: { value: '  Renamed  ' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await waitFor(() => expect(other).toHaveTextContent('Renamed'));
+    expect(patches).toEqual([
+      {
+        url: '/api/agent/v1/workspaces/w_other/conversations/c_there',
+        body: { title: 'Renamed' },
+      },
+    ]);
+  });
+
+  it('keeps the old title when a rename is cancelled with Escape', async () => {
+    const requests: string[] = [];
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      requests.push(`${init?.method ?? 'GET'} ${url}`);
+      if (url.endsWith('/codex-backends')) return json(catalog());
+      if (url.endsWith('/workspaces/w_main')) {
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      }
+      if (url.endsWith('/conversations')) {
+        return json({ conversations: [{ id: 'c_here', title: 'Here', updated_at: 1 }] });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    render(host(draft, vi.fn<Navigate>()));
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Here' }));
+    const field = screen.getByRole('textbox', { name: 'Rename Here' });
+    fireEvent.change(field, { target: { value: 'Discarded' } });
+    fireEvent.keyDown(field, { key: 'Escape' });
+    fireEvent.blur(field);
+    expect(screen.getByRole('button', { name: 'Open Here' })).toHaveTextContent('Here');
+    expect(requests.filter((request) => request.startsWith('PATCH'))).toEqual([]);
+  });
+
+  it('shows a rename at once and puts the old title back if saving fails', async () => {
+    let finishPatch: (response: Response) => void = () => {};
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('/codex-backends')) return json(catalog());
+      if (url.endsWith('/workspaces/w_main')) {
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      }
+      if (url.endsWith('/conversations')) {
+        return json({ conversations: [{ id: 'c_here', title: 'Here', updated_at: 1 }] });
+      }
+      if (url.endsWith('/conversations/c_here') && init?.method === 'PATCH') {
+        return new Promise<Response>((resolve) => {
+          finishPatch = resolve;
+        });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    render(host(draft, vi.fn<Navigate>()));
+    fireEvent.click(await screen.findByRole('button', { name: 'Rename Here' }));
+    const field = screen.getByRole('textbox', { name: 'Rename Here' });
+    fireEvent.change(field, { target: { value: 'Elsewhere' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    // Before the backend has answered.
+    expect(await screen.findByRole('button', { name: 'Open Elsewhere' })).toBeInTheDocument();
+
+    await act(async () => {
+      finishPatch(
+        new Response(JSON.stringify({ detail: 'failed' }), {
+          status: 500,
+          statusText: 'Internal Server Error',
+        }),
+      );
+    });
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(screen.queryByText('Elsewhere')).not.toBeInTheDocument();
   });
 });

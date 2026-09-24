@@ -14,6 +14,7 @@ import { HISTORY_RAIL_WIDTH, PROGRESS_RAIL_WIDTH } from './agentLayout';
 import { rolesForAgentMode, saveAgentSettings } from './agentMode';
 import type {
   AgentConversationSummary,
+  AgentWorkspaceConversations,
   AgentSettings,
   CodexModelOption,
   CodexRuntimeSelection,
@@ -63,6 +64,7 @@ function saveProgressRailOpen(open: boolean): void {
 export interface AgentConversationViewModel {
   readonly conversationId: string | null;
   readonly conversations: readonly AgentConversationSummary[];
+  readonly otherWorkspaces: readonly AgentWorkspaceConversations[];
   readonly messages: readonly ConversationMessage[];
   readonly liveEvents: readonly ConversationTurnEvent[];
   readonly toolCall: string;
@@ -98,8 +100,14 @@ export interface AgentConversationViewModel {
   readonly discardQueued: (id: string) => void;
   readonly returnQueuedToComposer: (id: string) => void;
   readonly releaseResumeTarget: () => void;
-  readonly selectConversation: (conversationId: string) => Promise<void>;
+  /** `workspace` defaults to the one on screen; another opens that workspace's conversation. */
+  readonly selectConversation: (conversationId: string, workspace?: string) => Promise<void>;
   readonly startConversation: () => Promise<void>;
+  readonly renameConversation: (
+    conversationId: string,
+    workspace: string,
+    title: string,
+  ) => Promise<void>;
   readonly removeConversation: (conversationId: string) => Promise<void>;
   readonly setCodexRuntime: (
     update: (current: CodexRuntimeSelection) => CodexRuntimeSelection,
@@ -525,7 +533,10 @@ export default function ConversationSurface({
         expanded={roomy}
         canPersist={roomy}
         persistent={persistentHistory}
+        workspaceId={workspaceId}
+        workspaceName={workspaceName}
         conversations={conversation.conversations}
+        otherWorkspaces={conversation.otherWorkspaces}
         currentId={conversation.conversationId}
         loading={conversation.historyLoading}
         error={conversation.historyError}
@@ -537,6 +548,7 @@ export default function ConversationSurface({
           if (!persistentHistory) setHistoryOpen(false);
         }}
         onSelect={conversation.selectConversation}
+        onRename={conversation.renameConversation}
         onDelete={conversation.removeConversation}
       />
       <Box
