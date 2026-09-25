@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Location, Navigate } from '../location';
-import { resetSessionControllers, sessionController } from '../session/controller';
+import { RECONNECT, resetSessionControllers, sessionController } from '../session/controller';
 import AgentHost from './AgentHost';
 import { storeEntryDraft } from './entryDraft';
 
@@ -541,6 +541,81 @@ describe('AgentHost', () => {
     act(() => finish());
     await waitFor(() => expect(posts).toEqual(['First question', 'Follow up']));
     expect(screen.queryByRole('listitem', { name: /Queued message/ })).not.toBeInTheDocument();
+  });
+
+  it('sends the queue when a dropped stream reconnects to a turn that completed', async () => {
+    const delay = RECONNECT.delayMs;
+    RECONNECT.delayMs = 0;
+    let drop = () => {};
+    const posts: string[] = [];
+    let answered = false;
+    vi.stubGlobal('fetch', async (input: string, init?: RequestInit) => {
+      const url = new URL(String(input), 'http://fixture').pathname;
+      if (url.endsWith('/codex-backends')) return json(catalog());
+      if (url.endsWith('/workspaces/w_main')) {
+        return json({ workspace_id: 'w_main', display_name: 'Main', state: 'active' });
+      }
+      if (url.endsWith('/conversations')) {
+        return json({ conversations: [{ id: 'c_one', title: 'One', updated_at: 1 }] });
+      }
+      if (url.endsWith('/conversations/c_one')) {
+        return json({
+          id: 'c_one',
+          agent_mode: 'single',
+          sandbox: 'read-only',
+          autonomous: false,
+          codex_runtime: runtime,
+          messages: answered
+            ? [
+                { id: 1, role: 'user', content: 'First question' },
+                { id: 2, role: 'assistant', content: 'First answer' },
+              ]
+            : [],
+        });
+      }
+      if (url.endsWith('/conversations/c_one/stream')) return new Response(null, { status: 204 });
+      if (url.endsWith('/messages') && init?.method === 'POST') {
+        posts.push(JSON.parse(String(init.body)).text);
+        if (posts.length > 1) return new Response(new ReadableStream());
+        return new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              // The turn finishes while the connection is down: no `done`
+              // reaches this reader, only the history after reconnecting.
+              drop = () => {
+                answered = true;
+                controller.close();
+              };
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream', 'x-vibesim-turn-id': 'turn-1' } },
+        );
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    try {
+      render(
+        host(
+          { view: 'chat', chat: { state: 'created', workspace: 'w_main', id: 'c_one' } },
+          vi.fn<Navigate>(),
+        ),
+      );
+      const input = await screen.findByRole('textbox', { name: 'Continue the conversation' });
+      fireEvent.change(input, { target: { value: 'First question' } });
+      const send = screen.getByRole('button', { name: 'Send follow-up' });
+      await waitFor(() => expect(send).not.toBeDisabled());
+      fireEvent.click(send);
+      await waitFor(() => expect(posts).toEqual(['First question']));
+
+      fireEvent.change(input, { target: { value: 'Follow up' } });
+      fireEvent.click(await screen.findByRole('button', { name: 'Queue message' }));
+      expect(await screen.findByRole('listitem', { name: 'Queued message 1 of 1' })).toBeVisible();
+
+      act(() => drop());
+      await waitFor(() => expect(posts).toEqual(['First question', 'Follow up']));
+    } finally {
+      RECONNECT.delayMs = delay;
+    }
   });
 
   it('never installs a late history response from the workspace that was left', async () => {

@@ -635,7 +635,7 @@ function CreatedAgent({
   const commandPendingRef = useRef(false);
   const mounted = useRef(true);
   const result = useRef<'completed' | 'stopped' | 'failed' | null>(null);
-  const previousBusy = useRef(false);
+  const turnRunning = useRef(false);
   const beforeTurnMessage = useRef<string | null>(null);
   const serverRuntime = useRef<CodexRuntimeSelection | null>(null);
   const serverSettings = useRef<AgentSettings | null>(null);
@@ -740,12 +740,16 @@ function CreatedAgent({
 
   useEffect(() => {
     const busy = state.status === 'streaming' || state.status === 'cancelling';
-    if (!previousBusy.current && busy)
+    if (!turnRunning.current && busy) {
       beforeTurnMessage.current = lastMessageMarker(state.messages);
-    const crossedBoundary = previousBusy.current && !busy;
-    previousBusy.current = busy;
+      turnRunning.current = true;
+    }
     if (state.status === 'idle' && interruptArmed) setInterruptArmed(false);
-    if (!crossedBoundary || state.status !== 'idle') return;
+    // Only `idle` ends the turn. A reconnect passes through `loading`, and a
+    // dropped stream through `detached`, before the end is read; treating those
+    // as the end left the queue waiting behind a turn that had completed.
+    if (state.status !== 'idle' || !turnRunning.current) return;
+    turnRunning.current = false;
     const ending =
       result.current ?? storedTerminalResult(state.messages, beforeTurnMessage.current);
     if (ending !== 'completed') return;
