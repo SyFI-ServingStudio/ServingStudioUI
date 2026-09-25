@@ -47,7 +47,7 @@ const PROMPT_STARTERS = [
   {
     label: 'Llama3-8B · Prefill/decode split',
     prompt:
-      'What is the best ratio of prefill to decode servers for Llama3-8B on NVIDIA H200 GPUs when serving requests with 2K input tokens and 4K output tokens?',
+      'What is the best ratio of prefill to decode servers for Llama3-8B on NVIDIA H200 GPUs when serving requests with 2K input tokens and 4K output tokens? Simulate 1000 seconds of serving, assuming enough requests arrive all at once at time 0 to keep the servers continuously busy throughout the run.',
   },
 ] as const;
 
