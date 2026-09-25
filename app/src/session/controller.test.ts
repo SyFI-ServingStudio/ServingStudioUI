@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resetSessionControllers, sessionController } from './controller';
+import { RECONNECT, resetSessionControllers, sessionController } from './controller';
 import type { SessionRef, SessionState } from './types';
 
 const REF: SessionRef = { workspace: 'w_main', conversation: 'c1' };
@@ -130,7 +130,12 @@ function route(key: string, handler: Handler): void {
   routes.set(key, handler);
 }
 
+const RECONNECT_DEFAULT = { ...RECONNECT };
+
 beforeEach(() => {
+  // Reconnect at once: these tests are about what is retried, not how long the
+  // backoff waits.
+  RECONNECT.delayMs = 0;
   calls = [];
   routes = new Map();
   route('GET /', () => json(conversation([])));
@@ -151,6 +156,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Object.assign(RECONNECT, RECONNECT_DEFAULT);
   resetSessionControllers();
   vi.unstubAllGlobals();
 });
@@ -261,17 +267,54 @@ describe('sessionController', () => {
     expect(controller.getState().messages.at(-1)).toMatchObject({ content: 'answered' });
   });
 
-  it('calls the turn detached, not finished, when the stream stops without done', async () => {
-    // The turn may still be running on the server; the difference is whether
-    // reattaching would find anything.
+  it('reconnects by itself when the stream stops without done', async () => {
+    // The turn may still be running on the server: a stream that ends without
+    // `done` lost the connection, not the turn, and waiting for the reader to
+    // press Reattach left a running turn frozen on screen.
     const feed = new Feed();
     route('POST /messages', () => new Response(feed.stream, { status: 200 }));
+    const resumed = new Feed();
+    route('GET /stream', () => new Response(resumed.stream, { status: 200 }));
     const controller = sessionController(REF);
     void controller.send('ask');
     await settle();
     feed.close();
     await settle();
+    expect(calls.some((call) => call.method === 'GET' && call.url.endsWith('/stream'))).toBe(true);
+    expect(controller.getState().status).toBe('streaming');
+    resumed.push('final', { text: 'still going' });
+    await settle();
+    expect(controller.getState().live).toHaveLength(1);
+  });
+
+  it('calls the turn detached once reconnecting keeps failing, and can still be reattached', async () => {
+    // A connection that dies on arrival every time must end somewhere the
+    // reader can act on, not in a loop.
+    const feed = new Feed();
+    route('POST /messages', () => new Response(feed.stream, { status: 200 }));
+    route('GET /stream', () => {
+      const dead = new Feed();
+      dead.close();
+      return new Response(dead.stream, { status: 200 });
+    });
+    const controller = sessionController(REF);
+    void controller.send('ask');
+    await settle();
+    feed.close();
+    for (let round = 0; round < 4; round += 1) await settle();
+    const reconnects = calls.filter(
+      (call) => call.method === 'GET' && call.url.endsWith('/stream'),
+    );
+    expect(reconnects).toHaveLength(RECONNECT.attempts);
     expect(controller.getState().status).toBe('detached');
+    // `detached` has to be a state the Reattach button can leave. Setting the
+    // status without clearing the attached flag made that button a no-op.
+    route('GET /stream', () => new Response(null, { status: 204 }));
+    const before = calls.length;
+    controller.attach();
+    await settle();
+    expect(calls.length).toBeGreaterThan(before);
+    expect(controller.getState().status).toBe('idle');
   });
 
   it('detach releases the connection and cancels nothing', async () => {
@@ -793,24 +836,6 @@ describe('sessionController', () => {
     // And it read the frame rather than merely surviving it: the protocol
     // complaint is what a schema that had drifted would raise here.
     expect(controller.getState().error).toBeNull();
-  });
-
-  it('can be reattached after the stream drops', async () => {
-    // `detached` has to be a state the Reattach button can leave. Setting the
-    // status without clearing the attached flag made that button a no-op.
-    const feed = new Feed();
-    route('POST /messages', () => new Response(feed.stream, { status: 200 }));
-    const controller = sessionController(REF);
-    void controller.send('ask');
-    await settle();
-    feed.close();
-    await settle();
-    expect(controller.getState().status).toBe('detached');
-    const before = calls.length;
-    controller.attach();
-    await settle();
-    expect(calls.length).toBeGreaterThan(before);
-    expect(controller.getState().status).toBe('idle');
   });
 
   it('does not lose a turn that lands while the conversation is opening', async () => {
@@ -1834,10 +1859,9 @@ describe('sessionController', () => {
     expect(controller.getState().status).toBe('failed');
   });
 
-  it('a connection that breaks mid-turn leaves the session reattachable', async () => {
+  it('reconnects when a connection breaks mid-turn, and finds the turn over', async () => {
     // A rejected read, not a clean EOF: this is what a dropped connection
-    // actually looks like, and it used to leave `attached` set so that the
-    // Retry the reader is offered did nothing at all.
+    // actually looks like.
     const feed = new Feed();
     route('POST /messages', () => new Response(feed.stream, { status: 200 }));
     const controller = sessionController(REF);
@@ -1845,9 +1869,45 @@ describe('sessionController', () => {
     await settle();
     void controller.send('ask');
     await settle();
+    route('GET /', () =>
+      json(
+        conversation([
+          { role: 'user', content: 'ask' },
+          { role: 'assistant', content: 'done' },
+        ]),
+      ),
+    );
+    const before = calls.length;
     feed.breakNow();
     await settle();
+    await settle();
+    const after = calls
+      .slice(before)
+      .map((call) => `${call.method} ${call.url.slice(BASE.length)}`);
+    expect(after).toContain('GET /stream');
+    expect(controller.getState().status).toBe('idle');
+    expect(controller.getState().messages.map((m) => m.content)).toEqual(['ask', 'done']);
+  });
+
+  it('fails a connection that keeps breaking, and leaves the session reattachable', async () => {
+    // Past the budget the break is reported. It used to leave `attached` set so
+    // that the Retry the reader is offered did nothing at all.
+    const feed = new Feed();
+    route('POST /messages', () => new Response(feed.stream, { status: 200 }));
+    const controller = sessionController(REF);
+    controller.attach();
+    await settle();
+    void controller.send('ask');
+    await settle();
+    route('GET /stream', () => {
+      const broken = new Feed();
+      broken.breakNow();
+      return new Response(broken.stream, { status: 200 });
+    });
+    feed.breakNow();
+    for (let round = 0; round < 4; round += 1) await settle();
     expect(controller.getState().status).toBe('failed');
+    route('GET /stream', () => new Response(null, { status: 204 }));
     const before = calls.length;
     controller.attach();
     await settle();

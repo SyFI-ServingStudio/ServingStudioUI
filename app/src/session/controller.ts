@@ -62,6 +62,18 @@ import {
 
 const PAGE_SIZE = 50;
 
+/**
+ * How a lost connection is retried before the reader is asked to.
+ *
+ * A turn stream that ends without `done`, stalls, or errors has lost the
+ * connection, not the turn: the turn runs on the server either way. Waiting for
+ * the reader to notice and press Reattach is how a running turn sat frozen on
+ * screen for most of an hour. `attempts` counts reconnects in a row with no
+ * event between them, so a connection that keeps dying on arrival still ends in
+ * `detached`/`failed` rather than a loop. Mutable for tests only.
+ */
+export const RECONNECT = { attempts: 3, delayMs: 1_000 };
+
 /** A turn's events, as they arrive. */
 type TurnStream = AsyncGenerator<RawStreamEvent>;
 
@@ -280,6 +292,8 @@ class Controller implements SessionController {
   private pendingPost: PendingPost | null = null;
   /** How many views are watching. The subscription lives while this is > 0. */
   private observers = 0;
+  /** Reconnects since the last event arrived. See `RECONNECT`. */
+  private reconnects = 0;
 
   constructor(readonly ref: SessionRef) {
     this.state = idleState(ref);
@@ -313,7 +327,29 @@ class Controller implements SessionController {
   attach(): void {
     if (this.attached) return;
     this.attached = true;
+    this.reconnects = 0;
     void this.reload();
+  }
+
+  /**
+   * Reopen a connection that was lost while a turn was being read.
+   *
+   * False when it is not this method's to do — nobody is watching, or the
+   * budget is spent — and the caller then reports the loss as before. True
+   * otherwise, including when a newer operation took the session over during
+   * the wait: that operation owns what is on screen, and there is nothing left
+   * here to do.
+   */
+  private async reconnect(generation: number): Promise<boolean> {
+    if (!this.attached || this.reconnects >= RECONNECT.attempts) return false;
+    this.reconnects += 1;
+    await new Promise((resolve) => setTimeout(resolve, RECONNECT.delayMs * this.reconnects));
+    if (!this.current(generation) || !this.attached) return true;
+    // `reload` asks what is running and replays it from the start, so an event
+    // that arrived while the connection was dead is not lost; and if the turn
+    // ended meanwhile, the history it reads is the answer.
+    await this.reload();
+    return true;
   }
 
   /**
@@ -531,8 +567,10 @@ class Controller implements SessionController {
       await this.consume(events, generation, abort.signal);
     } catch (error) {
       // A dropped connection rejects the read. Aborting is this browser's own
-      // doing and says nothing; anything else is worth reporting.
+      // doing and says nothing; anything else is worth reporting, once
+      // reconnecting has been tried.
       if (abort.signal.aborted || !this.current(generation)) return;
+      if (await this.reconnect(generation)) return;
       this.fail(error);
     }
   }
@@ -713,6 +751,7 @@ class Controller implements SessionController {
       // this browser abandoned — by aborting it, or by reloading past it — is
       // not news for anyone.
       if (abort.signal.aborted || !this.current(generation)) return;
+      if (await this.reconnect(generation)) return;
       this.fail(error);
     }
   }
@@ -739,6 +778,9 @@ class Controller implements SessionController {
           });
         }
       }
+      // Any frame proves the connection works, so the reconnect budget is for
+      // connections that die on arrival, not for a long turn's occasional drop.
+      this.reconnects = 0;
       const event = toTurnEvent(raw);
       if (event === null) continue;
       this.set({ live: [...this.state.live, event] });
@@ -753,10 +795,12 @@ class Controller implements SessionController {
       return;
     }
     // The stream stopped without a `done`. The turn may still be running on the
-    // server, so this is `detached`, not `idle` — the difference is whether
-    // reattaching would find anything. The connection is released with it: it
-    // really is gone, and leaving the flag set would make the Reattach button a
-    // no-op, which is the one thing the state calls for.
+    // server, so reconnecting comes first. Past its budget this is `detached`,
+    // not `idle` — the difference is whether reattaching would find anything.
+    // The connection is released with it: it really is gone, and leaving the
+    // flag set would make the Reattach button a no-op, which is the one thing
+    // the state calls for.
+    if (await this.reconnect(generation)) return;
     const wasAttached = this.attached;
     this.release();
     this.set({ status: wasAttached ? 'detached' : 'idle' });

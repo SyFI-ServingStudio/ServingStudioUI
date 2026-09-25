@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { openTurnStream, readEventStream, toTurnEvent } from './stream';
+import { openTurnStream, readEventStream, StreamStalledError, toTurnEvent } from './stream';
 
 /** A body that hands the reader whatever chunking the case is about. */
 function body(chunks: readonly string[]): ReadableStream<Uint8Array> {
@@ -110,6 +110,45 @@ describe('readEventStream', () => {
       break;
     }
     expect(cancelled).toBe(true);
+  });
+
+  it('gives up on a stream that carries nothing for the idle window', async () => {
+    // A dropped connection that neither end noticed: the reader would wait on
+    // it for as long as the page lives.
+    let cancelled = false;
+    const silent = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('event: final\ndata: {"text":"one"}\n\n'));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const seen: string[] = [];
+    await expect(
+      (async () => {
+        for await (const event of readEventStream(silent, 30)) seen.push(event.kind);
+      })(),
+    ).rejects.toBeInstanceOf(StreamStalledError);
+    expect(seen).toEqual(['final']);
+    expect(cancelled).toBe(true);
+  });
+
+  it('counts keepalive comments as a live connection', async () => {
+    const encoder = new TextEncoder();
+    const kept = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (let beat = 0; beat < 4; beat += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 15));
+          controller.enqueue(encoder.encode(': keepalive\n\n'));
+        }
+        controller.enqueue(encoder.encode('event: done\ndata: {}\n\n'));
+        controller.close();
+      },
+    });
+    const seen = [];
+    for await (const event of readEventStream(kept, 40)) seen.push(event);
+    expect(seen).toEqual([{ kind: 'done', data: {} }]);
   });
 
   it('yields a trailing event that the server did not terminate', async () => {

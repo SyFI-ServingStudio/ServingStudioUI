@@ -14,6 +14,24 @@
 import { conversationPath, sessionFetch, SessionApiError } from './api';
 import { turnEventSchema, type SessionRef, type TurnEvent } from './types';
 
+/**
+ * How long a turn stream may carry no bytes before it counts as dead.
+ *
+ * The backend sends a keepalive comment after 15 s without an event, so a
+ * healthy stream is never quiet this long. A stream that is has been dropped
+ * somewhere between the two ends without either being told — a proxy or NAT
+ * timing out an idle connection — and a read on it would wait forever.
+ */
+export const STREAM_IDLE_MS = 45_000;
+
+/** The stream carried nothing for longer than `STREAM_IDLE_MS`. */
+export class StreamStalledError extends Error {
+  constructor(idleMs: number) {
+    super(`the event stream carried nothing for ${Math.round(idleMs / 1000)} s`);
+    this.name = 'StreamStalledError';
+  }
+}
+
 /** One `event:`/`data:` block, before it is validated. */
 export interface RawStreamEvent {
   readonly kind: string;
@@ -36,13 +54,16 @@ export interface RawStreamEvent {
  */
 export async function* readEventStream(
   body: ReadableStream<Uint8Array>,
+  idleMs: number = STREAM_IDLE_MS,
 ): AsyncGenerator<RawStreamEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   try {
     for (;;) {
-      const { done, value } = await reader.read();
+      // Any bytes count, keepalive comments included: the question is whether
+      // the connection is alive, not whether the turn has news.
+      const { done, value } = await readWithin(reader, idleMs);
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       // A blank line terminates an event. Anything after the last one is a
@@ -63,6 +84,21 @@ export async function* readEventStream(
       // The consumer has gone; a failure to close a socket it no longer reads
       // is not something anyone can act on.
     });
+  }
+}
+
+async function readWithin(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  idleMs: number,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stalled = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new StreamStalledError(idleMs)), idleMs);
+  });
+  try {
+    return await Promise.race([reader.read(), stalled]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
