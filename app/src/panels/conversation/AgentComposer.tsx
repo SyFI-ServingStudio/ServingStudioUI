@@ -320,15 +320,16 @@ export const AgentComposer = memo(function AgentComposer({
     event.preventDefault();
     const message = draft.trim();
     if (!message) return;
-    if (sendUnavailable) return;
     // Enter does the same thing the visible button does: send when idle, queue
-    // when a turn is running.
+    // when a turn is running. Queueing comes first: a running turn is exactly
+    // when sending is unavailable, and checking that first dropped every queue.
     if (streaming) {
       if (queueFull) return;
       setDraft('');
       onQueue(message);
       return;
     }
+    if (sendUnavailable) return;
     setDraft('');
     onSend(message);
   };
