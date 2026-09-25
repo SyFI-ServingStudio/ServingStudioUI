@@ -202,7 +202,7 @@ function ResumeTargetStrip({ role, onRelease }: { role: string; onRelease: () =>
     >
       <Box aria-hidden sx={{ width: 4, height: 4, borderRadius: '50%', background: tokens.teal }} />
       <Typography sx={{ color: tokens.teal, fontFamily: tokens.body, fontSize: 12 }}>
-        Next message continues with the {role}
+        To {role}
       </Typography>
       <ButtonBase
         onClick={onRelease}
@@ -218,7 +218,7 @@ function ResumeTargetStrip({ role, onRelease }: { role: string; onRelease: () =>
           '&:hover': { color: tokens.teal, background: withAlpha(tokens.teal, 0.08) },
         }}
       >
-        Back to orchestrator
+        Back to orch
       </ButtonBase>
     </Stack>
   );
@@ -301,7 +301,9 @@ export const AgentComposer = memo(function AgentComposer({
   onReleaseResumeRole: () => void;
 }) {
   const [draft, setDraft] = useState('');
-  const [runtimeExpanded, setRuntimeExpanded] = useState(!compactRuntime);
+  // The runtime band is settled once a conversation starts, so it stays out of
+  // the way behind a small toggle until someone asks for it.
+  const [runtimeExpanded, setRuntimeExpanded] = useState(false);
   const inputElement = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (focusRequest > 0) inputElement.current?.focus();
@@ -314,9 +316,6 @@ export const AgentComposer = memo(function AgentComposer({
     setDraft(draftInsertion.text);
     inputElement.current?.focus();
   }, [draftInsertion]);
-  useEffect(() => {
-    setRuntimeExpanded(!compactRuntime);
-  }, [compactRuntime]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const message = draft.trim();
@@ -354,49 +353,41 @@ export const AgentComposer = memo(function AgentComposer({
           width: readingColumnWidth,
           mx: 'auto',
           px: 2,
-          pt: compactRuntime ? 0.55 : 1.5,
+          pt: 0.55,
           pb: compactRuntime ? 1 : 1.5,
         }}
       >
         <Box
           data-testid="agent-runtime-picker"
           sx={{
-            mb: compactRuntime ? 0.35 : selectionContext !== null ? 0.8 : 1,
+            mb: 0.35,
             containerType: 'inline-size',
           }}
         >
-          {compactRuntime && (
-            <Stack direction="row" justifyContent="center">
-              <ButtonBase
-                type="button"
-                aria-label={runtimeExpanded ? 'Collapse model controls' : 'Expand model controls'}
-                aria-expanded={runtimeExpanded}
-                onClick={() => setRuntimeExpanded((current) => !current)}
+          <Stack direction="row" justifyContent="center">
+            <ButtonBase
+              type="button"
+              aria-label={runtimeExpanded ? 'Collapse model controls' : 'Expand model controls'}
+              aria-expanded={runtimeExpanded}
+              onClick={() => setRuntimeExpanded((current) => !current)}
+              sx={{
+                height: 16,
+                px: 0.55,
+                borderRadius: 999,
+                color: tokens.sub2,
+                '&:hover': { color: tokens.teal, background: withAlpha(tokens.teal, 0.055) },
+                '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+              }}
+            >
+              <ExpandMoreRounded
                 sx={{
-                  height: 16,
-                  px: 0.55,
-                  gap: 0.2,
-                  borderRadius: 999,
-                  color: tokens.sub2,
-                  fontFamily: tokens.body,
-                  fontSize: 12,
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  '&:hover': { color: tokens.teal, background: withAlpha(tokens.teal, 0.055) },
-                  '&:focus-visible': { outline: `2px solid ${tokens.teal}`, outlineOffset: 1 },
+                  fontSize: 14,
+                  transform: runtimeExpanded ? 'none' : 'rotate(180deg)',
+                  transition: `transform 180ms ${tokens.ease}`,
                 }}
-              >
-                Model
-                <ExpandMoreRounded
-                  sx={{
-                    fontSize: 12,
-                    transform: runtimeExpanded ? 'none' : 'rotate(180deg)',
-                    transition: `transform 180ms ${tokens.ease}`,
-                  }}
-                />
-              </ButtonBase>
-            </Stack>
-          )}
+              />
+            </ButtonBase>
+          </Stack>
           <Box
             sx={{
               display: 'grid',
@@ -419,7 +410,7 @@ export const AgentComposer = memo(function AgentComposer({
                   width: '100%',
                   minWidth: 0,
                   gap: 0.85,
-                  pt: compactRuntime ? 0.45 : 0,
+                  pt: 0.45,
                   '@container (max-width: 500px)': { flexWrap: 'wrap' },
                 }}
               >

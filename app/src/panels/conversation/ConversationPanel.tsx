@@ -132,7 +132,7 @@ export function ConversationPanel({ session, onClose, title }: ConversationPanel
             onClick={() => setToOrchestrator((chosen) => !chosen)}
             data-testid="resume-target"
           >
-            {toOrchestrator ? `Continue ${state.interruptedRole}` : 'Back to orchestrator'}
+            {toOrchestrator ? `Continue ${state.interruptedRole}` : 'Back to orch'}
           </Button>
         </Stack>
       )}
