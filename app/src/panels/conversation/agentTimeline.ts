@@ -133,7 +133,12 @@ export function conversationCards(
     return card;
   };
   events.forEach((event, eventIndex) => {
-    if (event.kind === 'intermediate_output') {
+    if (event.kind === 'role_start') {
+      // A call that works without narrating would otherwise have no card until
+      // it ends, leaving nowhere to show that it is running or what it runs.
+      const role = roleFrom(event.role);
+      if (!(current?.role === role && !current.done)) openRole(role);
+    } else if (event.kind === 'intermediate_output') {
       const note = cleanNote(event.text, event.level);
       if (!note) return;
       const role = roleFrom(event.role);

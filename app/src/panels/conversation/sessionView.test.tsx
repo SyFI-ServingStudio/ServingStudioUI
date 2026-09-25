@@ -56,6 +56,7 @@ describe('session conversation view projection', () => {
     ];
 
     expect(eventsForConversation(events)).toEqual([
+      { kind: 'role_start', role: 'orchestrator' },
       {
         kind: 'usage',
         role: 'orchestrator',

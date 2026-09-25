@@ -101,6 +101,8 @@ export function eventForConversation(event: TurnEvent): ConversationTurnEvent | 
         tokens: tokensOf(source.tokens),
       };
     }
+    case 'role_start':
+      return { kind: 'role_start', role: event.role ?? '' };
     case 'decision':
       return { kind: 'decision', action: event.action ?? '', task: event.task ?? '' };
     case 'implementer':
@@ -240,7 +242,11 @@ export function messageForConversation(message: StoredMessage): ConversationMess
   const content =
     message.role === 'assistant' ? legacyAssistantContent(message.content) : message.content;
   const recordedActivity = message.activity ?? [];
-  const activity = eventsForConversation(recordedActivity);
+  // A stored turn is over. A role that started and never reported usage — a
+  // cancelled call — must not come back as a card that is still working.
+  const activity = eventsForConversation(recordedActivity).filter(
+    (event) => event.kind !== 'role_start',
+  );
   const citations = (message.citations ?? []).flatMap((citation) => {
     const projected = citationForConversation(citation);
     return projected === null ? [] : [projected];

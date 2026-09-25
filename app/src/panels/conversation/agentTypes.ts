@@ -61,6 +61,7 @@ export type ConversationTurnEvent =
       readonly duration_ms: number;
       readonly tokens: ConversationTokens;
     }
+  | { readonly kind: 'role_start'; readonly role: string }
   | { readonly kind: 'decision'; readonly action: string; readonly task: string }
   | { readonly kind: 'implementer'; readonly text: string }
   | {
