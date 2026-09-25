@@ -58,6 +58,7 @@ import {
   type SessionRef,
   type SessionState,
   type StoredMessage,
+  type TurnEvent,
 } from './types';
 
 const PAGE_SIZE = 50;
@@ -762,28 +763,49 @@ class Controller implements SessionController {
     signal: AbortSignal,
   ): Promise<void> {
     let ended = false;
-    for await (const raw of events) {
-      if (!this.current(generation)) return;
-      // The *framing* decides that the turn ended, not the payload. A `done`
-      // this build cannot read is still a turn that finished, and treating an
-      // unreadable one as "no end yet" is how a finished conversation gets
-      // stuck saying it is working.
-      if (raw.kind === 'done') {
-        ended = true;
-        const decoded = doneEventSchema.safeParse(raw.data);
-        if (!decoded.success) {
-          this.set({
-            error:
-              'The turn ended with a frame this build could not read; the stored conversation below is what the backend kept.',
-          });
-        }
+    // A reattach replays the whole running turn in one burst, hundreds of
+    // events at once. Publishing each one re-rendered the transcript per event
+    // and froze the page for seconds on the turn's opening lines. Events that
+    // arrive together are published together; the timer fires once the burst
+    // has been read, and a live event on its own still shows at once.
+    let pending: TurnEvent[] = [];
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      if (flushTimer !== null) clearTimeout(flushTimer);
+      flushTimer = null;
+      const batch = pending;
+      pending = [];
+      if (batch.length > 0 && this.current(generation)) {
+        this.set({ live: [...this.state.live, ...batch] });
       }
-      // Any frame proves the connection works, so the reconnect budget is for
-      // connections that die on arrival, not for a long turn's occasional drop.
-      this.reconnects = 0;
-      const event = toTurnEvent(raw);
-      if (event === null) continue;
-      this.set({ live: [...this.state.live, event] });
+    };
+    try {
+      for await (const raw of events) {
+        if (!this.current(generation)) return;
+        // The *framing* decides that the turn ended, not the payload. A `done`
+        // this build cannot read is still a turn that finished, and treating an
+        // unreadable one as "no end yet" is how a finished conversation gets
+        // stuck saying it is working.
+        if (raw.kind === 'done') {
+          ended = true;
+          const decoded = doneEventSchema.safeParse(raw.data);
+          if (!decoded.success) {
+            this.set({
+              error:
+                'The turn ended with a frame this build could not read; the stored conversation below is what the backend kept.',
+            });
+          }
+        }
+        // Any frame proves the connection works, so the reconnect budget is for
+        // connections that die on arrival, not for a long turn's occasional drop.
+        this.reconnects = 0;
+        const event = toTurnEvent(raw);
+        if (event === null) continue;
+        pending.push(event);
+        flushTimer ??= setTimeout(flush, 0);
+      }
+    } finally {
+      flush();
     }
     if (!this.current(generation)) return;
     if (ended) {
