@@ -36,6 +36,7 @@ import {
   preserveTranscriptAnchor,
   scrollToOutlineAnchor,
 } from './outlineNavigation';
+import { anchorScrollContent, type ScrollAnchor } from './scrollAnchor';
 import type { ConversationCard, ConversationRole } from './agentTimeline';
 
 const PROGRESS_RAIL_KEY = 'vibesim.conversation.progress.hidden';
@@ -177,6 +178,8 @@ export default function ConversationSurface({
   const scrollFrameRef = useRef(0);
   const cancelOutlineJumpRef = useRef<(() => void) | null>(null);
   const cancelScrollRestoreRef = useRef<(() => void) | null>(null);
+  const restoringPageRef = useRef(false);
+  const scrollAnchorRef = useRef<ScrollAnchor | null>(null);
   const pinnedAnchorRef = useRef<string | null>(null);
   const pinnedArrivedRef = useRef(false);
   const [activeAnchorId, setActiveAnchorId] = useState<string | null>(null);
@@ -252,6 +255,25 @@ export default function ConversationSurface({
     },
     [],
   );
+  useEffect(() => {
+    const scrollElement = scrollRef.current;
+    if (!scrollElement) return;
+    const anchor = anchorScrollContent(scrollElement, {
+      // A rail jump travels on purpose, and a paged restore keeps its own anchor.
+      suspended: () =>
+        restoringPageRef.current || (pinnedAnchorRef.current !== null && !pinnedArrivedRef.current),
+      followsBottom: () => stickToBottomRef.current,
+    });
+    scrollAnchorRef.current = anchor;
+    return () => {
+      anchor.dispose();
+      scrollAnchorRef.current = null;
+    };
+  }, []);
+  const handleScroll = useCallback(() => {
+    scrollAnchorRef.current?.sync();
+    readScrollPosition();
+  }, [readScrollPosition]);
   const selectOutlineEntry = useCallback((entry: OutlineEntry) => {
     const scrollElement = scrollRef.current;
     if (!scrollElement) return;
@@ -296,11 +318,13 @@ export default function ConversationSurface({
       : null;
     pendingScrollRestoreRef.current = restore;
     if (scrollElement && restore) {
+      restoringPageRef.current = true;
       cancelScrollRestoreRef.current = preserveTranscriptAnchor(
         scrollElement,
         anchor,
         restore.anchorTop,
         () => {
+          restoringPageRef.current = false;
           if (pendingScrollRestoreRef.current === restore) pendingScrollRestoreRef.current = null;
         },
       );
@@ -554,7 +578,7 @@ export default function ConversationSurface({
       <Box
         ref={scrollRef}
         data-testid="agent-message-column"
-        onScroll={readScrollPosition}
+        onScroll={handleScroll}
         sx={{
           gridColumn: persistentHistory ? 2 : 1,
           gridRow: 2,
@@ -562,6 +586,9 @@ export default function ConversationSurface({
           mx: 'auto',
           minHeight: 0,
           overflowY: 'auto',
+          // `anchorScrollContent` holds the position; the browser's anchoring
+          // would compensate the same shift a second time.
+          overflowAnchor: 'none',
           px: 2,
           py: roomy ? 5 : 2.5,
           scrollbarWidth: 'thin',

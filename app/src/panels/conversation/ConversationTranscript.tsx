@@ -9,7 +9,7 @@ import HubOutlined from '@mui/icons-material/HubOutlined';
 import NorthEastRounded from '@mui/icons-material/NorthEastRounded';
 import StopRounded from '@mui/icons-material/StopRounded';
 import { Box, ButtonBase, Stack, Typography } from '@mui/material';
-import { memo, type ReactNode, useEffect, useRef, useState } from 'react';
+import { memo, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { tokens, withAlpha } from '../../ui/theme';
 import AgentModePicker from './AgentModePicker';
@@ -506,6 +506,20 @@ function QueuedMessages({
   );
 }
 
+/** How far outside the viewport deferred content mounts. */
+const LAZY_MARGIN_PX = 720;
+
+/**
+ * The element that scrolls the transcript. The observer must use it as its
+ * root: with the page as root, the column clips the target before the margin
+ * applies, so content would mount only once it is already on screen.
+ */
+function scrollParent(node: HTMLElement): HTMLElement | null {
+  for (let parent = node.parentElement; parent; parent = parent.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(parent).overflowY)) return parent;
+  }
+  return null;
+}
 const EAGER_TRANSCRIPT_MESSAGES = 4;
 const EAGER_TIMELINE_CARDS = 3;
 
@@ -539,6 +553,28 @@ function LazyTranscriptBlock({
     () => eager || typeof IntersectionObserver === 'undefined',
   );
 
+  // A placeholder that is already near the viewport when it appears, such as
+  // the cards of a turn that has just mounted, would otherwise be painted empty
+  // and grow a frame later in front of the reader. Mount it before paint.
+  useLayoutEffect(() => {
+    if (mounted) return;
+    const container = containerRef.current;
+    const bounds = container?.getBoundingClientRect();
+    // No layout (jsdom) reports an empty box; leave that to the observer path.
+    if (!container || !bounds || (bounds.width === 0 && bounds.height === 0)) return;
+    const viewport = scrollParent(container)?.getBoundingClientRect() ?? {
+      top: 0,
+      bottom: window.innerHeight,
+    };
+    if (
+      bounds.bottom > viewport.top - LAZY_MARGIN_PX &&
+      bounds.top < viewport.bottom + LAZY_MARGIN_PX
+    ) {
+      setMounted(true);
+    }
+    // Runs once while deferred: later approaches are the observer's.
+  }, [mounted]);
+
   useEffect(() => {
     if (mounted) return;
     if (eager || typeof IntersectionObserver === 'undefined') {
@@ -553,7 +589,7 @@ function LazyTranscriptBlock({
         setMounted(true);
         observer.disconnect();
       },
-      { rootMargin: '720px 0px' },
+      { root: scrollParent(container), rootMargin: `${LAZY_MARGIN_PX}px 0px` },
     );
     observer.observe(container);
     return () => observer.disconnect();
@@ -572,8 +608,6 @@ function LazyTranscriptBlock({
         display: 'flex',
         flexDirection: 'column',
         gap: 1.1,
-        contentVisibility: mounted ? 'auto' : undefined,
-        containIntrinsicSize: mounted ? `auto ${estimatedHeight}px` : undefined,
         ...(anchorId ? outlineFlashSx(1.2) : {}),
       }}
     >
