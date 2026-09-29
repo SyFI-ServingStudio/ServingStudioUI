@@ -151,6 +151,7 @@ import {
 } from './schema/topology';
 import type { ArtifactRef } from './ref';
 import type { ArtifactResult } from './result';
+import { transportFor } from './transport';
 import { artifactUrl } from './url';
 
 /** What a successful decode yields, before it becomes a `ready` result. */
@@ -583,7 +584,7 @@ export async function fetchArtifact(
   const url = artifactUrl(ref);
   let response: Response;
   try {
-    response = await fetch(url, { signal, headers: { accept: 'application/json' } });
+    response = await transportFor(ref)(url, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
     return { status: 'failed', code: 'network', reason: messageOf(error) };

@@ -267,7 +267,13 @@ export type {
   SumNode,
 } from './schema/costTree';
 export { isPending, isReady, type ArtifactResult } from './result';
-export { readArtifact, useArtifact, useArtifacts, useArtifactWithRetry } from './read';
+export {
+  readArtifact,
+  useArtifact,
+  useArtifacts,
+  useArtifactWithRetry,
+  useForgetCatalogs,
+} from './read';
 export {
   createOperationViewportState,
   fetchSequence,
