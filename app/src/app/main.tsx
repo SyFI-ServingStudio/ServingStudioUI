@@ -9,28 +9,15 @@
  * `index.html` boots this production entry.
  */
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 import { theme } from '../ui/theme';
 import { ApplicationRoot } from './ApplicationRoot';
+import { createQueryClient } from './queryClient';
 
-/**
- * Analyzer artifacts are immutable, so a cached one never goes stale — the
- * revision in its address changes instead. These defaults say exactly that;
- * `artifacts/read.ts` owns per-artifact policy.
- */
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: Infinity,
-      gcTime: 30 * 60_000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = createQueryClient();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
