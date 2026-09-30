@@ -1,6 +1,8 @@
 import { act, cleanup, render, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import summaryJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/summary.json';
+import sloGeneralJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/payloads/slo_general_cdf.json';
 import { ResultViewer } from './ResultViewer';
 
 const ID = 'run_browser_1';
@@ -14,23 +16,28 @@ function mount() {
   return { host, shadow, container };
 }
 
-// A catalog naming the result; every other read answers 404, which the pages
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+
+// A catalog naming the result, and the headline's summary and latency as a
+// run's Analyzer serves them; every other read answers 404, which the pages
 // show as their own unavailable states.
 function transport() {
+  const run = `/api/analyzer/v1/runs/${ID}/subjects`;
+  const bodies: Record<string, unknown> = {
+    '/api/analyzer/v1/runs': {
+      protocol_version: 1,
+      generated_at: '2026-09-30T00:00:00Z',
+      runs: [{ run_id: ID, display_name: `20260930_1_${'llama3_dense'}` }],
+    },
+    [`${run}/summary/report`]: summaryJson,
+    [`${run}/slo-general/payload`]: sloGeneralJson,
+  };
   return vi.fn(async (url: string) =>
-    url === '/api/analyzer/v1/runs'
-      ? new Response(
-          JSON.stringify({
-            protocol_version: 1,
-            generated_at: '2026-09-30T00:00:00Z',
-            runs: [{ run_id: ID, display_name: `20260930_1_${'llama3_dense'}` }],
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        )
-      : new Response('{"error":"not found"}', {
-          status: 404,
-          headers: { 'content-type': 'application/json' },
-        }),
+    url in bodies ? json(bodies[url]) : json({ error: 'not found' }, 404),
   );
 }
 
@@ -64,6 +71,16 @@ describe('ResultViewer', () => {
     expect(window.location.pathname).toBe('/models.html');
     expect(window.location.hash).toMatch(new RegExp(`^#/result/run/${ID}\\b`));
     expect(document.documentElement.style.fontSize).toBe('112.5%');
+  });
+
+  it('offers no way to the catalog, which it does not show', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    const view = within(container);
+    await waitFor(() => expect(view.getByTestId('run-headline')).toBeTruthy());
+    expect(view.queryByRole('button', { name: 'Return to aggregate overview' })).toBeNull();
   });
 
   it('clears the hash and the root font size when it closes', async () => {

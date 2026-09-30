@@ -14,6 +14,7 @@ import {
 } from '../../artifacts';
 import { atRoot, segmentOf, upTo } from '../../location';
 import AnalysisSection from '../../ui/controls/AnalysisSection';
+import { useCatalogReachable } from '../CatalogReachable';
 import { tokens, withAlpha } from '../../ui/theme';
 import { ReadProblem } from '../ReadProblem';
 import { describeRead } from '../readProblem';
@@ -31,6 +32,7 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
   const catalog = useArtifact(
     useMemo(() => catalogRef(result.workspace, 'run'), [result.workspace]),
   );
+  const catalogReachable = useCatalogReachable();
 
   if (isPending(summary) || isPending(latency) || isPending(topology) || isPending(catalog)) {
     return <Skeleton variant="rounded" height={560} data-testid="run-headline-loading" />;
@@ -81,34 +83,36 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
           />
           <span>ServingStudio Analyzer</span>
           <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
-          <ButtonBase
-            aria-label="Return to aggregate overview"
-            onClick={() =>
-              navigate(
-                {
-                  view: 'catalog',
-                  filter: { workspace: result.workspace, kinds: [], query: null },
-                },
-                'push',
-              )
-            }
-            sx={{
-              minHeight: 30,
-              px: 1.35,
-              border: `1px solid ${tokens.hair}`,
-              borderRadius: 999,
-              background: tokens.tile,
-              color: tokens.ink,
-              fontFamily: tokens.body,
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: '.08em',
-              textTransform: 'none',
-              '&:hover': { background: tokens.tile2, borderColor: tokens.teal },
-            }}
-          >
-            ← Aggregate
-          </ButtonBase>
+          {catalogReachable && (
+            <ButtonBase
+              aria-label="Return to aggregate overview"
+              onClick={() =>
+                navigate(
+                  {
+                    view: 'catalog',
+                    filter: { workspace: result.workspace, kinds: [], query: null },
+                  },
+                  'push',
+                )
+              }
+              sx={{
+                minHeight: 30,
+                px: 1.35,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 999,
+                background: tokens.tile,
+                color: tokens.ink,
+                fontFamily: tokens.body,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '.08em',
+                textTransform: 'none',
+                '&:hover': { background: tokens.tile2, borderColor: tokens.teal },
+              }}
+            >
+              ← Aggregate
+            </ButtonBase>
+          )}
         </Stack>
         <Typography
           component="h1"

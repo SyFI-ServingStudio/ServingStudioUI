@@ -7,7 +7,8 @@
  * result page (`app/ResultPage.tsx`) for the same `Location`, without the
  * shell, the catalog or the Agent, which need the application's servers.
  *
- * It renders into whatever root its element is attached to. In a shadow root,
+ * It fills its element's height, and renders into whatever root its element
+ * is attached to. In a shadow root,
  * as the Intro site mounts it, the page's styles stay out and the viewer's
  * stay in: emotion writes its styles there, portals open inside the viewer,
  * and the global CssBaseline rules apply to the viewer's root only. Two
@@ -21,7 +22,8 @@
  *
  * The address is the page's hash, as in the application, so drill-downs and
  * the Back button work as there; Back past the first address closes the
- * viewer, and closing it clears the hash.
+ * viewer, and closing it clears the hash. The pages offer no way to the
+ * catalog, which the viewer does not show.
  */
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
@@ -52,6 +54,7 @@ import { commit } from '../app/commit';
 import { createQueryClient } from '../app/queryClient';
 import { ResultMain } from '../app/ResultPage';
 import { RESULT_TITLE, displayResultName } from '../app/resultTitle';
+import { CatalogReachableProvider } from '../panels/CatalogReachable';
 import { ChartFocusProvider } from '../ui/controls/ChartFocusProvider';
 import FocusDialog from '../ui/controls/FocusDialog';
 import { metrics } from '../ui/theme';
@@ -83,11 +86,11 @@ export function ResultViewer(props: ResultViewerProps) {
     [host],
   );
   return (
-    <div ref={setHost}>
+    <div ref={setHost} style={{ height: '100%' }}>
       {styled !== null && (
         <CacheProvider value={styled.cache}>
           <ThemeProvider theme={styled.theme}>
-            <ScopedCssBaseline>
+            <ScopedCssBaseline sx={{ minHeight: '100%' }}>
               <Viewer {...props} />
             </ScopedCssBaseline>
           </ThemeProvider>
@@ -129,7 +132,9 @@ function Viewer({ kind, id, workspace = 'w_browser', transport, onClose }: Resul
   if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
-      <Addressed kind={kind} id={id} workspace={workspace} onClose={onClose} />
+      <CatalogReachableProvider value={false}>
+        <Addressed kind={kind} id={id} workspace={workspace} onClose={onClose} />
+      </CatalogReachableProvider>
     </QueryClientProvider>
   );
 }
