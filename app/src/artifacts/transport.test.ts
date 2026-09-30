@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fetchArtifact } from './client';
 import { catalogRef, hardwareGpuRef, operationsSeqRef, runDescriptorRef } from './ref';
 import { fetchSequence } from './sequence';
-import { refWorkspace, registerWorkspaceTransport, transportFor } from './transport';
+import {
+  refWorkspace,
+  registerWorkspaceTransport,
+  setFallbackTransport,
+  transportFor,
+} from './transport';
 
 const RUN = { kind: 'run', id: 'r_1', workspace: 'w_browser' } as const;
 
@@ -60,6 +65,32 @@ describe('workspace transports', () => {
     } finally {
       unregister();
     }
+  });
+
+  it('answers every unclaimed ref, a GPU spec included, with the fallback', () => {
+    const embedded = vi.fn();
+    const browser = vi.fn();
+    const release = setFallbackTransport(embedded);
+    const unregister = registerWorkspaceTransport('w_browser', browser);
+    try {
+      expect(transportFor(hardwareGpuRef('NVIDIA H200'))).toBe(embedded);
+      expect(transportFor(catalogRef('w_main', 'run'))).toBe(embedded);
+      expect(transportFor(catalogRef('w_browser', 'run'))).toBe(browser);
+    } finally {
+      unregister();
+      release();
+    }
+    expect(transportFor(hardwareGpuRef('NVIDIA H200'))).not.toBe(embedded);
+  });
+
+  it('keeps a newer fallback when an older one is released', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = setFallbackTransport(first);
+    const releaseSecond = setFallbackTransport(second);
+    releaseFirst();
+    expect(transportFor(hardwareGpuRef('NVIDIA H200'))).toBe(second);
+    releaseSecond();
   });
 
   it('keeps a newer registration when an older one is released', () => {

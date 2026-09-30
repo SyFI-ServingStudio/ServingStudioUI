@@ -267,6 +267,7 @@ export type {
   SumNode,
 } from './schema/costTree';
 export { isPending, isReady, type ArtifactResult } from './result';
+export { registerWorkspaceTransport, setFallbackTransport, type Transport } from './transport';
 export {
   readArtifact,
   useArtifact,
