@@ -73,6 +73,25 @@ describe('ResultViewer', () => {
     expect(document.documentElement.style.fontSize).toBe('112.5%');
   });
 
+  it('shows the name the page gives and reads no catalog', async () => {
+    const { container } = mount();
+    const read = transport();
+    render(
+      <ResultViewer
+        kind="prediction"
+        id="p_1"
+        displayName="Llama 3 8B, tp_size 1"
+        transport={read}
+        onClose={() => {}}
+      />,
+      { container },
+    );
+    const view = within(container);
+    expect(await view.findByText('Llama 3 8B, tp_size 1')).toBeTruthy();
+    await waitFor(() => expect(read).toHaveBeenCalled());
+    expect(read).not.toHaveBeenCalledWith('/api/analyzer/v1/predictions', expect.anything());
+  });
+
   it('offers no way to the catalog, which it does not show', async () => {
     const { container } = mount();
     render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {

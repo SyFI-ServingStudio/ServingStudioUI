@@ -39,7 +39,7 @@ import {
 } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
   catalogRef,
@@ -66,6 +66,11 @@ export interface ResultViewerProps {
   readonly id: string;
   /** The workspace the result's catalog names (default `w_browser`). */
   readonly workspace?: WorkspaceId;
+  /**
+   * The result's name, when the embedding page has one: the header shows it
+   * and reads no catalog, which a page serving one result need not answer.
+   */
+  readonly displayName?: string;
   /** Answers every Analyzer URL the pages read. */
   readonly transport: Transport;
   readonly onClose: () => void;
@@ -106,7 +111,14 @@ function styleRoot(element: HTMLElement): Node {
   return root instanceof ShadowRoot ? root : document.head;
 }
 
-function Viewer({ kind, id, workspace = 'w_browser', transport, onClose }: ResultViewerProps) {
+function Viewer({
+  kind,
+  id,
+  workspace = 'w_browser',
+  displayName,
+  transport,
+  onClose,
+}: ResultViewerProps) {
   const [queryClient] = useState(createQueryClient);
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -133,7 +145,13 @@ function Viewer({ kind, id, workspace = 'w_browser', transport, onClose }: Resul
   return (
     <QueryClientProvider client={queryClient}>
       <CatalogReachableProvider value={false}>
-        <Addressed kind={kind} id={id} workspace={workspace} onClose={onClose} />
+        <Addressed
+          kind={kind}
+          id={id}
+          workspace={workspace}
+          displayName={displayName}
+          onClose={onClose}
+        />
       </CatalogReachableProvider>
     </QueryClientProvider>
   );
@@ -147,11 +165,13 @@ function Addressed({
   kind,
   id,
   workspace,
+  displayName,
   onClose,
 }: {
   kind: ResultViewerProps['kind'];
   id: string;
   workspace: WorkspaceId;
+  displayName: string | undefined;
   onClose: () => void;
 }) {
   const location = useLocation();
@@ -163,7 +183,13 @@ function Addressed({
   }, [location, onClose]);
   return (
     <ChartFocusProvider resetKey={chartFocusResetKey(location)}>
-      <Header kind={kind} id={id} workspace={workspace} onClose={onClose} />
+      <Header kind={kind} onClose={onClose}>
+        {displayName === undefined ? (
+          <CatalogName kind={kind} id={id} workspace={workspace} />
+        ) : (
+          <Name value={displayName} />
+        )}
+      </Header>
       {location?.view === 'result' ? (
         <ResultMain location={location} />
       ) : (
@@ -188,20 +214,13 @@ function Addressed({
 
 function Header({
   kind,
-  id,
-  workspace,
   onClose,
+  children,
 }: {
   kind: ResultViewerProps['kind'];
-  id: string;
-  workspace: WorkspaceId;
   onClose: () => void;
+  children: ReactNode;
 }) {
-  const [catalog] = useArtifacts([catalogRef(workspace, kind)]);
-  const entry =
-    catalog?.status === 'ready'
-      ? catalog.value.find((candidate) => candidate.id === id)
-      : undefined;
   return (
     <Stack
       component="header"
@@ -213,18 +232,47 @@ function Header({
       <Typography variant="h6" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>
         {RESULT_TITLE[kind]}
       </Typography>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        noWrap
-        sx={{ flex: 1, minWidth: 0 }}
-        title={entry?.displayName}
-      >
-        {entry === undefined ? '' : displayResultName(entry.displayName)}
-      </Typography>
+      {children}
       <IconButton aria-label="Close" onClick={onClose} edge="end">
         <CloseRounded />
       </IconButton>
     </Stack>
+  );
+}
+
+/** The result's name as its catalog entry gives it. */
+function CatalogName({
+  kind,
+  id,
+  workspace,
+}: {
+  kind: ResultViewerProps['kind'];
+  id: string;
+  workspace: WorkspaceId;
+}) {
+  const [catalog] = useArtifacts([catalogRef(workspace, kind)]);
+  const entry =
+    catalog?.status === 'ready'
+      ? catalog.value.find((candidate) => candidate.id === id)
+      : undefined;
+  return (
+    <Name
+      value={entry === undefined ? '' : displayResultName(entry.displayName)}
+      title={entry?.displayName}
+    />
+  );
+}
+
+function Name({ value, title = value }: { value: string; title?: string }) {
+  return (
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      noWrap
+      sx={{ flex: 1, minWidth: 0 }}
+      title={title || undefined}
+    >
+      {value}
+    </Typography>
   );
 }
