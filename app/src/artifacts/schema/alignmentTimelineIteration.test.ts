@@ -15,6 +15,11 @@ describe('parseAnalyzerV1AlignmentTimelineIteration', () => {
       gapCount: wire.gap_count,
       interPhaseMs: wire.inter_phase_ms,
     });
+    expect(referenceRank.gaps).toHaveLength(wire.gap_count);
+    expect(referenceRank.gaps[0]).toEqual({
+      startNs: wire.gaps_ns[0][0],
+      endNs: wire.gaps_ns[0][1],
+    });
     const forward = referenceRank.phases.find((phase) => phase.phase === 'forward');
     const wireForward = wire.phases.find((phase) => phase.phase === 'forward')!;
     expect(forward?.largestGaps[0]).toEqual({

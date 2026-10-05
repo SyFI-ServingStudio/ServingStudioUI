@@ -5,7 +5,7 @@ import type {
 } from '../../artifacts/schema/alignmentTypes';
 import { kindColor, type KernelKinds } from '../kernelTaxonomy';
 import { isFullViewport, spanOf, type AxisSpan } from './axisZoom';
-import { forwardIdleFraction, referenceGaps } from './dutyBreakdown';
+import { forwardIdleFraction } from './dutyBreakdown';
 import { fmtMs } from './format';
 import { measuredKernelColor } from './kernelFamily';
 
@@ -327,7 +327,7 @@ export function continuousScene(
       measured,
       simulated,
       simulatedRowCount: simulated.reduce((rows, bar) => Math.max(rows, bar.row + 1), 1),
-      gaps: referenceGaps(iteration, options.referenceDeviceId).map((gap) => ({
+      gaps: rank.gaps.map((gap) => ({
         startMs: (gap.startNs - originNs) / NS_PER_MS,
         endMs: (gap.endNs - originNs) / NS_PER_MS,
       })),

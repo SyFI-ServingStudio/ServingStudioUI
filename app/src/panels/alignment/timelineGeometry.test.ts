@@ -72,6 +72,10 @@ const iteration: AlignmentTimelineIteration = {
     idleMs: 2,
     idleFraction: 0.5,
     gapCount: 2,
+    gaps: [
+      { startNs: 1000 + NS_PER_MS, endNs: 1000 + 2 * NS_PER_MS },
+      { startNs: 1000 + 3 * NS_PER_MS, endNs: 1000 + 4 * NS_PER_MS },
+    ],
     interPhaseMs: 1,
     phases: [
       { phase: 'preprocess', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
@@ -219,6 +223,13 @@ describe('continuousScene', () => {
         ),
       })),
     },
+    referenceRank: {
+      ...iteration.referenceRank,
+      gaps: iteration.referenceRank.gaps.map((gap) => ({
+        startNs: gap.startNs + shiftNs,
+        endNs: gap.endNs + shiftNs,
+      })),
+    },
   });
   const inputs = (
     [
@@ -288,12 +299,11 @@ describe('continuousScene', () => {
     });
   });
 
-  it('draws the gaps of the reference rank’s own intervals inside its span', () => {
+  it('draws the Analyzer’s reference-rank gaps on the shared axis', () => {
     const scene = continuousScene(inputs, sceneOptions)!;
-    // Rank 1's 2-3.5 ms kernel does not close rank 0's 3-4 ms hole.
-    expect(scene.lanes[0].gaps).toEqual([
-      { startMs: 1, endMs: 2 },
-      { startMs: 3, endMs: 4 },
+    expect(scene.lanes[1].gaps).toEqual([
+      { startMs: 7, endMs: 8 },
+      { startMs: 9, endMs: 10 },
     ]);
   });
 });

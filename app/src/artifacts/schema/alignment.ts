@@ -1047,6 +1047,7 @@ const referenceRankSchema = z.object({
   idle_ms: nonNegative,
   idle_fraction: finite.nullable(),
   gap_count: count,
+  gaps_ns: z.array(z.tuple([nanoseconds, nanoseconds])),
   inter_phase_ms: nonNegative,
   phases: z.array(
     z.object({
@@ -1071,6 +1072,7 @@ function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): Alignme
     idleMs: rank.idle_ms,
     idleFraction: rank.idle_fraction,
     gapCount: rank.gap_count,
+    gaps: Object.freeze(rank.gaps_ns.map(([startNs, endNs]) => Object.freeze({ startNs, endNs }))),
     interPhaseMs: rank.inter_phase_ms,
     phases: Object.freeze(
       rank.phases.map((phase) =>

@@ -1,5 +1,6 @@
 import type {
   AlignmentReferenceRank,
+  AlignmentTimeInterval,
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
 
@@ -8,71 +9,14 @@ import type {
  *
  * The numbers are the Analyzer's: each timeline detail row carries the
  * reference rank's occupancy (`referenceRank`) — span, kernel time and bubble
- * per phase, the host time between phases, and the widest gaps with the kernels
- * on either side. This module only arranges them for the card. The one thing
- * it derives is where the gaps lie, for drawing them: the complement of the
- * rank's raw launch intervals inside its span, never of drawn geometry, since
- * at the zoom a card can afford one pixel is tens of microseconds.
+ * per phase, the host time between phases, every gap's extent, and the widest
+ * gaps with the kernels on either side. This module only arranges them for the
+ * card.
  *
  * The split is phase-wise because that is the only boundary the capture
  * actually marks: within a phase the GPU is either running a kernel or idle,
  * and between phases it is waiting on the host.
  */
-
-export interface TimeInterval {
-  readonly startNs: number;
-  readonly endNs: number;
-}
-
-/** Merge overlapping intervals. Ranks launch concurrently and a kernel may be
- * re-entered, so the input is not sorted or disjoint. */
-function mergeIntervals(intervals: readonly TimeInterval[]): readonly TimeInterval[] {
-  if (intervals.length === 0) return [];
-  const sorted = [...intervals].sort((left, right) => left.startNs - right.startNs);
-  const merged: TimeInterval[] = [{ ...sorted[0] }];
-  for (const interval of sorted.slice(1)) {
-    const last = merged[merged.length - 1];
-    if (interval.startNs <= last.endNs) {
-      if (interval.endNs > last.endNs)
-        merged[merged.length - 1] = { ...last, endNs: interval.endNs };
-    } else {
-      merged.push({ ...interval });
-    }
-  }
-  return merged;
-}
-
-/** The parts of `[startNs, endNs)` no interval covers. */
-function complementWithin(
-  span: TimeInterval,
-  covered: readonly TimeInterval[],
-): readonly TimeInterval[] {
-  const gaps: TimeInterval[] = [];
-  let cursor = span.startNs;
-  for (const interval of covered) {
-    if (interval.startNs > cursor) gaps.push({ startNs: cursor, endNs: interval.startNs });
-    cursor = Math.max(cursor, interval.endNs);
-  }
-  if (cursor < span.endNs) gaps.push({ startNs: cursor, endNs: span.endNs });
-  return gaps;
-}
-
-/** The reference rank's gaps inside its span, in span order, for drawing. */
-export function referenceGaps(
-  iteration: AlignmentTimelineIteration,
-  referenceDeviceId: number,
-): readonly TimeInterval[] {
-  const intervals: TimeInterval[] = [];
-  for (const kernel of iteration.measured.kernels) {
-    for (const [deviceId, startNs, endNs] of kernel.intervals) {
-      if (deviceId === referenceDeviceId) intervals.push({ startNs, endNs });
-    }
-  }
-  return complementWithin(
-    { startNs: iteration.gpuSpanNs[0], endNs: iteration.gpuSpanNs[1] },
-    mergeIntervals(intervals),
-  );
-}
 
 /**
  * The five parts the span decomposes into, in the order the bar draws them.
@@ -125,7 +69,7 @@ export function forwardIdleFraction(rank: AlignmentReferenceRank): number | null
 }
 
 export interface ForwardGap {
-  readonly gap: TimeInterval;
+  readonly gap: AlignmentTimeInterval;
   /** The operation of the kernel that closed before the gap, and of the one
    * that opened after it. Null where the labeler tied that kernel to none. */
   readonly fromOperation: string | null;

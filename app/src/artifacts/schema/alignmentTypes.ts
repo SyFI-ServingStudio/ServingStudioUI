@@ -582,6 +582,11 @@ export interface AlignmentPhaseOccupancy {
   readonly largestGaps: readonly AlignmentReferenceGap[];
 }
 
+export interface AlignmentTimeInterval {
+  readonly startNs: number;
+  readonly endNs: number;
+}
+
 /** The Analyzer's occupancy of one iteration's reference rank: span, kernel
  * time and bubble, per phase and between phases. */
 export interface AlignmentReferenceRank {
@@ -591,6 +596,9 @@ export interface AlignmentReferenceRank {
   readonly idleMs: number;
   readonly idleFraction: number | null;
   readonly gapCount: number;
+  /** Every stretch of the span with no kernel on the rank, in span order,
+   * capture-relative like `gpuSpanNs`. */
+  readonly gaps: readonly AlignmentTimeInterval[];
   /** Span not covered by any phase: the GPU waiting on the host. */
   readonly interPhaseMs: number;
   /** In capture order. */

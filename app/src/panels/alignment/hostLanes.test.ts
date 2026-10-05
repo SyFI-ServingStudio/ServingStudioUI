@@ -74,6 +74,7 @@ function iteration(
       idleMs: 0,
       idleFraction: 0,
       gapCount: 0,
+      gaps: [],
       interPhaseMs: 0,
       phases: [],
     },

@@ -8,7 +8,6 @@ import {
   dutySegments,
   forwardIdleFraction,
   iterationDutyRatio,
-  referenceGaps,
   widestForwardGap,
 } from './dutyBreakdown';
 
@@ -65,6 +64,11 @@ const RANK: AlignmentReferenceRank = {
   idleMs: 5,
   idleFraction: 0.5,
   gapCount: 3,
+  gaps: [
+    { startNs: 1 * NS_PER_MS, endNs: 3 * NS_PER_MS },
+    { startNs: 5 * NS_PER_MS, endNs: 6 * NS_PER_MS },
+    { startNs: 8 * NS_PER_MS, endNs: 10 * NS_PER_MS },
+  ],
   interPhaseMs: 4,
   phases: [
     { phase: 'preprocess', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
@@ -85,40 +89,6 @@ const RANK: AlignmentReferenceRank = {
     },
   ],
 };
-
-describe('referenceGaps', () => {
-  it('draws the reference rank`s holes inside its span, including the trailing one', () => {
-    const subject = iteration([
-      { phase: 'preprocess', intervals: [[0, 0, 1 * NS_PER_MS]] },
-      {
-        phase: 'forward',
-        intervals: [
-          [0, 3 * NS_PER_MS, 5 * NS_PER_MS],
-          [0, 4 * NS_PER_MS, 4.5 * NS_PER_MS],
-          [0, 6 * NS_PER_MS, 8 * NS_PER_MS],
-        ],
-      },
-    ]);
-    expect(referenceGaps(subject, 0)).toEqual([
-      { startNs: 1 * NS_PER_MS, endNs: 3 * NS_PER_MS },
-      { startNs: 5 * NS_PER_MS, endNs: 6 * NS_PER_MS },
-      { startNs: 8 * NS_PER_MS, endNs: 10 * NS_PER_MS },
-    ]);
-  });
-
-  it('keeps only the reference rank, so a peer cannot fill this rank`s gaps', () => {
-    const subject = iteration([
-      {
-        phase: 'forward',
-        intervals: [
-          [0, 0, NS_PER_MS],
-          [1, 0, 10 * NS_PER_MS],
-        ],
-      },
-    ]);
-    expect(referenceGaps(subject, 0)).toEqual([{ startNs: NS_PER_MS, endNs: 10 * NS_PER_MS }]);
-  });
-});
 
 describe('dutySegments', () => {
   // The forward phase is the one the model prices, so its idle is the gap the
