@@ -71,8 +71,9 @@ export interface ResultViewerProps {
    */
   readonly workspace?: WorkspaceId;
   /**
-   * The result's name, when the embedding page has one: the header shows it
-   * and reads no catalog, which a page serving one result need not answer.
+   * The result's name, when the embedding page has one: the header and a
+   * run's headline show it and read no catalog, which a page serving one
+   * result need not answer.
    */
   readonly displayName?: string;
   /** Answers every Analyzer URL the pages read. */
@@ -125,6 +126,7 @@ function Viewer({
 }: ResultViewerProps) {
   const [queryClient] = useState(createQueryClient);
   const [ready, setReady] = useState(false);
+  const catalogAccess = useMemo(() => ({ reachable: false, name: displayName }), [displayName]);
   useEffect(() => {
     // Before any panel reads: effects run child first, so the reads must not
     // mount until the transport is in place.
@@ -145,7 +147,7 @@ function Viewer({
   if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
-      <CatalogReachableProvider value={false}>
+      <CatalogReachableProvider value={catalogAccess}>
         <Addressed
           kind={kind}
           id={id}

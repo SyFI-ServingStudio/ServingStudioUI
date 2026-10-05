@@ -22,17 +22,20 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
-// A catalog naming the result, and the headline's summary and latency as a
-// run's Analyzer serves them; every other read answers 404, which the pages
-// show as their own unavailable states.
-function transport() {
+// A catalog naming the result (unless `catalog` is false, as for a page that
+// forwards only the result's own routes), and the headline's summary and
+// latency as a run's Analyzer serves them; every other read answers 404,
+// which the pages show as their own unavailable states.
+function transport({ catalog = true } = {}) {
   const run = `/api/analyzer/v1/runs/${ID}/subjects`;
   const bodies: Record<string, unknown> = {
-    '/api/analyzer/v1/runs': {
-      protocol_version: 1,
-      generated_at: '2026-09-30T00:00:00Z',
-      runs: [{ run_id: ID, display_name: `20260930_1_${'llama3_dense'}` }],
-    },
+    ...(catalog && {
+      '/api/analyzer/v1/runs': {
+        protocol_version: 1,
+        generated_at: '2026-09-30T00:00:00Z',
+        runs: [{ run_id: ID, display_name: `20260930_1_${'llama3_dense'}` }],
+      },
+    }),
     [`${run}/summary/report`]: summaryJson,
     [`${run}/slo-general/payload`]: sloGeneralJson,
   };
@@ -89,7 +92,29 @@ describe('ResultViewer', () => {
     const view = within(container);
     expect(await view.findByText('Llama 3 8B, tp_size 1')).toBeTruthy();
     await waitFor(() => expect(read).toHaveBeenCalled());
-    expect(read).not.toHaveBeenCalledWith('/api/analyzer/v1/predictions', expect.anything());
+    for (const [url] of read.mock.calls)
+      expect(url).toMatch(/^\/api\/analyzer\/v1\/predictions\/p_1\//);
+  });
+
+  it("names a run's headline as the page does, reading only the run's routes", async () => {
+    const { container } = mount();
+    const read = transport({ catalog: false });
+    render(
+      <ResultViewer
+        kind="run"
+        id={ID}
+        displayName="Llama 3.1 8B · TP, tp_size 1"
+        transport={read}
+        onClose={() => {}}
+      />,
+      { container },
+    );
+    const headline = await within(container).findByTestId('run-headline');
+    expect(within(headline).getAllByText('Llama 3.1 8B · TP, tp_size 1').length).toBeGreaterThan(0);
+    expect(within(headline).queryByText(ID)).toBeNull();
+    const urls = read.mock.calls.map(([url]) => url);
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) expect(url).toMatch(new RegExp(`^/api/analyzer/v1/runs/${ID}/`));
   });
 
   it('offers no way to the catalog, which it does not show', async () => {

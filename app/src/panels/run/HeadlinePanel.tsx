@@ -11,10 +11,11 @@ import {
   runWorkloadRef,
   topologyRef,
   useArtifact,
+  useArtifacts,
 } from '../../artifacts';
 import { atRoot, segmentOf, upTo } from '../../location';
 import AnalysisSection from '../../ui/controls/AnalysisSection';
-import { useCatalogReachable } from '../CatalogReachable';
+import { useCatalogReachable, useGivenResultName } from '../CatalogReachable';
 import { tokens, withAlpha } from '../../ui/theme';
 import { ReadProblem } from '../ReadProblem';
 import { describeRead } from '../readProblem';
@@ -29,12 +30,23 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
   const topology = useArtifact(useMemo(() => topologyRef(result), [result]));
   const model = useArtifact(useMemo(() => runModelRef(result), [result]));
   const workload = useArtifact(useMemo(() => runWorkloadRef(result), [result]));
-  const catalog = useArtifact(
-    useMemo(() => catalogRef(result.workspace, 'run'), [result.workspace]),
+  // A name the page gives stands for the catalog's: an embedding page that
+  // names its result need not serve the catalog.
+  const givenName = useGivenResultName();
+  const [catalog] = useArtifacts(
+    useMemo(
+      () => (givenName === undefined ? [catalogRef(result.workspace, 'run')] : []),
+      [givenName, result.workspace],
+    ),
   );
   const catalogReachable = useCatalogReachable();
 
-  if (isPending(summary) || isPending(latency) || isPending(topology) || isPending(catalog)) {
+  if (
+    isPending(summary) ||
+    isPending(latency) ||
+    isPending(topology) ||
+    (catalog !== undefined && isPending(catalog))
+  ) {
     return <Skeleton variant="rounded" height={560} data-testid="run-headline-loading" />;
   }
   if (summary.status !== 'ready') {
@@ -50,11 +62,13 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
     latency.status === 'ready' ? latency.value : undefined,
   );
   const displayName =
-    catalog.status === 'ready'
-      ? (catalog.value.find(
+    givenName ??
+    (catalog?.status === 'ready'
+      ? catalog.value.find(
           (entry) => entry.id === result.id && entry.workspace === result.workspace,
-        )?.displayName ?? result.id)
-      : result.id;
+        )?.displayName
+      : undefined) ??
+    result.id;
 
   return (
     <Box data-testid="run-headline">
