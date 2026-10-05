@@ -20,7 +20,7 @@ vi.mock('../../artifacts', async (importOriginal) => ({
 }));
 
 import type { Location } from '../../location';
-import { CatalogReachableProvider } from '../CatalogReachable';
+import { ResultHostProvider } from '../ResultHost';
 import { PredictionPage } from './PredictionPage';
 
 const LOCATION: Extract<Location, { view: 'result' }> = {
@@ -110,17 +110,17 @@ describe('PredictionPage Location selection', () => {
       revision: 'r1',
       value: { predictionId: 'p_one', offset: 0, total: 0, cases: [] },
     });
-    const page = (access: { reachable: boolean; name?: string }) => (
-      <CatalogReachableProvider value={access}>
+    const page = (access: { catalogReachable: boolean; resultName?: string }) => (
+      <ResultHostProvider value={access}>
         <PredictionPage location={LOCATION} navigate={vi.fn()} />
-      </CatalogReachableProvider>
+      </ResultHostProvider>
     );
 
-    const { rerender } = render(page({ reachable: false }));
+    const { rerender } = render(page({ catalogReachable: false }));
     expect(screen.getByText('Timing prediction')).toBeVisible();
     expect(screen.queryByText('056df2eb6c1e4b4c9b1a3f0e2d7c8a91')).toBeNull();
 
-    rerender(page({ reachable: false, name: 'Llama 3.1 8B, tp_size 1' }));
+    rerender(page({ catalogReachable: false, resultName: 'Llama 3.1 8B, tp_size 1' }));
     expect(screen.getByText('Llama 3.1 8B, tp_size 1')).toBeVisible();
   });
 

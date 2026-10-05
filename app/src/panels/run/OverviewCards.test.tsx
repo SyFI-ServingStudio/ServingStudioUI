@@ -81,7 +81,7 @@ describe('OverviewCards', () => {
   it('reproduces the existing three cards and both workload charts', () => {
     render(
       <OverviewCards
-        runId="Qwen run"
+        runName="Qwen run"
         topology={topology}
         model={model}
         workload={{ status: 'ready', value: workload, schemaVersion: 1, revision: 'r1' }}
@@ -109,7 +109,7 @@ describe('OverviewCards', () => {
   it('keeps the trace card shape when workload generation is absent', () => {
     render(
       <OverviewCards
-        runId="Qwen run"
+        runName="Qwen run"
         topology={topology}
         model={undefined}
         workload={{ status: 'not_generated', reason: 'analysis has not run' }}

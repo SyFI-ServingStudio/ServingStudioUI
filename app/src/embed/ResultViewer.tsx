@@ -31,15 +31,7 @@
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
 import CloseRounded from '@mui/icons-material/CloseRounded';
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  ScopedCssBaseline,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, IconButton, ScopedCssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -59,8 +51,7 @@ import { chartFocusResetKey } from '../app/chartFocusKey';
 import { commit } from '../app/commit';
 import { createQueryClient } from '../app/queryClient';
 import { ResultMain } from '../app/ResultPage';
-import { RESULT_TITLE } from '../panels/resultTitle';
-import { CatalogReachableProvider, useGivenResultName } from '../panels/CatalogReachable';
+import { ResultHostProvider } from '../panels/ResultHost';
 import { ChartFocusProvider } from '../ui/controls/ChartFocusProvider';
 import FocusDialog from '../ui/controls/FocusDialog';
 import { metrics } from '../ui/theme';
@@ -118,7 +109,7 @@ function styleRoot(element: HTMLElement): Node {
 function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps) {
   const [queryClient] = useState(createQueryClient);
   const [ready, setReady] = useState(false);
-  const catalogAccess = useMemo(() => ({ reachable: false, name: displayName }), [displayName]);
+  const host = useMemo(() => ({ catalogReachable: false, resultName: displayName }), [displayName]);
   useEffect(() => {
     // Before any panel reads: effects run child first, so the reads must not
     // mount until the transport is in place.
@@ -144,9 +135,9 @@ function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps
   if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
-      <CatalogReachableProvider value={catalogAccess}>
-        <Addressed kind={kind} onClose={onClose} />
-      </CatalogReachableProvider>
+      <ResultHostProvider value={host}>
+        <Addressed onClose={onClose} />
+      </ResultHostProvider>
     </QueryClientProvider>
   );
 }
@@ -183,9 +174,8 @@ function resultAt(kind: ResultViewerProps['kind'], id: string, workspace: Worksp
   return { view: 'result', ref: { kind, id, workspace }, focus: EMPTY_FOCUS, chat: null };
 }
 
-function Addressed({ kind, onClose }: { kind: ResultViewerProps['kind']; onClose: () => void }) {
+function Addressed({ onClose }: { onClose: () => void }) {
   const location = useLocation();
-  const name = useGivenResultName();
   // Back past the viewer's first address leaves the page's own: close.
   const shown = useRef(false);
   useEffect(() => {
@@ -194,7 +184,7 @@ function Addressed({ kind, onClose }: { kind: ResultViewerProps['kind']; onClose
   }, [location, onClose]);
   return (
     <ChartFocusProvider resetKey={chartFocusResetKey(location)}>
-      <Header kind={kind} name={name ?? ''} onClose={onClose} />
+      <CloseControl onClose={onClose} />
       {location?.view === 'result' ? (
         <ResultMain location={location} />
       ) : (
@@ -217,38 +207,35 @@ function Addressed({ kind, onClose }: { kind: ResultViewerProps['kind']; onClose
   );
 }
 
-function Header({
-  kind,
-  name,
-  onClose,
-}: {
-  kind: ResultViewerProps['kind'];
-  name: string;
-  onClose: () => void;
-}) {
+/**
+ * The viewer's only chrome: the pages head themselves (title and name), so
+ * the close control floats over their top right corner and takes no row.
+ */
+function CloseControl({ onClose }: { onClose: () => void }) {
   return (
-    <Stack
-      component="header"
-      direction="row"
-      alignItems="center"
-      spacing={1.5}
-      sx={{ px: { xs: 2, md: 3 }, py: 1.5, borderBottom: 1, borderColor: 'divider' }}
+    <Box
+      sx={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 2,
+        height: 0,
+        display: 'flex',
+        justifyContent: 'flex-end',
+        px: { xs: 1, md: 2 },
+        pt: 1,
+      }}
     >
-      <Typography variant="h6" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>
-        {RESULT_TITLE[kind]}
-      </Typography>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        noWrap
-        sx={{ flex: 1, minWidth: 0 }}
-        title={name || undefined}
+      <IconButton
+        aria-label="Close"
+        onClick={onClose}
+        sx={{
+          bgcolor: 'background.paper',
+          boxShadow: 1,
+          '&:hover': { bgcolor: 'background.paper' },
+        }}
       >
-        {name}
-      </Typography>
-      <IconButton aria-label="Close" onClick={onClose} edge="end">
         <CloseRounded />
       </IconButton>
-    </Stack>
+    </Box>
   );
 }

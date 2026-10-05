@@ -219,12 +219,13 @@ function readStatus(result: ArtifactResult<unknown>): string {
 }
 
 export function OverviewCards({
-  runId,
+  runName,
   topology,
   model,
   workload,
 }: {
-  runId: string;
+  /** The run's name, when the page has one. */
+  runName: string | undefined;
   topology: RunTopology;
   model: RunModel | undefined;
   workload: ArtifactResult<RunWorkload>;
@@ -289,8 +290,12 @@ export function OverviewCards({
           headline={deploymentHeadline(topology)}
           description={
             <>
-              {runId}
-              <br />
+              {runName !== undefined && (
+                <>
+                  {runName}
+                  <br />
+                </>
+              )}
               analyzer folder · topology · parallelism · placement
             </>
           }

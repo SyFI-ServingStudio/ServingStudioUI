@@ -43,7 +43,7 @@ import { RESULT_TITLE } from '../resultTitle';
 import SurfaceCard from '../../ui/controls/SurfaceCard';
 import { pageLayout } from '../../ui/theme/metrics';
 import { tokens, withAlpha } from '../../ui/theme';
-import { useCatalogReachable, useGivenResultName } from '../CatalogReachable';
+import { useResultName } from '../ResultHost';
 import { CostTreeEvidence } from '../CostTreeEvidence';
 import { COST_TREE_FRAME_HEIGHT, CostTreeFrame, CostTreeStatusViewport } from '../CostTreeFrame';
 import { KernelEvidenceView, type KernelAnalysisState } from '../KernelEvidenceView';
@@ -278,8 +278,9 @@ function PredictionContent({
   const descriptor = useArtifact(predictionDescriptorRef(result));
   // The page that embeds the result names it, or nothing does: the
   // descriptor's name is its directory's, an id where a service made it.
-  const givenName = useGivenResultName();
-  const catalogReachable = useCatalogReachable();
+  const displayName = useResultName(
+    descriptor.status === 'ready' ? descriptor.value.displayName : undefined,
+  );
   const casePage = useArtifact(predictionCasesRef(result, caseOffset, CASE_PAGE_SIZE));
 
   const updatePredictionSelection = useCallback(
@@ -385,10 +386,7 @@ function PredictionContent({
   );
   return (
     <Stack sx={{ gap: 2, py: 4, ...pageLayout, mx: 'auto' }}>
-      <AnalysisPageHeader
-        title={RESULT_TITLE.prediction}
-        detail={givenName ?? (catalogReachable ? descriptor.value.displayName : undefined)}
-      />
+      <AnalysisPageHeader title={RESULT_TITLE.prediction} detail={displayName} />
       <PredictionCasePicker
         cases={casePage.value.cases}
         selectedCaseId={selectedCaseId}

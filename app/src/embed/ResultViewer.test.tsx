@@ -23,21 +23,44 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
-// Only a run's own routes, as the embedding page forwards them: its
+// Only one result's own routes, as the embedding page forwards them: a run's
 // descriptor, in a workspace an Analyzer over a static logs root names, and
-// the headline's summary and latency. Every other read answers 404, which
-// the pages show as their own unavailable states.
+// the headline's summary and latency; a prediction's descriptor, named by a
+// service-made id as the public API's are, and an empty case page. Every
+// other read answers 404, which the pages show as their own unavailable
+// states.
 const WORKSPACE = 'w_root_0';
+const PREDICTION_DIRECTORY = '056df2eb6c1e4b4c9b1a3f0e2d7c8a91';
 function transport() {
   const run = `/api/analyzer/v1/runs/${ID}`;
+  const prediction = '/api/analyzer/v1/predictions/p_1';
   const bodies: Record<string, unknown> = {
     [`${run}/descriptor`]: { ...runDescriptorJson, run_id: ID, workspace_id: WORKSPACE },
     [`${run}/subjects/summary/report`]: summaryJson,
     [`${run}/subjects/slo-general/payload`]: sloGeneralJson,
+    [`${prediction}/descriptor`]: {
+      schema_version: 1,
+      prediction_id: 'p_1',
+      kind: 'timing_predict',
+      display_name: PREDICTION_DIRECTORY,
+      selector: 'iter',
+      arch: { type: 'llama' },
+      gpu: { name: 'H100', count: 1 },
+      case_count: 0,
+      lifecycle: { prediction: 'complete', analysis: 'not_started' },
+      resources: { cases: { views: ['payload'] }, 'kernel-input-distribution': null },
+    },
+    [`${prediction}/subjects/cases/payload`]: {
+      schema_version: 1,
+      prediction_id: 'p_1',
+      range: { offset: 0, limit: 64, returned: 0, total: 0 },
+      cases: [],
+    },
   };
-  return vi.fn(async (url: string) =>
-    url in bodies ? json(bodies[url]) : json({ error: 'not found' }, 404),
-  );
+  return vi.fn(async (url: string) => {
+    const path = url.split('?')[0];
+    return path in bodies ? json(bodies[path]) : json({ error: 'not found' }, 404);
+  });
 }
 
 beforeEach(() => {
@@ -59,7 +82,7 @@ describe('ResultViewer', () => {
     });
 
     const view = within(container);
-    await waitFor(() => expect(view.getByRole('heading', { name: 'Run' })).toBeTruthy());
+    await waitFor(() => expect(view.getByTestId('run-headline')).toBeTruthy());
     await waitFor(() =>
       expect(read).toHaveBeenCalledWith(
         `/api/analyzer/v1/runs/${ID}/descriptor`,
@@ -78,7 +101,7 @@ describe('ResultViewer', () => {
     expect(document.documentElement.style.fontSize).toBe('112.5%');
   });
 
-  it('shows the name the page gives and reads no catalog', async () => {
+  it("heads a prediction with the page's name and reads no catalog", async () => {
     const { container } = mount();
     const read = transport();
     render(
@@ -93,7 +116,7 @@ describe('ResultViewer', () => {
     );
     const view = within(container);
     expect(await view.findByText('Llama 3 8B, tp_size 1')).toBeTruthy();
-    await waitFor(() => expect(read).toHaveBeenCalled());
+    expect(view.getAllByRole('heading', { name: 'Timing prediction' })).toHaveLength(1);
     // Besides the prediction's own routes, only the kernel kinds' DOC names,
     // which the embedding page forwards too.
     for (const [url] of read.mock.calls)
@@ -114,7 +137,8 @@ describe('ResultViewer', () => {
       { container },
     );
     const headline = await within(container).findByTestId('run-headline');
-    expect(within(headline).getAllByText('Llama 3.1 8B · TP, tp_size 1').length).toBeGreaterThan(0);
+    expect(within(headline).getByText('Llama 3.1 8B · TP, tp_size 1')).toBeVisible();
+    expect(within(container).getAllByText('Llama 3.1 8B · TP, tp_size 1')).toHaveLength(1);
     expect(within(headline).queryByText(ID)).toBeNull();
     const urls = read.mock.calls.map(([url]) => url);
     expect(urls.length).toBeGreaterThan(0);
@@ -123,18 +147,26 @@ describe('ResultViewer', () => {
     }
   });
 
-  it('names the result by no id when the page gives no name', async () => {
+  it('names a run by no id when the page gives no name', async () => {
     const { container } = mount();
-    const read = transport();
-    render(<ResultViewer kind="prediction" id="p_1" transport={read} onClose={() => {}} />, {
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {
       container,
     });
-    const header = await within(container).findByRole('banner');
-    expect(within(header).getByRole('heading', { name: 'Timing prediction' })).toBeTruthy();
-    expect(header.textContent).not.toContain('p_1');
-    await waitFor(() => expect(read).toHaveBeenCalled());
-    for (const [url] of read.mock.calls)
-      expect(url).toMatch(/^\/api\/analyzer\/v1\/(predictions\/p_1\/|kernel-kinds$)/);
+    const headline = await within(container).findByTestId('run-headline');
+    expect(within(headline).getByText('Current run')).toBeVisible();
+    // The id appears only inside the addresses unavailable reads name.
+    expect(within(headline).queryByText(ID)).toBeNull();
+  });
+
+  it('names a prediction by no id when the page gives no name', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="prediction" id="p_1" transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    const view = within(container);
+    expect(await view.findByRole('heading', { name: 'Timing prediction' })).toBeTruthy();
+    expect(container.textContent).not.toContain(PREDICTION_DIRECTORY);
+    expect(container.textContent).not.toContain('p_1');
   });
 
   it('offers no way to the catalog, which it does not show', async () => {
@@ -195,9 +227,12 @@ describe('ResultViewer', () => {
     render(<ResultViewer kind="prediction" id="p_1" transport={transport()} onClose={onClose} />, {
       container,
     });
-    const close = await within(container).findByRole('button', { name: 'Close' });
+    // The page heads itself; the viewer adds only the control.
+    expect(
+      await within(container).findByRole('heading', { name: 'Timing prediction' }),
+    ).toBeTruthy();
+    const close = within(container).getByRole('button', { name: 'Close' });
     act(() => close.click());
     expect(onClose).toHaveBeenCalledOnce();
-    expect(within(container).getByRole('heading', { name: 'Timing prediction' })).toBeTruthy();
   });
 });
