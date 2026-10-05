@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -150,9 +150,10 @@ describe('CostTreeCanvas', () => {
         controlLabels={controls}
       />,
     );
-    await userEvent
-      .setup()
-      .hover(screen.getByRole('button', { name: 'Inspect kernel first.kernel' }));
-    expect(await screen.findByText('42%', {}, { timeout: 5000 })).toBeVisible();
+    const node = screen.getByRole('button', { name: 'Inspect kernel first.kernel' });
+    expect(within(node).getByText('42%')).toBeVisible();
+    // The hover card repeats it.
+    await userEvent.setup().hover(node);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('42%');
   });
 });
