@@ -35,6 +35,12 @@ function requiredSeries(view: ThroughputTimelineView, key: string) {
   return series;
 }
 
+/** An axis bound in seconds to the hundredth, as the other time axes print
+ * theirs, rounded outward so no step falls outside it. A raw bound is shown
+ * as the axis's end label, float noise and all ("4.743600000000001"). */
+const floorHundredth = (seconds: number) => Math.floor(seconds * 100) / 100;
+const ceilHundredth = (seconds: number) => Math.ceil(seconds * 100) / 100;
+
 /** Existing throughput step chart moved behind its panel boundary. */
 export function throughputOption(
   data: ThroughputChartData,
@@ -69,8 +75,8 @@ export function throughputOption(
     grid: { ...(base.grid as object), containLabel: true },
     xAxis: {
       ...(base.xAxis as object),
-      min: firstStartSeconds,
-      max: finalEndSeconds,
+      min: floorHundredth(firstStartSeconds),
+      max: ceilHundredth(finalEndSeconds),
       name: 'wall-clock · s',
       nameLocation: 'middle',
       nameGap: 24,
