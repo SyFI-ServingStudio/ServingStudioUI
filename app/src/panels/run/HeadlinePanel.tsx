@@ -30,16 +30,17 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
   const topology = useArtifact(useMemo(() => topologyRef(result), [result]));
   const model = useArtifact(useMemo(() => runModelRef(result), [result]));
   const workload = useArtifact(useMemo(() => runWorkloadRef(result), [result]));
-  // A name the page gives stands for the catalog's: an embedding page that
-  // names its result need not serve the catalog.
+  // A name the page gives stands for the catalog's, and a page that does not
+  // show the catalog (an embedding page) does not serve it.
   const givenName = useGivenResultName();
+  const catalogReachable = useCatalogReachable();
   const [catalog] = useArtifacts(
     useMemo(
-      () => (givenName === undefined ? [catalogRef(result.workspace, 'run')] : []),
-      [givenName, result.workspace],
+      () =>
+        givenName === undefined && catalogReachable ? [catalogRef(result.workspace, 'run')] : [],
+      [givenName, catalogReachable, result.workspace],
     ),
   );
-  const catalogReachable = useCatalogReachable();
 
   if (
     isPending(summary) ||

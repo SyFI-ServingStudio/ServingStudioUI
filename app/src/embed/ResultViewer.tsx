@@ -22,8 +22,11 @@
  *
  * The address is the page's hash, as in the application, so drill-downs and
  * the Back button work as there; Back past the first address closes the
- * viewer, and closing it clears the hash. The pages offer no way to the
- * catalog, which the viewer does not show.
+ * viewer, and closing it clears the hash. A run's address is in the workspace
+ * its descriptor names, since the pages check the descriptor against it.
+ * The pages offer no way to the catalog, which the viewer does not show, and
+ * read none: the result is named as the embedding page names it, or not at
+ * all.
  */
 import createCache from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
@@ -39,13 +42,16 @@ import {
 } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { catalogRef, setFallbackTransport, useArtifacts, type Transport } from '../artifacts';
+import { runDescriptorRef, setFallbackTransport, type Transport } from '../artifacts';
+import { parseAnalyzerV1RunDescriptor } from '../artifacts/schema/descriptor';
+import { artifactUrl } from '../artifacts/url';
 import {
   defaultWorkspace,
   EMPTY_FOCUS,
   useLocation,
+  workspaceIdSchema,
   type Location,
   type WorkspaceId,
 } from '../location';
@@ -53,8 +59,8 @@ import { chartFocusResetKey } from '../app/chartFocusKey';
 import { commit } from '../app/commit';
 import { createQueryClient } from '../app/queryClient';
 import { ResultMain } from '../app/ResultPage';
-import { RESULT_TITLE, displayResultName } from '../app/resultTitle';
-import { CatalogReachableProvider } from '../panels/CatalogReachable';
+import { RESULT_TITLE } from '../app/resultTitle';
+import { CatalogReachableProvider, useGivenResultName } from '../panels/CatalogReachable';
 import { ChartFocusProvider } from '../ui/controls/ChartFocusProvider';
 import FocusDialog from '../ui/controls/FocusDialog';
 import { metrics } from '../ui/theme';
@@ -65,15 +71,8 @@ export interface ResultViewerProps {
   /** The Analyzer catalog's id of the result. */
   readonly id: string;
   /**
-   * The workspace the Analyzer names the result in, which a run's descriptor
-   * is checked against. Without one, the result is in the workspace of an
-   * address that names none (`defaultWorkspace`).
-   */
-  readonly workspace?: WorkspaceId;
-  /**
-   * The result's name, when the embedding page has one: the header and a
-   * run's headline show it and read no catalog, which a page serving one
-   * result need not answer.
+   * The result's name, when the embedding page has one: the header and the
+   * result's headline show it. Without one they name the result by no id.
    */
   readonly displayName?: string;
   /** Answers every Analyzer URL the pages read. */
@@ -116,14 +115,7 @@ function styleRoot(element: HTMLElement): Node {
   return root instanceof ShadowRoot ? root : document.head;
 }
 
-function Viewer({
-  kind,
-  id,
-  workspace = defaultWorkspace(),
-  displayName,
-  transport,
-  onClose,
-}: ResultViewerProps) {
+function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps) {
   const [queryClient] = useState(createQueryClient);
   const [ready, setReady] = useState(false);
   const catalogAccess = useMemo(() => ({ reachable: false, name: displayName }), [displayName]);
@@ -134,50 +126,66 @@ function Viewer({
     const root = document.documentElement;
     const fontSize = root.style.fontSize;
     root.style.fontSize = `${metrics.fontScale * 100}%`;
-    commit(resultAt(kind, id, workspace), 'push');
-    setReady(true);
+    const reading = new AbortController();
+    void servedWorkspace(kind, id, transport, reading.signal).then((workspace) => {
+      if (reading.signal.aborted) return;
+      commit(resultAt(kind, id, workspace), 'push');
+      setReady(true);
+    });
     return () => {
+      reading.abort();
       release();
       root.style.fontSize = fontSize;
       if (window.location.hash !== '') {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     };
-  }, [kind, id, workspace, transport]);
+  }, [kind, id, transport]);
   if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
       <CatalogReachableProvider value={catalogAccess}>
-        <Addressed
-          kind={kind}
-          id={id}
-          workspace={workspace}
-          displayName={displayName}
-          onClose={onClose}
-        />
+        <Addressed kind={kind} onClose={onClose} />
       </CatalogReachableProvider>
     </QueryClientProvider>
   );
+}
+
+/**
+ * The workspace the Analyzer names a run in, as the run's descriptor gives it:
+ * the pages check the descriptor against the address's workspace, which the
+ * embedding page cannot know. A prediction's reads are checked against none.
+ * A descriptor that cannot be read leaves the address's default, and the
+ * pages then say why their read failed.
+ */
+async function servedWorkspace(
+  kind: ResultViewerProps['kind'],
+  id: string,
+  transport: Transport,
+  signal: AbortSignal,
+): Promise<WorkspaceId> {
+  if (kind !== 'run') return defaultWorkspace();
+  try {
+    // The descriptor's address does not depend on the workspace asked for.
+    const url = artifactUrl(runDescriptorRef({ kind, id, workspace: defaultWorkspace() }));
+    const response = await transport(url, { signal });
+    if (!response.ok) return defaultWorkspace();
+    const named = workspaceIdSchema.safeParse(
+      parseAnalyzerV1RunDescriptor(await response.json()).workspaceId,
+    );
+    return named.success ? named.data : defaultWorkspace();
+  } catch {
+    return defaultWorkspace();
+  }
 }
 
 function resultAt(kind: ResultViewerProps['kind'], id: string, workspace: WorkspaceId): Location {
   return { view: 'result', ref: { kind, id, workspace }, focus: EMPTY_FOCUS, chat: null };
 }
 
-function Addressed({
-  kind,
-  id,
-  workspace,
-  displayName,
-  onClose,
-}: {
-  kind: ResultViewerProps['kind'];
-  id: string;
-  workspace: WorkspaceId;
-  displayName: string | undefined;
-  onClose: () => void;
-}) {
+function Addressed({ kind, onClose }: { kind: ResultViewerProps['kind']; onClose: () => void }) {
   const location = useLocation();
+  const name = useGivenResultName();
   // Back past the viewer's first address leaves the page's own: close.
   const shown = useRef(false);
   useEffect(() => {
@@ -186,13 +194,7 @@ function Addressed({
   }, [location, onClose]);
   return (
     <ChartFocusProvider resetKey={chartFocusResetKey(location)}>
-      <Header kind={kind} onClose={onClose}>
-        {displayName === undefined ? (
-          <CatalogName kind={kind} id={id} workspace={workspace} />
-        ) : (
-          <Name value={displayName} />
-        )}
-      </Header>
+      <Header kind={kind} name={name ?? ''} onClose={onClose} />
       {location?.view === 'result' ? (
         <ResultMain location={location} />
       ) : (
@@ -217,12 +219,12 @@ function Addressed({
 
 function Header({
   kind,
+  name,
   onClose,
-  children,
 }: {
   kind: ResultViewerProps['kind'];
+  name: string;
   onClose: () => void;
-  children: ReactNode;
 }) {
   return (
     <Stack
@@ -235,47 +237,18 @@ function Header({
       <Typography variant="h6" component="h1" sx={{ fontWeight: 600, flexShrink: 0 }}>
         {RESULT_TITLE[kind]}
       </Typography>
-      {children}
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        noWrap
+        sx={{ flex: 1, minWidth: 0 }}
+        title={name || undefined}
+      >
+        {name}
+      </Typography>
       <IconButton aria-label="Close" onClick={onClose} edge="end">
         <CloseRounded />
       </IconButton>
     </Stack>
-  );
-}
-
-/** The result's name as its catalog entry gives it. */
-function CatalogName({
-  kind,
-  id,
-  workspace,
-}: {
-  kind: ResultViewerProps['kind'];
-  id: string;
-  workspace: WorkspaceId;
-}) {
-  const [catalog] = useArtifacts([catalogRef(workspace, kind)]);
-  const entry =
-    catalog?.status === 'ready'
-      ? catalog.value.find((candidate) => candidate.id === id)
-      : undefined;
-  return (
-    <Name
-      value={entry === undefined ? '' : displayResultName(entry.displayName)}
-      title={entry?.displayName}
-    />
-  );
-}
-
-function Name({ value, title = value }: { value: string; title?: string }) {
-  return (
-    <Typography
-      variant="body2"
-      color="text.secondary"
-      noWrap
-      sx={{ flex: 1, minWidth: 0 }}
-      title={title || undefined}
-    >
-      {value}
-    </Typography>
   );
 }

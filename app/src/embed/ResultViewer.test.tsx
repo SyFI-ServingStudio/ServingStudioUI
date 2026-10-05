@@ -1,6 +1,7 @@
 import { act, cleanup, render, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import runDescriptorJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/run_descriptor.json';
 import summaryJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/summary.json';
 import sloGeneralJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/payloads/slo_general_cdf.json';
 import { ResultViewer } from './ResultViewer';
@@ -22,22 +23,17 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json' },
   });
 
-// A catalog naming the result (unless `catalog` is false, as for a page that
-// forwards only the result's own routes), and the headline's summary and
-// latency as a run's Analyzer serves them; every other read answers 404,
-// which the pages show as their own unavailable states.
-function transport({ catalog = true } = {}) {
-  const run = `/api/analyzer/v1/runs/${ID}/subjects`;
+// Only a run's own routes, as the embedding page forwards them: its
+// descriptor, in a workspace an Analyzer over a static logs root names, and
+// the headline's summary and latency. Every other read answers 404, which
+// the pages show as their own unavailable states.
+const WORKSPACE = 'w_root_0';
+function transport() {
+  const run = `/api/analyzer/v1/runs/${ID}`;
   const bodies: Record<string, unknown> = {
-    ...(catalog && {
-      '/api/analyzer/v1/runs': {
-        protocol_version: 1,
-        generated_at: '2026-09-30T00:00:00Z',
-        runs: [{ run_id: ID, display_name: `20260930_1_${'llama3_dense'}` }],
-      },
-    }),
-    [`${run}/summary/report`]: summaryJson,
-    [`${run}/slo-general/payload`]: sloGeneralJson,
+    [`${run}/descriptor`]: { ...runDescriptorJson, run_id: ID, workspace_id: WORKSPACE },
+    [`${run}/subjects/summary/report`]: summaryJson,
+    [`${run}/subjects/slo-general/payload`]: sloGeneralJson,
   };
   return vi.fn(async (url: string) =>
     url in bodies ? json(bodies[url]) : json({ error: 'not found' }, 404),
@@ -65,7 +61,10 @@ describe('ResultViewer', () => {
     const view = within(container);
     await waitFor(() => expect(view.getByRole('heading', { name: 'Run' })).toBeTruthy());
     await waitFor(() =>
-      expect(read).toHaveBeenCalledWith('/api/analyzer/v1/runs', expect.anything()),
+      expect(read).toHaveBeenCalledWith(
+        `/api/analyzer/v1/runs/${ID}/descriptor`,
+        expect.anything(),
+      ),
     );
     // The page's styles are written in the shadow root, none in the document.
     expect(shadow.querySelectorAll('style[data-emotion^="ssui"]').length).toBeGreaterThan(0);
@@ -73,6 +72,9 @@ describe('ResultViewer', () => {
     // The result's address is the page's hash, on the page's own path.
     expect(window.location.pathname).toBe('/models.html');
     expect(window.location.hash).toMatch(new RegExp(`^#/result/run/${ID}\\b`));
+    // In the workspace the run's descriptor names, which the pages check it
+    // against.
+    expect(new URLSearchParams(window.location.hash.split('?')[1]).get('w')).toBe(WORKSPACE);
     expect(document.documentElement.style.fontSize).toBe('112.5%');
   });
 
@@ -100,7 +102,7 @@ describe('ResultViewer', () => {
 
   it("names a run's headline as the page does, reading only the run's routes", async () => {
     const { container } = mount();
-    const read = transport({ catalog: false });
+    const read = transport();
     render(
       <ResultViewer
         kind="run"
@@ -119,6 +121,20 @@ describe('ResultViewer', () => {
     for (const url of urls) {
       expect(url).toMatch(new RegExp(`^/api/analyzer/v1/(runs/${ID}/|kernel-kinds$)`));
     }
+  });
+
+  it('names the result by no id when the page gives no name', async () => {
+    const { container } = mount();
+    const read = transport();
+    render(<ResultViewer kind="prediction" id="p_1" transport={read} onClose={() => {}} />, {
+      container,
+    });
+    const header = await within(container).findByRole('banner');
+    expect(within(header).getByRole('heading', { name: 'Timing prediction' })).toBeTruthy();
+    expect(header.textContent).not.toContain('p_1');
+    await waitFor(() => expect(read).toHaveBeenCalled());
+    for (const [url] of read.mock.calls)
+      expect(url).toMatch(/^\/api\/analyzer\/v1\/(predictions\/p_1\/|kernel-kinds$)/);
   });
 
   it('offers no way to the catalog, which it does not show', async () => {
