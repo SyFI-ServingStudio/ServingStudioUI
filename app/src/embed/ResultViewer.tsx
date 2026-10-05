@@ -59,7 +59,7 @@ import { chartFocusResetKey } from '../app/chartFocusKey';
 import { commit } from '../app/commit';
 import { createQueryClient } from '../app/queryClient';
 import { ResultMain } from '../app/ResultPage';
-import { RESULT_TITLE } from '../app/resultTitle';
+import { RESULT_TITLE } from '../panels/resultTitle';
 import { CatalogReachableProvider, useGivenResultName } from '../panels/CatalogReachable';
 import { ChartFocusProvider } from '../ui/controls/ChartFocusProvider';
 import FocusDialog from '../ui/controls/FocusDialog';

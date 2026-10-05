@@ -1,4 +1,5 @@
 import { predictionCasesRef, predictionDescriptorRef, type ReadRef } from '../../artifacts';
+import { RESULT_TITLE } from '../resultTitle';
 import { segmentOf } from '../../location';
 import type { ContentPanelSpec, PageModeSpec } from '../types';
 
@@ -18,7 +19,7 @@ function needs(location: Parameters<ContentPanelSpec['needs']>[0]): ReadRef[] {
 
 export const predictionPageSpec = {
   id: 'prediction.page',
-  title: 'Timing prediction',
+  title: RESULT_TITLE.prediction,
   mode: 'panel',
   scope: false,
   kinds: ['prediction'],

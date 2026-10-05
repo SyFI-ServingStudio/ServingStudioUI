@@ -42,7 +42,7 @@ import { agentContext } from './agentContext';
 import { chatAt, startNewConversation } from './agentLocation';
 import { managedResultLocation, resolveEvidence } from './evidence';
 import { ResultMain } from './ResultPage';
-import { RESULT_TITLE, displayResultName } from './resultTitle';
+import { RESULT_TITLE, displayResultName } from '../panels/resultTitle';
 import Shell, { type AgentSurfaceControls } from './Shell';
 
 const FilePage = lazy(() => import('./FilePage'));

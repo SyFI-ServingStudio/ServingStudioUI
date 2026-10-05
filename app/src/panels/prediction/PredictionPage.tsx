@@ -39,6 +39,7 @@ import {
 import type { SubjectResult } from '../subjectResult';
 import type { OptimalityMode } from '../../artifacts';
 import AnalysisPageHeader from '../../ui/controls/AnalysisPageHeader';
+import { RESULT_TITLE } from '../resultTitle';
 import SurfaceCard from '../../ui/controls/SurfaceCard';
 import { pageLayout } from '../../ui/theme/metrics';
 import { tokens, withAlpha } from '../../ui/theme';
@@ -385,7 +386,7 @@ function PredictionContent({
   return (
     <Stack sx={{ gap: 2, py: 4, ...pageLayout, mx: 'auto' }}>
       <AnalysisPageHeader
-        title="Timing prediction"
+        title={RESULT_TITLE.prediction}
         detail={givenName ?? (catalogReachable ? descriptor.value.displayName : undefined)}
       />
       <PredictionCasePicker
