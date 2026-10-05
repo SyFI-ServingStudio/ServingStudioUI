@@ -272,21 +272,3 @@ export function parsePredictionCostTree(
     );
   }
 }
-
-export const parseAnalyzerV1PredictionDescriptor = parsePredictionDescriptor;
-export const parseAnalyzerV1PredictionCases = parsePredictionCases;
-export function parseAnalyzerV1PredictionCostTree(
-  input: unknown,
-  expected: {
-    readonly predictionId: string;
-    readonly caseId: string;
-    readonly operationId: string;
-  },
-): PredictionCostTreeDetail {
-  return parsePredictionCostTree(input, {
-    kind: 'predictionCostTree',
-    result: { kind: 'prediction', id: expected.predictionId, workspace: 'w_compat' },
-    caseId: expected.caseId,
-    operationId: expected.operationId,
-  });
-}
