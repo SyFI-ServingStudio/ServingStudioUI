@@ -1,6 +1,6 @@
 # ServingStudio Sim Visualization App
 
-React 18 + TypeScript + Vite application for the integrated ServingStudio Sim result and
+React 19 + TypeScript + Vite application for the integrated ServingStudio Sim result and
 Agent workspace. It uses MUI, ECharts, Motion, TanStack Query, and
 runtime-validated Analyzer artifact schemas.
 
