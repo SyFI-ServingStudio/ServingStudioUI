@@ -68,10 +68,7 @@ function iteration(
     operationTotals: [],
     host,
     referenceRank: {
-      deviceId: 0,
       spanMs: 1,
-      busyMs: 1,
-      idleMs: 0,
       idleFraction: 0,
       gapCount: 0,
       gaps: [],

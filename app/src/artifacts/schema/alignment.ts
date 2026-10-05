@@ -7,7 +7,6 @@ import type {
   AlignmentDistribution,
   AlignmentE2eReport,
   AlignmentE2eSeries,
-  AlignmentGapEdge,
   AlignmentHostEvent,
   AlignmentIterationReport,
   AlignmentIterationSeries,
@@ -1029,11 +1028,9 @@ export function parseAnalyzerV1AlignmentTimelineIndex(input: unknown): Alignment
   });
 }
 
-const gapEdgeSchema = z.object({
-  phase: z.string(),
-  operation: z.string().nullable(),
-  kernel: z.string(),
-});
+// Of each gap edge only the operation is read: the card names a gap by the
+// operations across it.
+const gapEdgeSchema = z.object({ operation: z.string().nullable() });
 const referenceGapSchema = z.object({
   start_ns: nanoseconds,
   duration_us: nonNegative,
@@ -1041,10 +1038,7 @@ const referenceGapSchema = z.object({
   before: gapEdgeSchema,
 });
 const referenceRankSchema = z.object({
-  device_id: count,
   span_ms: nonNegative,
-  busy_ms: nonNegative,
-  idle_ms: nonNegative,
   idle_fraction: finite.nullable(),
   gap_count: count,
   gaps_ns: z.array(z.tuple([nanoseconds, nanoseconds])),
@@ -1052,7 +1046,6 @@ const referenceRankSchema = z.object({
   phases: z.array(
     z.object({
       phase: z.string(),
-      span_ms: nonNegative,
       busy_ms: nonNegative,
       idle_ms: nonNegative,
       idle_fraction: finite.nullable(),
@@ -1061,15 +1054,9 @@ const referenceRankSchema = z.object({
   ),
 });
 
-const decodeGapEdge = (edge: z.infer<typeof gapEdgeSchema>): AlignmentGapEdge =>
-  Object.freeze({ phase: edge.phase, operation: edge.operation, kernel: edge.kernel });
-
 function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): AlignmentReferenceRank {
   return Object.freeze({
-    deviceId: rank.device_id,
     spanMs: rank.span_ms,
-    busyMs: rank.busy_ms,
-    idleMs: rank.idle_ms,
     idleFraction: rank.idle_fraction,
     gapCount: rank.gap_count,
     gaps: Object.freeze(rank.gaps_ns.map(([startNs, endNs]) => Object.freeze({ startNs, endNs }))),
@@ -1078,7 +1065,6 @@ function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): Alignme
       rank.phases.map((phase) =>
         Object.freeze({
           phase: phase.phase,
-          spanMs: phase.span_ms,
           busyMs: phase.busy_ms,
           idleMs: phase.idle_ms,
           idleFraction: phase.idle_fraction,
@@ -1087,8 +1073,8 @@ function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): Alignme
               Object.freeze({
                 startNs: gap.start_ns,
                 durationUs: gap.duration_us,
-                after: decodeGapEdge(gap.after),
-                before: decodeGapEdge(gap.before),
+                afterOperation: gap.after.operation,
+                beforeOperation: gap.before.operation,
               }),
             ),
           ),
@@ -1313,25 +1299,13 @@ export function parseAnalyzerV1AlignmentWorkloadSeries(input: unknown): Alignmen
   });
 }
 
-const workloadStats = z
-  .object({
-    n: count,
-    mean: finite.nullable(),
-    p50: finite.nullable(),
-    p90: finite.nullable(),
-    p99: finite.nullable(),
-    max: finite.nullable(),
-  })
-  .transform((value): AlignmentWorkloadStats =>
-    Object.freeze({
-      n: value.n,
-      mean: value.mean,
-      p50: value.p50,
-      p90: value.p90,
-      p99: value.p99,
-      max: value.max,
-    }),
-  );
+const workloadStats = z.object({
+  n: count,
+  p50: finite.nullable(),
+  p90: finite.nullable(),
+  p99: finite.nullable(),
+  max: finite.nullable(),
+}) satisfies z.ZodType<AlignmentWorkloadStats>;
 const pairedWorkloadStats = z
   .object({ measured: workloadStats, simulated: workloadStats })
   .transform((value) => Object.freeze(value));
@@ -1341,7 +1315,6 @@ const pairedWorkloadStats = z
 const workloadReportSchema = z.object({
   schema_version: z.literal(1),
   available: z.literal(true),
-  definitions: z.record(z.unknown()),
   metrics: z.object({
     prefill_tokens: pairedWorkloadStats,
     decode_batch_size: pairedWorkloadStats,
@@ -1354,10 +1327,7 @@ const workloadReportSchema = z.object({
  * Analyzer computed them from the same iterations the series plots. */
 export function parseAnalyzerV1AlignmentWorkloadReport(input: unknown): AlignmentWorkloadReport {
   const report = workloadReportSchema.parse(input);
-  return Object.freeze({
-    definitions: Object.freeze(flattenDefinitions(report.definitions)),
-    metrics: Object.freeze(report.metrics),
-  });
+  return Object.freeze({ metrics: Object.freeze(report.metrics) });
 }
 
 const cdfCurveSchema = z

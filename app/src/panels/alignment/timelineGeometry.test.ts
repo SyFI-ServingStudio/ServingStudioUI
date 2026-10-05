@@ -66,10 +66,7 @@ const iteration: AlignmentTimelineIteration = {
   host: null,
   // As the Analyzer states it; the lane quotes these rather than its own sums.
   referenceRank: {
-    deviceId: 0,
     spanMs: 4,
-    busyMs: 2,
-    idleMs: 2,
     idleFraction: 0.5,
     gapCount: 2,
     gaps: [
@@ -78,8 +75,8 @@ const iteration: AlignmentTimelineIteration = {
     ],
     interPhaseMs: 1,
     phases: [
-      { phase: 'preprocess', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
-      { phase: 'forward', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+      { phase: 'preprocess', busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+      { phase: 'forward', busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
     ],
   },
 };

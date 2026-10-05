@@ -88,8 +88,8 @@ export function widestForwardGap(rank: AlignmentReferenceRank): ForwardGap | nul
   if (widest === undefined) return null;
   return {
     gap: { startNs: widest.startNs, endNs: widest.startNs + widest.durationUs * 1e3 },
-    fromOperation: widest.after.operation,
-    toOperation: widest.before.operation,
+    fromOperation: widest.afterOperation,
+    toOperation: widest.beforeOperation,
   };
 }
 

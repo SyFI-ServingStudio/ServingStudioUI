@@ -36,9 +36,8 @@ const series: AlignmentWorkloadSeries = {
   },
 };
 
-const stats = { n: 2, mean: 1, p50: 1, p90: 1, p99: 1, max: 1 };
+const stats = { n: 2, p50: 1, p90: 1, p99: 1, max: 1 };
 const report: AlignmentWorkloadReport = {
-  definitions: {},
   metrics: {
     prefill_tokens: { measured: stats, simulated: stats },
     decode_batch_size: { measured: stats, simulated: stats },

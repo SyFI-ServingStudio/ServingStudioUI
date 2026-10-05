@@ -16,7 +16,6 @@ describe('parseAnalyzerV1AlignmentWorkloadReport', () => {
     const report = parseAnalyzerV1AlignmentWorkloadReport(reportJson);
     expect(report.metrics.decode_batch_size.measured).toEqual({
       n: 2040,
-      mean: reportJson.metrics.decode_batch_size.measured.mean,
       p50: 84,
       p90: 116,
       p99: 121,
@@ -31,7 +30,7 @@ describe('parseAnalyzerV1AlignmentWorkloadReport', () => {
   });
 
   it('reads a side that recorded no iteration as null statistics', () => {
-    const empty = { n: 0, mean: null, p50: null, p90: null, p99: null, max: null };
+    const empty = { n: 0, p50: null, p90: null, p99: null, max: null };
     const report = parseAnalyzerV1AlignmentWorkloadReport({
       ...reportJson,
       metrics: {

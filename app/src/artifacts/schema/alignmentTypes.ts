@@ -555,25 +555,19 @@ export interface AlignmentTimelineIteration {
   readonly referenceRank: AlignmentReferenceRank;
 }
 
-/** What sits on one side of a reference-rank gap. */
-export interface AlignmentGapEdge {
-  readonly phase: string;
-  readonly operation: string | null;
-  readonly kernel: string;
-}
-
 /** One stretch of the reference rank with no kernel on it, capture-relative
  * like `gpuSpanNs`. */
 export interface AlignmentReferenceGap {
   readonly startNs: number;
   readonly durationUs: number;
-  readonly after: AlignmentGapEdge;
-  readonly before: AlignmentGapEdge;
+  /** The operation of the kernel that closed before the gap, and of the one
+   * that opened after it. Null where the labeler tied that kernel to none. */
+  readonly afterOperation: string | null;
+  readonly beforeOperation: string | null;
 }
 
 export interface AlignmentPhaseOccupancy {
   readonly phase: string;
-  readonly spanMs: number;
   readonly busyMs: number;
   readonly idleMs: number;
   /** Null when the phase has no span. */
@@ -590,10 +584,7 @@ export interface AlignmentTimeInterval {
 /** The Analyzer's occupancy of one iteration's reference rank: span, kernel
  * time and bubble, per phase and between phases. */
 export interface AlignmentReferenceRank {
-  readonly deviceId: number;
   readonly spanMs: number;
-  readonly busyMs: number;
-  readonly idleMs: number;
   readonly idleFraction: number | null;
   readonly gapCount: number;
   /** Every stretch of the span with no kernel on the rank, in span order,
@@ -630,7 +621,6 @@ export interface AlignmentWorkloadSeries {
  * statistic is null when the side recorded none. */
 export interface AlignmentWorkloadStats {
   readonly n: number;
-  readonly mean: number | null;
   readonly p50: number | null;
   readonly p90: number | null;
   readonly p99: number | null;
@@ -642,7 +632,6 @@ export type AlignmentWorkloadMetricField =
   'prefill_tokens' | 'decode_batch_size' | 'scheduled_kv_tokens' | 'iteration_cycle_ms';
 
 export interface AlignmentWorkloadReport {
-  readonly definitions: AlignmentDefinitions;
   readonly metrics: Readonly<
     Record<
       AlignmentWorkloadMetricField,

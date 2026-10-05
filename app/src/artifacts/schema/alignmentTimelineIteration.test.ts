@@ -7,13 +7,13 @@ describe('parseAnalyzerV1AlignmentTimelineIteration', () => {
   it('carries the Analyzer`s reference-rank occupancy for the wall-clock card', () => {
     const { referenceRank } = parseAnalyzerV1AlignmentTimelineIteration(timelineJson, 6);
     const wire = timelineJson.reference_rank;
-    expect(referenceRank).toMatchObject({
-      deviceId: 0,
+    expect(referenceRank).toEqual({
       spanMs: wire.span_ms,
-      busyMs: wire.busy_ms,
       idleFraction: wire.idle_fraction,
       gapCount: wire.gap_count,
       interPhaseMs: wire.inter_phase_ms,
+      gaps: expect.any(Array),
+      phases: expect.any(Array),
     });
     expect(referenceRank.gaps).toHaveLength(wire.gap_count);
     expect(referenceRank.gaps[0]).toEqual({
@@ -25,8 +25,15 @@ describe('parseAnalyzerV1AlignmentTimelineIteration', () => {
     expect(forward?.largestGaps[0]).toEqual({
       startNs: wireForward.largest_gaps[0].start_ns,
       durationUs: wireForward.largest_gaps[0].duration_us,
-      after: wireForward.largest_gaps[0].after,
-      before: wireForward.largest_gaps[0].before,
+      afterOperation: wireForward.largest_gaps[0].after.operation,
+      beforeOperation: wireForward.largest_gaps[0].before.operation,
+    });
+    expect(forward).toEqual({
+      phase: 'forward',
+      busyMs: wireForward.busy_ms,
+      idleMs: wireForward.idle_ms,
+      idleFraction: wireForward.idle_fraction,
+      largestGaps: expect.any(Array),
     });
   });
 

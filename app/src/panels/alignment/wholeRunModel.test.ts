@@ -132,9 +132,8 @@ describe('workloadCards', () => {
   // The Analyzer's report for the same iterations; the cards must quote
   // these, never a statistic of their own over the series.
   const stats = (n: number, p50: number, p90: number, p99: number, max: number) =>
-    ({ n, mean: p50, p50, p90, p99, max }) satisfies AlignmentWorkloadStats;
+    ({ n, p50, p90, p99, max }) satisfies AlignmentWorkloadStats;
   const report: AlignmentWorkloadReport = {
-    definitions: {},
     metrics: {
       decode_batch_size: {
         measured: stats(3, 4, 5.6, 5.96, 6),

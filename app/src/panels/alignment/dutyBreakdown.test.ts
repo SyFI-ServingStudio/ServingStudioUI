@@ -53,15 +53,10 @@ function iteration(
   };
 }
 
-const edge = (phase: string, operation: string | null) => ({ phase, operation, kernel: 'k' });
-
 // As the Analyzer reports a 10 ms span: preprocess 0-1 ms, forward 3-8 ms
 // with 4 ms of kernels, the rest host time between phases.
 const RANK: AlignmentReferenceRank = {
-  deviceId: 0,
   spanMs: 10,
-  busyMs: 5,
-  idleMs: 5,
   idleFraction: 0.5,
   gapCount: 3,
   gaps: [
@@ -71,10 +66,9 @@ const RANK: AlignmentReferenceRank = {
   ],
   interPhaseMs: 4,
   phases: [
-    { phase: 'preprocess', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+    { phase: 'preprocess', busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
     {
       phase: 'forward',
-      spanMs: 5,
       busyMs: 4,
       idleMs: 1,
       idleFraction: 0.2,
@@ -82,8 +76,8 @@ const RANK: AlignmentReferenceRank = {
         {
           startNs: 5 * NS_PER_MS,
           durationUs: 1000,
-          after: edge('forward', 'layer.kv_cache_append'),
-          before: edge('forward', 'layer.attention'),
+          afterOperation: 'layer.kv_cache_append',
+          beforeOperation: 'layer.attention',
         },
       ],
     },
