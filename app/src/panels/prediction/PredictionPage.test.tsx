@@ -20,6 +20,7 @@ vi.mock('../../artifacts', async (importOriginal) => ({
 }));
 
 import type { Location } from '../../location';
+import { CatalogReachableProvider } from '../CatalogReachable';
 import { PredictionPage } from './PredictionPage';
 
 const LOCATION: Extract<Location, { view: 'result' }> = {
@@ -84,6 +85,43 @@ describe('PredictionPage Location selection', () => {
       );
     });
     expect([...fixture.reads.keys()]).toEqual(['predictionDescriptor', 'predictionCases']);
+  });
+
+  it('names the prediction as an embedding page does, or not at all', () => {
+    fixture.reads.set('predictionDescriptor', {
+      status: 'ready',
+      schemaVersion: 1,
+      revision: 'r1',
+      value: {
+        predictionId: 'p_one',
+        // A directory a service named by an id.
+        displayName: '056df2eb6c1e4b4c9b1a3f0e2d7c8a91',
+        selector: 'iter',
+        archType: 'llama',
+        gpu: { name: 'H100', count: 8 },
+        caseCount: 0,
+        lifecycle: { prediction: 'complete', analysis: 'complete' },
+        kernelInputDistributionAvailable: false,
+      },
+    });
+    fixture.reads.set('predictionCases', {
+      status: 'ready',
+      schemaVersion: 1,
+      revision: 'r1',
+      value: { predictionId: 'p_one', offset: 0, total: 0, cases: [] },
+    });
+    const page = (access: { reachable: boolean; name?: string }) => (
+      <CatalogReachableProvider value={access}>
+        <PredictionPage location={LOCATION} navigate={vi.fn()} />
+      </CatalogReachableProvider>
+    );
+
+    const { rerender } = render(page({ reachable: false }));
+    expect(screen.getByText('Timing prediction')).toBeVisible();
+    expect(screen.queryByText('056df2eb6c1e4b4c9b1a3f0e2d7c8a91')).toBeNull();
+
+    rerender(page({ reachable: false, name: 'Llama 3.1 8B, tp_size 1' }));
+    expect(screen.getByText('Llama 3.1 8B, tp_size 1')).toBeVisible();
   });
 
   it('derives the requested page from a replacement Location', () => {
