@@ -175,7 +175,7 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   高度展开，第二轨在 480px 到 723px 之间吃掉剩余空间；超高 viewport 不继续拉长工作面，矮屏则
   保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
   左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
-  不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。CostTree 的 browser-expanded 模式
+  不得闪动；CostTree header 最低 45px，放不下时（手机宽度，或 legend 列出全部 DOC family 的窄 frame）换行变高，canvas 填满剩余 frame。CostTree 的 browser-expanded 模式
   是该高度合同的显式例外：frame 使用 fixed viewport 填满 `100dvh`，保留浏览器 chrome，锁定页面
   滚动，并允许按钮或 `Escape` 恢复原工作台布局；进入和退出时各重新 fit 一次 canvas。
 - Worker 的 Iteration 模式只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
