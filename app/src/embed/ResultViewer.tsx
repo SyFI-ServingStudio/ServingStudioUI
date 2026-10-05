@@ -65,8 +65,8 @@ export interface ResultViewerProps {
   /** The Analyzer catalog's id of the result. */
   readonly id: string;
   /**
-   * The result's name, when the embedding page has one: the header and the
-   * result's headline show it. Without one they name the result by no id.
+   * The result's name, when the embedding page has one: the result page's
+   * heading shows it. Without one the page shows no name rather than the id.
    */
   readonly displayName?: string;
   /** Answers every Analyzer URL the pages read. */
