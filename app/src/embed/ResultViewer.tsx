@@ -8,11 +8,10 @@
  * need the application's servers.
  *
  * It fills its element's height, and renders into whatever root its element
- * is attached to. In a shadow root,
- * as the Intro site mounts it, the page's styles stay out and the viewer's
- * stay in: emotion writes its styles there, portals open inside the viewer,
- * and the global CssBaseline rules apply to the viewer's root only. Two
- * things remain the page's:
+ * is attached to. In a shadow root, as the Intro site mounts it, the page's
+ * styles stay out and the viewer's stay in: emotion writes its styles there,
+ * portals open inside the viewer, and the global CssBaseline rules apply to
+ * the viewer's root only. Two things remain the page's:
  *
  * - the Geist faces, since a shadow root does not load `@font-face` (the Intro
  *   site declares them);

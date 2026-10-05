@@ -1,10 +1,14 @@
 /**
- * Route assembly: read the `Location`, render what it names.
+ * The application around one address: read the `Location` and frame what it
+ * names in the shell.
  *
- * This file assembles and nothing else — no analysis, no fetching, and no
- * knowledge of any particular panel. A result address is resolved against the
- * registry and the layout (`resolve.ts`), and each panel arrives as its own
- * chunk. Adding a panel therefore does not change this file.
+ * The result itself is `ResultMain`'s (`ResultPage.tsx`), which resolves the
+ * address against the registry and the layout (`resolve.ts`) and loads each
+ * panel as its own chunk, so adding a panel does not change this file. What
+ * this file owns is the frame: the shell's title and metadata, from the
+ * result's catalog entry; the Agent beside the page and the context it is
+ * handed (for a sweep, from its analysis); and opening the evidence an Agent
+ * answer cites.
  */
 import { Alert, Container, Stack, Typography } from '@mui/material';
 import {

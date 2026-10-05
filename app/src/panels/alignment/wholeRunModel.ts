@@ -12,12 +12,12 @@ import { fmtFixed, fmtLatencyMs, fmtPctPrecise, fmtRounded } from './format';
 /**
  * §05 — the whole run, reduced to the numbers each card states.
  *
- * Everything arithmetic on this section lives here: deltas, the time fold
- * behind every scheduler figure, and the axis tick choice. Percentiles are the
+ * Everything arithmetic on this section lives here: deltas, the scheduler
+ * series' points and axis range, and the axis tick choice. Percentiles are the
  * Analyzer's: the latency cards read its CDF markers and the scheduler cards
- * its workload report. The
- * components below read these structures and place them; they compute nothing,
- * so a number can only be wrong in one file.
+ * its workload report. The cards (`WholeRunCard.tsx`, `wholeRunCards.tsx`)
+ * read these structures and place them; they compute nothing, so a number can
+ * only be wrong in one file.
  *
  * Two rules the analyzer imposes and this module keeps:
  *

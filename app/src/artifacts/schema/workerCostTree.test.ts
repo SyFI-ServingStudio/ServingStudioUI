@@ -55,7 +55,6 @@ function body() {
       segments: [
         { position: 'ffn.gemm', kind: 'single_gemm', kernel_time_ms: 1.5, share_pct: 100 },
       ],
-      kinds: [{ kind: 'single_gemm', kernel_time_ms: 1.5, share_pct: 100, positions: 1 }],
     },
   };
 }
