@@ -18,6 +18,7 @@ import {
   type RawSumNode,
   type ExactLeafStats,
   type JsonValue,
+  type KernelComposition,
 } from '../artifacts';
 
 export { CostTreeValidationError } from '../artifacts';
@@ -402,4 +403,14 @@ export function leafByName(root: CostNode, name: string): LeafNode | null {
   }
   walk(root);
   return found;
+}
+
+/**
+ * A leaf's share of the tree root's wall clock: the Analyzer's `time_share`
+ * segment for the leaf's position, after Scale and Max critical-path
+ * attribution. Leaves that share a position name share its segment rather than
+ * split it, and a position the composition omits contributed no time.
+ */
+export function leafSharePct(timeShare: KernelComposition, leaf: LeafNode): number {
+  return timeShare.segments.find((segment) => segment.position === leaf.slot.name)?.sharePct ?? 0;
 }

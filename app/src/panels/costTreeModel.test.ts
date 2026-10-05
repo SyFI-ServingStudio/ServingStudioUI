@@ -6,6 +6,7 @@ import {
   leaf,
   leafById,
   leafByName,
+  leafSharePct,
   max,
   nodeById,
   nodeByOrdinalPath,
@@ -232,5 +233,26 @@ describe('CostTree malformed boundaries', () => {
     cyclic.children.push(cyclic);
 
     expect(() => annotate(cyclic)).toThrow(/cyclic node references/);
+  });
+});
+
+describe('leafSharePct', () => {
+  const timeShare = {
+    kernelTimeMs: 4,
+    segments: [{ position: 'root.a', kind: 'single_gemm', kernelTimeMs: 3, sharePct: 75 }],
+  };
+
+  it('reads the Analyzer segment for the leaf position, not the leaf’s own fraction', () => {
+    const tree = annotate(
+      sum('root', leaf('root.a', 'single_gemm', {}, 1), leaf('root.b', 'rms_norm', {}, 3)),
+    );
+    expect(leafSharePct(timeShare, leafByName(tree, 'root.a')!)).toBe(75);
+  });
+
+  it('is zero for a position the composition omits', () => {
+    const tree = annotate(
+      sum('root', leaf('root.a', 'single_gemm', {}, 1), leaf('root.b', 'rms_norm', {}, 3)),
+    );
+    expect(leafSharePct(timeShare, leafByName(tree, 'root.b')!)).toBe(0);
   });
 });

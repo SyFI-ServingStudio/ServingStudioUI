@@ -9,7 +9,6 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
@@ -111,10 +110,6 @@ export default function CostTreeCanvas({
   fillFrame = false,
 }: CostTreeCanvasProps) {
   const kinds = useKernelKinds();
-  const timeShareByPosition = useMemo(
-    () => new Map(timeShare.segments.map((segment) => [segment.position, segment])),
-    [timeShare],
-  );
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const transformRef = useRef<ViewTransform>({
@@ -397,7 +392,7 @@ export default function CostTreeCanvas({
       >
         <CostTreeNode
           node={tree}
-          timeShareByPosition={timeShareByPosition}
+          timeShare={timeShare}
           kinds={kinds}
           selId={selectedLeafId}
           parSel={selectedParallelId}

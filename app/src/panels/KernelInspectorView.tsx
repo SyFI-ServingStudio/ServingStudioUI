@@ -4,7 +4,7 @@ import { Fragment, type ReactNode } from 'react';
 
 import type { KernelComposition } from '../artifacts';
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import { fmtMs, fmtPct, type LeafNode } from './costTreeModel';
+import { fmtMs, fmtPct, leafSharePct, type LeafNode } from './costTreeModel';
 import { kindColor, kindTitle, useKernelKinds } from './kernelTaxonomy';
 import { tokens } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
@@ -305,12 +305,7 @@ export function KernelInspectorView({
       >
         <DetailGroup title="Overview">
           <Item label="cost / call" value={fmtMs(node.ms)} teal />
-          <Item
-            label="time share"
-            value={fmtPct(
-              timeShare.segments.find((segment) => segment.position === slot.name)?.sharePct ?? 0,
-            )}
-          />
+          <Item label="time share" value={fmtPct(leafSharePct(timeShare, node))} />
           <Item label="slot" value={slot.name} />
           <Item label="kind" value={slot.kind} />
           <Item label="backend" value={slot.backend ?? 'not recorded'} />
