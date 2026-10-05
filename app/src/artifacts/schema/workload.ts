@@ -38,7 +38,7 @@ const schema = z
     request_count: z.number().int().nonnegative().safe(),
     average_input_tokens: finiteNonNegative,
     average_output_tokens: finiteNonNegative,
-    arrival_basis: z.enum(['effective_open_loop', 'effective_trace_timed', 'source_trace']),
+    arrival_basis: z.enum(['effective_open_loop', 'effective_trace_timed']),
     request_rate: finiteNonNegative,
     token_lengths: boundedSeries,
     input_density: boundedSeries,

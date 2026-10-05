@@ -2316,7 +2316,7 @@ export interface RunWorkload {
   readonly requestCount: number;
   readonly averageInputTokens: number;
   readonly averageOutputTokens: number;
-  readonly arrivalBasis: 'effective_open_loop' | 'effective_trace_timed' | 'source_trace';
+  readonly arrivalBasis: 'effective_open_loop' | 'effective_trace_timed';
   readonly requestRate: number;
   readonly tokenLengths: readonly number[];
   readonly inputDensity: readonly number[];
