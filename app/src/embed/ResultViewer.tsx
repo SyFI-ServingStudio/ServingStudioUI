@@ -2,10 +2,10 @@
  * One result's pages, embedded in another page.
  *
  * The page that embeds it (the Intro site's "Read more") owns the result and
- * answers the Analyzer's URLs itself: `transport` serves the result's
- * workspace and every other read. What renders is the application's own
- * result page (`app/ResultPage.tsx`) for the same `Location`, without the
- * shell, the catalog or the Agent, which need the application's servers.
+ * answers the Analyzer's URLs itself: `transport` answers every read. What
+ * renders is the application's own result page (`app/ResultPage.tsx`) for
+ * the same `Location`, without the shell, the catalog or the Agent, which
+ * need the application's servers.
  *
  * It fills its element's height, and renders into whatever root its element
  * is attached to. In a shadow root,
@@ -41,14 +41,14 @@ import { ThemeProvider } from '@mui/material/styles';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { catalogRef, setFallbackTransport, useArtifacts, type Transport } from '../artifacts';
 import {
-  catalogRef,
-  registerWorkspaceTransport,
-  setFallbackTransport,
-  useArtifacts,
-  type Transport,
-} from '../artifacts';
-import { EMPTY_FOCUS, useLocation, type Location, type WorkspaceId } from '../location';
+  defaultWorkspace,
+  EMPTY_FOCUS,
+  useLocation,
+  type Location,
+  type WorkspaceId,
+} from '../location';
 import { chartFocusResetKey } from '../app/chartFocusKey';
 import { commit } from '../app/commit';
 import { createQueryClient } from '../app/queryClient';
@@ -64,7 +64,11 @@ export interface ResultViewerProps {
   readonly kind: 'run' | 'prediction';
   /** The Analyzer catalog's id of the result. */
   readonly id: string;
-  /** The workspace the result's catalog names (default `w_browser`). */
+  /**
+   * The workspace the Analyzer names the result in, which a run's descriptor
+   * is checked against. Without one, the result is in the workspace of an
+   * address that names none (`defaultWorkspace`).
+   */
   readonly workspace?: WorkspaceId;
   /**
    * The result's name, when the embedding page has one: the header shows it
@@ -114,7 +118,7 @@ function styleRoot(element: HTMLElement): Node {
 function Viewer({
   kind,
   id,
-  workspace = 'w_browser',
+  workspace = defaultWorkspace(),
   displayName,
   transport,
   onClose,
@@ -124,17 +128,14 @@ function Viewer({
   useEffect(() => {
     // Before any panel reads: effects run child first, so the reads must not
     // mount until the transport is in place.
-    const releases = [
-      registerWorkspaceTransport(workspace, transport),
-      setFallbackTransport(transport),
-    ];
+    const release = setFallbackTransport(transport);
     const root = document.documentElement;
     const fontSize = root.style.fontSize;
     root.style.fontSize = `${metrics.fontScale * 100}%`;
     commit(resultAt(kind, id, workspace), 'push');
     setReady(true);
     return () => {
-      for (const release of releases) release();
+      release();
       root.style.fontSize = fontSize;
       if (window.location.hash !== '') {
         window.history.replaceState(null, '', window.location.pathname + window.location.search);

@@ -6,34 +6,13 @@
  * before the first render — which is what lets a panel be the direct target of
  * a URL rather than something only reachable after a parent has fetched.
  */
-import { useQueries, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useQueries, useQuery, type UseQueryOptions } from '@tanstack/react-query';
 
 import { fetchArtifact } from './client';
 import { artifactKey, type ArtifactRef, type ArtifactValue } from './ref';
 import type { ArtifactResult } from './result';
 
 const PENDING: ArtifactResult<never> = { status: 'pending' };
-
-/**
- * Forget a workspace's catalogs, for a page that changed which results the
- * workspace holds (this browser's, after it makes or deletes one). Catalogs
- * are otherwise cached for good: a server's list changes only across visits.
- */
-export function useForgetCatalogs(): (workspace: string) => Promise<void> {
-  const client = useQueryClient();
-  return useCallback(
-    (workspace: string) =>
-      client.invalidateQueries({
-        predicate: ({ queryKey }) => {
-          if (queryKey[0] !== 'artifact' || typeof queryKey[1] !== 'string') return false;
-          const [kind, owner] = JSON.parse(queryKey[1]) as unknown[];
-          return kind === 'catalog' && owner === workspace;
-        },
-      }),
-    [client],
-  );
-}
 
 /**
  * React Query options for one ref.

@@ -5,7 +5,7 @@ import summaryJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/s
 import sloGeneralJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/payloads/slo_general_cdf.json';
 import { ResultViewer } from './ResultViewer';
 
-const ID = 'run_browser_1';
+const ID = 'r_embedded';
 
 function mount() {
   const host = document.createElement('div');
@@ -136,7 +136,7 @@ describe('ResultViewer', () => {
     });
     await waitFor(() => expect(window.location.hash).not.toBe(''));
     act(() => {
-      window.history.pushState(null, '', '#/chat/new?w=w_browser');
+      window.history.pushState(null, '', '#/chat/new?w=w_main');
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     await waitFor(() =>
