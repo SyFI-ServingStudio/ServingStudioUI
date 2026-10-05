@@ -375,6 +375,7 @@ function ReadyTree({
       {selectedNode !== null && (
         <KernelInspectorView
           node={selectedNode}
+          timeShare={detail.timeShare}
           height={WORKER_WORKBENCH_HEIGHT}
           closeLabel={`Back to worker ${detail.worker.poolTag}/${detail.worker.workerId}`}
           onClose={returnToWorker}

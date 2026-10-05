@@ -590,6 +590,7 @@ function SelectedPrediction({
         {selectedLeaf !== null ? (
           <KernelInspectorView
             node={selectedLeaf}
+            timeShare={costTree.value.timeShare}
             height={COST_TREE_FRAME_HEIGHT}
             closeLabel="Close selected prediction kernel"
             onClose={() => updateSelection({ leafId: null })}

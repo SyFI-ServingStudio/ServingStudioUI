@@ -2,6 +2,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
+import type { KernelComposition } from '../artifacts';
 import SurfaceCard from '../ui/controls/SurfaceCard';
 import { fmtMs, fmtPct, type LeafNode } from './costTreeModel';
 import { kindColor, kindTitle, useKernelKinds } from './kernelTaxonomy';
@@ -210,11 +211,15 @@ function inputFields(node: LeafNode): readonly DisplayField[] {
 
 export function KernelInspectorView({
   node,
+  timeShare,
   height,
   closeLabel,
   onClose,
 }: {
   node: LeafNode;
+  /** The Analyzer's critical-path composition served with the tree; the
+   * leaf's share is read from it, as the leaf card reads it. */
+  timeShare: KernelComposition;
   height: number | string;
   closeLabel: string;
   onClose: () => void;
@@ -300,7 +305,12 @@ export function KernelInspectorView({
       >
         <DetailGroup title="Overview">
           <Item label="cost / call" value={fmtMs(node.ms)} teal />
-          <Item label="share of tree root" value={fmtPct(node.pct)} />
+          <Item
+            label="time share"
+            value={fmtPct(
+              timeShare.segments.find((segment) => segment.position === slot.name)?.sharePct ?? 0,
+            )}
+          />
           <Item label="slot" value={slot.name} />
           <Item label="kind" value={slot.kind} />
           <Item label="backend" value={slot.backend ?? 'not recorded'} />
