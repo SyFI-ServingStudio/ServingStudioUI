@@ -50,14 +50,16 @@ export const ECHARTS_THEME = {
     axisLabel: { color: CHART_THEME.sub },
     splitLine: { lineStyle: { color: CHART_THEME.split, type: 'dashed' } },
   },
+  // A value or log axis drops a label that would overlap its neighbour rather
+  // than print them over each other, which is what a phone-width card does.
   valueAxis: {
     axisLine: { lineStyle: { color: CHART_THEME.axis } },
-    axisLabel: { color: CHART_THEME.sub },
+    axisLabel: { color: CHART_THEME.sub, hideOverlap: true },
     splitLine: { lineStyle: { color: CHART_THEME.split, type: 'dashed' } },
   },
   logAxis: {
     axisLine: { lineStyle: { color: CHART_THEME.axis } },
-    axisLabel: { color: CHART_THEME.sub },
+    axisLabel: { color: CHART_THEME.sub, hideOverlap: true },
     splitLine: { lineStyle: { color: CHART_THEME.split, type: 'dashed' } },
   },
 };

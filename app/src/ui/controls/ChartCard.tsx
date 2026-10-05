@@ -118,11 +118,13 @@ function ChartCardContent({
           <OpenInFullIcon sx={{ fontSize: 15 }} />
         </IconButton>
       )}
+      {/* On a phone the title takes the row and the controls and sub line go
+          under it; side by side, the title would wrap one word per line. */}
       <Stack
-        direction={{ xs: controls ? 'column' : 'row', sm: 'row' }}
-        alignItems={{ xs: controls ? 'flex-start' : 'baseline', sm: 'baseline' }}
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'baseline' }}
         justifyContent="space-between"
-        spacing={{ xs: controls ? 0.75 : 1, sm: 1 }}
+        spacing={{ xs: 0.75, sm: 1 }}
         sx={{ mb: 1, pr: 3.5 }}
       >
         <Typography
@@ -169,8 +171,8 @@ function ChartCardContent({
                 fontFamily: tokens.body,
                 fontSize: 12,
                 color: tokens.sub,
-                textAlign: 'right',
-                whiteSpace: 'nowrap',
+                textAlign: { xs: 'left', sm: 'right' },
+                whiteSpace: { xs: 'normal', sm: 'nowrap' },
               }}
             >
               {sub}

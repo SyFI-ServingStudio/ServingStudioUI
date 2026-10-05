@@ -120,6 +120,9 @@ export function optimalityStackOption(
     textStyle: { fontFamily: t.font, color: t.text },
     grid: chartGrid({ left: 12, right: 22, top: 30, bottom: 30, containLabel: true }),
     legend: {
+      // One row that pages when it does not fit: wrapped, the legend runs
+      // into the bars below it on a narrow card.
+      type: 'scroll',
       top: 0,
       right: 0,
       textStyle: { color: t.sub, fontSize: chartFont(11) },
@@ -279,6 +282,9 @@ function separatedPrimaryRowOption(
       { left: 12, right: 22, top: 156, bottom: 42, containLabel: true },
     ],
     legend: {
+      // One row that pages when it does not fit: wrapped, the legend runs
+      // into the bars below it on a narrow card.
+      type: 'scroll',
       top: 0,
       right: 0,
       textStyle: { color: t.sub, fontSize: chartFont(11) },

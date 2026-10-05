@@ -85,8 +85,12 @@ function Page({
                 key={row.map((spec) => spec.id).join('|')}
                 sx={{
                   display: 'grid',
+                  // minmax(0, …): a track no narrower than its content would
+                  // hold the page at its widest panel's min-content width.
                   gridTemplateColumns:
-                    row.length > 1 ? { xs: '1fr', md: `repeat(${row.length},1fr)` } : '1fr',
+                    row.length > 1
+                      ? { xs: 'minmax(0,1fr)', md: `repeat(${row.length},minmax(0,1fr))` }
+                      : 'minmax(0,1fr)',
                   gap: 2,
                 }}
               >

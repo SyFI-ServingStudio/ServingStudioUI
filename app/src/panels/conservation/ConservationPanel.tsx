@@ -124,11 +124,20 @@ export function RunConservationPanel({ location }: PanelProps) {
                 {style.label}
               </Box>
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.ink }}>
+                {/* Check names are long snake_case words; break them rather
+                    than let them run under the figures on a phone. */}
+                <Typography
+                  sx={{
+                    fontFamily: tokens.body,
+                    fontSize: 12,
+                    color: tokens.ink,
+                    overflowWrap: 'anywhere',
+                  }}
+                >
                   {row.name}
                 </Typography>
               </Box>
-              <Box sx={{ textAlign: 'right', minWidth: 88 }}>
+              <Box sx={{ textAlign: 'right', minWidth: 88, flexShrink: 0 }}>
                 <Typography
                   sx={{
                     fontFamily: tokens.body,

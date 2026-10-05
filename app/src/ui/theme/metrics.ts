@@ -9,4 +9,10 @@ export const metrics = {
 // to rem lets the root reading scale apply consistently, including breakpoints.
 export const fontRem = (size: number): string => `${size / 16}rem`;
 export const chartFont = (size: number): number => size * metrics.fontScale;
-export const pageLayout = { width: metrics.pageWidth, minWidth: 0, mx: 'auto' } as const;
+// A page's column: 80% of the window, except on a phone, where a 16px gutter
+// each side leaves the content the width it needs.
+export const pageLayout = {
+  width: { xs: 'calc(100% - 32px)', sm: metrics.pageWidth },
+  minWidth: 0,
+  mx: 'auto',
+} as const;

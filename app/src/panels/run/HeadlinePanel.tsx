@@ -236,7 +236,9 @@ function RunIdentity({ displayName }: { readonly displayName: string | undefined
             fontSize: 15,
             fontWeight: 600,
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            // On a phone the stat row sits below rather than beside the name,
+            // so the name has the width to wrap instead of losing its tail.
+            whiteSpace: { xs: 'normal', md: 'nowrap' },
           }}
         >
           {displayName}

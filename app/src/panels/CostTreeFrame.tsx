@@ -63,15 +63,19 @@ export function CostTreeFrame({
         flexDirection: 'column',
       }}
     >
+      {/* The header is one 45px row when it fits; where it does not (a phone,
+          or a narrow frame with every DOC family in the legend) it wraps onto
+          more rows and the canvas, which fills the frame, gives up the height. */}
       <Stack
         data-testid="cost-tree-header"
         direction="row"
         alignItems="center"
-        flexWrap="nowrap"
+        flexWrap="wrap"
         useFlexGap
         sx={{
-          gap: 1.2,
-          height: COST_TREE_HEADER_HEIGHT,
+          gap: '6px 12px',
+          minHeight: COST_TREE_HEADER_HEIGHT,
+          flexShrink: 0,
           boxSizing: 'border-box',
           p: '9px 13px',
           overflow: 'hidden',
@@ -122,9 +126,9 @@ export function CostTreeFrame({
         <Stack
           direction="row"
           alignItems="center"
-          flexWrap="nowrap"
+          flexWrap="wrap"
           useFlexGap
-          sx={{ gap: '3px 9px', ml: 'auto', flexShrink: 0 }}
+          sx={{ gap: '3px 9px', ml: 'auto', minWidth: 0 }}
         >
           {kinds.categories.map((family) => (
             <Box
