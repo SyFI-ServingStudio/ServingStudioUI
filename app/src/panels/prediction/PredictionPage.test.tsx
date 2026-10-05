@@ -12,7 +12,10 @@ vi.mock('../../artifacts', async (importOriginal) => ({
   ...(await importOriginal<typeof Artifacts>()),
   useArtifact: (ref: { kind: string; offset?: number }) => {
     fixture.refs.push(ref);
-    return fixture.reads.get(`${ref.kind}:${ref.offset ?? ''}`) ?? fixture.reads.get(ref.kind);
+    return (
+      fixture.reads.get(`${ref.kind}:${ref.offset ?? ''}`) ??
+      fixture.reads.get(ref.kind) ?? { status: 'pending' }
+    );
   },
 }));
 

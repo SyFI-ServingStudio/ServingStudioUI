@@ -595,6 +595,18 @@ export interface KernelMeasurementSummaryRef {
   readonly result: CurrentOfflineResult<'kernelMeasurement'>;
 }
 
+/** The kernel kinds' DOC titles and categories; one read for the whole app. */
+export interface KernelKindsRef {
+  readonly kind: 'kernelKinds';
+}
+
+/** How each kernel kind's DOC names it and which category (family) holds it. */
+export interface KernelKinds {
+  /** The DOC categories, in the order the kernel library lists them. */
+  readonly categories: readonly string[];
+  readonly kinds: Readonly<Record<string, { readonly title: string; readonly category: string }>>;
+}
+
 /** Hardware metadata is selected by the descriptor rather than a result id. */
 export interface HardwareGpuRef {
   readonly kind: 'hardwareGpu';
@@ -688,6 +700,7 @@ export type ArtifactRef =
   | KernelMeasurementDescriptorRef
   | KernelMeasurementSummaryRef
   | HardwareGpuRef
+  | KernelKindsRef
   | AlignmentDescriptorRef
   | AlignmentIterationReportRef
   | AlignmentIterationSeriesRef
@@ -868,6 +881,8 @@ export function artifactKey(ref: ArtifactRef): string {
       return JSON.stringify(['kernel-measurement-summary', ...resultParts(ref.result)]);
     case 'hardwareGpu':
       return JSON.stringify(['hardware-gpu', ref.name]);
+    case 'kernelKinds':
+      return JSON.stringify(['kernel-kinds']);
   }
 }
 
@@ -1233,6 +1248,10 @@ export function hardwareGpuRef(name: string): HardwareGpuRef {
   return { kind: 'hardwareGpu', name };
 }
 
+export function kernelKindsRef(): KernelKindsRef {
+  return { kind: 'kernelKinds' };
+}
+
 /** The value a ref reads to. Declared here so `useArtifact` infers it from the
  * ref alone and a panel never restates the type of what it asked for. */
 export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
@@ -1333,9 +1352,11 @@ export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
                                                                                                 ? KernelMeasurementSummary
                                                                                                 : R extends HardwareGpuRef
                                                                                                   ? HardwareGpu
-                                                                                                  : R extends AlignmentWorkloadReportRef
-                                                                                                    ? AlignmentWorkloadReport
-                                                                                                    : never;
+                                                                                                  : R extends KernelKindsRef
+                                                                                                    ? KernelKinds
+                                                                                                    : R extends AlignmentWorkloadReportRef
+                                                                                                      ? AlignmentWorkloadReport
+                                                                                                      : never;
 
 /**
  * One population at one scope: how many requests were in it, on average and at

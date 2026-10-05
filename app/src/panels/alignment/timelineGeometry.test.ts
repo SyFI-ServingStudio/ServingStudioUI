@@ -4,7 +4,8 @@ import type {
   AlignmentCostNode,
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
+import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
+import { colors } from '../../ui/theme';
 import {
   continuousScene,
   measuredLane,
@@ -87,7 +88,8 @@ const slots = [
 const familyPalette: LanePalette = {
   operationColors: {},
   operationTypes: { 'layer.qkv_projection': 'gemm' },
-  unmappedColor: GROUP.misc.color,
+  unmappedColor: colors.other,
+  kernelKinds: TEST_KERNEL_KINDS,
 };
 
 describe('measuredLane', () => {

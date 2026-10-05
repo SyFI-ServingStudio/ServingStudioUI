@@ -10,6 +10,7 @@ import type {
 } from '../../artifacts/schema/alignmentTypes';
 import type { ResultRef } from '../../location';
 import { tokens, withAlpha } from '../../ui/theme';
+import { useKernelKinds } from '../kernelTaxonomy';
 import { spanOf, type AxisSpan } from './axisZoom';
 import {
   dutySegments,
@@ -96,6 +97,7 @@ export default function WallClockCard({
 
   const referenceDeviceId = index.meta.referenceDeviceId;
   const referenceRank = iteration?.referenceRank ?? null;
+  const kernelKinds = useKernelKinds();
   const palette = useMemo(
     () => ({
       operationColors: operationColors(index.operations),
@@ -103,8 +105,9 @@ export default function WallClockCard({
         index.operations.map((entry) => [entry.operation, entry.type]),
       ),
       unmappedColor,
+      kernelKinds,
     }),
-    [index.operations],
+    [index.operations, kernelKinds],
   );
 
   const sceneInputs = useMemo<readonly ContinuousSceneInput[]>(() => {

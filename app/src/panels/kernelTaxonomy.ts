@@ -1,46 +1,50 @@
 /**
- * What kinds of kernel there are, and which family each belongs to.
+ * How a kernel kind is named and which family holds it: what each kind's DOC
+ * declares (`title`, `category`), read once from the Analyzer
+ * (`GET /api/analyzer/v1/kernel-kinds`).
  *
- * One table, imported by both the cost tree and the kernel-time panels. It
- * lives outside either because it is a fact about the simulator's kernel
- * vocabulary rather than about any view of it — and because two copies of a
- * colour-and-label table drift silently: the same kernel would be blue in one
- * chart and grey in another, and nothing would fail.
- *
- * An unrecognized kind is `misc` rather than an error. The Analyzer's kernel
- * vocabulary grows independently of this build, and a run that uses a new
- * kernel should still render — grouped honestly as "Other" rather than
- * refusing to draw.
+ * The UI keeps no table of kinds. A family is a DOC category; only its colour
+ * is decided here, because that is presentation. A kind the read does not name
+ * — the read is still pending or failed, or the kind has no DOC — is shown
+ * under its own name in the `Other` family rather than refusing to draw.
  */
+import { kernelKindsRef, useArtifact, type KernelKinds } from '../artifacts';
 import { colors } from '../ui/theme';
 
-export const KIND: Readonly<Record<string, { readonly group: string; readonly label: string }>> = {
-  single_gemm: { group: 'gemm', label: 'GEMM' },
-  grouped_gemm: { group: 'gemm', label: 'Grouped GEMM' },
-  flashinfer_attn_prefill: { group: 'attn', label: 'Attn · prefill' },
-  flashinfer_attn_decode: { group: 'attn', label: 'Attn · decode' },
-  kv_cache_append: { group: 'attn', label: 'KV append' },
-  rms_norm: { group: 'norm', label: 'RMSNorm' },
-  elementwise: { group: 'norm', label: 'Elementwise' },
-  all_reduce: { group: 'comm', label: 'AllReduce' },
-  p2p_intra: { group: 'comm', label: 'P2P · intra-NVL' },
-  p2p_inter: { group: 'comm', label: 'P2P · inter-NVL' },
-  moe_router: { group: 'route', label: 'MoE router' },
+export type { KernelKinds } from '../artifacts';
+
+/** The family of a kind the DOCs do not name; also a DOC category. */
+export const OTHER_FAMILY = 'Other';
+
+export const NO_KERNEL_KINDS: KernelKinds = Object.freeze({ categories: [], kinds: {} });
+
+/** The DOC categories' colours. These serve as both rails on light cards and
+ * filled time-share blocks carrying white labels, so each must clear AA in both
+ * contexts. A category without one draws as `Other`. */
+const FAMILY_COLOR: Readonly<Record<string, string>> = {
+  GEMM: colors.gemm,
+  Attention: colors.attention,
+  MoE: colors.routing,
+  Communication: colors.collective,
+  Normalization: colors.normalization,
+  Quantization: colors.quantization,
+  [OTHER_FAMILY]: colors.other,
 };
 
-export const GROUP: Readonly<Record<string, { readonly label: string; readonly color: string }>> = {
-  // These colors serve as both rails on light cards and filled time-share
-  // blocks carrying white labels, so each must clear AA in both contexts.
-  gemm: { label: 'Dense GEMM', color: colors.gemm },
-  attn: { label: 'Attention', color: colors.attention },
-  comm: { label: 'Collectives', color: colors.collective },
-  norm: { label: 'Norm / EW', color: colors.normalization },
-  route: { label: 'Routing', color: colors.routing },
-  misc: { label: 'Other', color: colors.other },
-};
+/** Every family colour, for a palette that must not repeat a kernel family's hue. */
+export const FAMILY_COLORS: readonly string[] = Object.values(FAMILY_COLOR);
 
-export const GROUP_ORDER = ['gemm', 'attn', 'comm', 'norm', 'route', 'misc'] as const;
+export const familyOf = (kinds: KernelKinds, kind: string): string =>
+  kinds.kinds[kind]?.category ?? OTHER_FAMILY;
+export const familyColor = (family: string): string =>
+  FAMILY_COLOR[family] ?? FAMILY_COLOR[OTHER_FAMILY];
+export const kindColor = (kinds: KernelKinds, kind: string): string =>
+  familyColor(familyOf(kinds, kind));
+export const kindTitle = (kinds: KernelKinds, kind: string): string =>
+  kinds.kinds[kind]?.title ?? kind;
 
-export const groupOf = (kind: string): string => KIND[kind]?.group ?? 'misc';
-export const colorOf = (kind: string): string => GROUP[groupOf(kind)].color;
-export const kindLabel = (kind: string): string => KIND[kind]?.label ?? kind;
+/** The DOCs' kinds, or none while the read is pending or failed. */
+export function useKernelKinds(): KernelKinds {
+  const result = useArtifact(kernelKindsRef());
+  return result.status === 'ready' ? result.value : NO_KERNEL_KINDS;
+}

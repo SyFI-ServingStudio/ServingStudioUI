@@ -3,8 +3,7 @@ import type {
   AlignmentIterationSeries,
   AlignmentPairedIteration,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
-import { tokens } from '../../ui/theme';
+import { colors, tokens } from '../../ui/theme';
 import {
   clampViewport,
   fullViewport,
@@ -39,7 +38,7 @@ import { fmtInt } from './format';
  * the measured lane is the same quantity §03 draws in family colour, and a
  * private palette here would make the two cards incomparable. */
 export const PAIRED_SERIES_COLOR = {
-  measured: GROUP.gemm.color,
+  measured: colors.gemm,
   modelled: tokens.terra,
   relative: tokens.sub,
   cumulative: tokens.olive,

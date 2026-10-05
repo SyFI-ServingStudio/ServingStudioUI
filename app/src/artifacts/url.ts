@@ -236,5 +236,7 @@ export function artifactUrl(ref: ArtifactRef): string {
       return `${resultPath(ref.result)}/subjects/summary/report`;
     case 'hardwareGpu':
       return `${API_BASE}hardware/gpus?name=${encodeURIComponent(ref.name)}`;
+    case 'kernelKinds':
+      return `${API_BASE}kernel-kinds`;
   }
 }

@@ -147,11 +147,6 @@ export function scale(label: string | undefined, n: number, child: RawCostNode):
   });
 }
 
-// ---- kernel-kind taxonomy --------------------------------------------------
-// Re-exported, not restated: the table is shared with the rebuilt kernel-time
-// panels, and two copies of a colour-and-label map drift without failing.
-export { KIND, GROUP, GROUP_ORDER, groupOf, colorOf, kindLabel } from './kernelTaxonomy';
-
 // ---- cost validation and immutable annotation -----------------------------
 function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, number>): number {
   let nodeCost: number;

@@ -12,8 +12,7 @@ import type {
   AlignmentCdfComparison,
   AlignmentThroughputSeries,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
-import { tokens } from '../../ui/theme';
+import { colors, tokens } from '../../ui/theme';
 import { fmtFigureTick, fmtPct, fmtQuantity } from './format';
 import { niceStep, niceTicks, type WorkloadCardModel } from './wholeRunModel';
 
@@ -31,7 +30,7 @@ import { niceStep, niceTicks, type WorkloadCardModel } from './wholeRunModel';
  * measured and modelled are recognised by hue alone on every card.
  */
 
-const MEASURED_COLOR = GROUP.gemm.color;
+const MEASURED_COLOR = colors.gemm;
 const MODELLED_COLOR = tokens.terra;
 
 export const LANE_COLORS = { measured: MEASURED_COLOR, modelled: MODELLED_COLOR } as const;

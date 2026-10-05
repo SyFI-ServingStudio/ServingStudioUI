@@ -81,6 +81,7 @@ import {
 } from './schema/offlineResource';
 
 import { IncompatibleCatalogError, parseCatalog } from './schema/catalog';
+import { KERNEL_KINDS_SCHEMA_VERSION, parseKernelKinds } from './schema/kernelKinds';
 import {
   IncompatibleKernelTimeShareError,
   KERNEL_TIME_SHARE_SCHEMA_VERSION,
@@ -507,6 +508,12 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
         revision: responseRevision(headers),
       };
     }
+    case 'kernelKinds':
+      return {
+        value: parseKernelKinds(body),
+        schemaVersion: KERNEL_KINDS_SCHEMA_VERSION,
+        revision: responseRevision(headers),
+      };
     case 'hardwareGpu': {
       const value = parseHardwareGpu(body);
       if (value.requested !== ref.name) {

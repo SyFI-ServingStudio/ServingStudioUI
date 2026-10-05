@@ -5,8 +5,7 @@ import type {
   AlignmentSequence,
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
-import { measuredKernelFamily } from './kernelFamily';
+import { measuredKernelColor } from './kernelFamily';
 import { rotatingOperationColors } from './operationSplitPalette';
 
 /**
@@ -120,7 +119,7 @@ const shortSequenceId = (sequenceId: string): string =>
   sequenceId.replace('sequence_', '').slice(0, 8);
 
 const familyColor = (category: string, operationType: string | null): string =>
-  GROUP[measuredKernelFamily(category, operationType)].color;
+  measuredKernelColor(category, operationType);
 
 /** Program positions are keyed `sequence_id:expanded_ordinal`. The fold means
  * one board row stands for `repeat` of them, laid out body after body, so the

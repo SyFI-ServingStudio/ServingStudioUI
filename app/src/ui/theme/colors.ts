@@ -51,6 +51,7 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     collective: dim(p.red),
     normalization: dim(p.amber),
     routing: dim(p.violet),
+    quantization: dim(mixColor(p.violet, p.red, 0.5)),
     other: p.muted,
     hardwareOptimal: p.green,
     hardwareGap: p.blue,

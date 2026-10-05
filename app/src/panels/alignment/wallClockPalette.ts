@@ -1,5 +1,4 @@
-import { GROUP, type GROUP_ORDER } from '../costTreeModel';
-import { tokens } from '../../ui/theme';
+import { colors, tokens } from '../../ui/theme';
 import { rotatingOperationColors } from './operationSplitPalette';
 
 /**
@@ -9,7 +8,7 @@ import { rotatingOperationColors } from './operationSplitPalette';
  * operations, three iteration types, seven classes of host call, three NVTX
  * nesting depths — and inventing hex for them would fork the page's colour
  * language away from the rest of the app. So each family here is a *derivation*
- * of `GROUP` or `tokens`: operations use the shared rotating alignment operation
+ * of the kernel-family colours or `tokens`: operations use the shared rotating alignment operation
  * palette, host classes take an ordered slice of the section tokens, and
  * nesting depth is one token at three weights.
  */
@@ -70,7 +69,7 @@ export const unmappedColor = shade(tokens.sub2, 0.35);
 /** The five parts the span decomposes into, in span order. `forward` is named
  * apart from the other phases because it is the one the model prices. */
 export const DUTY_SEGMENT_COLORS: Readonly<Record<string, string>> = {
-  forwardBusy: GROUP.attn.color,
+  forwardBusy: colors.attention,
   forwardIdle: tokens.terra,
   otherBusy: shade(tokens.sub2, 0.22),
   otherIdle: shade(tokens.terra, 0.42),
@@ -114,5 +113,3 @@ export function phaseBandColor(phaseIndex: number): string {
 /** Wash behind an empty host lane, so "the scheduler did nothing here" reads as
  * an answer rather than as a missing row. */
 export const laneBandColor = withAlpha(tokens.hair, 0.55);
-
-export type KernelFamily = (typeof GROUP_ORDER)[number];

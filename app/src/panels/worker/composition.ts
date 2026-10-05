@@ -18,11 +18,11 @@ import type {
 } from '../../artifacts';
 import { KERNEL_TIME_EPSILON_MS } from '../../artifacts/schema/kernelTimeShare';
 import { familyShares, percentOf, type KernelFamilyShare } from '../kernelFamilies';
-import { GROUP, groupOf, kindLabel } from '../kernelTaxonomy';
+import { familyColor, familyOf, kindTitle, type KernelKinds } from '../kernelTaxonomy';
 
 export interface CompositionSlice {
   readonly position: string;
-  /** The kernel kind's display name, not its wire spelling. */
+  /** The kernel kind's DOC title, not its wire spelling. */
   readonly kind: string;
   readonly family: string;
   readonly label: string;
@@ -86,6 +86,7 @@ export function projectWorkerComposition(
   share: KernelTimeShare,
   worker: WorkerCoordinate,
   composition: WorkerKernelComposition | undefined,
+  kinds: KernelKinds,
 ): WorkerCompositionProjection {
   const indexed = indexEntry(share, worker);
   if (indexed === undefined) {
@@ -101,20 +102,20 @@ export function projectWorkerComposition(
   const totalMs = composition.kernelTimeMs;
   // Kept as the wire spells them, because the family totals below are summed
   // from `kind` and a slice carries the kind's *display name* instead. Grouping
-  // the display names put every family in "Other" — silently, since `groupOf`
+  // the titles put every family in "Other" — silently, since `familyOf`
   // answers for any string.
   const kept = composition.segments.filter(
     (segment) => segment.kernelTimeMs > KERNEL_TIME_EPSILON_MS,
   );
   const slices = kept
     .map((segment): CompositionSlice => {
-      const family = groupOf(segment.kind);
+      const family = familyOf(kinds, segment.kind);
       return {
         position: segment.position,
-        kind: kindLabel(segment.kind),
+        kind: kindTitle(kinds, segment.kind),
         family,
-        label: GROUP[family].label,
-        color: GROUP[family].color,
+        label: family,
+        color: familyColor(family),
         kernelTimeMs: segment.kernelTimeMs,
         // Recomputed rather than taken from the wire, so that every percentage
         // on this panel is this projection's own ratio of the times beside it.
@@ -131,10 +132,10 @@ export function projectWorkerComposition(
   const resultTimeMs = share.overall.kernelTimeMs;
   const overallByFamily = new Map<string, number>();
   for (const segment of share.overall.segments) {
-    const family = groupOf(segment.kind);
+    const family = familyOf(kinds, segment.kind);
     overallByFamily.set(family, (overallByFamily.get(family) ?? 0) + segment.kernelTimeMs);
   }
-  const families = [...familyShares(kept, totalMs)].sort(
+  const families = [...familyShares(kept, totalMs, kinds)].sort(
     (left, right) =>
       (overallByFamily.get(right.family) ?? 0) - (overallByFamily.get(left.family) ?? 0) ||
       left.family.localeCompare(right.family),

@@ -3,7 +3,17 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf, sum } from './costTreeModel';
+import type * as Taxonomy from './kernelTaxonomy';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
+
+// The DOC vocabulary is one Analyzer read; these views are tested on what it says.
+vi.mock('./kernelTaxonomy', async (importOriginal) => {
+  const kernelKinds = await import('../test/kernelKinds');
+  return {
+    ...(await importOriginal<typeof Taxonomy>()),
+    useKernelKinds: () => kernelKinds.TEST_KERNEL_KINDS,
+  };
+});
 
 const controls = {
   zoomIn: 'Zoom in test tree',

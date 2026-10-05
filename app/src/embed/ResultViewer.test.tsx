@@ -92,8 +92,10 @@ describe('ResultViewer', () => {
     const view = within(container);
     expect(await view.findByText('Llama 3 8B, tp_size 1')).toBeTruthy();
     await waitFor(() => expect(read).toHaveBeenCalled());
+    // Besides the prediction's own routes, only the kernel kinds' DOC names,
+    // which the embedding page forwards too.
     for (const [url] of read.mock.calls)
-      expect(url).toMatch(/^\/api\/analyzer\/v1\/predictions\/p_1\//);
+      expect(url).toMatch(/^\/api\/analyzer\/v1\/(predictions\/p_1\/|kernel-kinds$)/);
   });
 
   it("names a run's headline as the page does, reading only the run's routes", async () => {
@@ -114,7 +116,9 @@ describe('ResultViewer', () => {
     expect(within(headline).queryByText(ID)).toBeNull();
     const urls = read.mock.calls.map(([url]) => url);
     expect(urls.length).toBeGreaterThan(0);
-    for (const url of urls) expect(url).toMatch(new RegExp(`^/api/analyzer/v1/runs/${ID}/`));
+    for (const url of urls) {
+      expect(url).toMatch(new RegExp(`^/api/analyzer/v1/(runs/${ID}/|kernel-kinds$)`));
+    }
   });
 
   it('offers no way to the catalog, which it does not show', async () => {

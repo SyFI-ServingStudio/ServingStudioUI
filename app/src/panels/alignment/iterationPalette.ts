@@ -1,5 +1,4 @@
-import { GROUP } from '../costTreeModel';
-import { tokens } from '../../ui/theme';
+import { colors, tokens } from '../../ui/theme';
 
 /**
  * Stable rotating colours for iteration categories.
@@ -11,12 +10,12 @@ import { tokens } from '../../ui/theme';
  */
 const ITERATION_TYPE_COLORS = [
   tokens.sectionAnalysis,
-  GROUP.norm.color,
+  colors.normalization,
   tokens.terra,
   tokens.violet,
   tokens.gold,
   tokens.teal,
-  GROUP.attn.color,
+  colors.attention,
 ] as const;
 
 export function iterationTypeOrder(iterationTypes: readonly string[]): readonly string[] {

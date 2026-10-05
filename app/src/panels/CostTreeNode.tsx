@@ -4,9 +4,7 @@ import type { SystemStyleObject } from '@mui/system';
 import type { MouseEvent, ReactNode } from 'react';
 
 import {
-  colorOf,
   costTreeDisplayLabel,
-  kindLabel,
   fmtMs,
   fmtPct,
   type CostNode,
@@ -18,6 +16,7 @@ import {
 import type { KernelSegment } from '../artifacts';
 import { tokens, withAlpha, colors } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
+import { kindColor, kindTitle, useKernelKinds } from './kernelTaxonomy';
 import SelectionBoundary from './SelectionBoundary';
 
 const COMPUTE_RATE_SCALES = [
@@ -303,7 +302,8 @@ function LeafCard({
   density = 'default',
 }: NodeProps<LeafNode>) {
   const s = node.slot;
-  const color = colorOf(s.kind);
+  const kinds = useKernelKinds();
+  const color = kindColor(kinds, s.kind);
   const selected = selId === node.id;
   const compact = density === 'compact';
   const finalContributionPct = timeShareByPosition.get(s.name)?.sharePct ?? 0;
@@ -486,7 +486,7 @@ function LeafCard({
             color: tokens.ink,
           }}
         >
-          {kindLabel(s.kind)}
+          {kindTitle(kinds, s.kind)}
         </Typography>
         <Stack
           direction="row"

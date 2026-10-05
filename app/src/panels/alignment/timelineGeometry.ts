@@ -3,7 +3,7 @@ import type {
   AlignmentSimSlot,
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
-import { colorOf } from '../costTreeModel';
+import { kindColor, type KernelKinds } from '../kernelTaxonomy';
 import { isFullViewport, spanOf, type AxisSpan } from './axisZoom';
 import { forwardIdleFraction, referenceGaps } from './dutyBreakdown';
 import { fmtMs } from './format';
@@ -52,6 +52,8 @@ export interface LanePalette {
   readonly operationColors: Readonly<Record<string, string>>;
   readonly operationTypes: Readonly<Record<string, string>>;
   readonly unmappedColor: string;
+  /** The kind DOCs, by which a modelled slot without an operation colours. */
+  readonly kernelKinds: KernelKinds;
 }
 
 /** Reference-rank bars of the measured lane, in start order.
@@ -138,7 +140,8 @@ export function simulatedLane(
       label: slot.name,
       operation,
       color:
-        (operation === null ? undefined : palette.operationColors[operation]) ?? colorOf(slot.kind),
+        (operation === null ? undefined : palette.operationColors[operation]) ??
+        kindColor(palette.kernelKinds, slot.kind),
       phase: null,
       rowId: null,
       slotIndex,

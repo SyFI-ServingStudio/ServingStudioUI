@@ -3,7 +3,8 @@ import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import { colorOf, fmtMs, fmtPct, kindLabel, type LeafNode } from './costTreeModel';
+import { fmtMs, fmtPct, type LeafNode } from './costTreeModel';
+import { kindColor, kindTitle, useKernelKinds } from './kernelTaxonomy';
 import { tokens } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
 
@@ -219,7 +220,8 @@ export function KernelInspectorView({
   onClose: () => void;
 }) {
   const slot = node.slot;
-  const color = colorOf(slot.kind);
+  const kinds = useKernelKinds();
+  const color = kindColor(kinds, slot.kind);
   const decodedConfig = configFields(slot.kernelConfig);
   const decodedInput = inputFields(node);
   const flops = scaledQuantity(node.stats.flops, FLOP_SCALES);
@@ -270,7 +272,7 @@ export function KernelInspectorView({
           }}
         >
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', background: color }} />
-          {kindLabel(slot.kind)}
+          {kindTitle(kinds, slot.kind)}
         </Box>
         <IconButton
           aria-label={closeLabel}
