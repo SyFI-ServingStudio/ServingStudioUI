@@ -3,7 +3,7 @@ import SurfaceCard from '../ui/controls/SurfaceCard';
 import type { KernelComposition } from '../artifacts';
 import { fmtMs, fmtPct, leafByName, type CostTree } from './costTreeModel';
 import { familyShares } from './kernelFamilies';
-import { familyColor, familyOf, useKernelKinds } from './kernelTaxonomy';
+import { kindColor, useKernelKinds } from './kernelTaxonomy';
 import { tokens, withAlpha } from '../ui/theme';
 
 interface Seg {
@@ -204,7 +204,7 @@ export function TimeShareBlocksView({
       full: segment.position,
       pct: segment.sharePct,
       ms: segment.kernelTimeMs,
-      color: familyColor(familyOf(kinds, segment.kind)),
+      color: kindColor(kinds, segment.kind),
       foreground: tokens.paper,
       nodeId: node ? node.id : null,
     };

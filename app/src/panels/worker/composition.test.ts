@@ -81,7 +81,7 @@ describe('projectWorkerComposition', () => {
     expect(projection.value.families[0].sharePct).toBeCloseTo(80, 9);
   });
 
-  it('files an unrecognized kernel kind under Other rather than refusing to draw', () => {
+  it('files an unrecognized kernel kind as unclassified rather than refusing to draw', () => {
     // The Analyzer's kernel vocabulary grows independently of this build.
     const projection = projectWorkerComposition(
       share(),
@@ -97,7 +97,10 @@ describe('projectWorkerComposition', () => {
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
     expect(projection.value.families).toHaveLength(1);
-    expect(projection.value.families[0]).toMatchObject({ family: 'Other', label: 'Other' });
+    expect(projection.value.families[0]).toMatchObject({
+      family: 'Unclassified',
+      label: 'Unclassified',
+    });
     // The kind keeps its wire spelling when no DOC names it.
     expect(projection.value.slices[0].kind).toBe('not_a_known_kind');
   });

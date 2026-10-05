@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import SurfaceCard from '../ui/controls/SurfaceCard';
 import { fmtMs } from './costTreeModel';
-import { familyColor, OTHER_FAMILY, useKernelKinds } from './kernelTaxonomy';
+import { familyColor, useKernelKinds } from './kernelTaxonomy';
 import { tokens, withAlpha } from '../ui/theme';
 import { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
@@ -42,7 +42,7 @@ export function CostTreeFrame({
   browserExpanded = false,
   children,
 }: CostTreeFrameProps) {
-  const families = useKernelKinds().categories;
+  const kinds = useKernelKinds();
   const displayedIdentity =
     identity ??
     (worker === null
@@ -126,24 +126,22 @@ export function CostTreeFrame({
           useFlexGap
           sx={{ gap: '3px 9px', ml: 'auto', flexShrink: 0 }}
         >
-          {families
-            .filter((family) => family !== OTHER_FAMILY)
-            .map((family) => (
+          {kinds.categories.map((family) => (
+            <Box
+              key={family}
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 12 }}
+            >
               <Box
-                key={family}
-                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 12 }}
-              >
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 0.6,
-                    background: familyColor(family),
-                  }}
-                />
-                {family}
-              </Box>
-            ))}
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 0.6,
+                  background: familyColor(kinds, family),
+                }}
+              />
+              {family}
+            </Box>
+          ))}
         </Stack>
       </Stack>
       {children}

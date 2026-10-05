@@ -46,13 +46,27 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     sumSurface: wash(p.green),
     maxSurface: wash(p.amber),
     scaleSurface: wash(p.violet),
-    gemm: dim(p.blue),
-    attention: dim(p.green),
-    collective: dim(p.red),
-    normalization: dim(p.amber),
-    routing: dim(p.violet),
-    quantization: dim(mixColor(p.violet, p.red, 0.5)),
-    other: p.muted,
+    // Kernel families take these in the order the kind DOCs list their
+    // categories (panels/kernelTaxonomy.ts). Each serves as a rail on a light
+    // card and as a filled block under a white label, so each clears AA in
+    // both; a kind no category names draws as unclassified.
+    kernelFamilies: [
+      dim(p.blue),
+      dim(p.green),
+      dim(p.violet),
+      dim(p.red),
+      dim(p.amber),
+      dim(mixColor(p.violet, p.red, 0.5)),
+      p.muted,
+    ],
+    unclassifiedKernel: p.muted,
+    // An operation timeline's lanes rotate through their own hues.
+    operationLanes: [dim(p.blue), dim(p.green), dim(p.red), dim(p.amber), dim(p.violet), p.muted],
+    // Alignment roles: the measured series beside the modelled one, a
+    // forward phase's busy time, and the rotating iteration-type hues.
+    measuredSeries: dim(p.blue),
+    forwardBusy: dim(p.green),
+    iterationTypes: [p.blue, dim(p.amber), p.red, p.violet, p.amber, p.blue, dim(p.green)],
     hardwareOptimal: p.green,
     hardwareGap: p.blue,
     communication: p.red,

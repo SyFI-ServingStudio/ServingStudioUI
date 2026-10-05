@@ -59,7 +59,7 @@ function familiesFor(
     .sort(
       (left, right) => (overall[right] ?? 0) - (overall[left] ?? 0) || left.localeCompare(right),
     )
-    .map((group) => ({ group, label: group, color: familyColor(group) }));
+    .map((group) => ({ group, label: group, color: familyColor(kinds, group) }));
 }
 
 function ready(

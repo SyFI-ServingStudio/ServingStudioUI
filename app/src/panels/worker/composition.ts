@@ -102,7 +102,7 @@ export function projectWorkerComposition(
   const totalMs = composition.kernelTimeMs;
   // Kept as the wire spells them, because the family totals below are summed
   // from `kind` and a slice carries the kind's *display name* instead. Grouping
-  // the titles put every family in "Other" — silently, since `familyOf`
+  // the titles would make every family unclassified — silently, since `familyOf`
   // answers for any string.
   const kept = composition.segments.filter(
     (segment) => segment.kernelTimeMs > KERNEL_TIME_EPSILON_MS,
@@ -115,7 +115,7 @@ export function projectWorkerComposition(
         kind: kindTitle(kinds, segment.kind),
         family,
         label: family,
-        color: familyColor(family),
+        color: familyColor(kinds, family),
         kernelTimeMs: segment.kernelTimeMs,
         // Recomputed rather than taken from the wire, so that every percentage
         // on this panel is this projection's own ratio of the times beside it.

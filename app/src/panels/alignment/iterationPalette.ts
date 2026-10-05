@@ -1,4 +1,4 @@
-import { colors, tokens } from '../../ui/theme';
+import { colors } from '../../ui/theme';
 
 /**
  * Stable rotating colours for iteration categories.
@@ -8,15 +8,7 @@ import { colors, tokens } from '../../ui/theme';
  * newly introduced analyzer category receives the next colour instead of a
  * grey fallback or a guessed meaning.
  */
-const ITERATION_TYPE_COLORS = [
-  tokens.sectionAnalysis,
-  colors.normalization,
-  tokens.terra,
-  tokens.violet,
-  tokens.gold,
-  tokens.teal,
-  colors.attention,
-] as const;
+const ITERATION_TYPE_COLORS = colors.iterationTypes;
 
 export function iterationTypeOrder(iterationTypes: readonly string[]): readonly string[] {
   return [...new Set(iterationTypes)].sort((left, right) => left.localeCompare(right, 'en'));

@@ -54,7 +54,7 @@ export function familyShares(
     .map(([family, kernelTimeMs]) => ({
       family,
       label: family,
-      color: familyColor(family),
+      color: familyColor(kinds, family),
       kernelTimeMs,
       sharePct: percentOf(kernelTimeMs, totalMs),
     }))

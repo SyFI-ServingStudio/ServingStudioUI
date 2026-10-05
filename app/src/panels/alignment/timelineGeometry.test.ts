@@ -88,7 +88,7 @@ const slots = [
 const familyPalette: LanePalette = {
   operationColors: {},
   operationTypes: { 'layer.qkv_projection': 'gemm' },
-  unmappedColor: colors.other,
+  unmappedColor: colors.unclassifiedKernel,
   kernelKinds: TEST_KERNEL_KINDS,
 };
 

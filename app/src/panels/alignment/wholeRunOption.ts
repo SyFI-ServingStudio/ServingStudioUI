@@ -30,7 +30,7 @@ import { niceStep, niceTicks, type WorkloadCardModel } from './wholeRunModel';
  * measured and modelled are recognised by hue alone on every card.
  */
 
-const MEASURED_COLOR = colors.gemm;
+const MEASURED_COLOR = colors.measuredSeries;
 const MODELLED_COLOR = tokens.terra;
 
 export const LANE_COLORS = { measured: MEASURED_COLOR, modelled: MODELLED_COLOR } as const;

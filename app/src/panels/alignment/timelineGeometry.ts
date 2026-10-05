@@ -87,6 +87,7 @@ export function measuredLane(
         color:
           (kernel.operation === null ? undefined : palette.operationColors[kernel.operation]) ??
           measuredKernelColor(
+            palette.kernelKinds,
             kernel.category,
             kernel.operation === null ? null : palette.operationTypes[kernel.operation],
           ),

@@ -1,10 +1,10 @@
 import type { OperationSummary } from '../../artifacts';
-import { FAMILY_COLORS } from '../kernelTaxonomy';
+import { colors } from '../../ui/theme';
 
 export const OPERATION_DRAG_THRESHOLD_PX = 8;
 export const OPERATION_TRACK_HEIGHT_PX = 96;
 
-const OPERATION_COLORS = FAMILY_COLORS;
+const OPERATION_COLORS = colors.operationLanes;
 
 function stableHash(value: string): number {
   let hash = 2166136261;

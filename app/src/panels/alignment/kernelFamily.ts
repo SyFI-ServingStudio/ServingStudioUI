@@ -1,4 +1,4 @@
-import { familyColor } from '../kernelTaxonomy';
+import { familyColor, type KernelKinds } from '../kernelTaxonomy';
 
 /**
  * The analyzer's vocabulary for a measured kernel, translated into the kernel
@@ -12,7 +12,7 @@ import { familyColor } from '../kernelTaxonomy';
  * palette instead would have made the two lanes incomparable by colour, which
  * is the one thing the card is for.
  *
- * An unrecognized category falls to `Other`, as an undocumented kind does.
+ * An unrecognized category falls to the DOCs' `Other` category.
  */
 
 const MEASURED_CATEGORY_FAMILY: Readonly<Record<string, string>> = {
@@ -49,6 +49,10 @@ export function measuredKernelFamily(category: string, operationType?: string | 
   return MEASURED_CATEGORY_FAMILY[category] ?? 'Other';
 }
 
-export function measuredKernelColor(category: string, operationType?: string | null): string {
-  return familyColor(measuredKernelFamily(category, operationType));
+export function measuredKernelColor(
+  kinds: KernelKinds,
+  category: string,
+  operationType?: string | null,
+): string {
+  return familyColor(kinds, measuredKernelFamily(category, operationType));
 }

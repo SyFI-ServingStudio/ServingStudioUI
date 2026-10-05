@@ -32,13 +32,11 @@ import { fmtInt } from './format';
 
 // ---- palette --------------------------------------------------------------
 
-/** The one measured/modelled pair, plus the two derived series.
- *
- * Measured is the shared dense-GEMM blue rather than an alignment-only hue:
- * the measured lane is the same quantity §03 draws in family colour, and a
- * private palette here would make the two cards incomparable. */
+/** The one measured/modelled pair, plus the two derived series. Measured
+ * is the theme's measured-series role, as on the whole-run card, so the two
+ * cards' lanes are told apart by the same hue. */
 export const PAIRED_SERIES_COLOR = {
-  measured: colors.gemm,
+  measured: colors.measuredSeries,
   modelled: tokens.terra,
   relative: tokens.sub,
   cumulative: tokens.olive,

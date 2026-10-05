@@ -69,7 +69,7 @@ export const unmappedColor = shade(tokens.sub2, 0.35);
 /** The five parts the span decomposes into, in span order. `forward` is named
  * apart from the other phases because it is the one the model prices. */
 export const DUTY_SEGMENT_COLORS: Readonly<Record<string, string>> = {
-  forwardBusy: colors.attention,
+  forwardBusy: colors.forwardBusy,
   forwardIdle: tokens.terra,
   otherBusy: shade(tokens.sub2, 0.22),
   otherIdle: shade(tokens.terra, 0.42),

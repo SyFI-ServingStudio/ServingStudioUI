@@ -11,6 +11,7 @@ import type {
   AlignmentIterationSeries,
 } from '../../artifacts/schema/alignmentTypes';
 import { tokens } from '../../ui/theme';
+import { useKernelKinds } from '../kernelTaxonomy';
 import { fmtInt, fmtMs, fmtPct } from './format';
 import {
   barWidthPct,
@@ -127,12 +128,13 @@ export default function MappingBoardCard({
     });
     return details;
   }, [sequenceQueries, sequenceRequests]);
+  const kinds = useKernelKinds();
   const lanes = useMemo(
     () =>
       sequences === null || catalog === null
         ? null
-        : boardLanes(sequences, report, chosenByPhase, catalog, breakdown, sequenceDetails),
-    [sequences, report, chosenByPhase, catalog, breakdown, sequenceDetails],
+        : boardLanes(sequences, report, chosenByPhase, catalog, kinds, breakdown, sequenceDetails),
+    [sequences, report, chosenByPhase, catalog, kinds, breakdown, sequenceDetails],
   );
   const joins = useMemo(() => (lanes === null ? [] : boardJoins(lanes)), [lanes]);
   const highlight = useMemo(

@@ -5,6 +5,7 @@ import type {
   AlignmentSequence,
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
+import type { KernelKinds } from '../kernelTaxonomy';
 import { measuredKernelColor } from './kernelFamily';
 import { rotatingOperationColors } from './operationSplitPalette';
 
@@ -117,9 +118,6 @@ export interface BoardJoin {
 
 const shortSequenceId = (sequenceId: string): string =>
   sequenceId.replace('sequence_', '').slice(0, 8);
-
-const familyColor = (category: string, operationType: string | null): string =>
-  measuredKernelColor(category, operationType);
 
 /** Program positions are keyed `sequence_id:expanded_ordinal`. The fold means
  * one board row stands for `repeat` of them, laid out body after body, so the
@@ -400,6 +398,8 @@ export function boardLanes(
   report: AlignmentIterationReport,
   chosenByPhase: Readonly<Record<string, string>>,
   catalog: BoardSequenceCatalog,
+  /** The kind DOCs' categories, whose order colours an unmapped kernel's family. */
+  kinds: KernelKinds,
   /** Null keeps iteration-specific values empty; it never substitutes a
    * whole-capture average. */
   exampleBreakdown: AlignmentBreakdown | null,
@@ -454,7 +454,7 @@ export function boardLanes(
             color:
               mapped && label.operation !== undefined
                 ? operationColors[label.operation]
-                : familyColor(kernel.suggestedCategory, label.type ?? null),
+                : measuredKernelColor(kinds, kernel.suggestedCategory, label.type ?? null),
             ms: timing?.ms ?? null,
             timingNote:
               timing === null
@@ -502,7 +502,9 @@ export function boardLanes(
       claimed: pairedKernel !== undefined || owner !== undefined,
       color:
         pairedKernel?.color ??
-        (owner === undefined ? familyColor('other', null) : operationColors[owner.operation]),
+        (owner === undefined
+          ? measuredKernelColor(kinds, 'other', null)
+          : operationColors[owner.operation]),
       repeat: prediction?.multiplicity ?? null,
       ms: prediction?.unitMs ?? null,
       timingNote:
