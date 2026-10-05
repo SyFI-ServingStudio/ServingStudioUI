@@ -267,26 +267,8 @@ export function parsePredictionCostTree(
     });
   } catch (error) {
     throw new IncompatiblePredictionError(
-      [`tree: ${error instanceof Error ? error.message : String(error)}`],
+      [error instanceof Error ? error.message : String(error)],
       PREDICTION_SCHEMA_VERSION,
     );
   }
-}
-
-export const parseAnalyzerV1PredictionDescriptor = parsePredictionDescriptor;
-export const parseAnalyzerV1PredictionCases = parsePredictionCases;
-export function parseAnalyzerV1PredictionCostTree(
-  input: unknown,
-  expected: {
-    readonly predictionId: string;
-    readonly caseId: string;
-    readonly operationId: string;
-  },
-): PredictionCostTreeDetail {
-  return parsePredictionCostTree(input, {
-    kind: 'predictionCostTree',
-    result: { kind: 'prediction', id: expected.predictionId, workspace: 'w_compat' },
-    caseId: expected.caseId,
-    operationId: expected.operationId,
-  });
 }

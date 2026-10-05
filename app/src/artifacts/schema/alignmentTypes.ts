@@ -205,7 +205,6 @@ export interface AlignmentIterationReport {
  * when the labeler tied it to simulated slots. */
 export interface AlignmentSequenceKernel {
   readonly name: string;
-  readonly suggestedCategory: string;
   readonly label: {
     readonly status: string;
     readonly crossRank: string;
@@ -505,7 +504,6 @@ export type AlignmentKernelInterval =
 export interface AlignmentTimelineKernel {
   readonly nameId: number;
   readonly rowId: string;
-  readonly category: string;
   readonly phase: string;
   readonly operation: string | null;
   readonly synchronizing: boolean;
@@ -552,6 +550,48 @@ export interface AlignmentTimelineIteration {
     readonly nvtx: AlignmentHostLane;
     readonly api: AlignmentHostLane;
   } | null;
+  readonly referenceRank: AlignmentReferenceRank;
+}
+
+/** One stretch of the reference rank with no kernel on it, capture-relative
+ * like `gpuSpanNs`. */
+export interface AlignmentReferenceGap {
+  readonly startNs: number;
+  readonly durationUs: number;
+  /** The operation of the kernel that closed before the gap, and of the one
+   * that opened after it. Null where the labeler tied that kernel to none. */
+  readonly afterOperation: string | null;
+  readonly beforeOperation: string | null;
+}
+
+export interface AlignmentPhaseOccupancy {
+  readonly phase: string;
+  readonly busyMs: number;
+  readonly idleMs: number;
+  /** Null when the phase has no span. */
+  readonly idleFraction: number | null;
+  /** The widest gaps with both edges in this phase, widest first. */
+  readonly largestGaps: readonly AlignmentReferenceGap[];
+}
+
+export interface AlignmentTimeInterval {
+  readonly startNs: number;
+  readonly endNs: number;
+}
+
+/** The Analyzer's occupancy of one iteration's reference rank: span, kernel
+ * time and bubble, per phase and between phases. */
+export interface AlignmentReferenceRank {
+  readonly spanMs: number;
+  readonly idleFraction: number | null;
+  readonly gapCount: number;
+  /** Every stretch of the span with no kernel on the rank, in span order,
+   * capture-relative like `gpuSpanNs`. */
+  readonly gaps: readonly AlignmentTimeInterval[];
+  /** Span not covered by any phase: the GPU waiting on the host. */
+  readonly interPhaseMs: number;
+  /** In capture order. */
+  readonly phases: readonly AlignmentPhaseOccupancy[];
 }
 
 // ---- e2e half ------------------------------------------------------------
@@ -574,16 +614,28 @@ export interface AlignmentWorkloadSeries {
   readonly simulated: AlignmentWorkloadSide | null;
 }
 
+/** The Analyzer's summary of one side's per-iteration values for one field:
+ * linear-interpolated percentiles over the iterations it recorded. Every
+ * statistic is null when the side recorded none. */
+export interface AlignmentWorkloadStats {
+  readonly n: number;
+  readonly p50: number | null;
+  readonly p90: number | null;
+  readonly p99: number | null;
+  readonly max: number | null;
+}
+
+/** The scheduler fields the workload report summarises on both sides. */
+export type AlignmentWorkloadMetricField =
+  'prefill_tokens' | 'decode_batch_size' | 'scheduled_kv_tokens' | 'iteration_cycle_ms';
+
 export interface AlignmentWorkloadReport {
-  readonly available: boolean;
-  readonly definitions: AlignmentDefinitions;
-  readonly meta: Readonly<Record<string, unknown>>;
   readonly metrics: Readonly<
     Record<
-      string,
+      AlignmentWorkloadMetricField,
       {
-        readonly measured: AlignmentDistribution;
-        readonly simulated: AlignmentDistribution;
+        readonly measured: AlignmentWorkloadStats;
+        readonly simulated: AlignmentWorkloadStats;
       }
     >
   >;

@@ -20,6 +20,7 @@ import {
   parseWorkerOperationSeek,
   WORKER_OPERATION_SCHEMA_VERSION,
 } from './schema/operations';
+import { activeTransport } from './transport';
 import { sequenceUrl } from './url';
 export { OPERATION_BUFFER_SIZE, OPERATION_VIEWPORT_SIZE } from './schema/operations';
 import { OPERATION_BUFFER_SIZE, OPERATION_VIEWPORT_SIZE } from './schema/operations';
@@ -84,7 +85,7 @@ export async function fetchSequence<Q extends OperationSequenceRequest>(
   const url = sequenceUrl(ref, request);
   let response: Response;
   try {
-    response = await fetch(url, { signal, headers: { accept: 'application/json' } });
+    response = await activeTransport()(url, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
     return { status: 'failed', code: 'network', reason: messageOf(error) };

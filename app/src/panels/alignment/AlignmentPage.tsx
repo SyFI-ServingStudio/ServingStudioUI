@@ -10,12 +10,15 @@ import {
   alignmentIterationSeriesRef,
   alignmentTimelineIndexRef,
   alignmentTimelineIterationRef,
+  alignmentWorkloadReportRef,
   alignmentWorkloadSeriesRef,
   useArtifact,
   useArtifacts,
   type AlignmentBreakdownRef,
   type AlignmentTimelineIterationRef,
+  type ArtifactRef,
   type ArtifactResult,
+  type ArtifactValue,
 } from '../../artifacts';
 import { SurfaceAccentProvider } from '../../ui/controls/SurfaceCard';
 import type {
@@ -53,6 +56,17 @@ function queryOf<T>(result: ArtifactResult<T> | undefined) {
   };
 }
 
+/** One subject's reads, made only once the descriptor says it is ready; each
+ * is undefined (pending) until then. */
+function useSubjectReads<const Refs extends readonly ArtifactRef[]>(
+  ready: boolean,
+  refs: Refs,
+): { [K in keyof Refs]: ArtifactResult<ArtifactValue<Refs[K]>> | undefined } {
+  return useArtifacts(ready ? refs : []) as {
+    [K in keyof Refs]: ArtifactResult<ArtifactValue<Refs[K]>> | undefined;
+  };
+}
+
 export function AlignmentPage({ location, navigate }: PanelProps) {
   if (location.ref.kind !== 'alignment') return null;
   return (
@@ -81,19 +95,24 @@ function AlignmentContent({
   const hasDetail = (subject: AlignmentSubjectName) =>
     descriptor.data?.subjects[subject].hasIterationDetail === true;
 
-  const report = queryOf(
-    useArtifacts(subjectReady('iteration') ? [alignmentIterationReportRef(result)] : [])[0],
-  );
-  const series = queryOf(
-    useArtifacts(subjectReady('iteration') ? [alignmentIterationSeriesRef(result)] : [])[0],
-  );
-  const timeline = queryOf(
-    useArtifacts(subjectReady('timeline') ? [alignmentTimelineIndexRef(result)] : [])[0],
-  );
-  const workload = queryOf(
-    useArtifacts(subjectReady('workload') ? [alignmentWorkloadSeriesRef(result)] : [])[0],
-  );
-  const e2e = queryOf(useArtifacts(subjectReady('e2e') ? [alignmentE2eSeriesRef(result)] : [])[0]);
+  const [reportRead, seriesRead] = useSubjectReads(subjectReady('iteration'), [
+    alignmentIterationReportRef(result),
+    alignmentIterationSeriesRef(result),
+  ]);
+  const [timelineRead] = useSubjectReads(subjectReady('timeline'), [
+    alignmentTimelineIndexRef(result),
+  ]);
+  const [workloadRead, workloadReportRead] = useSubjectReads(subjectReady('workload'), [
+    alignmentWorkloadSeriesRef(result),
+    alignmentWorkloadReportRef(result),
+  ]);
+  const [e2eRead] = useSubjectReads(subjectReady('e2e'), [alignmentE2eSeriesRef(result)]);
+  const report = queryOf(reportRead);
+  const series = queryOf(seriesRead);
+  const timeline = queryOf(timelineRead);
+  const workload = queryOf(workloadRead);
+  const workloadReport = queryOf(workloadReportRead);
+  const e2e = queryOf(e2eRead);
 
   const timelineExists = subjectReady('timeline');
   const selectedIterationId = segmentOf(location.focus.path, 'iteration')?.id ?? null;
@@ -313,12 +332,19 @@ function AlignmentContent({
               descriptor={descriptor.data}
               subjects={[]}
               queries={[
-                ...(subjectReady('workload') ? [workload] : []),
+                ...(subjectReady('workload') ? [workload, workloadReport] : []),
                 ...(subjectReady('e2e') ? [e2e] : []),
               ]}
               height={320}
             >
-              <WholeRunCard e2e={e2e.data ?? null} workload={workload.data ?? null} />
+              <WholeRunCard
+                e2e={e2e.data ?? null}
+                workload={
+                  workload.data !== undefined && workloadReport.data !== undefined
+                    ? { series: workload.data, report: workloadReport.data }
+                    : null
+                }
+              />
             </SubjectBody>
           </Section>
         </SurfaceAccentProvider>

@@ -49,6 +49,7 @@ import {
   parseAnalyzerV1AlignmentSequence,
   parseAnalyzerV1AlignmentTimelineIndex,
   parseAnalyzerV1AlignmentTimelineIteration,
+  parseAnalyzerV1AlignmentWorkloadReport,
   parseAnalyzerV1AlignmentWorkloadSeries,
 } from './schema/alignment';
 
@@ -80,6 +81,7 @@ import {
 } from './schema/offlineResource';
 
 import { IncompatibleCatalogError, parseCatalog } from './schema/catalog';
+import { KERNEL_KINDS_SCHEMA_VERSION, parseKernelKinds } from './schema/kernelKinds';
 import {
   IncompatibleKernelTimeShareError,
   KERNEL_TIME_SHARE_SCHEMA_VERSION,
@@ -149,8 +151,9 @@ import {
   TOPOLOGY_SCHEMA_VERSION,
   parseTopology,
 } from './schema/topology';
-import type { ArtifactRef } from './ref';
+import type { ArtifactRef, RunDescriptorRef } from './ref';
 import type { ArtifactResult } from './result';
+import { activeTransport } from './transport';
 import { artifactUrl } from './url';
 
 /** What a successful decode yields, before it becomes a `ready` result. */
@@ -162,6 +165,29 @@ interface Decoded {
 
 function alignmentSchemaVersion(body: unknown): number {
   return z.object({ schema_version: z.number().int() }).parse(body).schema_version;
+}
+
+/** A run's descriptor, checked against `workspace` unless none is given. */
+function decodeRunDescriptor(
+  ref: RunDescriptorRef,
+  body: unknown,
+  headers: Headers,
+  workspace: string | undefined,
+): Decoded {
+  const descriptor = parseAnalyzerV1RunDescriptor(
+    body,
+    workspace === undefined ? undefined : { workspaceId: workspace, runId: ref.result.id },
+  );
+  if (workspace === undefined && descriptor.runId !== ref.result.id) {
+    throw new AnalyzerV1RunDescriptorIdentityError([
+      `run_id: expected ${JSON.stringify(ref.result.id)}, received ${JSON.stringify(descriptor.runId)}`,
+    ]);
+  }
+  return {
+    value: descriptor,
+    schemaVersion: descriptor.protocolVersion,
+    revision: responseRevision(headers, descriptor.analysis?.revision ?? ref.result.revision ?? ''),
+  };
 }
 
 /** Convert the validator notation used by HTTP into the bare revision token
@@ -225,6 +251,12 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
     case 'alignmentWorkloadSeries':
       return {
         value: parseAnalyzerV1AlignmentWorkloadSeries(body),
+        schemaVersion: 1,
+        revision: responseRevision(headers, ref.result.revision),
+      };
+    case 'alignmentWorkloadReport':
+      return {
+        value: parseAnalyzerV1AlignmentWorkloadReport(body),
         schemaVersion: 1,
         revision: responseRevision(headers, ref.result.revision),
       };
@@ -332,20 +364,8 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
         schemaVersion: CONCURRENCY_SCHEMA_VERSION,
         revision: responseRevision(headers, ref.result.revision),
       };
-    case 'runDescriptor': {
-      const descriptor = parseAnalyzerV1RunDescriptor(body, {
-        workspaceId: ref.result.workspace,
-        runId: ref.result.id,
-      });
-      return {
-        value: descriptor,
-        schemaVersion: descriptor.protocolVersion,
-        revision: responseRevision(
-          headers,
-          descriptor.analysis?.revision ?? ref.result.revision ?? '',
-        ),
-      };
-    }
+    case 'runDescriptor':
+      return decodeRunDescriptor(ref, body, headers, ref.result.workspace);
     case 'kernelInputDistribution':
       return {
         value: parseKernelInputDistribution(body),
@@ -499,6 +519,12 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
         revision: responseRevision(headers),
       };
     }
+    case 'kernelKinds':
+      return {
+        value: parseKernelKinds(body),
+        schemaVersion: KERNEL_KINDS_SCHEMA_VERSION,
+        revision: responseRevision(headers),
+      };
     case 'hardwareGpu': {
       const value = parseHardwareGpu(body);
       if (value.requested !== ref.name) {
@@ -576,14 +602,40 @@ async function artifactResultFromResponse(
  * panel would render is a lie about the server. React Query re-throws it and
  * discards the result, which is what should happen.
  */
-export async function fetchArtifact(
+export function fetchArtifact(
   ref: ArtifactRef,
   signal?: AbortSignal,
+): Promise<ArtifactResult<unknown>> {
+  return fetchDecoded(ref, (body, headers) => decode(ref, body, headers), signal);
+}
+
+/**
+ * Read a run's descriptor without checking its workspace, for a page that
+ * learns the run's workspace from it (the embedded viewer). The run id is
+ * still checked; the address does not depend on `ref`'s workspace. A ready
+ * result is what `fetchArtifact` returns for the ref in the workspace the
+ * descriptor names.
+ */
+export function fetchRunDescriptorInItsWorkspace(
+  ref: RunDescriptorRef,
+  signal?: AbortSignal,
+): Promise<ArtifactResult<unknown>> {
+  return fetchDecoded(
+    ref,
+    (body, headers) => decodeRunDescriptor(ref, body, headers, undefined),
+    signal,
+  );
+}
+
+async function fetchDecoded(
+  ref: ArtifactRef,
+  decodeBody: (body: unknown, headers: Headers) => Decoded,
+  signal: AbortSignal | undefined,
 ): Promise<ArtifactResult<unknown>> {
   const url = artifactUrl(ref);
   let response: Response;
   try {
-    response = await fetch(url, { signal, headers: { accept: 'application/json' } });
+    response = await activeTransport()(url, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
     return { status: 'failed', code: 'network', reason: messageOf(error) };
@@ -600,7 +652,7 @@ export async function fetchArtifact(
   }
 
   try {
-    const decoded = decode(ref, body, response.headers);
+    const decoded = decodeBody(body, response.headers);
     return {
       status: 'ready',
       value: decoded.value,

@@ -9,6 +9,7 @@ import type {
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
 import { tokens } from '../../ui/theme';
+import { unmappedColor } from './wallClockPalette';
 import {
   boardCoverage,
   boardJoins,
@@ -23,15 +24,11 @@ import {
   UNMAPPED_KERNEL_LABEL,
 } from './mappingBoardModel';
 
-function kernel(
-  name: string,
-  suggestedCategory: string,
-  label: AlignmentSequenceKernel['label'],
-): AlignmentSequenceKernel {
-  return { name, suggestedCategory, label };
+function kernel(name: string, label: AlignmentSequenceKernel['label']): AlignmentSequenceKernel {
+  return { name, label };
 }
 
-const QKV = kernel('nvjet', 'gemm_or_cutlass', {
+const QKV = kernel('nvjet', {
   status: 'mapped',
   crossRank: 'independent',
   operation: 'layer.qkv_projection',
@@ -39,7 +36,7 @@ const QKV = kernel('nvjet', 'gemm_or_cutlass', {
   type: 'gemm',
   simulatedSlots: ['unified.attn_block.qkv_proj'],
 });
-const FUSED = kernel('allreduce_fusion', 'multimem_all_reduce', {
+const FUSED = kernel('allreduce_fusion', {
   status: 'mapped',
   crossRank: 'synchronizing',
   operation: 'model.mlp_allreduce_and_norm_boundaries',
@@ -47,7 +44,7 @@ const FUSED = kernel('allreduce_fusion', 'multimem_all_reduce', {
   type: 'collective_norm',
   simulatedSlots: ['unified.mlp_block.tp_allreduce', 'unified.final_norm'],
 });
-const EMBED = kernel('embed', 'other', { status: 'unmapped', crossRank: 'independent' });
+const EMBED = kernel('embed', { status: 'unmapped', crossRank: 'independent' });
 
 /** Phase key order is the labeler's, which is the order the phases run in. */
 const sequences: AlignmentSequences = {
@@ -416,6 +413,7 @@ describe('boardLanes measured side', () => {
   it('names an unmapped position rather than leaving it blank', () => {
     expect(lanes.measured[0].operationLabel).toBe(UNMAPPED_KERNEL_LABEL);
     expect(lanes.measured[0].mapped).toBe(false);
+    expect(lanes.measured[0].color).toBe(unmappedColor);
     expect(lanes.measured[2].operationLabel).toBe('layer.qkv_projection');
   });
 

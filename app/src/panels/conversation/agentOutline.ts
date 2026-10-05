@@ -4,6 +4,7 @@ import type {
   ConversationTurnEvent,
 } from './agentTypes';
 import { conversationCards, type ConversationCard } from './agentTimeline';
+import { RESULT_TITLE } from '../resultTitle';
 
 /**
  * The progress rail's index of a conversation.
@@ -49,9 +50,9 @@ export interface OutlineGroup {
 const LABEL_LIMIT = 120;
 
 const managedResultLabels: Record<string, string> = {
-  timing_predict: 'Timing prediction',
-  kernel_profile: 'Kernel profile',
-  kernel_measure: 'Kernel measurement',
+  timing_predict: RESULT_TITLE.prediction,
+  kernel_profile: RESULT_TITLE.kernelProfile,
+  kernel_measure: RESULT_TITLE.kernelMeasurement,
 };
 
 /**

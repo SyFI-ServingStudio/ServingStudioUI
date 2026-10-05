@@ -10,15 +10,13 @@ const VALUE: WorkerComposition = {
   resultSharePct: 25,
   families: [
     {
-      family: 'attn',
-      label: 'Attention',
+      family: 'Attention',
       color: '#123456',
       kernelTimeMs: 8,
       sharePct: 80,
     },
     {
-      family: 'gemm',
-      label: 'Dense GEMM',
+      family: 'GEMM',
       color: '#654321',
       kernelTimeMs: 2,
       sharePct: 20,
@@ -28,8 +26,7 @@ const VALUE: WorkerComposition = {
     {
       position: 'attn.decode',
       kind: 'Attn · decode',
-      family: 'attn',
-      label: 'Attention',
+      family: 'Attention',
       color: '#123456',
       kernelTimeMs: 8,
       sharePct: 80,
@@ -37,8 +34,7 @@ const VALUE: WorkerComposition = {
     {
       position: 'ffn.gemm',
       kind: 'GEMM',
-      family: 'gemm',
-      label: 'Dense GEMM',
+      family: 'GEMM',
       color: '#654321',
       kernelTimeMs: 2,
       sharePct: 20,
@@ -59,7 +55,7 @@ describe('workerKernelPositionOption', () => {
     const series = option.series as SeriesOption[];
     expect(series.map((item) => item.name)).toEqual([
       'Attention',
-      'Dense GEMM',
+      'GEMM',
       'attn.decode',
       'ffn.gemm',
     ]);

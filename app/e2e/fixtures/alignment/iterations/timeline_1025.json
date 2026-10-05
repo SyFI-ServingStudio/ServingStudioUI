@@ -17267,6 +17267,1731 @@
       "simulated_occurrences": 33
     }
   ],
+  "reference_rank": {
+    "busy_ms": 10.869263,
+    "device_id": 0,
+    "gap_count": 350,
+    "gaps_ns": [
+      [
+        6136968632,
+        6136970040
+      ],
+      [
+        6136971320,
+        6136987544
+      ],
+      [
+        6136989848,
+        6137401047
+      ],
+      [
+        6137405815,
+        6137410487
+      ],
+      [
+        6137450775,
+        6137456439
+      ],
+      [
+        6137461495,
+        6137461879
+      ],
+      [
+        6137480343,
+        6137480727
+      ],
+      [
+        6137484119,
+        6137569847
+      ],
+      [
+        6137574871,
+        6137755767
+      ],
+      [
+        6137770455,
+        6137839607
+      ],
+      [
+        6137875351,
+        6137945335
+      ],
+      [
+        6137960407,
+        6137964855
+      ],
+      [
+        6138004535,
+        6138009623
+      ],
+      [
+        6138016919,
+        6138017079
+      ],
+      [
+        6138151831,
+        6138156055
+      ],
+      [
+        6138197206,
+        6138202262
+      ],
+      [
+        6138213141,
+        6138213142
+      ],
+      [
+        6138235574,
+        6138236886
+      ],
+      [
+        6138242006,
+        6138242998
+      ],
+      [
+        6138258198,
+        6138258614
+      ],
+      [
+        6138294582,
+        6138298486
+      ],
+      [
+        6138313462,
+        6138317782
+      ],
+      [
+        6138360342,
+        6138365398
+      ],
+      [
+        6138372854,
+        6138372982
+      ],
+      [
+        6138508150,
+        6138512470
+      ],
+      [
+        6138553974,
+        6138559126
+      ],
+      [
+        6138592822,
+        6138594070
+      ],
+      [
+        6138599062,
+        6138600150
+      ],
+      [
+        6138615510,
+        6138615766
+      ],
+      [
+        6138648150,
+        6138648374
+      ],
+      [
+        6138651926,
+        6138656534
+      ],
+      [
+        6138671286,
+        6138675670
+      ],
+      [
+        6138716310,
+        6138721366
+      ],
+      [
+        6138728662,
+        6138728758
+      ],
+      [
+        6138863093,
+        6138867446
+      ],
+      [
+        6138907862,
+        6138912886
+      ],
+      [
+        6138946550,
+        6138947830
+      ],
+      [
+        6138952918,
+        6138953942
+      ],
+      [
+        6138969334,
+        6138969718
+      ],
+      [
+        6139005494,
+        6139009910
+      ],
+      [
+        6139024982,
+        6139029366
+      ],
+      [
+        6139070198,
+        6139075318
+      ],
+      [
+        6139082486,
+        6139082582
+      ],
+      [
+        6139217557,
+        6139221941
+      ],
+      [
+        6139263221,
+        6139268245
+      ],
+      [
+        6139279221,
+        6139279253
+      ],
+      [
+        6139301717,
+        6139302997
+      ],
+      [
+        6139308053,
+        6139309173
+      ],
+      [
+        6139324437,
+        6139324917
+      ],
+      [
+        6139360597,
+        6139365045
+      ],
+      [
+        6139379957,
+        6139384245
+      ],
+      [
+        6139425333,
+        6139430453
+      ],
+      [
+        6139437685,
+        6139437813
+      ],
+      [
+        6139572437,
+        6139576821
+      ],
+      [
+        6139617749,
+        6139622645
+      ],
+      [
+        6139633365,
+        6139633397
+      ],
+      [
+        6139652404,
+        6139652405
+      ],
+      [
+        6139656021,
+        6139657301
+      ],
+      [
+        6139662965,
+        6139664245
+      ],
+      [
+        6139679285,
+        6139679637
+      ],
+      [
+        6139714901,
+        6139719413
+      ],
+      [
+        6139734165,
+        6139738549
+      ],
+      [
+        6139782549,
+        6139787509
+      ],
+      [
+        6139794933,
+        6139795029
+      ],
+      [
+        6139891189,
+        6139891221
+      ],
+      [
+        6139930101,
+        6139934549
+      ],
+      [
+        6139975029,
+        6139980149
+      ],
+      [
+        6140013461,
+        6140014677
+      ],
+      [
+        6140019765,
+        6140020789
+      ],
+      [
+        6140036308,
+        6140036564
+      ],
+      [
+        6140073268,
+        6140077812
+      ],
+      [
+        6140092692,
+        6140097044
+      ],
+      [
+        6140137268,
+        6140142228
+      ],
+      [
+        6140149556,
+        6140149652
+      ],
+      [
+        6140239667,
+        6140239668
+      ],
+      [
+        6140245684,
+        6140245716
+      ],
+      [
+        6140284948,
+        6140289012
+      ],
+      [
+        6140329588,
+        6140334484
+      ],
+      [
+        6140345172,
+        6140345236
+      ],
+      [
+        6140365011,
+        6140365012
+      ],
+      [
+        6140368468,
+        6140369716
+      ],
+      [
+        6140374804,
+        6140375860
+      ],
+      [
+        6140390964,
+        6140391348
+      ],
+      [
+        6140427220,
+        6140431828
+      ],
+      [
+        6140446676,
+        6140451252
+      ],
+      [
+        6140493076,
+        6140498132
+      ],
+      [
+        6140505428,
+        6140505524
+      ],
+      [
+        6140639828,
+        6140644116
+      ],
+      [
+        6140685428,
+        6140690388
+      ],
+      [
+        6140701428,
+        6140701460
+      ],
+      [
+        6140723828,
+        6140725044
+      ],
+      [
+        6140730324,
+        6140731412
+      ],
+      [
+        6140747028,
+        6140747316
+      ],
+      [
+        6140784116,
+        6140787604
+      ],
+      [
+        6140802452,
+        6140806772
+      ],
+      [
+        6140847252,
+        6140852276
+      ],
+      [
+        6140859540,
+        6140859668
+      ],
+      [
+        6140955122,
+        6140955123
+      ],
+      [
+        6140994002,
+        6140998163
+      ],
+      [
+        6141040051,
+        6141045011
+      ],
+      [
+        6141055858,
+        6141055859
+      ],
+      [
+        6141079059,
+        6141080307
+      ],
+      [
+        6141085555,
+        6141086675
+      ],
+      [
+        6141102515,
+        6141102867
+      ],
+      [
+        6141138355,
+        6141143027
+      ],
+      [
+        6141158003,
+        6141162515
+      ],
+      [
+        6141204179,
+        6141209171
+      ],
+      [
+        6141216467,
+        6141216563
+      ],
+      [
+        6141311795,
+        6141311827
+      ],
+      [
+        6141350770,
+        6141354995
+      ],
+      [
+        6141396467,
+        6141401459
+      ],
+      [
+        6141435219,
+        6141436499
+      ],
+      [
+        6141441459,
+        6141442611
+      ],
+      [
+        6141458003,
+        6141458227
+      ],
+      [
+        6141493971,
+        6141498515
+      ],
+      [
+        6141513395,
+        6141517907
+      ],
+      [
+        6141558515,
+        6141563443
+      ],
+      [
+        6141570643,
+        6141570771
+      ],
+      [
+        6141660658,
+        6141660659
+      ],
+      [
+        6141667155,
+        6141667187
+      ],
+      [
+        6141706163,
+        6141710611
+      ],
+      [
+        6141750643,
+        6141755635
+      ],
+      [
+        6141767602,
+        6141767603
+      ],
+      [
+        6141790195,
+        6141791507
+      ],
+      [
+        6141796691,
+        6141797843
+      ],
+      [
+        6141813299,
+        6141813683
+      ],
+      [
+        6141849715,
+        6141854258
+      ],
+      [
+        6141869202,
+        6141873490
+      ],
+      [
+        6141914578,
+        6141919602
+      ],
+      [
+        6141926962,
+        6141927058
+      ],
+      [
+        6142061906,
+        6142066162
+      ],
+      [
+        6142106610,
+        6142111474
+      ],
+      [
+        6142122417,
+        6142122418
+      ],
+      [
+        6142144946,
+        6142147218
+      ],
+      [
+        6142152242,
+        6142153362
+      ],
+      [
+        6142170066,
+        6142170386
+      ],
+      [
+        6142206674,
+        6142211058
+      ],
+      [
+        6142225938,
+        6142230418
+      ],
+      [
+        6142270770,
+        6142275794
+      ],
+      [
+        6142283122,
+        6142283218
+      ],
+      [
+        6142417586,
+        6142421970
+      ],
+      [
+        6142462770,
+        6142468018
+      ],
+      [
+        6142478801,
+        6142478802
+      ],
+      [
+        6142497809,
+        6142497810
+      ],
+      [
+        6142501234,
+        6142503602
+      ],
+      [
+        6142508818,
+        6142510930
+      ],
+      [
+        6142526322,
+        6142526642
+      ],
+      [
+        6142561554,
+        6142566162
+      ],
+      [
+        6142580946,
+        6142585522
+      ],
+      [
+        6142626546,
+        6142631538
+      ],
+      [
+        6142638770,
+        6142638866
+      ],
+      [
+        6142734066,
+        6142734098
+      ],
+      [
+        6142772880,
+        6142777265
+      ],
+      [
+        6142818001,
+        6142822993
+      ],
+      [
+        6142856657,
+        6142859089
+      ],
+      [
+        6142864241,
+        6142865233
+      ],
+      [
+        6142880113,
+        6142880465
+      ],
+      [
+        6142915857,
+        6142919473
+      ],
+      [
+        6142934257,
+        6142938577
+      ],
+      [
+        6142980369,
+        6142985457
+      ],
+      [
+        6142993009,
+        6142993105
+      ],
+      [
+        6143127825,
+        6143132113
+      ],
+      [
+        6143172657,
+        6143177457
+      ],
+      [
+        6143210961,
+        6143213393
+      ],
+      [
+        6143218417,
+        6143219505
+      ],
+      [
+        6143234417,
+        6143234833
+      ],
+      [
+        6143270225,
+        6143274737
+      ],
+      [
+        6143289617,
+        6143294257
+      ],
+      [
+        6143334705,
+        6143339729
+      ],
+      [
+        6143347089,
+        6143347185
+      ],
+      [
+        6143442801,
+        6143442833
+      ],
+      [
+        6143481585,
+        6143485905
+      ],
+      [
+        6143526481,
+        6143531281
+      ],
+      [
+        6143564625,
+        6143566961
+      ],
+      [
+        6143572177,
+        6143573329
+      ],
+      [
+        6143588497,
+        6143588785
+      ],
+      [
+        6143623921,
+        6143627601
+      ],
+      [
+        6143642545,
+        6143647185
+      ],
+      [
+        6143689168,
+        6143694256
+      ],
+      [
+        6143701680,
+        6143701776
+      ],
+      [
+        6143791343,
+        6143791344
+      ],
+      [
+        6143797424,
+        6143797456
+      ],
+      [
+        6143836336,
+        6143840688
+      ],
+      [
+        6143882000,
+        6143886896
+      ],
+      [
+        6143920272,
+        6143922736
+      ],
+      [
+        6143927856,
+        6143929008
+      ],
+      [
+        6143944240,
+        6143944528
+      ],
+      [
+        6143981328,
+        6143984976
+      ],
+      [
+        6143999952,
+        6144004496
+      ],
+      [
+        6144044720,
+        6144049808
+      ],
+      [
+        6144057072,
+        6144057104
+      ],
+      [
+        6144191760,
+        6144195920
+      ],
+      [
+        6144235696,
+        6144240656
+      ],
+      [
+        6144274864,
+        6144277136
+      ],
+      [
+        6144282192,
+        6144283280
+      ],
+      [
+        6144299152,
+        6144299504
+      ],
+      [
+        6144334864,
+        6144339184
+      ],
+      [
+        6144354096,
+        6144358608
+      ],
+      [
+        6144399120,
+        6144404304
+      ],
+      [
+        6144411664,
+        6144411824
+      ],
+      [
+        6144501103,
+        6144501104
+      ],
+      [
+        6144507184,
+        6144507216
+      ],
+      [
+        6144546224,
+        6144550608
+      ],
+      [
+        6144590352,
+        6144595184
+      ],
+      [
+        6144625358,
+        6144625359
+      ],
+      [
+        6144628847,
+        6144631151
+      ],
+      [
+        6144636047,
+        6144637071
+      ],
+      [
+        6144652271,
+        6144652591
+      ],
+      [
+        6144688911,
+        6144692751
+      ],
+      [
+        6144707663,
+        6144712047
+      ],
+      [
+        6144752367,
+        6144757423
+      ],
+      [
+        6144764687,
+        6144764847
+      ],
+      [
+        6144854670,
+        6144854671
+      ],
+      [
+        6144860655,
+        6144860687
+      ],
+      [
+        6144899662,
+        6144903823
+      ],
+      [
+        6144945359,
+        6144950319
+      ],
+      [
+        6144961455,
+        6144961487
+      ],
+      [
+        6144985039,
+        6144987407
+      ],
+      [
+        6144992399,
+        6144993391
+      ],
+      [
+        6145008591,
+        6145008879
+      ],
+      [
+        6145044111,
+        6145047695
+      ],
+      [
+        6145062607,
+        6145066895
+      ],
+      [
+        6145107343,
+        6145112335
+      ],
+      [
+        6145119663,
+        6145119759
+      ],
+      [
+        6145209390,
+        6145209391
+      ],
+      [
+        6145215375,
+        6145215407
+      ],
+      [
+        6145254190,
+        6145258607
+      ],
+      [
+        6145298959,
+        6145304047
+      ],
+      [
+        6145337647,
+        6145339951
+      ],
+      [
+        6145345071,
+        6145347215
+      ],
+      [
+        6145362863,
+        6145363183
+      ],
+      [
+        6145399695,
+        6145404207
+      ],
+      [
+        6145419055,
+        6145423695
+      ],
+      [
+        6145463951,
+        6145469007
+      ],
+      [
+        6145571438,
+        6145571470
+      ],
+      [
+        6145610381,
+        6145614766
+      ],
+      [
+        6145655822,
+        6145660878
+      ],
+      [
+        6145695150,
+        6145697422
+      ],
+      [
+        6145702638,
+        6145703630
+      ],
+      [
+        6145719214,
+        6145719502
+      ],
+      [
+        6145754478,
+        6145758958
+      ],
+      [
+        6145773870,
+        6145778286
+      ],
+      [
+        6145818350,
+        6145823374
+      ],
+      [
+        6145920013,
+        6145920014
+      ],
+      [
+        6145926062,
+        6145926094
+      ],
+      [
+        6145964974,
+        6145969294
+      ],
+      [
+        6146010446,
+        6146015342
+      ],
+      [
+        6146026094,
+        6146026126
+      ],
+      [
+        6146045165,
+        6146045166
+      ],
+      [
+        6146048622,
+        6146050990
+      ],
+      [
+        6146056046,
+        6146057134
+      ],
+      [
+        6146072462,
+        6146072878
+      ],
+      [
+        6146109038,
+        6146113326
+      ],
+      [
+        6146128142,
+        6146132302
+      ],
+      [
+        6146173870,
+        6146178926
+      ],
+      [
+        6146186349,
+        6146186350
+      ],
+      [
+        6146321006,
+        6146325326
+      ],
+      [
+        6146365614,
+        6146370606
+      ],
+      [
+        6146381549,
+        6146381550
+      ],
+      [
+        6146404046,
+        6146406254
+      ],
+      [
+        6146411598,
+        6146412622
+      ],
+      [
+        6146428109,
+        6146428429
+      ],
+      [
+        6146463789,
+        6146467309
+      ],
+      [
+        6146482637,
+        6146486925
+      ],
+      [
+        6146527885,
+        6146533005
+      ],
+      [
+        6146540269,
+        6146540397
+      ],
+      [
+        6146675052,
+        6146679405
+      ],
+      [
+        6146720461,
+        6146725453
+      ],
+      [
+        6146758893,
+        6146761197
+      ],
+      [
+        6146766349,
+        6146767501
+      ],
+      [
+        6146783757,
+        6146784173
+      ],
+      [
+        6146819661,
+        6146824013
+      ],
+      [
+        6146838893,
+        6146843341
+      ],
+      [
+        6146883533,
+        6146888557
+      ],
+      [
+        6146895725,
+        6146895885
+      ],
+      [
+        6146985612,
+        6146985613
+      ],
+      [
+        6147030701,
+        6147035053
+      ],
+      [
+        6147075725,
+        6147080685
+      ],
+      [
+        6147091757,
+        6147091789
+      ],
+      [
+        6147110956,
+        6147110957
+      ],
+      [
+        6147114349,
+        6147116621
+      ],
+      [
+        6147121677,
+        6147122765
+      ],
+      [
+        6147138669,
+        6147138957
+      ],
+      [
+        6147174477,
+        6147178893
+      ],
+      [
+        6147193741,
+        6147198285
+      ],
+      [
+        6147239309,
+        6147244333
+      ],
+      [
+        6147251693,
+        6147251821
+      ],
+      [
+        6147347244,
+        6147347276
+      ],
+      [
+        6147386124,
+        6147390604
+      ],
+      [
+        6147431020,
+        6147436012
+      ],
+      [
+        6147446891,
+        6147446892
+      ],
+      [
+        6147469484,
+        6147471884
+      ],
+      [
+        6147477004,
+        6147479276
+      ],
+      [
+        6147494572,
+        6147494924
+      ],
+      [
+        6147530124,
+        6147534412
+      ],
+      [
+        6147549388,
+        6147553676
+      ],
+      [
+        6147593772,
+        6147598764
+      ],
+      [
+        6147605900,
+        6147606028
+      ],
+      [
+        6147695467,
+        6147695468
+      ],
+      [
+        6147701420,
+        6147701452
+      ],
+      [
+        6147740172,
+        6147744428
+      ],
+      [
+        6147785516,
+        6147790508
+      ],
+      [
+        6147820331,
+        6147820332
+      ],
+      [
+        6147823884,
+        6147826124
+      ],
+      [
+        6147831148,
+        6147832172
+      ],
+      [
+        6147847532,
+        6147847852
+      ],
+      [
+        6147883852,
+        6147888108
+      ],
+      [
+        6147902988,
+        6147907308
+      ],
+      [
+        6147947532,
+        6147952556
+      ],
+      [
+        6148050699,
+        6148050700
+      ],
+      [
+        6148056715,
+        6148056716
+      ],
+      [
+        6148095436,
+        6148099724
+      ],
+      [
+        6148140204,
+        6148145132
+      ],
+      [
+        6148175499,
+        6148175500
+      ],
+      [
+        6148179084,
+        6148181324
+      ],
+      [
+        6148186476,
+        6148187660
+      ],
+      [
+        6148203340,
+        6148203660
+      ],
+      [
+        6148238828,
+        6148243340
+      ],
+      [
+        6148258155,
+        6148262667
+      ],
+      [
+        6148303147,
+        6148308267
+      ],
+      [
+        6148315403,
+        6148315435
+      ],
+      [
+        6148404618,
+        6148404619
+      ],
+      [
+        6148449259,
+        6148453451
+      ],
+      [
+        6148494571,
+        6148499435
+      ],
+      [
+        6148510219,
+        6148510251
+      ],
+      [
+        6148532555,
+        6148534827
+      ],
+      [
+        6148539851,
+        6148540843
+      ],
+      [
+        6148556075,
+        6148556427
+      ],
+      [
+        6148593835,
+        6148597387
+      ],
+      [
+        6148612203,
+        6148616523
+      ],
+      [
+        6148657259,
+        6148662379
+      ],
+      [
+        6148805099,
+        6148809451
+      ],
+      [
+        6148850379,
+        6148855307
+      ],
+      [
+        6148889355,
+        6148891755
+      ],
+      [
+        6148897003,
+        6148898091
+      ],
+      [
+        6148914155,
+        6148914539
+      ],
+      [
+        6148949675,
+        6148952971
+      ],
+      [
+        6148967851,
+        6148972395
+      ],
+      [
+        6149012363,
+        6149017547
+      ],
+      [
+        6149024971,
+        6149025067
+      ],
+      [
+        6149158987,
+        6149163083
+      ],
+      [
+        6149204394,
+        6149209194
+      ],
+      [
+        6149218634,
+        6149230122
+      ],
+      [
+        6149231882,
+        6149232938
+      ],
+      [
+        6149235146,
+        6149236138
+      ],
+      [
+        6149310058,
+        6149311754
+      ],
+      [
+        6149410122,
+        6149417770
+      ],
+      [
+        6149456042,
+        6149466890
+      ],
+      [
+        6149510474,
+        6149512298
+      ],
+      [
+        6149557802,
+        6149559306
+      ]
+    ],
+    "idle_fraction": 0.13692950308384008,
+    "idle_ms": 1.7244510000000002,
+    "inter_phase_ms": 0.4335350000000009,
+    "largest_inter_phase_gaps": [
+      {
+        "after": {
+          "kernel": "_copy_page_indices_kernel",
+          "operation": null,
+          "phase": "preprocess"
+        },
+        "before": {
+          "kernel": "triton_poi_fused_add_all_reduce_bitwise_and_bitwise_not_bitwise_or_embedding_ge_lt_masked_fill_mul_sub_unsqueeze_0",
+          "operation": null,
+          "phase": "forward"
+        },
+        "duration_us": 411.199,
+        "start_ns": 6136989848
+      },
+      {
+        "after": {
+          "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_2",
+          "operation": "model.mlp_boundary_norms",
+          "phase": "forward"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "postprocess"
+        },
+        "duration_us": 11.488,
+        "start_ns": 6149218634
+      },
+      {
+        "after": {
+          "kernel": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+          "operation": null,
+          "phase": "postprocess"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "sample"
+        },
+        "duration_us": 10.848,
+        "start_ns": 6149456042
+      }
+    ],
+    "phases": [
+      {
+        "busy_ms": 0.005088,
+        "idle_fraction": 0.7760563380281691,
+        "idle_ms": 0.017632000000000002,
+        "kernel_count": 3,
+        "kernel_sum_ms": 0.005088,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::vectorized_elementwise_kernel<(int)2, at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "before": {
+              "kernel": "_copy_page_indices_kernel",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "duration_us": 16.224,
+            "start_ns": 6136971320
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "before": {
+              "kernel": "void at::native::vectorized_elementwise_kernel<(int)2, at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "duration_us": 1.408,
+            "start_ns": 6136968632
+          }
+        ],
+        "phase": "preprocess",
+        "span_ms": 0.02272
+      },
+      {
+        "busy_ms": 10.559023,
+        "idle_fraction": 0.10649923711160322,
+        "idle_ms": 1.2585639999999998,
+        "kernel_count": 451,
+        "kernel_sum_ms": 10.570383,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, long, long, long, long, int, int, int, const float *, const float *, int)",
+              "operation": "layer.kv_cache_append",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::PrefillWithKVCacheKernel<flashinfer::SparseCollectiveMainloop<PagedParams::AdditionalParams, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)1, (bool)0>, flashinfer::CollectiveEpilogue<flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>>, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)0, (bool)1, flashinfer::BatchPrefillPersistentTileScheduler<int>, (bool)0>(T1::Params, T2::Params, T6::Params)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "duration_us": 180.896,
+            "start_ns": 6137574871
+          },
+          {
+            "after": {
+              "kernel": "triton_poi_fused_2",
+              "operation": null,
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, long, long, long, long, int, int, int, const float *, const float *, int)",
+              "operation": "layer.kv_cache_append",
+              "phase": "forward"
+            },
+            "duration_us": 85.728,
+            "start_ns": 6137484119
+          },
+          {
+            "after": {
+              "kernel": "void flashinfer::PersistentVariableLengthMergeStatesKernel<(unsigned int)8, (unsigned int)16, (unsigned int)8, (unsigned int)4, __nv_bfloat16, __nv_bfloat16, int>(T5 *, float *, T7 *, T6 *, float *, unsigned int, unsigned int *, unsigned int)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "nvjet_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+              "operation": "layer.output_projection",
+              "phase": "forward"
+            },
+            "duration_us": 69.984,
+            "start_ns": 6137875351
+          },
+          {
+            "after": {
+              "kernel": "void flashinfer::PrefillWithKVCacheKernel<flashinfer::SparseCollectiveMainloop<PagedParams::AdditionalParams, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)1, (bool)0>, flashinfer::CollectiveEpilogue<flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>>, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)0, (bool)1, flashinfer::BatchPrefillPersistentTileScheduler<int>, (bool)0>(T1::Params, T2::Params, T6::Params)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::BatchPrefillWithPagedKVCacheKernel<flashinfer::KernelTraits<(flashinfer::MaskMode)0, (unsigned int)16, (unsigned int)1, (unsigned int)2, (unsigned int)8, (unsigned int)8, (unsigned int)1, (unsigned int)4, (flashinfer::PosEncodingMode)0, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, float, int, flashinfer::DefaultAttention<(bool)0, (bool)0, (bool)0, (bool)0>>, PagedParams>(T2)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "duration_us": 69.152,
+            "start_ns": 6137770455
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.mlp_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_1",
+              "operation": "model.mlp_boundary_norms",
+              "phase": "forward"
+            },
+            "duration_us": 5.664,
+            "start_ns": 6137450775
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.mlp_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_2",
+              "operation": "model.mlp_boundary_norms",
+              "phase": "forward"
+            },
+            "duration_us": 5.248,
+            "start_ns": 6142462770
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.attention_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_0",
+              "operation": "layer.attention_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 5.184,
+            "start_ns": 6144399120
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.attention_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_0",
+              "operation": "layer.attention_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 5.184,
+            "start_ns": 6149012363
+          }
+        ],
+        "phase": "forward",
+        "span_ms": 11.817587
+      },
+      {
+        "busy_ms": 0.214528,
+        "idle_fraction": 0.05042492917847031,
+        "idle_ms": 0.011392000000000013,
+        "kernel_count": 5,
+        "kernel_sum_ms": 0.214528,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "duration_us": 7.648,
+            "start_ns": 6149410122
+          },
+          {
+            "after": {
+              "kernel": "nvjet_tst_256x112_64x4_2x1_v_bz_coopA_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 1.696,
+            "start_ns": 6149310058
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "void at::native::vectorized_gather_kernel<(int)16, long>(char *, char *, T2 *, int, long, long, long, long, bool)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "duration_us": 1.056,
+            "start_ns": 6149231882
+          },
+          {
+            "after": {
+              "kernel": "void at::native::vectorized_gather_kernel<(int)16, long>(char *, char *, T2 *, int, long, long, long, long, bool)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "nvjet_tst_256x112_64x4_2x1_v_bz_coopA_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 0.992,
+            "start_ns": 6149235146
+          }
+        ],
+        "phase": "postprocess",
+        "span_ms": 0.22592
+      },
+      {
+        "busy_ms": 0.090624,
+        "idle_fraction": 0.035422343324250656,
+        "idle_ms": 0.0033279999999999976,
+        "kernel_count": 3,
+        "kernel_sum_ms": 0.090624,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.824,
+            "start_ns": 6149510474
+          },
+          {
+            "after": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(int) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.504,
+            "start_ns": 6149557802
+          }
+        ],
+        "phase": "sample",
+        "span_ms": 0.093952
+      }
+    ],
+    "span_ms": 12.593714
+  },
   "selected_as": "full_capture",
   "simulated": {
     "slot_ms": [

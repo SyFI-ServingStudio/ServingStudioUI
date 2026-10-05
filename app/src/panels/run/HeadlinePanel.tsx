@@ -11,9 +11,12 @@ import {
   runWorkloadRef,
   topologyRef,
   useArtifact,
+  useArtifacts,
 } from '../../artifacts';
 import { atRoot, segmentOf, upTo } from '../../location';
 import AnalysisSection from '../../ui/controls/AnalysisSection';
+import { useCatalogReachable, useResultName } from '../ResultHost';
+import { RESULT_TITLE } from '../resultTitle';
 import { tokens, withAlpha } from '../../ui/theme';
 import { ReadProblem } from '../ReadProblem';
 import { describeRead } from '../readProblem';
@@ -28,11 +31,28 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
   const topology = useArtifact(useMemo(() => topologyRef(result), [result]));
   const model = useArtifact(useMemo(() => runModelRef(result), [result]));
   const workload = useArtifact(useMemo(() => runWorkloadRef(result), [result]));
-  const catalog = useArtifact(
-    useMemo(() => catalogRef(result.workspace, 'run'), [result.workspace]),
+  // A page that does not show the catalog (an embedding page) does not serve it.
+  const catalogReachable = useCatalogReachable();
+  const [catalog] = useArtifacts(
+    useMemo(
+      () => (catalogReachable ? [catalogRef(result.workspace, 'run')] : []),
+      [catalogReachable, result.workspace],
+    ),
   );
+  const catalogName =
+    catalog?.status === 'ready'
+      ? catalog.value.find(
+          (entry) => entry.id === result.id && entry.workspace === result.workspace,
+        )?.displayName
+      : undefined;
+  const displayName = useResultName(catalogName ?? result.id);
 
-  if (isPending(summary) || isPending(latency) || isPending(topology) || isPending(catalog)) {
+  if (
+    isPending(summary) ||
+    isPending(latency) ||
+    isPending(topology) ||
+    (catalog !== undefined && isPending(catalog))
+  ) {
     return <Skeleton variant="rounded" height={560} data-testid="run-headline-loading" />;
   }
   if (summary.status !== 'ready') {
@@ -47,12 +67,6 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
     summary.value,
     latency.status === 'ready' ? latency.value : undefined,
   );
-  const displayName =
-    catalog.status === 'ready'
-      ? (catalog.value.find(
-          (entry) => entry.id === result.id && entry.workspace === result.workspace,
-        )?.displayName ?? result.id)
-      : result.id;
 
   return (
     <Box data-testid="run-headline">
@@ -81,34 +95,36 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
           />
           <span>ServingStudio Analyzer</span>
           <Box sx={{ flex: 1, height: '1px', background: tokens.hair }} />
-          <ButtonBase
-            aria-label="Return to aggregate overview"
-            onClick={() =>
-              navigate(
-                {
-                  view: 'catalog',
-                  filter: { workspace: result.workspace, kinds: [], query: null },
-                },
-                'push',
-              )
-            }
-            sx={{
-              minHeight: 30,
-              px: 1.35,
-              border: `1px solid ${tokens.hair}`,
-              borderRadius: 999,
-              background: tokens.tile,
-              color: tokens.ink,
-              fontFamily: tokens.body,
-              fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: '.08em',
-              textTransform: 'none',
-              '&:hover': { background: tokens.tile2, borderColor: tokens.teal },
-            }}
-          >
-            ← Aggregate
-          </ButtonBase>
+          {catalogReachable && (
+            <ButtonBase
+              aria-label="Return to aggregate overview"
+              onClick={() =>
+                navigate(
+                  {
+                    view: 'catalog',
+                    filter: { workspace: result.workspace, kinds: [], query: null },
+                  },
+                  'push',
+                )
+              }
+              sx={{
+                minHeight: 30,
+                px: 1.35,
+                border: `1px solid ${tokens.hair}`,
+                borderRadius: 999,
+                background: tokens.tile,
+                color: tokens.ink,
+                fontFamily: tokens.body,
+                fontSize: 12,
+                fontWeight: 600,
+                letterSpacing: '.08em',
+                textTransform: 'none',
+                '&:hover': { background: tokens.tile2, borderColor: tokens.teal },
+              }}
+            >
+              ← Aggregate
+            </ButtonBase>
+          )}
         </Stack>
         <Typography
           component="h1"
@@ -149,7 +165,7 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
         location={location}
         navigate={navigate}
         displayName={scopeRunLabel(
-          model.status === 'ready' ? model.value.sourcePath : displayName,
+          model.status === 'ready' ? model.value.sourcePath : (displayName ?? RESULT_TITLE.run),
           topology.status === 'ready' ? topology.value.deployment : undefined,
         )}
       />
@@ -178,7 +194,7 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
               </Typography>
             )}
             <OverviewCards
-              runId={displayName}
+              runName={displayName}
               topology={topology.value}
               model={model.status === 'ready' ? model.value : undefined}
               workload={workload}
@@ -194,7 +210,7 @@ export function HeadlinePanel({ location, navigate }: PanelProps) {
   );
 }
 
-function RunIdentity({ displayName }: { readonly displayName: string }) {
+function RunIdentity({ displayName }: { readonly displayName: string | undefined }) {
   return (
     <Box sx={{ minWidth: 0, flex: 1 }}>
       <Typography
@@ -209,21 +225,25 @@ function RunIdentity({ displayName }: { readonly displayName: string }) {
       >
         Current run
       </Typography>
-      <Typography
-        title={displayName}
-        sx={{
-          mt: 0.3,
-          overflow: 'hidden',
-          color: tokens.ink,
-          fontFamily: tokens.serif,
-          fontSize: 15,
-          fontWeight: 600,
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {displayName}
-      </Typography>
+      {displayName !== undefined && (
+        <Typography
+          title={displayName}
+          sx={{
+            mt: 0.3,
+            overflow: 'hidden',
+            color: tokens.ink,
+            fontFamily: tokens.serif,
+            fontSize: 15,
+            fontWeight: 600,
+            textOverflow: 'ellipsis',
+            // On a phone the stat row sits below rather than beside the name,
+            // so the name has the width to wrap instead of losing its tail.
+            whiteSpace: { xs: 'normal', md: 'nowrap' },
+          }}
+        >
+          {displayName}
+        </Typography>
+      )}
     </Box>
   );
 }

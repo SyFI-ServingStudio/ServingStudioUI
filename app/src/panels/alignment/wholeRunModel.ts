@@ -1,18 +1,23 @@
 import type {
   AlignmentCdfComparison,
   AlignmentE2eSeries,
+  AlignmentWorkloadMetricField,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
   AlignmentWorkloadSide,
+  AlignmentWorkloadStats,
 } from '../../artifacts/schema/alignmentTypes';
 import { fmtFixed, fmtLatencyMs, fmtPctPrecise, fmtRounded } from './format';
 
 /**
  * §05 — the whole run, reduced to the numbers each card states.
  *
- * Everything arithmetic on this section lives here: percentiles, deltas, the
- * time fold behind every scheduler figure, and the axis tick choice. The
- * components below read these structures and place them; they compute nothing,
- * so a number can only be wrong in one file.
+ * Everything arithmetic on this section lives here: deltas, the scheduler
+ * series' points and axis range, and the axis tick choice. Percentiles are the
+ * Analyzer's: the latency cards read its CDF markers and the scheduler cards
+ * its workload report. The cards (`WholeRunCard.tsx`, `wholeRunCards.tsx`)
+ * read these structures and place them; they compute nothing, so a number can
+ * only be wrong in one file.
  *
  * Two rules the analyzer imposes and this module keeps:
  *
@@ -22,20 +27,6 @@ import { fmtFixed, fmtLatencyMs, fmtPctPrecise, fmtRounded } from './format';
  *  - a percentile whose measured value is zero has no ratio. That case reports
  *    `null` rather than an infinity dressed up as a large error.
  */
-
-/** Sample quantile with linear interpolation between order statistics — the
- * convention the analyzer's own report uses, so a percentile derived from the
- * payload here agrees with the one it publishes. */
-export function quantile(values: readonly number[], fraction: number): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((left, right) => left - right);
-  const rank = (sorted.length - 1) * fraction;
-  const lowerIndex = Math.floor(rank);
-  const upperIndex = Math.min(lowerIndex + 1, sorted.length - 1);
-  const lower = sorted[lowerIndex];
-  const upper = sorted[upperIndex];
-  return lower + (upper - lower) * (rank - lowerIndex);
-}
 
 /** A ratio of two independently summarised sides, in percent. */
 export function relativeDeltaPct(measured: number, simulated: number): number | null {
@@ -217,8 +208,9 @@ export type WorkloadMetricKey =
 
 export interface WorkloadMetricSpec {
   readonly key: WorkloadMetricKey;
-  /** The analyzer's own name for the field, which is also its definition key. */
-  readonly field: string;
+  /** The analyzer's own name for the field: its definition key and its
+   * workload report metric. */
+  readonly field: AlignmentWorkloadMetricField;
   readonly label: string;
   readonly unit: string;
   /** The unit the figure's values carry, for formatting through `fmtQuantity`. */
@@ -258,21 +250,13 @@ export const WORKLOAD_METRICS: readonly WorkloadMetricSpec[] = [
 
 export type WorkloadAxisMode = 'elapsedTime' | 'iterationId';
 
-export interface WorkloadStats {
-  readonly n: number;
-  readonly p50: number | null;
-  readonly p90: number | null;
-  readonly p99: number | null;
-  readonly max: number | null;
-}
-
 export interface WorkloadPoints {
   readonly x: readonly number[];
   readonly values: readonly number[];
 }
 
 export interface WorkloadSideModel {
-  readonly stats: WorkloadStats;
+  readonly stats: AlignmentWorkloadStats;
   readonly points: WorkloadPoints;
 }
 
@@ -314,16 +298,6 @@ function observedSamples(
   return { x, values };
 }
 
-function workloadStats(values: readonly number[]): WorkloadStats {
-  return {
-    n: values.length,
-    p50: quantile(values, 0.5),
-    p90: quantile(values, 0.9),
-    p99: quantile(values, 0.99),
-    max: values.length === 0 ? null : maxOf(values),
-  };
-}
-
 const sideSpanMs = (side: AlignmentWorkloadSide | null): number =>
   side === null || side.timeMs.length === 0 ? 0 : maxOf(side.timeMs);
 
@@ -331,8 +305,11 @@ export function workloadSpanMs(series: AlignmentWorkloadSeries): number {
   return Math.max(sideSpanMs(series.measured), sideSpanMs(series.simulated));
 }
 
+/** One card per scheduler field: the series' points to plot, and the
+ * Analyzer's report statistics for the same iterations. */
 export function workloadCards(
   series: AlignmentWorkloadSeries,
+  report: AlignmentWorkloadReport,
   axisMode: WorkloadAxisMode = 'elapsedTime',
 ): readonly WorkloadCardModel[] {
   const spanMs = workloadSpanMs(series);
@@ -352,17 +329,16 @@ export function workloadCards(
     rawAxisMax = 1;
   }
   const axisMax = rawAxisMax === rawAxisMin ? rawAxisMin + 1 : rawAxisMax;
-  const sideModel = (side: AlignmentWorkloadSide | null, key: WorkloadMetricKey) => {
-    if (side === null) return null;
-    const points = observedSamples(side, key, axisMode);
-    return {
-      stats: workloadStats(points.values),
-      points,
-    };
-  };
+  const sideModel = (
+    side: AlignmentWorkloadSide | null,
+    metric: WorkloadMetricSpec,
+    stats: AlignmentWorkloadStats,
+  ): WorkloadSideModel | null =>
+    side === null ? null : { stats, points: observedSamples(side, metric.key, axisMode) };
   return WORKLOAD_METRICS.map((metric) => {
-    const measured = sideModel(series.measured, metric.key);
-    const simulated = sideModel(series.simulated, metric.key);
+    const reported = report.metrics[metric.field];
+    const measured = sideModel(series.measured, metric, reported.measured);
+    const simulated = sideModel(series.simulated, metric, reported.simulated);
     const delta = (percentile: 'p50' | 'p90' | 'p99') => {
       const left = measured?.stats[percentile];
       const right = simulated?.stats[percentile];

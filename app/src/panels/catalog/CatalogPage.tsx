@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { catalogRef, useArtifacts, type ArtifactResult } from '../../artifacts';
 import { type CatalogFilter, type Navigate, type ResultKind } from '../../location';
+import { RESULT_TITLE } from '../resultTitle';
 import { tokens, withAlpha } from '../../ui/theme';
 import { visibleEntries } from './entries';
 import ResultCatalog from './ResultCatalog';
@@ -18,15 +19,6 @@ const PAGE_ZERO_KINDS: readonly ResultKind[] = [
   'kernelProfile',
   'kernelMeasurement',
 ];
-
-const KIND_LABEL: Record<ResultKind, string> = {
-  run: 'Run',
-  sweep: 'Sweep',
-  prediction: 'Prediction',
-  alignment: 'Alignment',
-  kernelProfile: 'Kernel profile',
-  kernelMeasurement: 'Kernel measurement',
-};
 
 interface ReadProblem {
   kind: ResultKind;
@@ -121,7 +113,7 @@ export function CatalogPage({
         <Stack spacing={1} sx={{ mb: 2 }}>
           {problems.map((problem) => (
             <Alert key={problem.kind} severity={problem.severity}>
-              <strong>{KIND_LABEL[problem.kind]}</strong>: {problem.reason}
+              <strong>{RESULT_TITLE[problem.kind]}</strong>: {problem.reason}
             </Alert>
           ))}
         </Stack>

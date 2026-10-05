@@ -2,8 +2,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 import { Fragment, type ReactNode } from 'react';
 
+import type { KernelComposition } from '../artifacts';
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import { colorOf, fmtMs, fmtPct, kindLabel, type LeafNode } from './costTreeModel';
+import { fmtMs, fmtPct, leafSharePct, type LeafNode } from './costTreeModel';
+import { kindColor, kindTitle, useKernelKinds } from './kernelTaxonomy';
 import { tokens } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
 
@@ -209,17 +211,22 @@ function inputFields(node: LeafNode): readonly DisplayField[] {
 
 export function KernelInspectorView({
   node,
+  timeShare,
   height,
   closeLabel,
   onClose,
 }: {
   node: LeafNode;
+  /** The Analyzer's critical-path composition served with the tree; the
+   * leaf's share is read from it, as the leaf card reads it. */
+  timeShare: KernelComposition;
   height: number | string;
   closeLabel: string;
   onClose: () => void;
 }) {
   const slot = node.slot;
-  const color = colorOf(slot.kind);
+  const kinds = useKernelKinds();
+  const color = kindColor(kinds, slot.kind);
   const decodedConfig = configFields(slot.kernelConfig);
   const decodedInput = inputFields(node);
   const flops = scaledQuantity(node.stats.flops, FLOP_SCALES);
@@ -270,7 +277,7 @@ export function KernelInspectorView({
           }}
         >
           <Box sx={{ width: 8, height: 8, borderRadius: '2px', background: color }} />
-          {kindLabel(slot.kind)}
+          {kindTitle(kinds, slot.kind)}
         </Box>
         <IconButton
           aria-label={closeLabel}
@@ -298,7 +305,7 @@ export function KernelInspectorView({
       >
         <DetailGroup title="Overview">
           <Item label="cost / call" value={fmtMs(node.ms)} teal />
-          <Item label="share of tree root" value={fmtPct(node.pct)} />
+          <Item label="time share" value={fmtPct(leafSharePct(timeShare, node))} />
           <Item label="slot" value={slot.name} />
           <Item label="kind" value={slot.kind} />
           <Item label="backend" value={slot.backend ?? 'not recorded'} />

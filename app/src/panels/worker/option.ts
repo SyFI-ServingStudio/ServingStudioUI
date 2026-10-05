@@ -16,7 +16,7 @@ import type { WorkerComposition } from './composition';
 export function workerKernelPositionOption(composition: WorkerComposition): EChartsOption {
   const familyRow = composition;
   const familyChunks = composition.families.map((family) => ({
-    name: safeChartText(family.label),
+    name: safeChartText(family.family),
     dimension: 'kernel family',
     timeMs: family.kernelTimeMs,
     sharePct:

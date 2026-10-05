@@ -144,7 +144,7 @@ sample-data mode. See [deployment](docs/deployment.md) for remote-access setting
 ### 2. Explore a result
 
 Open an existing result from the catalog. For a new installation, run the
-[Llama 3 8B example](https://github.com/SyFI-ServingStudio/ServingStudioSim#quick-start) in the
+[Llama 3.1 8B example](https://github.com/SyFI-ServingStudio/ServingStudioSim#quick-start) in the
 ServingStudio Sim checkout served by Analyzer, then refresh the catalog. Open the run to
 inspect execution, or open Agent alongside it to investigate the selected result.
 

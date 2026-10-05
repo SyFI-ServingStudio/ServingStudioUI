@@ -1,46 +1,46 @@
 /**
- * What kinds of kernel there are, and which family each belongs to.
+ * How a kernel kind is named and which family holds it: what each kind's DOC
+ * declares (`title`, `category`), read once from the Analyzer
+ * (`GET /api/analyzer/v1/kernel-kinds`).
  *
- * One table, imported by both the cost tree and the kernel-time panels. It
- * lives outside either because it is a fact about the simulator's kernel
- * vocabulary rather than about any view of it — and because two copies of a
- * colour-and-label table drift silently: the same kernel would be blue in one
- * chart and grey in another, and nothing would fail.
- *
- * An unrecognized kind is `misc` rather than an error. The Analyzer's kernel
- * vocabulary grows independently of this build, and a run that uses a new
- * kernel should still render — grouped honestly as "Other" rather than
- * refusing to draw.
+ * The UI keeps no table of kinds or categories. A family is a DOC category,
+ * and its colour is its position in the order the read lists the categories:
+ * the DOCs own the order, the theme only the palette. A kind the read does
+ * not name — the read is still pending or failed, or the kind has no DOC — is
+ * shown under its own name in an unclassified family rather than refusing to
+ * draw.
  */
-import { colors } from '../ui/theme';
+import { kernelKindsRef, useArtifact, type KernelKinds } from '../artifacts';
+import { colors, mixColor } from '../ui/theme';
 
-export const KIND: Readonly<Record<string, { readonly group: string; readonly label: string }>> = {
-  single_gemm: { group: 'gemm', label: 'GEMM' },
-  grouped_gemm: { group: 'gemm', label: 'Grouped GEMM' },
-  flashinfer_attn_prefill: { group: 'attn', label: 'Attn · prefill' },
-  flashinfer_attn_decode: { group: 'attn', label: 'Attn · decode' },
-  kv_cache_append: { group: 'attn', label: 'KV append' },
-  rms_norm: { group: 'norm', label: 'RMSNorm' },
-  elementwise: { group: 'norm', label: 'Elementwise' },
-  all_reduce: { group: 'comm', label: 'AllReduce' },
-  p2p_intra: { group: 'comm', label: 'P2P · intra-NVL' },
-  p2p_inter: { group: 'comm', label: 'P2P · inter-NVL' },
-  moe_router: { group: 'route', label: 'MoE router' },
-};
+export type { KernelKinds } from '../artifacts';
 
-export const GROUP: Readonly<Record<string, { readonly label: string; readonly color: string }>> = {
-  // These colors serve as both rails on light cards and filled time-share
-  // blocks carrying white labels, so each must clear AA in both contexts.
-  gemm: { label: 'Dense GEMM', color: colors.gemm },
-  attn: { label: 'Attention', color: colors.attention },
-  comm: { label: 'Collectives', color: colors.collective },
-  norm: { label: 'Norm / EW', color: colors.normalization },
-  route: { label: 'Routing', color: colors.routing },
-  misc: { label: 'Other', color: colors.other },
-};
+/** The family of a kind no DOC category names; not itself a DOC category. */
+export const UNCLASSIFIED_FAMILY = 'Unclassified';
 
-export const GROUP_ORDER = ['gemm', 'attn', 'comm', 'norm', 'route', 'misc'] as const;
+export const NO_KERNEL_KINDS: KernelKinds = Object.freeze({ categories: [], kinds: {} });
 
-export const groupOf = (kind: string): string => KIND[kind]?.group ?? 'misc';
-export const colorOf = (kind: string): string => GROUP[groupOf(kind)].color;
-export const kindLabel = (kind: string): string => KIND[kind]?.label ?? kind;
+export const familyOf = (kinds: KernelKinds, kind: string): string =>
+  kinds.kinds[kind]?.category ?? UNCLASSIFIED_FAMILY;
+
+/** A family's colour: its category's position in the served order. A
+ * position past the palette repeats a hue washed half-way toward the
+ * unclassified grey, so it never reads as the family that hue first named. */
+export function familyColor(kinds: KernelKinds, family: string): string {
+  const position = kinds.categories.indexOf(family);
+  if (position < 0) return colors.unclassifiedKernel;
+  const palette = colors.kernelFamilies;
+  const hue = palette[position % palette.length];
+  return position < palette.length ? hue : mixColor(hue, colors.unclassifiedKernel, 0.5);
+}
+
+export const kindColor = (kinds: KernelKinds, kind: string): string =>
+  familyColor(kinds, familyOf(kinds, kind));
+export const kindTitle = (kinds: KernelKinds, kind: string): string =>
+  kinds.kinds[kind]?.title ?? kind;
+
+/** The DOCs' kinds, or none while the read is pending or failed. */
+export function useKernelKinds(): KernelKinds {
+  const result = useArtifact(kernelKindsRef());
+  return result.status === 'ready' ? result.value : NO_KERNEL_KINDS;
+}

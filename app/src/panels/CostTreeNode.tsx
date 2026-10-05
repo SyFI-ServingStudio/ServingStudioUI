@@ -4,20 +4,20 @@ import type { SystemStyleObject } from '@mui/system';
 import type { MouseEvent, ReactNode } from 'react';
 
 import {
-  colorOf,
   costTreeDisplayLabel,
-  kindLabel,
   fmtMs,
   fmtPct,
+  leafSharePct,
   type CostNode,
   type LeafNode,
-  type LeafPosition,
   type MaxNode,
   type ScaleNode,
   type SumNode,
 } from './costTreeModel';
+import type { KernelComposition } from '../artifacts';
 import { tokens, withAlpha, colors } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
+import { kindColor, kindTitle, type KernelKinds } from './kernelTaxonomy';
 import SelectionBoundary from './SelectionBoundary';
 
 const COMPUTE_RATE_SCALES = [
@@ -31,7 +31,10 @@ const BANDWIDTH_RATE_SCALES = [
 
 interface NodeProps<Node extends CostNode = CostNode> {
   node: Node;
-  criticalContributionByPositionName: ReadonlyMap<string, LeafPosition>;
+  /** The Analyzer's critical-path composition served with the tree. */
+  timeShare: KernelComposition;
+  /** The kind DOCs' names and categories, read once by the canvas. */
+  kinds: KernelKinds;
   selId: number | null;
   onSelect?: (id: number) => void;
   onRoot?: () => void;
@@ -297,16 +300,17 @@ function ContainerHead({
 
 function LeafCard({
   node,
-  criticalContributionByPositionName,
+  timeShare,
+  kinds,
   selId,
   onSelect,
   density = 'default',
 }: NodeProps<LeafNode>) {
   const s = node.slot;
-  const color = colorOf(s.kind);
+  const color = kindColor(kinds, s.kind);
   const selected = selId === node.id;
   const compact = density === 'compact';
-  const finalContributionPct = criticalContributionByPositionName.get(s.name)?.pct ?? 0;
+  const finalContributionPct = leafSharePct(timeShare, node);
   const hoverFacts = [
     { label: 'Kind', value: s.kind },
     { label: 'Backend', value: s.backend ?? '—' },
@@ -486,7 +490,7 @@ function LeafCard({
             color: tokens.ink,
           }}
         >
-          {kindLabel(s.kind)}
+          {kindTitle(kinds, s.kind)}
         </Typography>
         <Stack
           direction="row"
@@ -525,7 +529,8 @@ function LeafCard({
 
 export default function CostTreeNode({
   node,
-  criticalContributionByPositionName,
+  timeShare,
+  kinds,
   selId,
   onSelect,
   onRoot,
@@ -540,7 +545,8 @@ export default function CostTreeNode({
     return (
       <LeafCard
         node={node}
-        criticalContributionByPositionName={criticalContributionByPositionName}
+        timeShare={timeShare}
+        kinds={kinds}
         selId={selId}
         onSelect={onSelect}
         density={density}
@@ -619,7 +625,8 @@ export default function CostTreeNode({
             <Box key={i} sx={{ display: 'flex', alignItems: 'center' }}>
               <CostTreeNode
                 node={c}
-                criticalContributionByPositionName={criticalContributionByPositionName}
+                timeShare={timeShare}
+                kinds={kinds}
                 selId={selId}
                 onSelect={onSelect}
                 parSel={parSel}
@@ -717,7 +724,8 @@ export default function CostTreeNode({
             <CostTreeNode
               key={i}
               node={c}
-              criticalContributionByPositionName={criticalContributionByPositionName}
+              timeShare={timeShare}
+              kinds={kinds}
               selId={selId}
               onSelect={onSelect}
               parSel={parSel}
@@ -732,7 +740,11 @@ export default function CostTreeNode({
     );
   }
 
-  // scale — dashed container with ×N badge; ONE child (repeats never expanded)
+  // scale — dashed container with ×N badge; ONE child (repeats never expanded).
+  // The badge sits astride the top border, so its height is fixed (line,
+  // padding, border) and the content starts below its lower half: with the
+  // padding alone, the badge covered the REPEAT head under it.
+  const badgeHeight = compact ? 18 : 22;
   const badgeLabel =
     costTreeDisplayLabel(node.label ?? '')
       .replace(/[×x]\s*\d+\s*/, '')
@@ -743,9 +755,10 @@ export default function CostTreeNode({
       data-cost-tree-density={density}
       sx={{
         position: 'relative',
-        mt: compact ? 1.1 : 1.9,
+        mt: `${badgeHeight / 2 + (compact ? 2 : 4)}px`,
         borderRadius: 1.25,
         p: compact ? 0.65 : 1.4,
+        pt: `${badgeHeight / 2 + (compact ? 4 : 6)}px`,
         display: 'flex',
         flexDirection: 'column',
         gap: compact ? 0.4 : 1,
@@ -756,8 +769,12 @@ export default function CostTreeNode({
       <Box
         sx={{
           position: 'absolute',
-          top: compact ? -10 : -12,
+          top: -badgeHeight / 2,
           left: compact ? 10 : 14,
+          boxSizing: 'border-box',
+          height: badgeHeight,
+          lineHeight: `${badgeHeight - (compact ? 4 : 6)}px`,
+          whiteSpace: 'nowrap',
           fontFamily: tokens.body,
           fontWeight: 600,
           fontSize: compact ? 11 : 12,
@@ -782,7 +799,8 @@ export default function CostTreeNode({
       />
       <CostTreeNode
         node={node.children[0]}
-        criticalContributionByPositionName={criticalContributionByPositionName}
+        timeShare={timeShare}
+        kinds={kinds}
         selId={selId}
         onSelect={onSelect}
         parSel={parSel}

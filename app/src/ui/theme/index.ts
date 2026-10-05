@@ -6,7 +6,7 @@ import { createTheme } from '@mui/material/styles';
 import { themes } from './palettes';
 import { readThemeId } from './selection';
 import { createDetailColors, withAlpha } from './colors';
-export { withAlpha } from './colors';
+export { mixColor, withAlpha } from './colors';
 export { themes } from './palettes';
 export { selectTheme } from './selection';
 

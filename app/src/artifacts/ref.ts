@@ -44,6 +44,7 @@ import type {
   AlignmentSequence,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
 } from './schema/alignmentTypes';
 
@@ -148,6 +149,8 @@ export interface WorkerCostTreeDetail {
   readonly interval: { readonly startMs: number; readonly endMs: number };
   readonly inputs: readonly WorkerCostTreeInput[];
   readonly tree: RawCostNode;
+  /** The Analyzer's critical-path attribution of this tree's root time. */
+  readonly timeShare: KernelComposition;
 }
 
 export interface PredictionDescriptor {
@@ -201,6 +204,8 @@ export interface PredictionCostTreeDetail {
   readonly interval: { readonly startMs: number; readonly endMs: number };
   readonly inputs: readonly WorkerCostTreeInput[];
   readonly tree: RawCostNode;
+  /** The Analyzer's critical-path attribution of this tree's root time. */
+  readonly timeShare: KernelComposition;
 }
 
 export interface PredictionDescriptorRef {
@@ -590,6 +595,18 @@ export interface KernelMeasurementSummaryRef {
   readonly result: CurrentOfflineResult<'kernelMeasurement'>;
 }
 
+/** The kernel kinds' DOC titles and categories; one read for the whole app. */
+export interface KernelKindsRef {
+  readonly kind: 'kernelKinds';
+}
+
+/** How each kernel kind's DOC names it and which category (family) holds it. */
+export interface KernelKinds {
+  /** The DOC categories, in the order the kernel library lists them. */
+  readonly categories: readonly string[];
+  readonly kinds: Readonly<Record<string, { readonly title: string; readonly category: string }>>;
+}
+
 /** Hardware metadata is selected by the descriptor rather than a result id. */
 export interface HardwareGpuRef {
   readonly kind: 'hardwareGpu';
@@ -615,6 +632,10 @@ export interface AlignmentTimelineIndexRef {
 }
 export interface AlignmentWorkloadSeriesRef {
   readonly kind: 'alignmentWorkloadSeries';
+  readonly result: AlignmentResultRef;
+}
+export interface AlignmentWorkloadReportRef {
+  readonly kind: 'alignmentWorkloadReport';
   readonly result: AlignmentResultRef;
 }
 export interface AlignmentE2eSeriesRef {
@@ -679,11 +700,13 @@ export type ArtifactRef =
   | KernelMeasurementDescriptorRef
   | KernelMeasurementSummaryRef
   | HardwareGpuRef
+  | KernelKindsRef
   | AlignmentDescriptorRef
   | AlignmentIterationReportRef
   | AlignmentIterationSeriesRef
   | AlignmentTimelineIndexRef
   | AlignmentWorkloadSeriesRef
+  | AlignmentWorkloadReportRef
   | AlignmentE2eSeriesRef
   | AlignmentBreakdownRef
   | AlignmentTimelineIterationRef
@@ -715,6 +738,7 @@ export function artifactKey(ref: ArtifactRef): string {
     case 'alignmentIterationSeries':
     case 'alignmentTimelineIndex':
     case 'alignmentWorkloadSeries':
+    case 'alignmentWorkloadReport':
     case 'alignmentE2eSeries':
       return JSON.stringify([ref.kind, ...resultParts(ref.result)]);
     case 'alignmentBreakdown':
@@ -857,6 +881,8 @@ export function artifactKey(ref: ArtifactRef): string {
       return JSON.stringify(['kernel-measurement-summary', ...resultParts(ref.result)]);
     case 'hardwareGpu':
       return JSON.stringify(['hardware-gpu', ref.name]);
+    case 'kernelKinds':
+      return JSON.stringify(['kernel-kinds']);
   }
 }
 
@@ -944,6 +970,9 @@ export const alignmentTimelineIndexRef = (
 export const alignmentWorkloadSeriesRef = (
   result: AlignmentResultRef,
 ): AlignmentWorkloadSeriesRef => ({ kind: 'alignmentWorkloadSeries', result });
+export const alignmentWorkloadReportRef = (
+  result: AlignmentResultRef,
+): AlignmentWorkloadReportRef => ({ kind: 'alignmentWorkloadReport', result });
 export const alignmentE2eSeriesRef = (result: AlignmentResultRef): AlignmentE2eSeriesRef => ({
   kind: 'alignmentE2eSeries',
   result,
@@ -1219,6 +1248,10 @@ export function hardwareGpuRef(name: string): HardwareGpuRef {
   return { kind: 'hardwareGpu', name };
 }
 
+export function kernelKindsRef(): KernelKindsRef {
+  return { kind: 'kernelKinds' };
+}
+
 /** The value a ref reads to. Declared here so `useArtifact` infers it from the
  * ref alone and a panel never restates the type of what it asked for. */
 export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
@@ -1319,7 +1352,11 @@ export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
                                                                                                 ? KernelMeasurementSummary
                                                                                                 : R extends HardwareGpuRef
                                                                                                   ? HardwareGpu
-                                                                                                  : never;
+                                                                                                  : R extends KernelKindsRef
+                                                                                                    ? KernelKinds
+                                                                                                    : R extends AlignmentWorkloadReportRef
+                                                                                                      ? AlignmentWorkloadReport
+                                                                                                      : never;
 
 /**
  * One population at one scope: how many requests were in it, on average and at
@@ -2316,7 +2353,7 @@ export interface RunWorkload {
   readonly requestCount: number;
   readonly averageInputTokens: number;
   readonly averageOutputTokens: number;
-  readonly arrivalBasis: 'effective_open_loop' | 'effective_trace_timed' | 'source_trace';
+  readonly arrivalBasis: 'effective_open_loop' | 'effective_trace_timed';
   readonly requestRate: number;
   readonly tokenLengths: readonly number[];
   readonly inputDensity: readonly number[];

@@ -5,9 +5,8 @@ import type {
   AlignmentSequence,
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
-import { measuredKernelFamily } from './kernelFamily';
 import { rotatingOperationColors } from './operationSplitPalette';
+import { unmappedColor } from './wallClockPalette';
 
 /**
  * §02 — what is in the comparison, and what is not.
@@ -118,9 +117,6 @@ export interface BoardJoin {
 
 const shortSequenceId = (sequenceId: string): string =>
   sequenceId.replace('sequence_', '').slice(0, 8);
-
-const familyColor = (category: string, operationType: string | null): string =>
-  GROUP[measuredKernelFamily(category, operationType)].color;
 
 /** Program positions are keyed `sequence_id:expanded_ordinal`. The fold means
  * one board row stands for `repeat` of them, laid out body after body, so the
@@ -455,7 +451,7 @@ export function boardLanes(
             color:
               mapped && label.operation !== undefined
                 ? operationColors[label.operation]
-                : familyColor(kernel.suggestedCategory, label.type ?? null),
+                : unmappedColor,
             ms: timing?.ms ?? null,
             timingNote:
               timing === null
@@ -503,7 +499,7 @@ export function boardLanes(
       claimed: pairedKernel !== undefined || owner !== undefined,
       color:
         pairedKernel?.color ??
-        (owner === undefined ? familyColor('other', null) : operationColors[owner.operation]),
+        (owner === undefined ? unmappedColor : operationColors[owner.operation]),
       repeat: prediction?.multiplicity ?? null,
       ms: prediction?.unitMs ?? null,
       timingNote:

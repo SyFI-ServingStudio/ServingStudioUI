@@ -8,6 +8,7 @@ import {
 } from '../../artifacts';
 import { KERNEL_TIME_EPSILON_MS } from '../../artifacts/schema/kernelTimeShare';
 import ChartCard from '../../ui/controls/ChartCard';
+import { useKernelKinds } from '../kernelTaxonomy';
 import { describeRead } from '../readProblem';
 import type { PanelProps } from '../types';
 import { workerOf } from '../coordinate';
@@ -26,6 +27,7 @@ export function KernelTimeSharePanel({ location }: PanelProps) {
   const scoped = useArtifact(
     useMemo(() => workerKernelTimeShareRef(location.ref, worker), [location.ref, worker]),
   );
+  const kinds = useKernelKinds();
   const workerKey = `${encodeURIComponent(worker.poolTag)}/${encodeURIComponent(worker.workerId)}`;
   const title = `Worker kernel time breakdown · ${workerKey}`;
   const testId = `kernel-time-worker-${worker.poolTag}-${worker.workerId}`;
@@ -63,6 +65,7 @@ export function KernelTimeSharePanel({ location }: PanelProps) {
     aggregate.value,
     worker,
     scoped.status === 'ready' ? scoped.value : undefined,
+    kinds,
   );
 
   if (projection.status === 'absent') {

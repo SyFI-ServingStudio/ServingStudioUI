@@ -1,0 +1,242 @@
+import { act, cleanup, render, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import runDescriptorJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/run_descriptor.json';
+import summaryJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/summary.json';
+import sloGeneralJson from '../../testdata/analyzer-v1/afd-qwen3-duration-reached/payloads/slo_general_cdf.json';
+import { ResultViewer } from './ResultViewer';
+
+const ID = 'r_embedded';
+
+function mount() {
+  const host = document.createElement('div');
+  document.body.append(host);
+  const shadow = host.attachShadow({ mode: 'open' });
+  const container = document.createElement('div');
+  shadow.append(container);
+  return { host, shadow, container };
+}
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  });
+
+// Only one result's own routes, as the embedding page forwards them: a run's
+// descriptor, in a workspace an Analyzer over a static logs root names, and
+// the headline's summary and latency; a prediction's descriptor, named by a
+// service-made id as the public API's are, and an empty case page. Every
+// other read answers 404, which the pages show as their own unavailable
+// states.
+const WORKSPACE = 'w_root_0';
+const PREDICTION_DIRECTORY = '056df2eb6c1e4b4c9b1a3f0e2d7c8a91';
+function transport() {
+  const run = `/api/analyzer/v1/runs/${ID}`;
+  const prediction = '/api/analyzer/v1/predictions/p_1';
+  const bodies: Record<string, unknown> = {
+    [`${run}/descriptor`]: { ...runDescriptorJson, run_id: ID, workspace_id: WORKSPACE },
+    [`${run}/subjects/summary/report`]: summaryJson,
+    [`${run}/subjects/slo-general/payload`]: sloGeneralJson,
+    [`${prediction}/descriptor`]: {
+      schema_version: 1,
+      prediction_id: 'p_1',
+      kind: 'timing_predict',
+      display_name: PREDICTION_DIRECTORY,
+      selector: 'iter',
+      arch: { type: 'llama' },
+      gpu: { name: 'H100', count: 1 },
+      case_count: 0,
+      lifecycle: { prediction: 'complete', analysis: 'not_started' },
+      resources: { cases: { views: ['payload'] }, 'kernel-input-distribution': null },
+    },
+    [`${prediction}/subjects/cases/payload`]: {
+      schema_version: 1,
+      prediction_id: 'p_1',
+      range: { offset: 0, limit: 64, returned: 0, total: 0 },
+      cases: [],
+    },
+  };
+  return vi.fn(async (url: string) => {
+    const path = url.split('?')[0];
+    return path in bodies ? json(bodies[path]) : json({ error: 'not found' }, 404);
+  });
+}
+
+beforeEach(() => {
+  window.history.replaceState(null, '', '/models.html?arch=x');
+  document.documentElement.style.fontSize = '';
+});
+
+afterEach(() => {
+  cleanup();
+  document.body.replaceChildren();
+});
+
+describe('ResultViewer', () => {
+  it('renders the result in its shadow root, reading through the transport', async () => {
+    const { shadow, container } = mount();
+    const read = transport();
+    render(<ResultViewer kind="run" id={ID} transport={read} onClose={() => {}} />, {
+      container,
+    });
+
+    const view = within(container);
+    await waitFor(() => expect(view.getByTestId('run-headline')).toBeTruthy());
+    await waitFor(() =>
+      expect(read).toHaveBeenCalledWith(
+        `/api/analyzer/v1/runs/${ID}/descriptor`,
+        expect.anything(),
+      ),
+    );
+    // The page's styles are written in the shadow root, none in the document.
+    expect(shadow.querySelectorAll('style[data-emotion^="ssui"]').length).toBeGreaterThan(0);
+    expect(document.head.querySelectorAll('style[data-emotion^="ssui"]').length).toBe(0);
+    // The result's address is the page's hash, on the page's own path.
+    expect(window.location.pathname).toBe('/models.html');
+    expect(window.location.hash).toMatch(new RegExp(`^#/result/run/${ID}\\b`));
+    // In the workspace the run's descriptor names, which the pages check it
+    // against; the read that learned it is the pages' read.
+    expect(new URLSearchParams(window.location.hash.split('?')[1]).get('w')).toBe(WORKSPACE);
+    expect(await view.findByRole('button', { name: 'Batch locked' })).toBeTruthy();
+    expect(
+      read.mock.calls.filter(([url]) => url === `/api/analyzer/v1/runs/${ID}/descriptor`),
+    ).toHaveLength(1);
+    expect(document.documentElement.style.fontSize).toBe('112.5%');
+  });
+
+  it("heads a prediction with the page's name and reads no catalog", async () => {
+    const { container } = mount();
+    const read = transport();
+    render(
+      <ResultViewer
+        kind="prediction"
+        id="p_1"
+        displayName="Llama 3 8B, tp_size 1"
+        transport={read}
+        onClose={() => {}}
+      />,
+      { container },
+    );
+    const view = within(container);
+    expect(await view.findByText('Llama 3 8B, tp_size 1')).toBeTruthy();
+    expect(view.getAllByRole('heading', { name: 'Timing prediction' })).toHaveLength(1);
+    // Besides the prediction's own routes, only the kernel kinds' DOC names,
+    // which the embedding page forwards too.
+    for (const [url] of read.mock.calls)
+      expect(url).toMatch(/^\/api\/analyzer\/v1\/(predictions\/p_1\/|kernel-kinds$)/);
+  });
+
+  it("names a run's headline as the page does, reading only the run's routes", async () => {
+    const { container } = mount();
+    const read = transport();
+    render(
+      <ResultViewer
+        kind="run"
+        id={ID}
+        displayName="Llama 3.1 8B · TP, tp_size 1"
+        transport={read}
+        onClose={() => {}}
+      />,
+      { container },
+    );
+    const headline = await within(container).findByTestId('run-headline');
+    expect(within(headline).getByText('Llama 3.1 8B · TP, tp_size 1')).toBeVisible();
+    expect(within(container).getAllByText('Llama 3.1 8B · TP, tp_size 1')).toHaveLength(1);
+    expect(within(headline).queryByText(ID)).toBeNull();
+    const urls = read.mock.calls.map(([url]) => url);
+    expect(urls.length).toBeGreaterThan(0);
+    for (const url of urls) {
+      expect(url).toMatch(new RegExp(`^/api/analyzer/v1/(runs/${ID}/|kernel-kinds$)`));
+    }
+  });
+
+  it('names a run by no id when the page gives no name', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    const headline = await within(container).findByTestId('run-headline');
+    expect(within(headline).getByText('Current run')).toBeVisible();
+    // The id appears only inside the addresses unavailable reads name.
+    expect(within(headline).queryByText(ID)).toBeNull();
+  });
+
+  it('names a prediction by no id when the page gives no name', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="prediction" id="p_1" transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    const view = within(container);
+    expect(await view.findByRole('heading', { name: 'Timing prediction' })).toBeTruthy();
+    expect(container.textContent).not.toContain(PREDICTION_DIRECTORY);
+    expect(container.textContent).not.toContain('p_1');
+  });
+
+  it('offers no way to the catalog, which it does not show', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    const view = within(container);
+    await waitFor(() => expect(view.getByTestId('run-headline')).toBeTruthy());
+    expect(view.queryByRole('button', { name: 'Return to aggregate overview' })).toBeNull();
+  });
+
+  it('clears the hash and the root font size when it closes', async () => {
+    const { container } = mount();
+    const { unmount } = render(
+      <ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />,
+      { container },
+    );
+    await waitFor(() => expect(window.location.hash).not.toBe(''));
+    unmount();
+    expect(window.location.hash).toBe('');
+    expect(window.location.search).toBe('?arch=x');
+    expect(document.documentElement.style.fontSize).toBe('');
+  });
+
+  it('closes when the page goes back past its first address', async () => {
+    const { container } = mount();
+    const onClose = vi.fn();
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={onClose} />, {
+      container,
+    });
+    await waitFor(() => expect(window.location.hash).not.toBe(''));
+    act(() => {
+      window.history.replaceState(null, '', '/models.html?arch=x');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
+
+  it('says a view outside the result needs the application', async () => {
+    const { container } = mount();
+    render(<ResultViewer kind="run" id={ID} transport={transport()} onClose={() => {}} />, {
+      container,
+    });
+    await waitFor(() => expect(window.location.hash).not.toBe(''));
+    act(() => {
+      window.history.pushState(null, '', '#/chat/new?w=w_main');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await waitFor(() =>
+      expect(within(container).getByText(/needs the ServingStudio application/)).toBeTruthy(),
+    );
+  });
+
+  it('closes from its close button', async () => {
+    const { container } = mount();
+    const onClose = vi.fn();
+    render(<ResultViewer kind="prediction" id="p_1" transport={transport()} onClose={onClose} />, {
+      container,
+    });
+    // The page heads itself; the viewer adds only the control.
+    expect(
+      await within(container).findByRole('heading', { name: 'Timing prediction' }),
+    ).toBeTruthy();
+    const close = within(container).getByRole('button', { name: 'Close' });
+    act(() => close.click());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});

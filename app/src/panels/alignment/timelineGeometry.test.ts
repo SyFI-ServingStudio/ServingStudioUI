@@ -4,8 +4,7 @@ import type {
   AlignmentCostNode,
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
-import { GROUP } from '../costTreeModel';
-import { dutyBreakdown } from './dutyBreakdown';
+import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
 import {
   continuousScene,
   measuredLane,
@@ -35,7 +34,6 @@ const iteration: AlignmentTimelineIteration = {
       {
         nameId: 7,
         rowId: 'sequence_test:2',
-        category: 'gemm_or_cutlass',
         phase: 'forward',
         operation: 'layer.qkv_projection',
         synchronizing: false,
@@ -48,7 +46,6 @@ const iteration: AlignmentTimelineIteration = {
       {
         nameId: 3,
         rowId: 'sequence_test:1',
-        category: 'other',
         phase: 'preprocess',
         operation: null,
         synchronizing: false,
@@ -64,6 +61,21 @@ const iteration: AlignmentTimelineIteration = {
   },
   operationTotals: [],
   host: null,
+  // As the Analyzer states it; the lane quotes these rather than its own sums.
+  referenceRank: {
+    spanMs: 4,
+    idleFraction: 0.5,
+    gapCount: 2,
+    gaps: [
+      { startNs: 1000 + NS_PER_MS, endNs: 1000 + 2 * NS_PER_MS },
+      { startNs: 1000 + 3 * NS_PER_MS, endNs: 1000 + 4 * NS_PER_MS },
+    ],
+    interPhaseMs: 1,
+    phases: [
+      { phase: 'preprocess', busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+      { phase: 'forward', busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+    ],
+  },
 };
 
 const kernelNames = { 3: 'embedding_kernel', 7: 'nvjet_tst' };
@@ -73,8 +85,8 @@ const slots = [
 ];
 const familyPalette: LanePalette = {
   operationColors: {},
-  operationTypes: { 'layer.qkv_projection': 'gemm' },
-  unmappedColor: GROUP.misc.color,
+  unmappedColor: '#123456',
+  kernelKinds: TEST_KERNEL_KINDS,
 };
 
 describe('measuredLane', () => {
@@ -88,6 +100,13 @@ describe('measuredLane', () => {
   it('preserves correlation identity for measured kernels', () => {
     const lane = measuredLane(iteration, kernelNames, 0, familyPalette);
     expect(lane[1].correlationId).toBe(202);
+  });
+
+  // The labeler's category is not a DOC category, so an unmapped kernel has no
+  // family to draw in, only the unmapped colour.
+  it('draws a kernel the labeler tied to no operation in the unmapped colour', () => {
+    const lane = measuredLane(iteration, kernelNames, 0, familyPalette);
+    expect(lane[0].color).toBe('#123456');
   });
 
   it('places bars relative to a shared origin, not each iteration’s own anchor', () => {
@@ -204,6 +223,13 @@ describe('continuousScene', () => {
         ),
       })),
     },
+    referenceRank: {
+      ...iteration.referenceRank,
+      gaps: iteration.referenceRank.gaps.map((gap) => ({
+        startNs: gap.startNs + shiftNs,
+        endNs: gap.endNs + shiftNs,
+      })),
+    },
   });
   const inputs = (
     [
@@ -211,7 +237,7 @@ describe('continuousScene', () => {
       ['selected', shifted(423, 6 * NS_PER_MS)],
       ['after', shifted(424, 13 * NS_PER_MS)],
     ] as const
-  ).map(([role, row]) => ({ role, iteration: row, breakdown: dutyBreakdown(row, 0) }));
+  ).map(([role, row]) => ({ role, iteration: row }));
 
   it('places every iteration by its own anchor on one axis', () => {
     const scene = continuousScene(inputs, sceneOptions)!;
@@ -263,11 +289,22 @@ describe('continuousScene', () => {
     expect(continuousScene([], sceneOptions)).toBeNull();
   });
 
-  it('reports each drawn iteration’s own idle share, not the scene’s', () => {
+  it('reports each drawn iteration’s own Analyzer occupancy, not the scene’s', () => {
     const scene = continuousScene(inputs, sceneOptions)!;
-    // Span 4 ms with 2 ms of kernels on the reference rank.
-    expect(scene.lanes[1].idleFraction).toBeCloseTo(0.5, 12);
-    expect(scene.lanes[1].gapCount).toBe(scene.lanes[1].gaps.length);
+    expect(scene.lanes[1]).toMatchObject({
+      spanMs: 4,
+      idleFraction: 0.5,
+      forwardIdleFraction: 0,
+      gapCount: 2,
+    });
+  });
+
+  it('draws the Analyzer’s reference-rank gaps on the shared axis', () => {
+    const scene = continuousScene(inputs, sceneOptions)!;
+    expect(scene.lanes[1].gaps).toEqual([
+      { startMs: 7, endMs: 8 },
+      { startMs: 9, endMs: 10 },
+    ]);
   });
 });
 

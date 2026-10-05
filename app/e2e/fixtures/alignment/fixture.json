@@ -28,6 +28,7 @@
     "cdf server_tpot measured: 300 -> 96 points per series",
     "cdf server_tpot simulated: 300 -> 96 points per series",
     "cdf e2e measured: 300 -> 96 points per series",
-    "cdf e2e simulated: 300 -> 96 points per series"
+    "cdf e2e simulated: 300 -> 96 points per series",
+    "timeline iterations 6, 1025, 2045: reference_rank added from the kept rank-0 intervals by the Analyzer's ReferenceRank rules (the source capture predates it); gap_count and idle_fraction equal the index rows"
   ]
 }

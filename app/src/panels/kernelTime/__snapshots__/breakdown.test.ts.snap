@@ -29,7 +29,7 @@ exports[`kernel-time chart projection > keeps the accepted aggregate chart optio
       "itemStyle": {
         "color": "#7192b1",
       },
-      "name": "Dense GEMM",
+      "name": "GEMM",
       "stack": "kernel",
       "type": "bar",
     },

@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf, sum } from './costTreeModel';
+import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
 const controls = {
@@ -13,6 +14,11 @@ const controls = {
 };
 const firstTree = annotate(leaf('first.kernel', 'single_gemm', {}, 1));
 const secondTree = annotate(leaf('second.kernel', 'single_gemm', {}, 2));
+/** A composition as the Analyzer serves it beside a tree; the canvas only reads it. */
+const composition = (position: string, kernelTimeMs: number, sharePct = 100) => ({
+  kernelTimeMs: (kernelTimeMs * 100) / sharePct,
+  segments: [{ position, kind: 'single_gemm', kernelTimeMs, sharePct }],
+});
 
 function rect(width: number, height: number): DOMRect {
   return {
@@ -58,6 +64,7 @@ describe('CostTreeCanvas', () => {
     render(
       <CostTreeCanvas
         tree={tree}
+        timeShare={composition('first.kernel', 1)}
         selectedLeafId={null}
         selectedParallelId={null}
         onSelectLeaf={vi.fn()}
@@ -67,6 +74,7 @@ describe('CostTreeCanvas', () => {
         ariaLabel="Test CostTree canvas"
         controlLabels={controls}
       />,
+      { wrapper: KernelKindsProvider },
     );
     await userEvent
       .setup()
@@ -95,7 +103,10 @@ describe('CostTreeCanvas', () => {
       ariaLabel: 'Test CostTree canvas',
       controlLabels: controls,
     };
-    const view = render(<CostTreeCanvas {...props} tree={firstTree} />);
+    const view = render(
+      <CostTreeCanvas {...props} tree={firstTree} timeShare={composition('first.kernel', 1)} />,
+      { wrapper: KernelKindsProvider },
+    );
     const viewport = screen.getByRole('region', { name: 'Test CostTree canvas' });
     const content = screen.getByTestId('cost-tree-content');
 
@@ -109,8 +120,34 @@ describe('CostTreeCanvas', () => {
     fireEvent(viewport, pointerEvent('pointerup', 4, 90, 70));
     expect(content.style.transform).not.toBe('translate(310px, 292.5px) scale(0.9)');
 
-    view.rerender(<CostTreeCanvas {...props} tree={secondTree} />);
+    view.rerender(
+      <CostTreeCanvas {...props} tree={secondTree} timeShare={composition('second.kernel', 2)} />,
+    );
     expect(content.style.transform).toBe('translate(310px, 292.5px) scale(0.9)');
     expect(screen.getByRole('button', { name: 'Inspect kernel second.kernel' })).toBeVisible();
+  });
+
+  it("shows each leaf's time share as the Analyzer attributes it", async () => {
+    render(
+      <CostTreeCanvas
+        tree={firstTree}
+        // Not 100%: the share is read from the composition, never derived
+        // from the tree, whose single leaf is the whole root.
+        timeShare={composition('first.kernel', 1, 42)}
+        selectedLeafId={null}
+        selectedParallelId={null}
+        onSelectLeaf={vi.fn()}
+        onSelectParallel={vi.fn()}
+        onSelectRoot={vi.fn()}
+        ariaLabel="Test CostTree canvas"
+        controlLabels={controls}
+      />,
+      { wrapper: KernelKindsProvider },
+    );
+    const node = screen.getByRole('button', { name: 'Inspect kernel first.kernel' });
+    expect(within(node).getByText('42%')).toBeVisible();
+    // The hover card repeats it.
+    await userEvent.setup().hover(node);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('42%');
   });
 });

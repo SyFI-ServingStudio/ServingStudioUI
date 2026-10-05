@@ -1,14 +1,9 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import {
-  criticalLeafTotals,
-  fmtMs,
-  fmtPct,
-  GROUP,
-  GROUP_ORDER,
-  leafByName,
-  type CostTree,
-} from './costTreeModel';
+import type { KernelComposition } from '../artifacts';
+import { fmtMs, fmtPct, leafByName, type CostTree } from './costTreeModel';
+import { familyShares } from './kernelFamilies';
+import { kindColor, useKernelKinds } from './kernelTaxonomy';
 import { tokens, withAlpha } from '../ui/theme';
 
 interface Seg {
@@ -25,14 +20,6 @@ interface Seg {
 // Small shares stay proportional and can be selected through the CostTree
 // controls instead of inflating their displayed share.
 const MIN_INTERACTIVE_SHARE_PCT = 8;
-
-type PreviewPalette = Readonly<
-  Record<string, { readonly color: string; readonly foreground: string }>
->;
-
-const MINERAL_PALETTE: PreviewPalette = Object.fromEntries(
-  GROUP_ORDER.map((group) => [group, { color: GROUP[group].color, foreground: tokens.paper }]),
-);
 
 function Bar({
   title,
@@ -178,51 +165,57 @@ function Bar({
   );
 }
 
+/** The Analyzer's critical-path composition of one exact CostTree, drawn by
+ * family and by kernel position. `tree` only resolves a position to the leaf
+ * a click selects. */
 export function TimeShareBlocksView({
   tree,
+  timeShare,
   selectedLeafId,
   onSelectKernel,
 }: {
   tree: CostTree;
+  timeShare: KernelComposition;
   selectedLeafId: number | null;
   onSelectKernel: (leafId: number) => void;
 }) {
-  const lt = criticalLeafTotals(tree);
-  const palette = MINERAL_PALETTE;
+  const kinds = useKernelKinds();
+  const totalMs = timeShare.kernelTimeMs;
 
-  const groupSegs: Seg[] = lt.groups.map((g) => ({
-    label: g.label,
-    full: g.label,
-    pct: g.pct,
-    ms: g.ms,
-    color: palette[g.group].color,
-    foreground: palette[g.group].foreground,
+  const groupSegs: Seg[] = familyShares(timeShare.segments, totalMs, kinds).map((family) => ({
+    label: family.family,
+    full: family.family,
+    pct: family.sharePct,
+    ms: family.kernelTimeMs,
+    color: family.color,
+    foreground: tokens.paper,
     nodeId: null,
   }));
 
   const cutoff = 8;
-  const top = lt.positions.slice(0, cutoff);
+  const positions = timeShare.segments;
+  const top = positions.slice(0, cutoff);
   let acc = 0;
-  const posSegs: Seg[] = top.map((p) => {
-    acc += p.pct;
-    const node = leafByName(tree, p.name);
+  const posSegs: Seg[] = top.map((segment) => {
+    acc += segment.sharePct;
+    const node = leafByName(tree, segment.position);
     return {
-      label: p.name.split('.').pop() ?? p.name,
-      full: p.name,
-      pct: p.pct,
-      ms: p.ms,
-      color: palette[p.group].color,
-      foreground: palette[p.group].foreground,
+      label: segment.position.split('.').pop() ?? segment.position,
+      full: segment.position,
+      pct: segment.sharePct,
+      ms: segment.kernelTimeMs,
+      color: kindColor(kinds, segment.kind),
+      foreground: tokens.paper,
       nodeId: node ? node.id : null,
     };
   });
-  if (lt.positions.length > cutoff) {
+  if (positions.length > cutoff) {
     const restPct = Math.max(0, 100 - acc);
     posSegs.push({
-      label: `other ×${lt.positions.length - cutoff}`,
-      full: `${lt.positions.length - cutoff} smaller kernels`,
+      label: `other ×${positions.length - cutoff}`,
+      full: `${positions.length - cutoff} smaller kernels`,
       pct: restPct,
-      ms: (lt.totalMs * restPct) / 100,
+      ms: (totalMs * restPct) / 100,
       color: tokens.sub2,
       foreground: tokens.sub,
       nodeId: null,

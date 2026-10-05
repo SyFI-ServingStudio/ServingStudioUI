@@ -16,6 +16,7 @@ import {
   RUN_OPTIMALITY_UNAVAILABLE,
 } from './fixtures/run';
 import { expect, test } from './quality.fixture';
+import { serveKernelKinds } from './fixtures/kernelKinds';
 
 /**
  * The third vertical slice: what a run achieved, from a URL.
@@ -52,6 +53,7 @@ async function stubAnalyzer(
     record(route);
     return route.fulfill({ status: 404, body: 'not served' });
   });
+  await serveKernelKinds(page);
   await page.route(`**/api/analyzer/v1/runs/${RUN}/subjects/summary/report*`, (route) => {
     record(route);
     if (options.summaryStatus !== undefined) {

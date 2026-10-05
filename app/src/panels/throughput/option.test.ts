@@ -37,6 +37,14 @@ describe('throughputOption', () => {
     expect(throughputOption(data, CHART_THEME, 0.5)).toMatchSnapshot();
   });
 
+  it('bounds the time axis to the hundredth of a second, outward', () => {
+    const option = throughputOption(
+      { startMs: [4_743.6], endMs: [294_301.2], total: [1], prefill: [0], decode: [1] },
+      CHART_THEME,
+    );
+    expect(option.xAxis).toMatchObject({ min: 4.74, max: 294.31 });
+  });
+
   it('projects the producer coarse view and restores cluster rates', () => {
     expect(throughputChartData(timeline, 'coarse')).toEqual({
       startMs: [0],

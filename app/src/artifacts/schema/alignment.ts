@@ -10,6 +10,7 @@ import type {
   AlignmentHostEvent,
   AlignmentIterationReport,
   AlignmentIterationSeries,
+  AlignmentReferenceRank,
   AlignmentSequence,
   AlignmentSequenceOccurrence,
   AlignmentSequences,
@@ -18,6 +19,7 @@ import type {
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
   AlignmentWorkloadReport,
+  AlignmentWorkloadStats,
   AlignmentWorkloadSeries,
 } from './alignmentTypes';
 import { ALIGNMENT_SUBJECTS } from './alignmentTypes';
@@ -400,7 +402,6 @@ export function parseAnalyzerV1AlignmentIterationReport(input: unknown): Alignme
 
 const sequenceKernelSchema = z.object({
   name: z.string(),
-  suggested_category: z.string(),
   label: z.object({
     status: z.string(),
     cross_rank: z.string(),
@@ -486,7 +487,6 @@ const decodeProgram = (program: z.infer<typeof sequenceProgramSchema>) =>
 function decodeSequenceKernel(kernel: z.infer<typeof sequenceKernelSchema>) {
   return Object.freeze({
     name: kernel.name,
-    suggestedCategory: kernel.suggested_category,
     label: Object.freeze({
       status: kernel.label.status,
       crossRank: kernel.label.cross_rank,
@@ -1026,6 +1026,62 @@ export function parseAnalyzerV1AlignmentTimelineIndex(input: unknown): Alignment
   });
 }
 
+// Of each gap edge only the operation is read: the card names a gap by the
+// operations across it.
+const gapEdgeSchema = z.object({ operation: z.string().nullable() });
+const referenceGapSchema = z.object({
+  start_ns: nanoseconds,
+  duration_us: nonNegative,
+  after: gapEdgeSchema,
+  before: gapEdgeSchema,
+});
+const referenceRankSchema = z.object({
+  span_ms: nonNegative,
+  idle_fraction: finite.nullable(),
+  gap_count: count,
+  gaps_ns: z.array(z.tuple([nanoseconds, nanoseconds])),
+  inter_phase_ms: nonNegative,
+  phases: z.array(
+    z.object({
+      phase: z.string(),
+      busy_ms: nonNegative,
+      idle_ms: nonNegative,
+      idle_fraction: finite.nullable(),
+      largest_gaps: z.array(referenceGapSchema),
+    }),
+  ),
+});
+
+function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): AlignmentReferenceRank {
+  return Object.freeze({
+    spanMs: rank.span_ms,
+    idleFraction: rank.idle_fraction,
+    gapCount: rank.gap_count,
+    gaps: Object.freeze(rank.gaps_ns.map(([startNs, endNs]) => Object.freeze({ startNs, endNs }))),
+    interPhaseMs: rank.inter_phase_ms,
+    phases: Object.freeze(
+      rank.phases.map((phase) =>
+        Object.freeze({
+          phase: phase.phase,
+          busyMs: phase.busy_ms,
+          idleMs: phase.idle_ms,
+          idleFraction: phase.idle_fraction,
+          largestGaps: Object.freeze(
+            phase.largest_gaps.map((gap) =>
+              Object.freeze({
+                startNs: gap.start_ns,
+                durationUs: gap.duration_us,
+                afterOperation: gap.after.operation,
+                beforeOperation: gap.before.operation,
+              }),
+            ),
+          ),
+        }),
+      ),
+    ),
+  });
+}
+
 const timelineIterationSchema = z
   .object({
     iteration_id: count,
@@ -1045,7 +1101,6 @@ const timelineIterationSchema = z
         z.object({
           name_id: count,
           row: z.string(),
-          cat: z.string(),
           ph: z.string(),
           op: z.string().nullish(),
           sync: z.boolean(),
@@ -1085,6 +1140,10 @@ const timelineIterationSchema = z
         api: hostLaneSchema,
       })
       .nullish(),
+    // Written into the shard by the analysis since the wall-clock card stopped
+    // re-deriving occupancy; a shard analysed before that lacks it and must be
+    // re-analysed rather than drawn with numbers of the UI's own.
+    reference_rank: referenceRankSchema,
   })
   .superRefine((payload, context) => {
     if (payload.simulated.slot_ms.length !== payload.simulated.slot_op.length) {
@@ -1131,7 +1190,6 @@ export function parseAnalyzerV1AlignmentTimelineIteration(
           Object.freeze({
             nameId: kernel.name_id,
             rowId: kernel.row,
-            category: kernel.cat,
             phase: kernel.ph,
             operation: kernel.op ?? null,
             synchronizing: kernel.sync,
@@ -1165,6 +1223,7 @@ export function parseAnalyzerV1AlignmentTimelineIteration(
           api: decodeHostLane(record.host.api),
         })
       : null,
+    referenceRank: decodeReferenceRank(record.reference_rank),
   });
 }
 
@@ -1236,22 +1295,35 @@ export function parseAnalyzerV1AlignmentWorkloadSeries(input: unknown): Alignmen
   });
 }
 
+const workloadStats = z.object({
+  n: count,
+  p50: finite.nullable(),
+  p90: finite.nullable(),
+  p99: finite.nullable(),
+  max: finite.nullable(),
+}) satisfies z.ZodType<AlignmentWorkloadStats>;
+const pairedWorkloadStats = z
+  .object({ measured: workloadStats, simulated: workloadStats })
+  .transform((value) => Object.freeze(value));
+
+// Only the fields both sides record are read; `observed_elapsed_ms` is
+// measured alone and has no card.
 const workloadReportSchema = z.object({
   schema_version: z.literal(1),
-  available: z.boolean(),
-  definitions: z.record(z.unknown()),
-  meta: z.record(z.unknown()),
-  metrics: z.record(z.object({ measured: distribution, simulated: distribution })),
+  available: z.literal(true),
+  metrics: z.object({
+    prefill_tokens: pairedWorkloadStats,
+    decode_batch_size: pairedWorkloadStats,
+    scheduled_kv_tokens: pairedWorkloadStats,
+    iteration_cycle_ms: pairedWorkloadStats,
+  }),
 });
 
+/** The workload report: each scheduler field's percentiles per side, as the
+ * Analyzer computed them from the same iterations the series plots. */
 export function parseAnalyzerV1AlignmentWorkloadReport(input: unknown): AlignmentWorkloadReport {
   const report = workloadReportSchema.parse(input);
-  return Object.freeze({
-    available: report.available,
-    definitions: Object.freeze(flattenDefinitions(report.definitions)),
-    meta: Object.freeze(report.meta),
-    metrics: Object.freeze(report.metrics),
-  });
+  return Object.freeze({ metrics: Object.freeze(report.metrics) });
 }
 
 const cdfCurveSchema = z

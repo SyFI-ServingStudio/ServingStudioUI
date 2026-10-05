@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { KernelTimeShare } from '../../artifacts';
 import { CHART_THEME } from '../../ui/charts/platform';
+import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
 import { poolBreakdown, runBreakdown } from './breakdown';
 import { kernelTimeStackOption } from './option';
 
@@ -58,14 +59,14 @@ const SHARE: KernelTimeShare = {
 };
 
 function readyPool(poolTag: string) {
-  const result = poolBreakdown(SHARE, poolTag);
+  const result = poolBreakdown(SHARE, poolTag, TEST_KERNEL_KINDS);
   if (result.status !== 'ready') throw new Error(result.reason);
   return result;
 }
 
 describe('kernel-time chart projection', () => {
   it('keeps the legacy cluster row followed by pools in wire order', () => {
-    const result = runBreakdown(SHARE);
+    const result = runBreakdown(SHARE, TEST_KERNEL_KINDS);
     expect(result.rows.map((row) => row.label)).toEqual(['cluster', 'prefill', 'decode']);
     expect(result.sampling).toEqual({
       method: 'worker-local regular iter_id stride',
@@ -85,12 +86,15 @@ describe('kernel-time chart projection', () => {
   });
 
   it('orders only families present in the scope by overall weight', () => {
-    expect(runBreakdown(SHARE).families.map((family) => family.group)).toEqual(['gemm', 'attn']);
-    expect(readyPool('prefill').families.map((family) => family.group)).toEqual(['gemm']);
+    expect(runBreakdown(SHARE, TEST_KERNEL_KINDS).families.map((family) => family.group)).toEqual([
+      'GEMM',
+      'Attention',
+    ]);
+    expect(readyPool('prefill').families.map((family) => family.group)).toEqual(['GEMM']);
   });
 
   it('distinguishes a missing pool from an empty pool', () => {
-    expect(poolBreakdown(SHARE, 'missing')).toEqual({
+    expect(poolBreakdown(SHARE, 'missing', TEST_KERNEL_KINDS)).toEqual({
       status: 'absent',
       reason: 'This run has no pool named missing.',
     });
@@ -99,11 +103,14 @@ describe('kernel-time chart projection', () => {
       pools: [{ poolTag: 'idle', numWorkers: 1, kernelTimeMs: 0, segments: [] }],
       workers: [],
     };
-    expect(poolBreakdown(empty, 'idle')).toMatchObject({ status: 'ready', rows: [{ total: 0 }] });
+    expect(poolBreakdown(empty, 'idle', TEST_KERNEL_KINDS)).toMatchObject({
+      status: 'ready',
+      rows: [{ total: 0 }],
+    });
   });
 
   it('keeps the accepted aggregate chart option', () => {
-    const result = runBreakdown(SHARE);
+    const result = runBreakdown(SHARE, TEST_KERNEL_KINDS);
     const current = kernelTimeStackOption(result, CHART_THEME);
     expect(current).toMatchSnapshot();
   });

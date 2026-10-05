@@ -3,20 +3,20 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import SurfaceCard from '../../ui/controls/SurfaceCard';
 import type {
+  AlignmentReferenceRank,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
   AlignmentTimelineIterationSummary,
 } from '../../artifacts/schema/alignmentTypes';
 import type { ResultRef } from '../../location';
 import { tokens, withAlpha } from '../../ui/theme';
+import { useKernelKinds } from '../kernelTaxonomy';
 import { spanOf, type AxisSpan } from './axisZoom';
 import {
-  dutyBreakdown,
   dutySegments,
   forwardIdleFraction,
   iterationDutyRatio,
   widestForwardGap,
-  type DutyBreakdown,
 } from './dutyBreakdown';
 import { fmtInt, fmtMs, fmtMultiplier, fmtPct, fmtSignedMs } from './format';
 import { groupedHostLanes, HOST_NVTX_DEPTHS, type HostLaneCensus } from './hostLanes';
@@ -96,19 +96,15 @@ export default function WallClockCard({
   );
 
   const referenceDeviceId = index.meta.referenceDeviceId;
-  const breakdown = useMemo(
-    () => (iteration === null ? null : dutyBreakdown(iteration, referenceDeviceId)),
-    [iteration, referenceDeviceId],
-  );
+  const referenceRank = iteration?.referenceRank ?? null;
+  const kernelKinds = useKernelKinds();
   const palette = useMemo(
     () => ({
       operationColors: operationColors(index.operations),
-      operationTypes: Object.fromEntries(
-        index.operations.map((entry) => [entry.operation, entry.type]),
-      ),
       unmappedColor,
+      kernelKinds,
     }),
-    [index.operations],
+    [index.operations, kernelKinds],
   );
 
   const sceneInputs = useMemo<readonly ContinuousSceneInput[]>(() => {
@@ -116,13 +112,13 @@ export default function WallClockCard({
     const entries: ContinuousSceneInput[] = [];
     const push = (role: ContinuousSceneInput['role'], row: AlignmentTimelineIteration | null) => {
       if (row === null) return;
-      entries.push({ role, iteration: row, breakdown: dutyBreakdown(row, referenceDeviceId) });
+      entries.push({ role, iteration: row });
     };
     push('before', neighbours.before);
     push('selected', iteration);
     push('after', neighbours.after);
     return entries;
-  }, [iteration, neighbours.before, neighbours.after, referenceDeviceId]);
+  }, [iteration, neighbours.before, neighbours.after]);
 
   const scene = useMemo(
     () =>
@@ -153,10 +149,7 @@ export default function WallClockCard({
     [scene, sceneInputs, index.meta.hostTimeline, referenceDeviceId],
   );
 
-  const forwardGap = useMemo(
-    () => (iteration === null ? null : widestForwardGap(iteration, referenceDeviceId)),
-    [iteration, referenceDeviceId],
-  );
+  const forwardGap = referenceRank === null ? null : widestForwardGap(referenceRank);
   const dutyRatio = iteration === null ? null : iterationDutyRatio(iteration);
 
   const handleTraceSelect = useCallback((trace: TimelineTrace | null) => {
@@ -266,7 +259,7 @@ export default function WallClockCard({
             ) : (
               <DutyDecomposition
                 summary={summary}
-                breakdown={breakdown}
+                referenceRank={referenceRank}
                 referenceDeviceId={referenceDeviceId}
                 widestForward={
                   forwardGap === null
@@ -658,7 +651,7 @@ function Chip({
  * forward hole was and what it sat between. */
 function DutyDecomposition({
   summary,
-  breakdown,
+  referenceRank,
   referenceDeviceId,
   widestForward,
 }: {
@@ -666,12 +659,12 @@ function DutyDecomposition({
   /** Null while this iteration's shard is still in flight. The heading and the
    * span come from the index either way, so a step through the picker never
    * blanks the line that says what is selected — only the bar waits. */
-  breakdown: DutyBreakdown | null;
+  referenceRank: AlignmentReferenceRank | null;
   referenceDeviceId: number;
   widestForward: { ms: number; edge: string } | null;
 }) {
-  const segments = breakdown === null ? [] : dutySegments(breakdown);
-  const forwardIdle = breakdown === null ? null : forwardIdleFraction(breakdown);
+  const segments = referenceRank === null ? [] : dutySegments(referenceRank);
+  const forwardIdle = referenceRank === null ? null : forwardIdleFraction(referenceRank);
   return (
     <>
       <Stack
@@ -683,7 +676,7 @@ function DutyDecomposition({
         </Typography>
         <Typography sx={{ fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
           rank-{referenceDeviceId}
-          {breakdown !== null &&
+          {referenceRank !== null &&
             ` · ${
               widestForward === null
                 ? 'no forward gap recorded'
@@ -712,7 +705,7 @@ function DutyDecomposition({
         direction="row"
         role="img"
         aria-label={
-          breakdown === null
+          referenceRank === null
             ? 'Loading this iteration’s span'
             : segments.map((segment) => `${segment.label} ${fmtMs(segment.ms)}`).join(', ')
         }

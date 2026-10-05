@@ -9,14 +9,15 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import { criticalLeafTotals, type CostTree } from './costTreeModel';
+import type { KernelComposition } from '../artifacts';
+import type { CostTree } from './costTreeModel';
 import { tokens, withAlpha } from '../ui/theme';
 import CostTreeNode from './CostTreeNode';
+import { useKernelKinds } from './kernelTaxonomy';
 
 export const COST_TREE_VIEWPORT_HEIGHT = 675;
 
@@ -56,6 +57,9 @@ export interface CostTreeCanvasControlLabels {
 
 interface CostTreeCanvasProps {
   tree: CostTree;
+  /** The Analyzer's critical-path attribution of `tree`; each leaf shows its
+   * position's share. */
+  timeShare: KernelComposition;
   selectedLeafId: number | null;
   selectedParallelId: number | null;
   /** Optional scoped-analysis selection for sequential container nodes. */
@@ -92,6 +96,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
  * the caller; this component owns only direct DOM pan/zoom interaction. */
 export default function CostTreeCanvas({
   tree,
+  timeShare,
   selectedLeafId,
   selectedParallelId,
   selectedScopeId = null,
@@ -104,10 +109,7 @@ export default function CostTreeCanvas({
   browserExpansion,
   fillFrame = false,
 }: CostTreeCanvasProps) {
-  const criticalContributionByPositionName = useMemo(
-    () => new Map(criticalLeafTotals(tree).positions.map((position) => [position.name, position])),
-    [tree],
-  );
+  const kinds = useKernelKinds();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const transformRef = useRef<ViewTransform>({
@@ -390,7 +392,8 @@ export default function CostTreeCanvas({
       >
         <CostTreeNode
           node={tree}
-          criticalContributionByPositionName={criticalContributionByPositionName}
+          timeShare={timeShare}
+          kinds={kinds}
           selId={selectedLeafId}
           parSel={selectedParallelId}
           scopeSel={selectedScopeId}

@@ -121,6 +121,8 @@ export function artifactUrl(ref: ArtifactRef): string {
       return `${resultPath(ref.result)}/subjects/timeline/payload${revision(ref.result)}`;
     case 'alignmentWorkloadSeries':
       return `${resultPath(ref.result)}/subjects/workload/payload${revision(ref.result)}`;
+    case 'alignmentWorkloadReport':
+      return `${resultPath(ref.result)}/subjects/workload/report${revision(ref.result)}`;
     case 'alignmentE2eSeries':
       return `${resultPath(ref.result)}/subjects/e2e/payload${revision(ref.result)}`;
     case 'alignmentBreakdown':
@@ -234,5 +236,7 @@ export function artifactUrl(ref: ArtifactRef): string {
       return `${resultPath(ref.result)}/subjects/summary/report`;
     case 'hardwareGpu':
       return `${API_BASE}hardware/gpus?name=${encodeURIComponent(ref.name)}`;
+    case 'kernelKinds':
+      return `${API_BASE}kernel-kinds`;
   }
 }

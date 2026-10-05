@@ -44,6 +44,7 @@ describe('parseRunWorkload', () => {
   it('refuses escaped paths, unknown fields, oversized arrays and newer versions', () => {
     expect(() => parseRunWorkload({ ...BODY, source_paths: ['../requests.csv'] })).toThrow();
     expect(() => parseRunWorkload({ ...BODY, extra: true })).toThrow();
+    expect(() => parseRunWorkload({ ...BODY, arrival_basis: 'source_trace' })).toThrow();
     expect(() => parseRunWorkload({ ...BODY, token_lengths: Array(73).fill(1) })).toThrow();
     expect(() => parseRunWorkload({ ...BODY, schema_version: 2 })).toThrow(
       IncompatibleRunWorkloadError,

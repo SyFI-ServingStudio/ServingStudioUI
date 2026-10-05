@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import { expect, test } from './quality.fixture';
+import { serveKernelKinds } from './fixtures/kernelKinds';
 
 const PREDICTION_ID = 'p_one';
 const CATALOG = {
@@ -99,6 +100,12 @@ const COST_TREE = {
       },
     ],
   },
+  time_share: {
+    kernel_time_ms: 2.5,
+    segments: [
+      { position: 'model.gemm', kind: 'single_gemm', kernel_time_ms: 2.5, share_pct: 100 },
+    ],
+  },
 };
 const SCOPED = {
   schema_version: 1,
@@ -185,6 +192,7 @@ const WATERFALL = {
 
 async function openPrediction(page: Page): Promise<void> {
   await page.route('**/api/analyzer/v1/**', (route) => route.fulfill({ status: 404, body: 'no' }));
+  await serveKernelKinds(page);
   await page.route('**/api/analyzer/v1/predictions', (route) => route.fulfill({ json: CATALOG }));
   await page.route('**/api/analyzer/v1/runs', (route) =>
     route.fulfill({

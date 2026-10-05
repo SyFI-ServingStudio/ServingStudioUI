@@ -10,6 +10,7 @@ import {
 import { segmentOf } from '../../location';
 import { CHART_THEME } from '../../ui/charts/platform';
 import ChartCard from '../../ui/controls/ChartCard';
+import { useKernelKinds } from '../kernelTaxonomy';
 import { describeRead } from '../readProblem';
 import type { PanelProps } from '../types';
 import {
@@ -28,6 +29,7 @@ const CAPTION_SAMPLED =
 
 export function RunKernelTimePanel({ location }: PanelProps) {
   const state = useArtifact(useMemo(() => kernelTimeShareRef(location.ref), [location.ref]));
+  const kinds = useKernelKinds();
   if (state.status !== 'ready') {
     return (
       <Unavailable state={state} testId="kernel-time-run" title="Cluster kernel time breakdown" />
@@ -37,7 +39,7 @@ export function RunKernelTimePanel({ location }: PanelProps) {
     <BreakdownCard
       testId="kernel-time-run"
       title="Cluster kernel time breakdown"
-      projection={runBreakdown(state.value)}
+      projection={runBreakdown(state.value, kinds)}
     />
   );
 }
@@ -45,6 +47,7 @@ export function RunKernelTimePanel({ location }: PanelProps) {
 export function PoolKernelTimePanel({ location }: PanelProps) {
   const poolTag = segmentOf(location.focus.path, 'pool')?.role ?? null;
   const state = useArtifact(useMemo(() => kernelTimeShareRef(location.ref), [location.ref]));
+  const kinds = useKernelKinds();
   const title = `Kernel time breakdown · ${poolTag ?? '—'}`;
   const testId = `kernel-time-pool-${poolTag ?? 'missing'}`;
   if (state.status !== 'ready') {
@@ -53,7 +56,7 @@ export function PoolKernelTimePanel({ location }: PanelProps) {
   const projection: KernelTimeBreakdownProjection =
     poolTag === null
       ? { status: 'absent', reason: 'This address does not name a pool.' }
-      : poolBreakdown(state.value, poolTag);
+      : poolBreakdown(state.value, poolTag, kinds);
   if (projection.status === 'absent') {
     return (
       <ChartCard

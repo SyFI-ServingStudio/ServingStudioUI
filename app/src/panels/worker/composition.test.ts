@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { KernelTimeShare, WorkerKernelComposition } from '../../artifacts';
+import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
 import { projectWorkerComposition } from './composition';
 
 const WORKER = { poolTag: 'attn', workerId: '0' };
@@ -50,7 +51,7 @@ function composition(overrides: Partial<WorkerKernelComposition> = {}): WorkerKe
 
 describe('projectWorkerComposition', () => {
   it('orders positions by time and reports the worker share of the whole result', () => {
-    const projection = projectWorkerComposition(share(), WORKER, composition());
+    const projection = projectWorkerComposition(share(), WORKER, composition(), TEST_KERNEL_KINDS);
 
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
@@ -67,20 +68,20 @@ describe('projectWorkerComposition', () => {
   it('groups positions into families, largest first', () => {
     // Two attention positions outweigh the single GEMM even though the GEMM
     // position is not the smallest one on its own.
-    const projection = projectWorkerComposition(share(), WORKER, composition());
+    const projection = projectWorkerComposition(share(), WORKER, composition(), TEST_KERNEL_KINDS);
 
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
     expect(projection.value.families.map((family) => [family.family, family.kernelTimeMs])).toEqual(
       [
-        ['attn', 8],
-        ['gemm', 2],
+        ['Attention', 8],
+        ['GEMM', 2],
       ],
     );
     expect(projection.value.families[0].sharePct).toBeCloseTo(80, 9);
   });
 
-  it('files an unrecognized kernel kind under Other rather than refusing to draw', () => {
+  it('files an unrecognized kernel kind as unclassified rather than refusing to draw', () => {
     // The Analyzer's kernel vocabulary grows independently of this build.
     const projection = projectWorkerComposition(
       share(),
@@ -90,21 +91,27 @@ describe('projectWorkerComposition', () => {
           { position: 'new.thing', kind: 'not_a_known_kind', kernelTimeMs: 10, sharePct: 100 },
         ],
       }),
+      TEST_KERNEL_KINDS,
     );
 
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
     expect(projection.value.families).toHaveLength(1);
-    expect(projection.value.families[0]).toMatchObject({ family: 'misc', label: 'Other' });
-    // The kind keeps its wire spelling when there is no display name for it.
+    expect(projection.value.families[0]).toMatchObject({ family: 'Unclassified' });
+    // The kind keeps its wire spelling when no DOC names it.
     expect(projection.value.slices[0].kind).toBe('not_a_known_kind');
   });
 
   it('distinguishes a worker the result does not have from one it has not read', () => {
     // The first is an answer about the run; the second is a statement about the
     // request, and only the second goes away by fetching something.
-    const absent = projectWorkerComposition(share(), { poolTag: 'ffn', workerId: '3' }, undefined);
-    const unread = projectWorkerComposition(share(), WORKER, undefined);
+    const absent = projectWorkerComposition(
+      share(),
+      { poolTag: 'ffn', workerId: '3' },
+      undefined,
+      TEST_KERNEL_KINDS,
+    );
+    const unread = projectWorkerComposition(share(), WORKER, undefined, TEST_KERNEL_KINDS);
 
     expect(absent).toEqual({
       status: 'absent',
@@ -118,7 +125,7 @@ describe('projectWorkerComposition', () => {
     // time to another, and look entirely normal doing so.
     const other = composition({ worker: { poolTag: 'attn', workerId: '1' } });
 
-    expect(projectWorkerComposition(share(), WORKER, other)).toEqual({
+    expect(projectWorkerComposition(share(), WORKER, other, TEST_KERNEL_KINDS)).toEqual({
       status: 'unread',
       worker: WORKER,
     });
@@ -130,6 +137,7 @@ describe('projectWorkerComposition', () => {
       share(),
       idle,
       composition({ worker: idle, kernelTimeMs: 0, segments: [] }),
+      TEST_KERNEL_KINDS,
     );
     expect(result).toMatchObject({
       status: 'ready',
@@ -145,17 +153,19 @@ describe('projectWorkerComposition', () => {
         kernelTimeMs: 5e-13,
         segments: [{ position: 'noise', kind: 'single_gemm', kernelTimeMs: 5e-13, sharePct: 100 }],
       }),
+      TEST_KERNEL_KINDS,
     );
 
     expect(projection).toMatchObject({ status: 'ready', value: { slices: [] } });
   });
 
   it('reports the mixture as exact only when every row was replayed', () => {
-    const sampled = projectWorkerComposition(share(), WORKER, composition());
+    const sampled = projectWorkerComposition(share(), WORKER, composition(), TEST_KERNEL_KINDS);
     const exact = projectWorkerComposition(
       share(),
       WORKER,
       composition({ sampling: { rawRows: 400, sampledRows: 400, stride: 1 } }),
+      TEST_KERNEL_KINDS,
     );
 
     expect(sampled).toMatchObject({ status: 'ready', value: { mixtureExact: false } });

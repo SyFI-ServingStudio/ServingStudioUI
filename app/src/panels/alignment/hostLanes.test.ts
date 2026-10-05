@@ -67,6 +67,14 @@ function iteration(
     simulated: { totalMs: 1, slotMs: [], slotOperation: [] },
     operationTotals: [],
     host,
+    referenceRank: {
+      spanMs: 1,
+      idleFraction: 0,
+      gapCount: 0,
+      gaps: [],
+      interPhaseMs: 0,
+      phases: [],
+    },
   };
 }
 

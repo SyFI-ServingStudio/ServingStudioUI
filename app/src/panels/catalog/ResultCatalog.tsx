@@ -7,6 +7,7 @@ import type { CatalogEntry } from '../../artifacts';
 import type { CatalogFilter, Navigate, ResultKind } from '../../location';
 import { EMPTY_FOCUS } from '../../location';
 import type { ManagedJob } from '../../session/types';
+import { RESULT_TITLE, displayResultName } from '../resultTitle';
 import { tokens, withAlpha } from '../../ui/theme';
 import CatalogColumnFilter from './CatalogColumnFilter';
 import CatalogTag, { type CatalogTagTone } from '../../ui/CatalogTag';
@@ -27,15 +28,6 @@ interface CatalogResult {
   detailTags: readonly { label: string; tone: CatalogTagTone }[];
   entry: CatalogEntry | null;
 }
-
-const RESULT_LABELS: Record<ResultKind, string> = {
-  run: 'Run',
-  sweep: 'Simulation',
-  prediction: 'Timing prediction',
-  alignment: 'Alignment',
-  kernelProfile: 'Kernel profile',
-  kernelMeasurement: 'Kernel measurement',
-};
 
 const RESULT_TONES: Record<ResultKind, CatalogTagTone> = {
   run: 'simulation',
@@ -65,10 +57,6 @@ function formatDate(timestamp: number): string {
   });
 }
 
-function conciseName(displayName: string): string {
-  return displayName.replace(/^\d{8}_\d+_/, '');
-}
-
 function entrySubtitle(entry: CatalogEntry): string {
   if (entry.kind === 'sweep' && entry.numRuns !== undefined) {
     return `${entry.numRuns} ${entry.numRuns === 1 ? 'run' : 'runs'}`;
@@ -83,7 +71,7 @@ function entrySubtitle(entry: CatalogEntry): string {
   if (entry.kind === 'kernelProfile' || entry.kind === 'kernelMeasurement') {
     return entry.kernelKind ?? entry.table ?? 'kernel result';
   }
-  return entry.status === 'ready' ? RESULT_LABELS[entry.kind] : STATUS_LABEL[entry.status];
+  return entry.status === 'ready' ? RESULT_TITLE[entry.kind] : STATUS_LABEL[entry.status];
 }
 
 const JOB_KIND: Record<ManagedJob['jobKind'], ResultKind> = {
@@ -107,7 +95,7 @@ function catalogResults(
         kind: entry.kind,
         workspaceId: entry.workspace,
         timestamp: Date.parse(entry.updatedAt),
-        name: conciseName(entry.displayName),
+        name: displayResultName(entry.displayName),
         subtitle: entrySubtitle(entry),
         deployments,
         traces,
@@ -135,7 +123,7 @@ function catalogResults(
           kind,
           workspaceId: job.workspaceId,
           timestamp: job.updatedAt < 1_000_000_000_000 ? job.updatedAt * 1000 : job.updatedAt,
-          name: job.conversationTitle || RESULT_LABELS[kind],
+          name: job.conversationTitle || RESULT_TITLE[kind],
           subtitle: 'Awaiting Analyzer discovery',
           deployments: [],
           traces: [],
@@ -217,7 +205,7 @@ export default function ResultCatalog({
               [
                 entry.name,
                 entry.subtitle,
-                RESULT_LABELS[entry.kind],
+                RESULT_TITLE[entry.kind],
                 workspaceNames[entry.workspaceId] ?? entry.workspaceId,
                 ...entry.deployments,
                 ...entry.traces,
@@ -372,7 +360,7 @@ export default function ResultCatalog({
           selected={selected.type}
           onToggle={(value) => toggle('type', value)}
           onClear={() => clearKind('type')}
-          optionLabel={(value) => RESULT_LABELS[value as ResultKind]}
+          optionLabel={(value) => RESULT_TITLE[value as ResultKind]}
           tone={(value) => RESULT_TONES[value as ResultKind]}
         />
         <CatalogColumnFilter
@@ -480,7 +468,7 @@ export default function ResultCatalog({
             <ButtonBase
               key={entry.identity}
               role="option"
-              aria-label={`Open ${RESULT_LABELS[entry.kind]} ${entry.name}${entry.entry === null ? '' : ` · ${STATUS_LABEL[entry.entry.status]}`}`}
+              aria-label={`Open ${RESULT_TITLE[entry.kind]} ${entry.name}${entry.entry === null ? '' : ` · ${STATUS_LABEL[entry.entry.status]}`}`}
               aria-selected={false}
               aria-hidden={!visible}
               disabled={entry.entry === null}
@@ -576,12 +564,12 @@ export default function ResultCatalog({
                   {entry.subtitle}
                   <Box component="span" sx={{ display: { xs: 'inline', md: 'none' } }}>
                     {' '}
-                    · {RESULT_LABELS[entry.kind]} · {formatDate(entry.timestamp)}
+                    · {RESULT_TITLE[entry.kind]} · {formatDate(entry.timestamp)}
                   </Box>
                 </Typography>
               </Box>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-                <CatalogTag tone={RESULT_TONES[entry.kind]}>{RESULT_LABELS[entry.kind]}</CatalogTag>
+                <CatalogTag tone={RESULT_TONES[entry.kind]}>{RESULT_TITLE[entry.kind]}</CatalogTag>
               </Box>
               <Box sx={{ display: { xs: 'none', md: 'block' } }}>
                 <CatalogTag tone="workspace">

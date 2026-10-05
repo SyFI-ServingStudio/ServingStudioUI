@@ -3,11 +3,10 @@ import type {
   AlignmentSimSlot,
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
-import { colorOf } from '../costTreeModel';
+import { kindColor, type KernelKinds } from '../kernelTaxonomy';
 import { isFullViewport, spanOf, type AxisSpan } from './axisZoom';
-import { forwardIdleFraction, type DutyBreakdown } from './dutyBreakdown';
+import { forwardIdleFraction } from './dutyBreakdown';
 import { fmtMs } from './format';
-import { measuredKernelColor } from './kernelFamily';
 
 /**
  * Geometry for the measured-against-modelled lanes.
@@ -47,11 +46,15 @@ export interface LaneBar {
 
 const NS_PER_MS = 1e6;
 
-/** What a bar's operation, or its kernel family, colours it. */
+/** What colours a bar: its operation, and failing that, on the measured lane,
+ * the unmapped colour and, on the modelled lane, its slot kind's family. A
+ * measured kernel names no kind, only the labeler's own category, which is not
+ * a DOC category, so it has no family to draw in. */
 export interface LanePalette {
   readonly operationColors: Readonly<Record<string, string>>;
-  readonly operationTypes: Readonly<Record<string, string>>;
   readonly unmappedColor: string;
+  /** The kind DOCs, by which a modelled slot without an operation colours. */
+  readonly kernelKinds: KernelKinds;
 }
 
 /** Reference-rank bars of the measured lane, in start order.
@@ -84,10 +87,7 @@ export function measuredLane(
         operation: kernel.operation,
         color:
           (kernel.operation === null ? undefined : palette.operationColors[kernel.operation]) ??
-          measuredKernelColor(
-            kernel.category,
-            kernel.operation === null ? null : palette.operationTypes[kernel.operation],
-          ),
+          palette.unmappedColor,
         phase: kernel.phase,
         rowId: kernel.rowId,
         slotIndex: null,
@@ -138,7 +138,8 @@ export function simulatedLane(
       label: slot.name,
       operation,
       color:
-        (operation === null ? undefined : palette.operationColors[operation]) ?? colorOf(slot.kind),
+        (operation === null ? undefined : palette.operationColors[operation]) ??
+        kindColor(palette.kernelKinds, slot.kind),
       phase: null,
       rowId: null,
       slotIndex,
@@ -252,7 +253,6 @@ export interface ContinuousScene {
 export interface ContinuousSceneInput {
   readonly role: IterationRole;
   readonly iteration: AlignmentTimelineIteration;
-  readonly breakdown: DutyBreakdown;
 }
 
 export interface ContinuousSceneOptions {
@@ -285,7 +285,8 @@ export function continuousScene(
   const phaseOrder: string[] = [];
 
   const lanes = inputs.map((input) => {
-    const { iteration, breakdown } = input;
+    const { iteration } = input;
+    const rank = iteration.referenceRank;
     const offsetMs = (iteration.anchorNs - originNs) / NS_PER_MS;
     const measured = measuredLane(
       iteration,
@@ -323,7 +324,7 @@ export function continuousScene(
       measured,
       simulated,
       simulatedRowCount: simulated.reduce((rows, bar) => Math.max(rows, bar.row + 1), 1),
-      gaps: breakdown.gaps.map((gap) => ({
+      gaps: rank.gaps.map((gap) => ({
         startMs: (gap.startNs - originNs) / NS_PER_MS,
         endMs: (gap.endNs - originNs) / NS_PER_MS,
       })),
@@ -334,12 +335,12 @@ export function continuousScene(
       })),
       simulatedGpuCycleEndMs:
         iteration.simulatedGpuCycleMs === null ? null : offsetMs + iteration.simulatedGpuCycleMs,
-      spanMs: breakdown.spanMs,
+      spanMs: rank.spanMs,
       criticalPathMs: iteration.measured.criticalPathMs,
       simulatedMs: iteration.simulated.totalMs,
-      idleFraction: breakdown.spanMs > 0 ? breakdown.idleMs / breakdown.spanMs : 0,
-      forwardIdleFraction: forwardIdleFraction(breakdown),
-      gapCount: breakdown.gaps.length,
+      idleFraction: rank.idleFraction ?? 0,
+      forwardIdleFraction: forwardIdleFraction(rank),
+      gapCount: rank.gapCount,
     };
   });
 

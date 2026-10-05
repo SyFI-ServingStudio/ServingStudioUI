@@ -7,15 +7,14 @@
  * one chart ordering families by size and another by taxonomy order, showing
  * the same run twice with different answers to "what dominates".
  *
- * The taxonomy itself lives beside this in `taxonomy.ts`; this is only the
- * arithmetic over it.
+ * Which family holds a kind is its DOC's category (`kernelTaxonomy.ts`); this
+ * is only the sum over the Analyzer's segments.
  */
 import { KERNEL_TIME_EPSILON_MS } from '../artifacts/schema/kernelTimeShare';
-import { GROUP, groupOf } from './kernelTaxonomy';
+import { familyColor, familyOf, type KernelKinds } from './kernelTaxonomy';
 
 export interface KernelFamilyShare {
   readonly family: string;
-  readonly label: string;
   readonly color: string;
   readonly kernelTimeMs: number;
   readonly sharePct: number;
@@ -43,17 +42,17 @@ interface Timed {
 export function familyShares(
   segments: readonly Timed[],
   totalMs: number,
+  kinds: KernelKinds,
 ): readonly KernelFamilyShare[] {
   const byFamily = new Map<string, number>();
   for (const segment of segments) {
-    const family = groupOf(segment.kind);
+    const family = familyOf(kinds, segment.kind);
     byFamily.set(family, (byFamily.get(family) ?? 0) + segment.kernelTimeMs);
   }
   return [...byFamily.entries()]
     .map(([family, kernelTimeMs]) => ({
       family,
-      label: GROUP[family].label,
-      color: GROUP[family].color,
+      color: familyColor(kinds, family),
       kernelTimeMs,
       sharePct: percentOf(kernelTimeMs, totalMs),
     }))

@@ -22,6 +22,7 @@ import {
   alignmentIterationSeriesRef,
   alignmentTimelineIndexRef,
   alignmentTimelineIterationRef,
+  alignmentWorkloadReportRef,
   alignmentWorkloadSeriesRef,
   catalogRef,
   fetchSequence,
@@ -435,7 +436,9 @@ async function resolveAlignmentPage(
   const details = await Promise.all(detailReads.map((ref) => readArtifact(ref, signal)));
   if (!details.every((artifact) => artifact.status === 'ready')) return 'unavailable';
   const optionalReads = [
-    ...(ready('workload') ? [alignmentWorkloadSeriesRef(result)] : []),
+    ...(ready('workload')
+      ? [alignmentWorkloadSeriesRef(result), alignmentWorkloadReportRef(result)]
+      : []),
     ...(ready('e2e') ? [alignmentE2eSeriesRef(result)] : []),
   ];
   const optional = await Promise.all(optionalReads.map((ref) => readArtifact(ref, signal)));

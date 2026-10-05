@@ -2,7 +2,8 @@ import { Box, Stack, Typography } from '@mui/material';
 import type { ReactNode } from 'react';
 
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import { GROUP, fmtMs } from './costTreeModel';
+import { fmtMs } from './costTreeModel';
+import { familyColor, useKernelKinds } from './kernelTaxonomy';
 import { tokens, withAlpha } from '../ui/theme';
 import { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
@@ -41,6 +42,7 @@ export function CostTreeFrame({
   browserExpanded = false,
   children,
 }: CostTreeFrameProps) {
+  const kinds = useKernelKinds();
   const displayedIdentity =
     identity ??
     (worker === null
@@ -61,15 +63,19 @@ export function CostTreeFrame({
         flexDirection: 'column',
       }}
     >
+      {/* The header is one 45px row when it fits; where it does not (a phone,
+          or a narrow frame with every DOC family in the legend) it wraps onto
+          more rows and the canvas, which fills the frame, gives up the height. */}
       <Stack
         data-testid="cost-tree-header"
         direction="row"
         alignItems="center"
-        flexWrap="nowrap"
+        flexWrap="wrap"
         useFlexGap
         sx={{
-          gap: 1.2,
-          height: COST_TREE_HEADER_HEIGHT,
+          gap: '6px 12px',
+          minHeight: COST_TREE_HEADER_HEIGHT,
+          flexShrink: 0,
           boxSizing: 'border-box',
           p: '9px 13px',
           overflow: 'hidden',
@@ -120,28 +126,26 @@ export function CostTreeFrame({
         <Stack
           direction="row"
           alignItems="center"
-          flexWrap="nowrap"
+          flexWrap="wrap"
           useFlexGap
-          sx={{ gap: '3px 9px', ml: 'auto', flexShrink: 0 }}
+          sx={{ gap: '3px 9px', ml: 'auto', minWidth: 0 }}
         >
-          {Object.entries(GROUP)
-            .filter(([group]) => group !== 'misc')
-            .map(([group, definition]) => (
+          {kinds.categories.map((family) => (
+            <Box
+              key={family}
+              sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 12 }}
+            >
               <Box
-                key={group}
-                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.45, fontSize: 12 }}
-              >
-                <Box
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 0.6,
-                    background: definition.color,
-                  }}
-                />
-                {definition.label}
-              </Box>
-            ))}
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 0.6,
+                  background: familyColor(kinds, family),
+                }}
+              />
+              {family}
+            </Box>
+          ))}
         </Stack>
       </Stack>
       {children}

@@ -21,6 +21,7 @@ export {
   alignmentIterationSeriesRef,
   alignmentTimelineIndexRef,
   alignmentWorkloadSeriesRef,
+  alignmentWorkloadReportRef,
   alignmentE2eSeriesRef,
   alignmentBreakdownRef,
   alignmentTimelineIterationRef,
@@ -35,6 +36,7 @@ export {
   kernelTimeShareRef,
   kernelInputDistributionRef,
   hardwareGpuRef,
+  kernelKindsRef,
   kernelMeasurementDescriptorRef,
   kernelMeasurementSummaryRef,
   kernelProfileCurveRef,
@@ -81,6 +83,7 @@ export type {
   AlignmentIterationSeriesRef,
   AlignmentTimelineIndexRef,
   AlignmentWorkloadSeriesRef,
+  AlignmentWorkloadReportRef,
   AlignmentE2eSeriesRef,
   AlignmentBreakdownRef,
   AlignmentTimelineIterationRef,
@@ -105,6 +108,8 @@ export type {
   KernelInputDistribution,
   KernelInputDistributionRef,
   HardwareGpuRef,
+  KernelKinds,
+  KernelKindsRef,
   KernelMeasurementDescriptorRef,
   KernelMeasurementSummaryRef,
   KernelProfileCurveRef,
@@ -246,7 +251,9 @@ export type {
   AlignmentSubjectName,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
+  AlignmentWorkloadStats,
 } from './schema/alignmentTypes';
 export { CostTreeValidationError, invalidCostTree, parseRawCostNode } from './schema/costTree';
 export type {
@@ -267,7 +274,15 @@ export type {
   SumNode,
 } from './schema/costTree';
 export { isPending, isReady, type ArtifactResult } from './result';
-export { readArtifact, useArtifact, useArtifacts, useArtifactWithRetry } from './read';
+export { setFallbackTransport, type Transport } from './transport';
+export {
+  readArtifact,
+  readRunDescriptorInItsWorkspace,
+  seedArtifact,
+  useArtifact,
+  useArtifacts,
+  useArtifactWithRetry,
+} from './read';
 export {
   createOperationViewportState,
   fetchSequence,

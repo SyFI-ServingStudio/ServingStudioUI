@@ -39,9 +39,11 @@ import {
 import type { SubjectResult } from '../subjectResult';
 import type { OptimalityMode } from '../../artifacts';
 import AnalysisPageHeader from '../../ui/controls/AnalysisPageHeader';
+import { RESULT_TITLE } from '../resultTitle';
 import SurfaceCard from '../../ui/controls/SurfaceCard';
 import { pageLayout } from '../../ui/theme/metrics';
 import { tokens, withAlpha } from '../../ui/theme';
+import { useResultName } from '../ResultHost';
 import { CostTreeEvidence } from '../CostTreeEvidence';
 import { COST_TREE_FRAME_HEIGHT, CostTreeFrame, CostTreeStatusViewport } from '../CostTreeFrame';
 import { KernelEvidenceView, type KernelAnalysisState } from '../KernelEvidenceView';
@@ -274,6 +276,11 @@ function PredictionContent({
       ? Math.floor(requestedCase / CASE_PAGE_SIZE) * CASE_PAGE_SIZE
       : 0;
   const descriptor = useArtifact(predictionDescriptorRef(result));
+  // The page that embeds the result names it, or nothing does: the
+  // descriptor's name is its directory's, an id where a service made it.
+  const displayName = useResultName(
+    descriptor.status === 'ready' ? descriptor.value.displayName : undefined,
+  );
   const casePage = useArtifact(predictionCasesRef(result, caseOffset, CASE_PAGE_SIZE));
 
   const updatePredictionSelection = useCallback(
@@ -379,7 +386,7 @@ function PredictionContent({
   );
   return (
     <Stack sx={{ gap: 2, py: 4, ...pageLayout, mx: 'auto' }}>
-      <AnalysisPageHeader title="Timing prediction" detail={descriptor.value.displayName} />
+      <AnalysisPageHeader title={RESULT_TITLE.prediction} detail={displayName} />
       <PredictionCasePicker
         cases={casePage.value.cases}
         selectedCaseId={selectedCaseId}
@@ -478,6 +485,7 @@ function SelectedPrediction({
     () => (costTree.status === 'ready' ? annotate(costTree.value.tree) : null),
     [costTree],
   );
+  const timeShare = costTree.status === 'ready' ? costTree.value.timeShare : null;
   const selectedLeaf = tree === null ? null : leafById(tree, selectedLeafId);
   const selectedScope = tree === null ? null : nodeByOrdinalPath(tree, scopePath);
   const selectedScopeId =
@@ -557,6 +565,7 @@ function SelectedPrediction({
       >
         <CostTreeEvidence
           tree={tree}
+          timeShare={costTree.value.timeShare}
           identity={evidenceHeader}
           timeBasis={`iter ${selectedCase.caseId} · operation ${selectedOperationId}`}
           selectedLeafId={selectedLeafId}
@@ -581,6 +590,7 @@ function SelectedPrediction({
         {selectedLeaf !== null ? (
           <KernelInspectorView
             node={selectedLeaf}
+            timeShare={costTree.value.timeShare}
             height={COST_TREE_FRAME_HEIGHT}
             closeLabel="Close selected prediction kernel"
             onClose={() => updateSelection({ leafId: null })}
@@ -615,9 +625,10 @@ function SelectedPrediction({
           node={selectedLeaf}
         />
       )}
-      {tree !== null && (
+      {tree !== null && timeShare !== null && (
         <TimeShareBlocksView
           tree={tree}
+          timeShare={timeShare}
           selectedLeafId={selectedLeafId}
           onSelectKernel={(leafId) =>
             updateSelection({ panelId: 'kernel-time-share', leafId, parallelId: null })

@@ -469,6 +469,50 @@ numeric limit. A measurement descriptor lists plot *names*, and the URL is built
 from the measurement id and the name; the conversation backend never serves
 these bytes.
 
+Kernel naming and grouping come from one service-wide read:
+
+```text
+GET /api/analyzer/v1/kernel-kinds
+```
+
+It returns `{schema_version: 1, categories: string[], kinds: {<kind>: {title,
+category}}}`, built from `profiling.db.doc.kind_vocabulary`, so every kind is
+titled and grouped by its own DOC. `categories` is ordered, and the UI assigns
+family colours by position in that order; it keeps no table keyed by category
+name. A kind missing from `kinds` is shown as Unclassified, never guessed from
+its name.
+
+Alignment is a first-class family comparing one measured capture against the
+simulator's replay of it:
+
+```text
+GET /api/analyzer/v1/alignments
+GET /api/analyzer/v1/alignments/{alignment_id}/descriptor
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/iteration/report
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/iteration/payload
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/iteration/iterations/{iteration_id}
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/iteration/sequences/{phase}/{sequence_id}
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/timeline/payload
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/timeline/iterations/{iteration_id}?projection=reference-lane
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/workload/payload
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/workload/report
+GET /api/analyzer/v1/alignments/{alignment_id}/subjects/e2e/payload
+```
+
+The workload payload is the per-iteration scheduler series of each side; the
+workload report is the Analyzer's `n`/`p50`/`p90`/`p99`/`max` of the same
+iterations for `prefill_tokens`, `decode_batch_size`, `scheduled_kv_tokens`
+and `iteration_cycle_ms`. The scheduler cards plot the series and quote the
+report; the UI computes no percentile of its own.
+
+Every timeline detail row carries `reference_rank`, the Analyzer's occupancy
+of the reference device for that iteration: `span_ms`, `idle_fraction`,
+`gap_count`, `gaps_ns` (every stretch with no kernel, as `[start_ns, end_ns]`
+in span order, capture-relative like `gpu_span_ns`), `inter_phase_ms`, and per
+phase `busy_ms`, `idle_ms`, `idle_fraction` and `largest_gaps` with the
+operation on either side. The wall-clock card draws `gaps_ns` and quotes the
+rest; it does not re-derive gaps from the kernel intervals.
+
 `GET /api/analyzer/v1/sweeps` 的每个 entry 除 identity、axes 与 lifecycle 外，还包含
 `experiment_date: "YYYY-MM-DD" | null`、`deployments: string[]` 和
 `traces: string[]`。这些字段只用于 catalog selection/filtering：manifest sweep
@@ -551,7 +595,9 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 - exact CostTree 路由为
   `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/subjects/cost-tree/payload`。
   响应 identity 回显 `operation_id`、`section` 和 `layer`，tree 仅由该 operation 的单行事实
-  构造。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
+  构造。`time_share` 是 Analyzer 按 kernel-time-share 同一 critical-path 归因给出的该
+  operation 组成（`kernel_time_ms`、`segments`、`kinds`；UI 只读前两者）；prediction 的 CostTree 路由同样携带。
+  UI 只读取它，不在浏览器重算归因。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
 - exact operation CostTree 只在用户选择后加载。
 - Perfetto 只传递可访问的 trace URL；UI 不复制 trace 内容进应用状态。
 - query cache key 必须包含 run id、subject version、`analysis.revision`，以及完整

@@ -175,19 +175,23 @@ Previous/Next 与键盘逐 operation 导航继续可用。
   高度展开，第二轨在 480px 到 723px 之间吃掉剩余空间；超高 viewport 不继续拉长工作面，矮屏则
   保留 480px 最小工作面并允许 shell 内容自然 overflow。所有 awaiting/loading/error/ready 状态、
   左侧 CostTree、右侧 placeholder 与 selected inspector 都继承同一个 CSS workbench height，切换时
-  不得闪动；CostTree header 固定 45px，canvas 填满剩余 frame。CostTree 的 browser-expanded 模式
+  不得闪动；CostTree header 最低 45px，放不下时（手机宽度，或 legend 列出全部 DOC family 的窄 frame）换行变高，canvas 填满剩余 frame。CostTree 的 browser-expanded 模式
   是该高度合同的显式例外：frame 使用 fixed viewport 填满 `100dvh`，保留浏览器 chrome，锁定页面
   滚动，并允许按钮或 `Escape` 恢复原工作台布局；进入和退出时各重新 fit 一次 canvas。
 - Worker 的 Iteration 模式只呈现一张 operation-relative kernel breakdown card：同一卡片内同时给出
   `by kernel family` 与 `by kernel position`，两者都按 critical path / CostTree root wall-clock
   计算。Worker aggregate 模式使用 aggregate `kernel-time-share` worker row 展示跨全部 operation
   的 kernel family 与 position composition；position mix 必须明确标出 exact 或 sampled，不能冒充
-  exact operation CostTree。所有 kernel-time breakdown、CostTree family legend、leaf
-  与 operation selection lane 必须复用 `domain/cost-tree` 的同一套主题语义色。Worker
-  CostTree leaf hover 只显示 kind、backend、time、time share、compute rate 与 bandwidth；其中
-  time share 必须直接复用 `by kernel position` 的 position-name 聚合，显示经过 Scale 与 Max
-  critical-path 归因后该 kernel position 对 CostTree root wall-clock 的最终贡献；同名并列 leaf
-  不得展示平分后的 exact-leaf share。caption 和 value 使用清楚分离的视觉层级，rate 与 kernel
+  exact operation CostTree。所有 kernel-time breakdown、CostTree family legend 与 leaf 只通过
+  `panels/kernelTaxonomy` 取 family 与颜色：family 是 kind DOC 声明的 category，由
+  `GET /api/analyzer/v1/kernel-kinds` 下发；颜色按该 category 在下发 `categories` 顺序中的位置
+  取主题 `kernelFamilies` 色板，未知 kind 归入 Unclassified。UI 不按 category 名称写颜色表。
+  operation selection lane 使用独立的 `operationLanes` 色板，与 family 色解耦。Worker
+  CostTree leaf hover 与 kernel inspector 只显示 kind、backend、time、time share、compute rate
+  与 bandwidth；其中 time share 直接读取 exact CostTree 响应里 Analyzer 给出的 `time_share`
+  中该 leaf position 的 segment，即经过 Scale 与 Max critical-path 归因后该 kernel position 对
+  CostTree root wall-clock 的最终贡献，浏览器不重算；同名并列 leaf 不得展示平分后的
+  exact-leaf share。caption 和 value 使用清楚分离的视觉层级，rate 与 kernel
   inspector 复用同一工程单位缩放和舍入规则。
   hover card 优先锚定在 leaf 侧边并与目标留出间距，空间不足时向另一侧或下方 flip，不得覆盖被
   hover 的 kernel card。
