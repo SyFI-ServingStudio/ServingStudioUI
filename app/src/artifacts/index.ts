@@ -275,7 +275,14 @@ export type {
 } from './schema/costTree';
 export { isPending, isReady, type ArtifactResult } from './result';
 export { setFallbackTransport, type Transport } from './transport';
-export { readArtifact, useArtifact, useArtifacts, useArtifactWithRetry } from './read';
+export {
+  readArtifact,
+  readRunDescriptorInItsWorkspace,
+  seedArtifact,
+  useArtifact,
+  useArtifacts,
+  useArtifactWithRetry,
+} from './read';
 export {
   createOperationViewportState,
   fetchSequence,

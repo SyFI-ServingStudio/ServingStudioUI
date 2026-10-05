@@ -6,10 +6,15 @@
  * before the first render — which is what lets a panel be the direct target of
  * a URL rather than something only reachable after a parent has fetched.
  */
-import { useQueries, useQuery, type UseQueryOptions } from '@tanstack/react-query';
+import {
+  useQueries,
+  useQuery,
+  type QueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query';
 
-import { fetchArtifact } from './client';
-import { artifactKey, type ArtifactRef, type ArtifactValue } from './ref';
+import { fetchArtifact, fetchRunDescriptorInItsWorkspace } from './client';
+import { artifactKey, type ArtifactRef, type ArtifactValue, type RunDescriptorRef } from './ref';
 import type { ArtifactResult } from './result';
 
 const PENDING: ArtifactResult<never> = { status: 'pending' };
@@ -52,6 +57,26 @@ export async function readArtifact<R extends ArtifactRef>(
   signal?: AbortSignal,
 ): Promise<ArtifactResult<ArtifactValue<R>>> {
   return typed<R>(await fetchArtifact(ref, signal));
+}
+
+/**
+ * A run's descriptor read without checking its workspace, which the caller
+ * learns from it; see `fetchRunDescriptorInItsWorkspace`.
+ */
+export async function readRunDescriptorInItsWorkspace(
+  ref: RunDescriptorRef,
+  signal?: AbortSignal,
+): Promise<ArtifactResult<ArtifactValue<RunDescriptorRef>>> {
+  return typed<RunDescriptorRef>(await fetchRunDescriptorInItsWorkspace(ref, signal));
+}
+
+/** Hold `result` as `ref`'s read, so the hooks below answer it without reading again. */
+export function seedArtifact<R extends ArtifactRef>(
+  client: QueryClient,
+  ref: R,
+  result: ArtifactResult<ArtifactValue<R>>,
+): void {
+  client.setQueryData(optionsFor(ref).queryKey, result);
 }
 
 export function useArtifact<R extends ArtifactRef>(ref: R): ArtifactResult<ArtifactValue<R>> {

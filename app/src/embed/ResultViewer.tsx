@@ -33,12 +33,16 @@ import { CacheProvider } from '@emotion/react';
 import CloseRounded from '@mui/icons-material/CloseRounded';
 import { Alert, Box, Button, IconButton, ScopedCssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { runDescriptorRef, setFallbackTransport, type Transport } from '../artifacts';
-import { parseAnalyzerV1RunDescriptor } from '../artifacts/schema/descriptor';
-import { artifactUrl } from '../artifacts/url';
+import {
+  readRunDescriptorInItsWorkspace,
+  runDescriptorRef,
+  seedArtifact,
+  setFallbackTransport,
+  type Transport,
+} from '../artifacts';
 import {
   defaultWorkspace,
   EMPTY_FOCUS,
@@ -118,7 +122,7 @@ function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps
     const fontSize = root.style.fontSize;
     root.style.fontSize = `${metrics.fontScale * 100}%`;
     const reading = new AbortController();
-    void servedWorkspace(kind, id, transport, reading.signal).then((workspace) => {
+    void servedWorkspace(kind, id, queryClient, reading.signal).then((workspace) => {
       if (reading.signal.aborted) return;
       commit(resultAt(kind, id, workspace), 'push');
       setReady(true);
@@ -131,7 +135,7 @@ function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps
         window.history.replaceState(null, '', window.location.pathname + window.location.search);
       }
     };
-  }, [kind, id, transport]);
+  }, [kind, id, transport, queryClient]);
   if (!ready) return null;
   return (
     <QueryClientProvider client={queryClient}>
@@ -145,29 +149,28 @@ function Viewer({ kind, id, displayName, transport, onClose }: ResultViewerProps
 /**
  * The workspace the Analyzer names a run in, as the run's descriptor gives it:
  * the pages check the descriptor against the address's workspace, which the
- * embedding page cannot know. A prediction's reads are checked against none.
- * A descriptor that cannot be read leaves the address's default, and the
- * pages then say why their read failed.
+ * embedding page cannot know. The descriptor read here is the pages' read of
+ * it, held under its address in that workspace, so it is read once. A
+ * prediction's reads are checked against no workspace. A descriptor that
+ * cannot be read leaves the address's default, and the pages then read it
+ * again and say why it failed.
  */
 async function servedWorkspace(
   kind: ResultViewerProps['kind'],
   id: string,
-  transport: Transport,
+  queryClient: QueryClient,
   signal: AbortSignal,
 ): Promise<WorkspaceId> {
   if (kind !== 'run') return defaultWorkspace();
-  try {
-    // The descriptor's address does not depend on the workspace asked for.
-    const url = artifactUrl(runDescriptorRef({ kind, id, workspace: defaultWorkspace() }));
-    const response = await transport(url, { signal });
-    if (!response.ok) return defaultWorkspace();
-    const named = workspaceIdSchema.safeParse(
-      parseAnalyzerV1RunDescriptor(await response.json()).workspaceId,
-    );
-    return named.success ? named.data : defaultWorkspace();
-  } catch {
-    return defaultWorkspace();
-  }
+  const read = await readRunDescriptorInItsWorkspace(
+    runDescriptorRef({ kind, id, workspace: defaultWorkspace() }),
+    signal,
+  ).catch(() => null);
+  if (read?.status !== 'ready') return defaultWorkspace();
+  const named = workspaceIdSchema.safeParse(read.value.workspaceId);
+  if (!named.success) return defaultWorkspace();
+  seedArtifact(queryClient, runDescriptorRef({ kind, id, workspace: named.data }), read);
+  return named.data;
 }
 
 function resultAt(kind: ResultViewerProps['kind'], id: string, workspace: WorkspaceId): Location {

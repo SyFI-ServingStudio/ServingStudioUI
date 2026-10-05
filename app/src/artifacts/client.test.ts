@@ -9,7 +9,7 @@ import runDescriptorJson from '../../testdata/analyzer-v1/afd-qwen3-duration-rea
 import kernelInputDistributionJson from '../../testdata/analyzer-v1/glm52-mtp-shape-refined/payloads/kernel_input_distribution_scatter.json';
 import alignmentIterationSeriesJson from '../../e2e/fixtures/alignment/payloads/alignment_iteration_series.json';
 
-import { fetchArtifact } from './client';
+import { fetchArtifact, fetchRunDescriptorInItsWorkspace } from './client';
 import {
   alignmentDescriptorRef,
   alignmentIterationSeriesRef,
@@ -406,6 +406,19 @@ describe('fetchArtifact', () => {
     expect(await fetchArtifact(runDescriptorRef(RUN))).toMatchObject({
       status: 'ready',
       revision: runDescriptorJson.analysis.revision,
+    });
+  });
+
+  it("reads a run's descriptor in the workspace it names, still checking the run", async () => {
+    stubFetch(respond({ ...runDescriptorJson, workspace_id: 'w_root_1', run_id: RUN.id }));
+    expect(await fetchRunDescriptorInItsWorkspace(runDescriptorRef(RUN))).toMatchObject({
+      status: 'ready',
+      value: { workspaceId: 'w_root_1', runId: RUN.id },
+    });
+
+    stubFetch(respond({ ...runDescriptorJson, workspace_id: 'w_root_1', run_id: 'other' }));
+    expect(await fetchRunDescriptorInItsWorkspace(runDescriptorRef(RUN))).toMatchObject({
+      status: 'incompatible',
     });
   });
 

@@ -96,8 +96,12 @@ describe('ResultViewer', () => {
     expect(window.location.pathname).toBe('/models.html');
     expect(window.location.hash).toMatch(new RegExp(`^#/result/run/${ID}\\b`));
     // In the workspace the run's descriptor names, which the pages check it
-    // against.
+    // against; the read that learned it is the pages' read.
     expect(new URLSearchParams(window.location.hash.split('?')[1]).get('w')).toBe(WORKSPACE);
+    expect(await view.findByRole('button', { name: 'Batch locked' })).toBeTruthy();
+    expect(
+      read.mock.calls.filter(([url]) => url === `/api/analyzer/v1/runs/${ID}/descriptor`),
+    ).toHaveLength(1);
     expect(document.documentElement.style.fontSize).toBe('112.5%');
   });
 
