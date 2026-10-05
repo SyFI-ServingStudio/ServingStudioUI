@@ -97,10 +97,7 @@ describe('projectWorkerComposition', () => {
     expect(projection.status).toBe('ready');
     if (projection.status !== 'ready') return;
     expect(projection.value.families).toHaveLength(1);
-    expect(projection.value.families[0]).toMatchObject({
-      family: 'Unclassified',
-      label: 'Unclassified',
-    });
+    expect(projection.value.families[0]).toMatchObject({ family: 'Unclassified' });
     // The kind keeps its wire spelling when no DOC names it.
     expect(projection.value.slices[0].kind).toBe('not_a_known_kind');
   });

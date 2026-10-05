@@ -5,7 +5,6 @@ import { familyColor, familyOf, type KernelKinds } from '../kernelTaxonomy';
 
 export interface KernelStackFamily {
   readonly group: string;
-  readonly label: string;
   readonly color: string;
 }
 
@@ -59,7 +58,7 @@ function familiesFor(
     .sort(
       (left, right) => (overall[right] ?? 0) - (overall[left] ?? 0) || left.localeCompare(right),
     )
-    .map((group) => ({ group, label: group, color: familyColor(kinds, group) }));
+    .map((group) => ({ group, color: familyColor(kinds, group) }));
 }
 
 function ready(

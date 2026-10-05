@@ -54,7 +54,7 @@ export function kernelTimeStackOption(
       axisLabel: { color: t.text, fontSize: chartFont(12), fontFamily: t.font, fontWeight: 600 },
     },
     series: data.families.map((f) => ({
-      name: safeChartText(f.label),
+      name: safeChartText(f.group),
       type: 'bar' as const,
       stack: 'kernel',
       data: data.rows.map((r) =>

@@ -183,8 +183,8 @@ export function TimeShareBlocksView({
   const totalMs = timeShare.kernelTimeMs;
 
   const groupSegs: Seg[] = familyShares(timeShare.segments, totalMs, kinds).map((family) => ({
-    label: family.label,
-    full: family.label,
+    label: family.family,
+    full: family.family,
     pct: family.sharePct,
     ms: family.kernelTimeMs,
     color: family.color,

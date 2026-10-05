@@ -25,7 +25,6 @@ export interface CompositionSlice {
   /** The kernel kind's DOC title, not its wire spelling. */
   readonly kind: string;
   readonly family: string;
-  readonly label: string;
   readonly color: string;
   readonly kernelTimeMs: number;
   readonly sharePct: number;
@@ -114,7 +113,6 @@ export function projectWorkerComposition(
         position: segment.position,
         kind: kindTitle(kinds, segment.kind),
         family,
-        label: family,
         color: familyColor(kinds, family),
         kernelTimeMs: segment.kernelTimeMs,
         // Recomputed rather than taken from the wire, so that every percentage

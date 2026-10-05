@@ -15,7 +15,6 @@ import { familyColor, familyOf, type KernelKinds } from './kernelTaxonomy';
 
 export interface KernelFamilyShare {
   readonly family: string;
-  readonly label: string;
   readonly color: string;
   readonly kernelTimeMs: number;
   readonly sharePct: number;
@@ -53,7 +52,6 @@ export function familyShares(
   return [...byFamily.entries()]
     .map(([family, kernelTimeMs]) => ({
       family,
-      label: family,
       color: familyColor(kinds, family),
       kernelTimeMs,
       sharePct: percentOf(kernelTimeMs, totalMs),
