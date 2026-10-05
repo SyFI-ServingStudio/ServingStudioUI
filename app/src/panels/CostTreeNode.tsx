@@ -740,7 +740,11 @@ export default function CostTreeNode({
     );
   }
 
-  // scale — dashed container with ×N badge; ONE child (repeats never expanded)
+  // scale — dashed container with ×N badge; ONE child (repeats never expanded).
+  // The badge sits astride the top border, so its height is fixed (line,
+  // padding, border) and the content starts below its lower half: with the
+  // padding alone, the badge covered the REPEAT head under it.
+  const badgeHeight = compact ? 18 : 22;
   const badgeLabel =
     costTreeDisplayLabel(node.label ?? '')
       .replace(/[×x]\s*\d+\s*/, '')
@@ -751,9 +755,10 @@ export default function CostTreeNode({
       data-cost-tree-density={density}
       sx={{
         position: 'relative',
-        mt: compact ? 1.1 : 1.9,
+        mt: `${badgeHeight / 2 + (compact ? 2 : 4)}px`,
         borderRadius: 1.25,
         p: compact ? 0.65 : 1.4,
+        pt: `${badgeHeight / 2 + (compact ? 4 : 6)}px`,
         display: 'flex',
         flexDirection: 'column',
         gap: compact ? 0.4 : 1,
@@ -764,8 +769,12 @@ export default function CostTreeNode({
       <Box
         sx={{
           position: 'absolute',
-          top: compact ? -10 : -12,
+          top: -badgeHeight / 2,
           left: compact ? 10 : 14,
+          boxSizing: 'border-box',
+          height: badgeHeight,
+          lineHeight: `${badgeHeight - (compact ? 4 : 6)}px`,
+          whiteSpace: 'nowrap',
           fontFamily: tokens.body,
           fontWeight: 600,
           fontSize: compact ? 11 : 12,
