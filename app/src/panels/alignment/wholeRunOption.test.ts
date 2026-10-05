@@ -160,7 +160,7 @@ describe('workloadShapeOption', () => {
     unit: 'decode requests',
     quantityUnit: '',
     measured: {
-      stats: { n: 3, p50: 4, p90: 6, p99: 6, max: 6 },
+      stats: { n: 3, mean: 4, p50: 4, p90: 6, p99: 6, max: 6 },
       points: { x: [0, 3.5, 4], values: [2, 6, 4] },
     },
     simulated: null,
@@ -210,7 +210,7 @@ describe('workloadShapeOption', () => {
     const option = workloadShapeOption({
       ...card,
       measured: {
-        stats: { n: values.length, p50: 500, p90: 900, p99: 990, max: 999 },
+        stats: { n: values.length, mean: 500, p50: 500, p90: 900, p99: 990, max: 999 },
         points: { x: values, values },
       },
     });

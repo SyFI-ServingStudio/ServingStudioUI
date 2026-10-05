@@ -10,6 +10,7 @@ import {
   alignmentIterationSeriesRef,
   alignmentTimelineIndexRef,
   alignmentTimelineIterationRef,
+  alignmentWorkloadReportRef,
   alignmentWorkloadSeriesRef,
   useArtifact,
   useArtifacts,
@@ -92,6 +93,9 @@ function AlignmentContent({
   );
   const workload = queryOf(
     useArtifacts(subjectReady('workload') ? [alignmentWorkloadSeriesRef(result)] : [])[0],
+  );
+  const workloadReport = queryOf(
+    useArtifacts(subjectReady('workload') ? [alignmentWorkloadReportRef(result)] : [])[0],
   );
   const e2e = queryOf(useArtifacts(subjectReady('e2e') ? [alignmentE2eSeriesRef(result)] : [])[0]);
 
@@ -313,12 +317,19 @@ function AlignmentContent({
               descriptor={descriptor.data}
               subjects={[]}
               queries={[
-                ...(subjectReady('workload') ? [workload] : []),
+                ...(subjectReady('workload') ? [workload, workloadReport] : []),
                 ...(subjectReady('e2e') ? [e2e] : []),
               ]}
               height={320}
             >
-              <WholeRunCard e2e={e2e.data ?? null} workload={workload.data ?? null} />
+              <WholeRunCard
+                e2e={e2e.data ?? null}
+                workload={
+                  workload.data !== undefined && workloadReport.data !== undefined
+                    ? { series: workload.data, report: workloadReport.data }
+                    : null
+                }
+              />
             </SubjectBody>
           </Section>
         </SurfaceAccentProvider>

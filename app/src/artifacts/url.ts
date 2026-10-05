@@ -121,6 +121,8 @@ export function artifactUrl(ref: ArtifactRef): string {
       return `${resultPath(ref.result)}/subjects/timeline/payload${revision(ref.result)}`;
     case 'alignmentWorkloadSeries':
       return `${resultPath(ref.result)}/subjects/workload/payload${revision(ref.result)}`;
+    case 'alignmentWorkloadReport':
+      return `${resultPath(ref.result)}/subjects/workload/report${revision(ref.result)}`;
     case 'alignmentE2eSeries':
       return `${resultPath(ref.result)}/subjects/e2e/payload${revision(ref.result)}`;
     case 'alignmentBreakdown':

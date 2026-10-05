@@ -3,7 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ChartFocusProvider } from '../../ui/controls/ChartFocusProvider';
-import type { AlignmentWorkloadSeries } from '../../artifacts/schema/alignmentTypes';
+import type {
+  AlignmentWorkloadReport,
+  AlignmentWorkloadSeries,
+} from '../../artifacts/schema/alignmentTypes';
 import WholeRunCard from './WholeRunCard';
 
 vi.mock('../../ui/controls/EChart', () => ({
@@ -12,7 +15,7 @@ vi.mock('../../ui/controls/EChart', () => ({
   ),
 }));
 
-const workload: AlignmentWorkloadSeries = {
+const series: AlignmentWorkloadSeries = {
   available: true,
   definitions: {},
   measured: {
@@ -32,6 +35,18 @@ const workload: AlignmentWorkloadSeries = {
     scheduledKvTokens: [4, 5],
   },
 };
+
+const stats = { n: 2, mean: 1, p50: 1, p90: 1, p99: 1, max: 1 };
+const report: AlignmentWorkloadReport = {
+  definitions: {},
+  metrics: {
+    prefill_tokens: { measured: stats, simulated: stats },
+    decode_batch_size: { measured: stats, simulated: stats },
+    scheduled_kv_tokens: { measured: stats, simulated: stats },
+    iteration_cycle_ms: { measured: stats, simulated: stats },
+  },
+};
+const workload = { series, report };
 
 describe('WholeRunCard scheduler axis', () => {
   it('switches every scheduler figure from elapsed time to original iteration IDs', async () => {
@@ -62,7 +77,7 @@ it('shows the current Analyzer definition and leaves absent definitions empty', 
   const user = userEvent.setup();
   const view = (definitions: AlignmentWorkloadSeries['definitions']) => (
     <ChartFocusProvider>
-      <WholeRunCard e2e={null} workload={{ ...workload, definitions }} />
+      <WholeRunCard e2e={null} workload={{ report, series: { ...series, definitions } }} />
     </ChartFocusProvider>
   );
   const { rerender } = render(view({ decode_batch_size: 'Requests decoded in this capture.' }));

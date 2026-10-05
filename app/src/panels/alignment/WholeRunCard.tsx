@@ -5,6 +5,7 @@ import SurfaceCard from '../../ui/controls/SurfaceCard';
 import type {
   AlignmentDefinitions,
   AlignmentE2eSeries,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
 } from '../../artifacts/schema/alignmentTypes';
 import { tokens } from '../../ui/theme';
@@ -106,7 +107,11 @@ export default function WholeRunCard({
   workload,
 }: {
   e2e: AlignmentE2eSeries | null;
-  workload: AlignmentWorkloadSeries | null;
+  /** The workload subject's series and report, both or neither. */
+  workload: {
+    readonly series: AlignmentWorkloadSeries;
+    readonly report: AlignmentWorkloadReport;
+  } | null;
 }) {
   const [workloadAxisMode, setWorkloadAxisMode] = useState<WorkloadAxisMode>('elapsedTime');
   const latency = useMemo(
@@ -115,14 +120,18 @@ export default function WholeRunCard({
   );
   const throughput = useMemo(() => (e2e === null ? null : throughputCard(e2e)), [e2e]);
   const shape = useMemo(
-    () => (workload === null ? [] : workloadCards(workload, workloadAxisMode)),
+    () =>
+      workload === null ? [] : workloadCards(workload.series, workload.report, workloadAxisMode),
     [workload, workloadAxisMode],
   );
   const summary = useMemo(
-    () => (workload === null ? [] : workloadSummaryRows(workload, shape)),
+    () => (workload === null ? [] : workloadSummaryRows(workload.series, shape)),
     [workload, shape],
   );
-  const schedule = useMemo(() => scheduleContext(workload, shape), [workload, shape]);
+  const schedule = useMemo(
+    () => scheduleContext(workload?.series ?? null, shape),
+    [workload, shape],
+  );
 
   return (
     <Box
@@ -279,7 +288,11 @@ export default function WholeRunCard({
             }
           />
           {shape.map((card) => (
-            <WorkloadMetricCard key={card.key} card={card} definitions={workload.definitions} />
+            <WorkloadMetricCard
+              key={card.key}
+              card={card}
+              definitions={workload.series.definitions}
+            />
           ))}
           <SummaryCard
             title="What each side ran, in numbers"

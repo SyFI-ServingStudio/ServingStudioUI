@@ -18,6 +18,7 @@ import type {
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
   AlignmentWorkloadReport,
+  AlignmentWorkloadStats,
   AlignmentWorkloadSeries,
 } from './alignmentTypes';
 import { ALIGNMENT_SUBJECTS } from './alignmentTypes';
@@ -1236,20 +1237,49 @@ export function parseAnalyzerV1AlignmentWorkloadSeries(input: unknown): Alignmen
   });
 }
 
+const workloadStats = z
+  .object({
+    n: count,
+    mean: finite.nullable(),
+    p50: finite.nullable(),
+    p90: finite.nullable(),
+    p99: finite.nullable(),
+    max: finite.nullable(),
+  })
+  .transform((value): AlignmentWorkloadStats =>
+    Object.freeze({
+      n: value.n,
+      mean: value.mean,
+      p50: value.p50,
+      p90: value.p90,
+      p99: value.p99,
+      max: value.max,
+    }),
+  );
+const pairedWorkloadStats = z
+  .object({ measured: workloadStats, simulated: workloadStats })
+  .transform((value) => Object.freeze(value));
+
+// Only the fields both sides record are read; `observed_elapsed_ms` is
+// measured alone and has no card.
 const workloadReportSchema = z.object({
   schema_version: z.literal(1),
-  available: z.boolean(),
+  available: z.literal(true),
   definitions: z.record(z.unknown()),
-  meta: z.record(z.unknown()),
-  metrics: z.record(z.object({ measured: distribution, simulated: distribution })),
+  metrics: z.object({
+    prefill_tokens: pairedWorkloadStats,
+    decode_batch_size: pairedWorkloadStats,
+    scheduled_kv_tokens: pairedWorkloadStats,
+    iteration_cycle_ms: pairedWorkloadStats,
+  }),
 });
 
+/** The workload report: each scheduler field's percentiles per side, as the
+ * Analyzer computed them from the same iterations the series plots. */
 export function parseAnalyzerV1AlignmentWorkloadReport(input: unknown): AlignmentWorkloadReport {
   const report = workloadReportSchema.parse(input);
   return Object.freeze({
-    available: report.available,
     definitions: Object.freeze(flattenDefinitions(report.definitions)),
-    meta: Object.freeze(report.meta),
     metrics: Object.freeze(report.metrics),
   });
 }

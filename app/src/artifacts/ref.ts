@@ -44,6 +44,7 @@ import type {
   AlignmentSequence,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
 } from './schema/alignmentTypes';
 
@@ -617,6 +618,10 @@ export interface AlignmentWorkloadSeriesRef {
   readonly kind: 'alignmentWorkloadSeries';
   readonly result: AlignmentResultRef;
 }
+export interface AlignmentWorkloadReportRef {
+  readonly kind: 'alignmentWorkloadReport';
+  readonly result: AlignmentResultRef;
+}
 export interface AlignmentE2eSeriesRef {
   readonly kind: 'alignmentE2eSeries';
   readonly result: AlignmentResultRef;
@@ -684,6 +689,7 @@ export type ArtifactRef =
   | AlignmentIterationSeriesRef
   | AlignmentTimelineIndexRef
   | AlignmentWorkloadSeriesRef
+  | AlignmentWorkloadReportRef
   | AlignmentE2eSeriesRef
   | AlignmentBreakdownRef
   | AlignmentTimelineIterationRef
@@ -715,6 +721,7 @@ export function artifactKey(ref: ArtifactRef): string {
     case 'alignmentIterationSeries':
     case 'alignmentTimelineIndex':
     case 'alignmentWorkloadSeries':
+    case 'alignmentWorkloadReport':
     case 'alignmentE2eSeries':
       return JSON.stringify([ref.kind, ...resultParts(ref.result)]);
     case 'alignmentBreakdown':
@@ -944,6 +951,9 @@ export const alignmentTimelineIndexRef = (
 export const alignmentWorkloadSeriesRef = (
   result: AlignmentResultRef,
 ): AlignmentWorkloadSeriesRef => ({ kind: 'alignmentWorkloadSeries', result });
+export const alignmentWorkloadReportRef = (
+  result: AlignmentResultRef,
+): AlignmentWorkloadReportRef => ({ kind: 'alignmentWorkloadReport', result });
 export const alignmentE2eSeriesRef = (result: AlignmentResultRef): AlignmentE2eSeriesRef => ({
   kind: 'alignmentE2eSeries',
   result,
@@ -1319,7 +1329,9 @@ export type ArtifactValue<R extends ArtifactRef> = R extends CatalogRef
                                                                                                 ? KernelMeasurementSummary
                                                                                                 : R extends HardwareGpuRef
                                                                                                   ? HardwareGpu
-                                                                                                  : never;
+                                                                                                  : R extends AlignmentWorkloadReportRef
+                                                                                                    ? AlignmentWorkloadReport
+                                                                                                    : never;
 
 /**
  * One population at one scope: how many requests were in it, on average and at

@@ -574,16 +574,30 @@ export interface AlignmentWorkloadSeries {
   readonly simulated: AlignmentWorkloadSide | null;
 }
 
+/** The Analyzer's summary of one side's per-iteration values for one field:
+ * linear-interpolated percentiles over the iterations it recorded. Every
+ * statistic is null when the side recorded none. */
+export interface AlignmentWorkloadStats {
+  readonly n: number;
+  readonly mean: number | null;
+  readonly p50: number | null;
+  readonly p90: number | null;
+  readonly p99: number | null;
+  readonly max: number | null;
+}
+
+/** The scheduler fields the workload report summarises on both sides. */
+export type AlignmentWorkloadMetricField =
+  'prefill_tokens' | 'decode_batch_size' | 'scheduled_kv_tokens' | 'iteration_cycle_ms';
+
 export interface AlignmentWorkloadReport {
-  readonly available: boolean;
   readonly definitions: AlignmentDefinitions;
-  readonly meta: Readonly<Record<string, unknown>>;
   readonly metrics: Readonly<
     Record<
-      string,
+      AlignmentWorkloadMetricField,
       {
-        readonly measured: AlignmentDistribution;
-        readonly simulated: AlignmentDistribution;
+        readonly measured: AlignmentWorkloadStats;
+        readonly simulated: AlignmentWorkloadStats;
       }
     >
   >;

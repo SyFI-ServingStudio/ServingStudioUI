@@ -49,6 +49,7 @@ import {
   parseAnalyzerV1AlignmentSequence,
   parseAnalyzerV1AlignmentTimelineIndex,
   parseAnalyzerV1AlignmentTimelineIteration,
+  parseAnalyzerV1AlignmentWorkloadReport,
   parseAnalyzerV1AlignmentWorkloadSeries,
 } from './schema/alignment';
 
@@ -226,6 +227,12 @@ function decode(ref: ArtifactRef, body: unknown, headers: Headers): Decoded {
     case 'alignmentWorkloadSeries':
       return {
         value: parseAnalyzerV1AlignmentWorkloadSeries(body),
+        schemaVersion: 1,
+        revision: responseRevision(headers, ref.result.revision),
+      };
+    case 'alignmentWorkloadReport':
+      return {
+        value: parseAnalyzerV1AlignmentWorkloadReport(body),
         schemaVersion: 1,
         revision: responseRevision(headers, ref.result.revision),
       };

@@ -18,6 +18,9 @@ const timelineIndex = fixture<unknown>('./fixtures/alignment/payloads/alignment_
 const workloadSeries = fixture<unknown>(
   './fixtures/alignment/payloads/alignment_workload_series.json',
 );
+const workloadReport = fixture<unknown>(
+  './fixtures/alignment/reports/alignment_workload_report.json',
+);
 const e2eSeries = fixture<unknown>('./fixtures/alignment/payloads/alignment_e2e_series.json');
 const breakdown6 = fixture<unknown>('./fixtures/alignment/iterations/breakdown_6.json');
 const breakdown1025 = fixture<unknown>('./fixtures/alignment/iterations/breakdown_1025.json');
@@ -82,6 +85,7 @@ async function stubAlignment(page: Page): Promise<void> {
     if (path === `${root}/subjects/iteration/payload`) return fulfill(route, iterationSeries);
     if (path === `${root}/subjects/timeline/payload`) return fulfill(route, timelineIndex);
     if (path === `${root}/subjects/workload/payload`) return fulfill(route, workloadSeries);
+    if (path === `${root}/subjects/workload/report`) return fulfill(route, workloadReport);
     if (path === `${root}/subjects/e2e/payload`) return fulfill(route, e2eSeries);
 
     const detail = path.match(/\/subjects\/(iteration|timeline)\/iterations\/(\d+)$/);

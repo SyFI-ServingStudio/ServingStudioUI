@@ -21,6 +21,7 @@ export {
   alignmentIterationSeriesRef,
   alignmentTimelineIndexRef,
   alignmentWorkloadSeriesRef,
+  alignmentWorkloadReportRef,
   alignmentE2eSeriesRef,
   alignmentBreakdownRef,
   alignmentTimelineIterationRef,
@@ -81,6 +82,7 @@ export type {
   AlignmentIterationSeriesRef,
   AlignmentTimelineIndexRef,
   AlignmentWorkloadSeriesRef,
+  AlignmentWorkloadReportRef,
   AlignmentE2eSeriesRef,
   AlignmentBreakdownRef,
   AlignmentTimelineIterationRef,
@@ -246,7 +248,9 @@ export type {
   AlignmentSubjectName,
   AlignmentTimelineIndex,
   AlignmentTimelineIteration,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
+  AlignmentWorkloadStats,
 } from './schema/alignmentTypes';
 export { CostTreeValidationError, invalidCostTree, parseRawCostNode } from './schema/costTree';
 export type {

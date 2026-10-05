@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 import type {
   AlignmentCdfComparison,
   AlignmentE2eSeries,
+  AlignmentWorkloadReport,
   AlignmentWorkloadSeries,
+  AlignmentWorkloadStats,
 } from '../../artifacts/schema/alignmentTypes';
 import {
   latencyCards,
   niceTicks,
-  quantile,
   throughputCard,
   workloadCards,
   workloadSummaryRows,
@@ -38,22 +39,6 @@ const comparison = (
   unit: 'ms',
   measured: curve('Client measured', [10, 20, 30], { p50: 20, p90: 28, p99: 30 }),
   simulated: curve('Simulated', [8, 16, 24], simulatedMarkers),
-});
-
-describe('quantile', () => {
-  it('interpolates linearly between order statistics, as the analyzer report does', () => {
-    expect(quantile([1, 2, 3, 4], 0.5)).toBeCloseTo(2.5, 12);
-    expect(quantile([0, 10], 0.9)).toBeCloseTo(9, 12);
-    expect(quantile([5], 0.99)).toBe(5);
-  });
-
-  it('sorts the sample rather than assuming the analyzer emitted it in order', () => {
-    expect(quantile([4, 1, 3, 2], 0.5)).toBeCloseTo(2.5, 12);
-  });
-
-  it('has no reading for an empty sample', () => {
-    expect(quantile([], 0.5)).toBeNull();
-  });
 });
 
 describe('niceTicks', () => {
@@ -144,12 +129,47 @@ describe('workloadCards', () => {
       scheduledKvTokens: [12, 24],
     },
   };
-  const cards = workloadCards(workload);
+  // The Analyzer's report for the same iterations; the cards must quote
+  // these, never a statistic of their own over the series.
+  const stats = (n: number, p50: number, p90: number, p99: number, max: number) =>
+    ({ n, mean: p50, p50, p90, p99, max }) satisfies AlignmentWorkloadStats;
+  const report: AlignmentWorkloadReport = {
+    definitions: {},
+    metrics: {
+      decode_batch_size: {
+        measured: stats(3, 4, 5.6, 5.96, 6),
+        simulated: stats(2, 4, 4.8, 4.98, 5),
+      },
+      scheduled_kv_tokens: {
+        measured: stats(3, 20, 28, 29.8, 30),
+        simulated: stats(2, 18, 22.8, 23.88, 24),
+      },
+      prefill_tokens: { measured: stats(3, 0, 0, 0, 0), simulated: stats(2, 2, 3.6, 3.96, 4) },
+      iteration_cycle_ms: {
+        measured: stats(2, 6, 7.6, 7.96, 8),
+        simulated: stats(2, 7, 8.6, 8.96, 9),
+      },
+    },
+  };
+  const cards = workloadCards(workload, report);
 
-  it('drops the iterations the analyzer recorded no cycle for', () => {
+  it('drops the iterations the analyzer recorded no cycle for from the plot', () => {
     const cycle = cards.find((card) => card.key === 'iterationCycleMs');
-    expect(cycle?.measured?.stats.n).toBe(2);
-    expect(cycle?.simulated?.stats.n).toBe(2);
+    expect(cycle?.measured?.points).toEqual({ x: [0, 0.1], values: [4, 8] });
+  });
+
+  it('quotes the report statistics and compares them side to side', () => {
+    const [decode] = cards;
+    expect(decode.measured?.stats).toBe(report.metrics.decode_batch_size.measured);
+    expect(decode.simulated?.stats).toBe(report.metrics.decode_batch_size.simulated);
+    expect(decode.deltaP50Pct).toBeCloseTo(0, 12);
+    expect(decode.deltaP90Pct).toBeCloseTo((4.8 / 5.6 - 1) * 100, 12);
+  });
+
+  it('has no side model where the series has no side', () => {
+    const [decode] = workloadCards({ ...workload, simulated: null }, report);
+    expect(decode.simulated).toBeNull();
+    expect(decode.deltaP50Pct).toBeNull();
   });
 
   it('keeps every iteration at its exact elapsed-time coordinate', () => {
@@ -160,7 +180,7 @@ describe('workloadCards', () => {
   });
 
   it('switches to each side`s original iteration ids without pairing them', () => {
-    const iterationCards = workloadCards(workload, 'iterationId');
+    const iterationCards = workloadCards(workload, report, 'iterationId');
     expect(iterationCards[0].axisMode).toBe('iterationId');
     expect(iterationCards[0].axisMin).toBe(1);
     expect(iterationCards[0].axisMax).toBe(3);
@@ -183,7 +203,7 @@ describe('workloadCards', () => {
     ]);
   });
 
-  it('summarises captures larger than the JavaScript argument limit', () => {
+  it('plots captures larger than the JavaScript argument limit', () => {
     const count = 150_000;
     const values = Array.from({ length: count }, (_value, index) => index);
     const largeSide = {
@@ -194,14 +214,12 @@ describe('workloadCards', () => {
       decodeBatchSize: values,
       scheduledKvTokens: values,
     };
-    const [decode] = workloadCards({
-      available: true,
-      definitions: {},
-      measured: largeSide,
-      simulated: null,
-    });
+    const [decode] = workloadCards(
+      { available: true, definitions: {}, measured: largeSide, simulated: null },
+      report,
+    );
 
-    expect(decode.measured?.stats.max).toBe(count - 1);
+    expect(decode.measured?.points.values).toHaveLength(count);
     expect(decode.axisMax).toBe((count - 1) / 1000);
     expect(decode.spanMs).toBe(count - 1);
   });
