@@ -3,12 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   annotate,
   CostTreeValidationError,
-  criticalLeafContributions,
-  criticalLeafTotals,
   leaf,
   leafById,
   leafByName,
-  leafTotals,
   max,
   nodeById,
   nodeByOrdinalPath,
@@ -98,7 +95,7 @@ describe('CostTree annotation', () => {
     expect(Object.isFrozen(child.slot.kernelConfig.n)).toBe(true);
   });
 
-  it('returns precise leaf types and stable derived busy-time totals', () => {
+  it('finds leaves and nodes by preorder id and by name', () => {
     const tree = annotate(
       scale(
         'twice',
@@ -111,16 +108,7 @@ describe('CostTree annotation', () => {
     expect(leafByName(tree, 'comm')?.slot.kind).toBe('all_reduce');
     expect(nodeById(tree, 1)?.kind).toBe('sum');
     expect(leafById(tree, 1)).toBeNull();
-    const totals = leafTotals(tree);
-    expect(totals).toMatchObject({
-      totalMs: 6,
-      positions: [
-        { name: 'gemm', ms: 4, calls: 2 },
-        { name: 'comm', ms: 2, calls: 2 },
-      ],
-    });
-    expect(totals.positions[0]?.pct).toBeCloseTo(200 / 3);
-    expect(totals.positions[1]?.pct).toBeCloseTo(100 / 3);
+    expect(tree.totalMs).toBe(6);
   });
 
   it('round-trips stable Analyzer ordinal paths and rejects stale paths', () => {
@@ -137,86 +125,6 @@ describe('CostTree annotation', () => {
     expect(nodeByOrdinalPath(tree, '')).toBe(tree);
     expect(nodeByOrdinalPath(tree, '1/9')).toBeNull();
     expect(nodeByOrdinalPath(tree, 'one')).toBeNull();
-  });
-
-  it('attributes Sum, Scale, Max, and overlap to root critical-path time', () => {
-    const tree = annotate(
-      sum(
-        'root',
-        leaf('a', 'single_gemm', {}, 4),
-        scale(
-          'twice',
-          2,
-          max('parallel', 2, leaf('b', 'all_reduce', {}, 6), leaf('c', 'rms_norm', {}, 10)),
-        ),
-      ),
-    );
-
-    const contributions = criticalLeafContributions(tree);
-    const totals = criticalLeafTotals(tree);
-
-    expect(tree.totalMs).toBe(14);
-    expect(totals).toMatchObject({
-      totalMs: 14,
-      positions: [
-        { name: 'c', ms: 10 },
-        { name: 'a', ms: 4 },
-      ],
-    });
-    expect(totals.positions.find((position) => position.name === 'b')).toBeUndefined();
-    expect(totals.positions[0]?.pct).toBeCloseTo((10 / 14) * 100);
-    expect(totals.positions[1]?.pct).toBeCloseTo((4 / 14) * 100);
-    expect(totals.positions.reduce((total, position) => total + position.pct, 0)).toBeCloseTo(100);
-    expect(contributions).toMatchObject([
-      { id: 5, name: 'c', ms: 10 },
-      { id: 1, name: 'a', ms: 4 },
-    ]);
-    expect(contributions[0]?.pct).toBeCloseTo((10 / 14) * 100);
-    expect(contributions.find((contribution) => contribution.name === 'b')).toBeUndefined();
-  });
-
-  it('splits exact Max ties without losing Scale attribution', () => {
-    const tree = annotate(
-      scale(
-        'twice',
-        2,
-        max('tie', 1, leaf('left', 'single_gemm', {}, 5), leaf('right', 'all_reduce', {}, 5)),
-      ),
-    );
-
-    const contributions = criticalLeafContributions(tree);
-    const totals = criticalLeafTotals(tree);
-
-    expect(totals).toMatchObject({
-      totalMs: 10,
-      positions: [
-        { ms: 5, pct: 50 },
-        { ms: 5, pct: 50 },
-      ],
-    });
-    expect(contributions).toMatchObject([
-      { name: 'left', ms: 5, pct: 50 },
-      { name: 'right', ms: 5, pct: 50 },
-    ]);
-  });
-
-  it('keeps exact duplicate leaf identities while position totals aggregate their name', () => {
-    const tree = annotate(
-      sum(
-        'root',
-        leaf('shared', 'single_gemm', {}, 2),
-        scale('twice', 2, leaf('shared', 'single_gemm', {}, 3)),
-      ),
-    );
-
-    const contributions = criticalLeafContributions(tree);
-    const totals = criticalLeafTotals(tree);
-
-    expect(contributions).toMatchObject([
-      { id: 3, name: 'shared', ms: 6, pct: 75 },
-      { id: 1, name: 'shared', ms: 2, pct: 25 },
-    ]);
-    expect(totals.positions).toMatchObject([{ name: 'shared', ms: 8, pct: 100 }]);
   });
 
   it('keeps preorder selection ids stable across value-only reannotation', () => {
@@ -238,11 +146,8 @@ describe('CostTree annotation', () => {
 
   it('keeps zero-cost trees finite instead of manufacturing a denominator', () => {
     const tree = annotate(leaf('zero', 'single_gemm', {}, 0));
-    const totals = leafTotals(tree);
 
     expect(tree).toMatchObject({ ms: 0, pct: 0, totalMs: 0 });
-    expect(totals).toMatchObject({ totalMs: 0, positions: [{ ms: 0, pct: 0 }] });
-    expect(Number.isFinite(totals.positions[0]?.pct)).toBe(true);
   });
 });
 

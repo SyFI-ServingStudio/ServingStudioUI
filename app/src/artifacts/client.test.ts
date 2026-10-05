@@ -159,6 +159,10 @@ const COST_TREE = {
     base: 1.5,
     stats: { input: {}, flops: null, bytes: null, tflops: null, gbps: null },
   },
+  time_share: {
+    kernel_time_ms: 1.5,
+    segments: [{ position: 'ffn.gemm', kind: 'single_gemm', kernel_time_ms: 1.5, share_pct: 100 }],
+  },
 };
 
 const KERNEL_ANALYSIS_REF = kernelThroughputAnalysisRef({ ...RUN, revision: 'analysis-v2' }, [

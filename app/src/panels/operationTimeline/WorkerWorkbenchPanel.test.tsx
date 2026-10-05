@@ -193,6 +193,10 @@ const treeArtifact = {
       base: 0.5,
       stats: { input: {}, flops: 10, bytes: 20, tflops: 0.1, gbps: 0.2 },
     },
+    timeShare: {
+      kernelTimeMs: 0.5,
+      segments: [{ position: 'ffn.gemm', kind: 'single_gemm', kernelTimeMs: 0.5, sharePct: 100 }],
+    },
   },
 };
 

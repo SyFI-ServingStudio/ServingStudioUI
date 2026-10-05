@@ -267,7 +267,7 @@ export function parsePredictionCostTree(
     });
   } catch (error) {
     throw new IncompatiblePredictionError(
-      [`tree: ${error instanceof Error ? error.message : String(error)}`],
+      [error instanceof Error ? error.message : String(error)],
       PREDICTION_SCHEMA_VERSION,
     );
   }

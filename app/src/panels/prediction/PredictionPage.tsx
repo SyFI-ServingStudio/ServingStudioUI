@@ -478,6 +478,7 @@ function SelectedPrediction({
     () => (costTree.status === 'ready' ? annotate(costTree.value.tree) : null),
     [costTree],
   );
+  const timeShare = costTree.status === 'ready' ? costTree.value.timeShare : null;
   const selectedLeaf = tree === null ? null : leafById(tree, selectedLeafId);
   const selectedScope = tree === null ? null : nodeByOrdinalPath(tree, scopePath);
   const selectedScopeId =
@@ -557,6 +558,7 @@ function SelectedPrediction({
       >
         <CostTreeEvidence
           tree={tree}
+          timeShare={costTree.value.timeShare}
           identity={evidenceHeader}
           timeBasis={`iter ${selectedCase.caseId} · operation ${selectedOperationId}`}
           selectedLeafId={selectedLeafId}
@@ -615,9 +617,10 @@ function SelectedPrediction({
           node={selectedLeaf}
         />
       )}
-      {tree !== null && (
+      {tree !== null && timeShare !== null && (
         <TimeShareBlocksView
           tree={tree}
+          timeShare={timeShare}
           selectedLeafId={selectedLeafId}
           onSelectKernel={(leafId) =>
             updateSelection({ panelId: 'kernel-time-share', leafId, parallelId: null })

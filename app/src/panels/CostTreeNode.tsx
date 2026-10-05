@@ -11,11 +11,11 @@ import {
   fmtPct,
   type CostNode,
   type LeafNode,
-  type LeafPosition,
   type MaxNode,
   type ScaleNode,
   type SumNode,
 } from './costTreeModel';
+import type { KernelSegment } from '../artifacts';
 import { tokens, withAlpha, colors } from '../ui/theme';
 import { scaledQuantity } from '../ui/format';
 import SelectionBoundary from './SelectionBoundary';
@@ -31,7 +31,7 @@ const BANDWIDTH_RATE_SCALES = [
 
 interface NodeProps<Node extends CostNode = CostNode> {
   node: Node;
-  criticalContributionByPositionName: ReadonlyMap<string, LeafPosition>;
+  timeShareByPosition: ReadonlyMap<string, KernelSegment>;
   selId: number | null;
   onSelect?: (id: number) => void;
   onRoot?: () => void;
@@ -297,7 +297,7 @@ function ContainerHead({
 
 function LeafCard({
   node,
-  criticalContributionByPositionName,
+  timeShareByPosition,
   selId,
   onSelect,
   density = 'default',
@@ -306,7 +306,7 @@ function LeafCard({
   const color = colorOf(s.kind);
   const selected = selId === node.id;
   const compact = density === 'compact';
-  const finalContributionPct = criticalContributionByPositionName.get(s.name)?.pct ?? 0;
+  const finalContributionPct = timeShareByPosition.get(s.name)?.sharePct ?? 0;
   const hoverFacts = [
     { label: 'Kind', value: s.kind },
     { label: 'Backend', value: s.backend ?? '—' },
@@ -525,7 +525,7 @@ function LeafCard({
 
 export default function CostTreeNode({
   node,
-  criticalContributionByPositionName,
+  timeShareByPosition,
   selId,
   onSelect,
   onRoot,
@@ -540,7 +540,7 @@ export default function CostTreeNode({
     return (
       <LeafCard
         node={node}
-        criticalContributionByPositionName={criticalContributionByPositionName}
+        timeShareByPosition={timeShareByPosition}
         selId={selId}
         onSelect={onSelect}
         density={density}
@@ -619,7 +619,7 @@ export default function CostTreeNode({
             <Box key={i} sx={{ display: 'flex', alignItems: 'center' }}>
               <CostTreeNode
                 node={c}
-                criticalContributionByPositionName={criticalContributionByPositionName}
+                timeShareByPosition={timeShareByPosition}
                 selId={selId}
                 onSelect={onSelect}
                 parSel={parSel}
@@ -717,7 +717,7 @@ export default function CostTreeNode({
             <CostTreeNode
               key={i}
               node={c}
-              criticalContributionByPositionName={criticalContributionByPositionName}
+              timeShareByPosition={timeShareByPosition}
               selId={selId}
               onSelect={onSelect}
               parSel={parSel}
@@ -782,7 +782,7 @@ export default function CostTreeNode({
       />
       <CostTreeNode
         node={node.children[0]}
-        criticalContributionByPositionName={criticalContributionByPositionName}
+        timeShareByPosition={timeShareByPosition}
         selId={selId}
         onSelect={onSelect}
         parSel={parSel}

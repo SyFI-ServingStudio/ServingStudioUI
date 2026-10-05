@@ -99,6 +99,12 @@ const COST_TREE = {
       },
     ],
   },
+  time_share: {
+    kernel_time_ms: 2.5,
+    segments: [
+      { position: 'model.gemm', kind: 'single_gemm', kernel_time_ms: 2.5, share_pct: 100 },
+    ],
+  },
 };
 const SCOPED = {
   schema_version: 1,

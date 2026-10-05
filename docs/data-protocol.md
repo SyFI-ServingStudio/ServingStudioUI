@@ -551,7 +551,9 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 - exact CostTree 路由为
   `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/subjects/cost-tree/payload`。
   响应 identity 回显 `operation_id`、`section` 和 `layer`，tree 仅由该 operation 的单行事实
-  构造。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
+  构造。`time_share` 是 Analyzer 按 kernel-time-share 同一 critical-path 归因给出的该
+  operation 组成（`kernel_time_ms`、`segments`、`kinds`）；prediction 的 CostTree 路由同样携带。
+  UI 只读取它，不在浏览器重算归因。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
 - exact operation CostTree 只在用户选择后加载。
 - Perfetto 只传递可访问的 trace URL；UI 不复制 trace 内容进应用状态。
 - query cache key 必须包含 run id、subject version、`analysis.revision`，以及完整

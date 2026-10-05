@@ -149,6 +149,8 @@ export interface WorkerCostTreeDetail {
   readonly interval: { readonly startMs: number; readonly endMs: number };
   readonly inputs: readonly WorkerCostTreeInput[];
   readonly tree: RawCostNode;
+  /** The Analyzer's critical-path attribution of this tree's root time. */
+  readonly timeShare: KernelComposition;
 }
 
 export interface PredictionDescriptor {
@@ -202,6 +204,8 @@ export interface PredictionCostTreeDetail {
   readonly interval: { readonly startMs: number; readonly endMs: number };
   readonly inputs: readonly WorkerCostTreeInput[];
   readonly tree: RawCostNode;
+  /** The Analyzer's critical-path attribution of this tree's root time. */
+  readonly timeShare: KernelComposition;
 }
 
 export interface PredictionDescriptorRef {

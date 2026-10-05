@@ -314,6 +314,24 @@ function clusterIssues(wire: ClusterWire): string[] {
   return issues;
 }
 
+/**
+ * One composition outside this subject: the critical-path attribution the
+ * Analyzer serves beside an exact CostTree (`time_share`), in the shape of one
+ * of this subject's scopes. Its segments carry no run position table, so only
+ * the composition's own sums are checked.
+ */
+export const kernelCompositionSchema = z.object(compositionShape);
+
+export function decodeKernelComposition(
+  wire: z.infer<typeof kernelCompositionSchema>,
+  path: string,
+): KernelComposition {
+  const issues: string[] = [];
+  checkComposition(path, wire, null, issues);
+  if (issues.length > 0) throw new Error(issues.join('; '));
+  return toComposition(wire);
+}
+
 function toSegments(segments: readonly z.infer<typeof segmentSchema>[]): KernelSegment[] {
   return segments.map((segment) => ({
     position: segment.position,

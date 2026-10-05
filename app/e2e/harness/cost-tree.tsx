@@ -14,6 +14,24 @@ const tree = annotate(
     leaf('attention.prefill', 'flashinfer_attn_prefill', {}, 5),
   ),
 );
+// What the Analyzer serves beside this tree: a Sum puts both leaves on the path.
+const timeShare = {
+  kernelTimeMs: 100,
+  segments: [
+    {
+      position: 'attention.decode',
+      kind: 'flashinfer_attn_decode',
+      kernelTimeMs: 95,
+      sharePct: 95,
+    },
+    {
+      position: 'attention.prefill',
+      kind: 'flashinfer_attn_prefill',
+      kernelTimeMs: 5,
+      sharePct: 5,
+    },
+  ],
+};
 
 export function Fixture() {
   const [selectedLeafId, selectLeaf] = useState<number | null>(null);
@@ -22,6 +40,7 @@ export function Fixture() {
       <CssBaseline />
       <CostTreeEvidence
         tree={tree}
+        timeShare={timeShare}
         timeBasis="Test operation"
         selectedLeafId={selectedLeafId}
         selectedParallelId={null}
@@ -31,6 +50,7 @@ export function Fixture() {
       />
       <TimeShareBlocksView
         tree={tree}
+        timeShare={timeShare}
         selectedLeafId={selectedLeafId}
         onSelectKernel={selectLeaf}
       />

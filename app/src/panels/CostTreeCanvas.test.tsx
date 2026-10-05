@@ -13,6 +13,11 @@ const controls = {
 };
 const firstTree = annotate(leaf('first.kernel', 'single_gemm', {}, 1));
 const secondTree = annotate(leaf('second.kernel', 'single_gemm', {}, 2));
+/** A composition as the Analyzer serves it beside a tree; the canvas only reads it. */
+const composition = (position: string, kernelTimeMs: number, sharePct = 100) => ({
+  kernelTimeMs: (kernelTimeMs * 100) / sharePct,
+  segments: [{ position, kind: 'single_gemm', kernelTimeMs, sharePct }],
+});
 
 function rect(width: number, height: number): DOMRect {
   return {
@@ -58,6 +63,7 @@ describe('CostTreeCanvas', () => {
     render(
       <CostTreeCanvas
         tree={tree}
+        timeShare={composition('first.kernel', 1)}
         selectedLeafId={null}
         selectedParallelId={null}
         onSelectLeaf={vi.fn()}
@@ -95,7 +101,9 @@ describe('CostTreeCanvas', () => {
       ariaLabel: 'Test CostTree canvas',
       controlLabels: controls,
     };
-    const view = render(<CostTreeCanvas {...props} tree={firstTree} />);
+    const view = render(
+      <CostTreeCanvas {...props} tree={firstTree} timeShare={composition('first.kernel', 1)} />,
+    );
     const viewport = screen.getByRole('region', { name: 'Test CostTree canvas' });
     const content = screen.getByTestId('cost-tree-content');
 
@@ -109,8 +117,32 @@ describe('CostTreeCanvas', () => {
     fireEvent(viewport, pointerEvent('pointerup', 4, 90, 70));
     expect(content.style.transform).not.toBe('translate(310px, 292.5px) scale(0.9)');
 
-    view.rerender(<CostTreeCanvas {...props} tree={secondTree} />);
+    view.rerender(
+      <CostTreeCanvas {...props} tree={secondTree} timeShare={composition('second.kernel', 2)} />,
+    );
     expect(content.style.transform).toBe('translate(310px, 292.5px) scale(0.9)');
     expect(screen.getByRole('button', { name: 'Inspect kernel second.kernel' })).toBeVisible();
+  });
+
+  it("shows each leaf's time share as the Analyzer attributes it", async () => {
+    render(
+      <CostTreeCanvas
+        tree={firstTree}
+        // Not 100%: the share is read from the composition, never derived
+        // from the tree, whose single leaf is the whole root.
+        timeShare={composition('first.kernel', 1, 42)}
+        selectedLeafId={null}
+        selectedParallelId={null}
+        onSelectLeaf={vi.fn()}
+        onSelectParallel={vi.fn()}
+        onSelectRoot={vi.fn()}
+        ariaLabel="Test CostTree canvas"
+        controlLabels={controls}
+      />,
+    );
+    await userEvent
+      .setup()
+      .hover(screen.getByRole('button', { name: 'Inspect kernel first.kernel' }));
+    expect(await screen.findByText('42%', {}, { timeout: 5000 })).toBeVisible();
   });
 });

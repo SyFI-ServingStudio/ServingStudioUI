@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import type { KernelComposition } from '../artifacts';
 import type { CostTree } from './costTreeModel';
 import CostTreeCanvas from './CostTreeCanvas';
 import { CostTreeFrame } from './CostTreeFrame';
@@ -15,6 +16,7 @@ const PRODUCTION_CONTROLS = {
 
 interface CostTreeEvidenceProps {
   tree: CostTree;
+  timeShare: KernelComposition;
   worker?: {
     readonly id: string;
     readonly arch: { readonly type: string };
@@ -35,6 +37,7 @@ interface CostTreeEvidenceProps {
 /** Context-free exact CostTree evidence shared by run and prediction panels. */
 export function CostTreeEvidence({
   tree,
+  timeShare,
   worker = null,
   identity,
   timeBasis,
@@ -73,6 +76,7 @@ export function CostTreeEvidence({
     >
       <CostTreeCanvas
         tree={tree}
+        timeShare={timeShare}
         selectedLeafId={selectedLeafId}
         selectedParallelId={selectedParallelId}
         selectedScopeId={selectedScopeId}

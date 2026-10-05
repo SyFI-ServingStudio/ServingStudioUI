@@ -14,7 +14,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 
-import { criticalLeafTotals, type CostTree } from './costTreeModel';
+import type { KernelComposition } from '../artifacts';
+import type { CostTree } from './costTreeModel';
 import { tokens, withAlpha } from '../ui/theme';
 import CostTreeNode from './CostTreeNode';
 
@@ -56,6 +57,9 @@ export interface CostTreeCanvasControlLabels {
 
 interface CostTreeCanvasProps {
   tree: CostTree;
+  /** The Analyzer's critical-path attribution of `tree`; each leaf shows its
+   * position's share. */
+  timeShare: KernelComposition;
   selectedLeafId: number | null;
   selectedParallelId: number | null;
   /** Optional scoped-analysis selection for sequential container nodes. */
@@ -92,6 +96,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
  * the caller; this component owns only direct DOM pan/zoom interaction. */
 export default function CostTreeCanvas({
   tree,
+  timeShare,
   selectedLeafId,
   selectedParallelId,
   selectedScopeId = null,
@@ -104,9 +109,9 @@ export default function CostTreeCanvas({
   browserExpansion,
   fillFrame = false,
 }: CostTreeCanvasProps) {
-  const criticalContributionByPositionName = useMemo(
-    () => new Map(criticalLeafTotals(tree).positions.map((position) => [position.name, position])),
-    [tree],
+  const timeShareByPosition = useMemo(
+    () => new Map(timeShare.segments.map((segment) => [segment.position, segment])),
+    [timeShare],
   );
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -390,7 +395,7 @@ export default function CostTreeCanvas({
       >
         <CostTreeNode
           node={tree}
-          criticalContributionByPositionName={criticalContributionByPositionName}
+          timeShareByPosition={timeShareByPosition}
           selId={selectedLeafId}
           parSel={selectedParallelId}
           scopeSel={selectedScopeId}

@@ -353,6 +353,7 @@ function ReadyTree({
     >
       <CostTreeEvidence
         tree={tree}
+        timeShare={detail.timeShare}
         identity={identity}
         timeBasis={`iter ${detail.operation.iterId} · batch ${detail.operation.batchId} · operation ${detail.operation.operationId}`}
         selectedLeafId={selectedLeaf}
@@ -697,6 +698,7 @@ function ExactTreeSupplementary({
       />
       <TimeShareBlocksView
         tree={tree}
+        timeShare={result.value.timeShare}
         selectedLeafId={selectedLeaf?.id ?? null}
         onSelectKernel={selectKernel}
       />

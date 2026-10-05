@@ -50,6 +50,13 @@ function body() {
       base: 1.5,
       stats: { input: { m: 8 }, flops: 10, bytes: 20, tflops: 0.1, gbps: 0.2 },
     },
+    time_share: {
+      kernel_time_ms: 1.5,
+      segments: [
+        { position: 'ffn.gemm', kind: 'single_gemm', kernel_time_ms: 1.5, share_pct: 100 },
+      ],
+      kinds: [{ kind: 'single_gemm', kernel_time_ms: 1.5, share_pct: 100, positions: 1 }],
+    },
   };
 }
 
@@ -77,7 +84,20 @@ describe('parseWorkerCostTree', () => {
         },
       ],
       tree: body().tree,
+      timeShare: {
+        kernelTimeMs: 1.5,
+        segments: [{ position: 'ffn.gemm', kind: 'single_gemm', kernelTimeMs: 1.5, sharePct: 100 }],
+      },
     });
+  });
+
+  it("refuses a time share whose segments do not account for the tree's time", () => {
+    const short = body();
+    short.time_share.segments[0]!.kernel_time_ms = 1;
+    expect(() => parseWorkerCostTree(short, REF)).toThrow(/time_share: segments sum to 1 ms/);
+    const missing: Partial<ReturnType<typeof body>> = body();
+    delete missing.time_share;
+    expect(() => parseWorkerCostTree(missing, REF)).toThrowError(IncompatibleWorkerCostTreeError);
   });
 
   it('rejects a valid document served under another exact operation', () => {

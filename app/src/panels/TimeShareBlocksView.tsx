@@ -1,14 +1,16 @@
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import SurfaceCard from '../ui/controls/SurfaceCard';
+import type { KernelComposition } from '../artifacts';
 import {
-  criticalLeafTotals,
   fmtMs,
   fmtPct,
   GROUP,
   GROUP_ORDER,
+  groupOf,
   leafByName,
   type CostTree,
 } from './costTreeModel';
+import { familyShares } from './kernelFamilies';
 import { tokens, withAlpha } from '../ui/theme';
 
 interface Seg {
@@ -178,51 +180,58 @@ function Bar({
   );
 }
 
+/** The Analyzer's critical-path composition of one exact CostTree, drawn by
+ * family and by kernel position. `tree` only resolves a position to the leaf
+ * a click selects. */
 export function TimeShareBlocksView({
   tree,
+  timeShare,
   selectedLeafId,
   onSelectKernel,
 }: {
   tree: CostTree;
+  timeShare: KernelComposition;
   selectedLeafId: number | null;
   onSelectKernel: (leafId: number) => void;
 }) {
-  const lt = criticalLeafTotals(tree);
   const palette = MINERAL_PALETTE;
+  const totalMs = timeShare.kernelTimeMs;
 
-  const groupSegs: Seg[] = lt.groups.map((g) => ({
-    label: g.label,
-    full: g.label,
-    pct: g.pct,
-    ms: g.ms,
-    color: palette[g.group].color,
-    foreground: palette[g.group].foreground,
+  const groupSegs: Seg[] = familyShares(timeShare.segments, totalMs).map((family) => ({
+    label: family.label,
+    full: family.label,
+    pct: family.sharePct,
+    ms: family.kernelTimeMs,
+    color: palette[family.family].color,
+    foreground: palette[family.family].foreground,
     nodeId: null,
   }));
 
   const cutoff = 8;
-  const top = lt.positions.slice(0, cutoff);
+  const positions = timeShare.segments;
+  const top = positions.slice(0, cutoff);
   let acc = 0;
-  const posSegs: Seg[] = top.map((p) => {
-    acc += p.pct;
-    const node = leafByName(tree, p.name);
+  const posSegs: Seg[] = top.map((segment) => {
+    acc += segment.sharePct;
+    const node = leafByName(tree, segment.position);
+    const family = groupOf(segment.kind);
     return {
-      label: p.name.split('.').pop() ?? p.name,
-      full: p.name,
-      pct: p.pct,
-      ms: p.ms,
-      color: palette[p.group].color,
-      foreground: palette[p.group].foreground,
+      label: segment.position.split('.').pop() ?? segment.position,
+      full: segment.position,
+      pct: segment.sharePct,
+      ms: segment.kernelTimeMs,
+      color: palette[family].color,
+      foreground: palette[family].foreground,
       nodeId: node ? node.id : null,
     };
   });
-  if (lt.positions.length > cutoff) {
+  if (positions.length > cutoff) {
     const restPct = Math.max(0, 100 - acc);
     posSegs.push({
-      label: `other ×${lt.positions.length - cutoff}`,
-      full: `${lt.positions.length - cutoff} smaller kernels`,
+      label: `other ×${positions.length - cutoff}`,
+      full: `${positions.length - cutoff} smaller kernels`,
       pct: restPct,
-      ms: (lt.totalMs * restPct) / 100,
+      ms: (totalMs * restPct) / 100,
       color: tokens.sub2,
       foreground: tokens.sub,
       nodeId: null,

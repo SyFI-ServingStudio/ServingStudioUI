@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 import type { WorkerCoordinate, WorkerCostTreeDetail, WorkerCostTreeRef } from '../ref';
-import { parseRawCostNode } from './costTree';
+import { parseRawCostNode, type RawCostNode } from './costTree';
+import { decodeKernelComposition, kernelCompositionSchema } from './kernelTimeShare';
 
 export const WORKER_COST_TREE_SCHEMA_VERSION = 1;
 
@@ -55,6 +56,7 @@ export const exactCostTreeBodySchema = z.object({
       .strict(),
   ),
   tree: z.unknown(),
+  time_share: kernelCompositionSchema,
 });
 
 const exactCostTreeSchema = exactCostTreeBodySchema
@@ -78,9 +80,17 @@ const asId = (value: string | number): string => String(value);
 const sameWorker = (left: WorkerCoordinate, right: WorkerCoordinate): boolean =>
   left.poolTag === right.poolTag && left.workerId === right.workerId;
 
+function parseTree(tree: unknown): RawCostNode {
+  try {
+    return parseRawCostNode(tree);
+  } catch (error) {
+    throw new Error(`tree: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export function decodeRawExactCostTreeBody(
   detail: z.infer<typeof exactCostTreeBodySchema>,
-): Pick<WorkerCostTreeDetail, 'interval' | 'inputs' | 'tree'> {
+): Pick<WorkerCostTreeDetail, 'interval' | 'inputs' | 'tree' | 'timeShare'> {
   return {
     interval: Object.freeze({ startMs: detail.interval.start_ms, endMs: detail.interval.end_ms }),
     inputs: Object.freeze(
@@ -106,7 +116,8 @@ export function decodeRawExactCostTreeBody(
         }),
       ),
     ),
-    tree: parseRawCostNode(detail.tree),
+    tree: parseTree(detail.tree),
+    timeShare: decodeKernelComposition(detail.time_share, 'time_share'),
   };
 }
 
@@ -158,7 +169,7 @@ export function parseWorkerCostTree(
     });
   } catch (error) {
     throw new IncompatibleWorkerCostTreeError(
-      [`tree: ${error instanceof Error ? error.message : String(error)}`],
+      [error instanceof Error ? error.message : String(error)],
       WORKER_COST_TREE_SCHEMA_VERSION,
     );
   }

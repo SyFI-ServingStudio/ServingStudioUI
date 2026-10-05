@@ -119,6 +119,10 @@ function costTreeBody(operationId: string) {
       base: 1,
       stats: { input: { m: 8 }, flops: 10, bytes: 20, tflops: 0.1, gbps: 0.2 },
     },
+    time_share: {
+      kernel_time_ms: 1,
+      segments: [{ position: 'ffn.gemm', kind: 'single_gemm', kernel_time_ms: 1, share_pct: 100 }],
+    },
   };
 }
 
