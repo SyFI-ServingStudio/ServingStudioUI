@@ -1,6 +1,7 @@
 import type { Page, Route } from '@playwright/test';
 
 import { expect, test } from './quality.fixture';
+import { serveKernelKinds } from './fixtures/kernelKinds';
 
 /**
  * The second vertical slice: a worker's kernel-time composition, from a URL.
@@ -112,6 +113,7 @@ async function stubAnalyzer(page: Page, options: { workerStatus?: number } = {})
   const urls: string[] = [];
   const record = (route: Route) => urls.push(new URL(route.request().url()).pathname);
 
+  await serveKernelKinds(page);
   await page.route('**/api/analyzer/v1/runs', (route) =>
     route.fulfill({
       json: { protocol_version: 1, generated_at: '2026-09-10T00:00:00Z', runs: [] },

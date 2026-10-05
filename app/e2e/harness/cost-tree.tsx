@@ -1,7 +1,9 @@
 // Browser-only component fixture: the bundled run has no exact CostTree artifact.
 import { CssBaseline, ThemeProvider } from '@mui/material';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { createQueryClient } from '../../src/app/queryClient';
 import { CostTreeEvidence } from '../../src/panels/CostTreeEvidence';
 import { TimeShareBlocksView } from '../../src/panels/TimeShareBlocksView';
 import { annotate, leaf, sum } from '../../src/panels/costTreeModel';
@@ -35,26 +37,30 @@ const timeShare = {
 
 export function Fixture() {
   const [selectedLeafId, selectLeaf] = useState<number | null>(null);
+  // The views read the kernel kinds' DOC names, which the spec serves.
+  const [queryClient] = useState(createQueryClient);
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <CostTreeEvidence
-        tree={tree}
-        timeShare={timeShare}
-        timeBasis="Test operation"
-        selectedLeafId={selectedLeafId}
-        selectedParallelId={null}
-        onSelectLeaf={selectLeaf}
-        onSelectParallel={() => {}}
-        onSelectRoot={() => selectLeaf(null)}
-      />
-      <TimeShareBlocksView
-        tree={tree}
-        timeShare={timeShare}
-        selectedLeafId={selectedLeafId}
-        onSelectKernel={selectLeaf}
-      />
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <CostTreeEvidence
+          tree={tree}
+          timeShare={timeShare}
+          timeBasis="Test operation"
+          selectedLeafId={selectedLeafId}
+          selectedParallelId={null}
+          onSelectLeaf={selectLeaf}
+          onSelectParallel={() => {}}
+          onSelectRoot={() => selectLeaf(null)}
+        />
+        <TimeShareBlocksView
+          tree={tree}
+          timeShare={timeShare}
+          selectedLeafId={selectedLeafId}
+          onSelectKernel={selectLeaf}
+        />
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);

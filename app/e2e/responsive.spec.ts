@@ -5,6 +5,7 @@ import {
   openAgentStart,
 } from './helpers';
 import { expect, test } from './quality.fixture';
+import { serveKernelKinds } from './fixtures/kernelKinds';
 
 test('the three setup steps reveal and fold in order', { tag: '@desktop' }, async ({ page }) => {
   // Picking is the confirmation: each answer folds its own step and opens the
@@ -36,6 +37,7 @@ test(
   'kernel shares remain proportional and tiny kernels can be selected',
   { tag: '@mobile' },
   async ({ page }) => {
+    await serveKernelKinds(page);
     await page.goto('/e2e/harness/cost-tree.html');
     await expectKernelShareGeometry(page);
     await expectNoHorizontalOverflow(page);

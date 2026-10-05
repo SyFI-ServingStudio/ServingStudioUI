@@ -29,6 +29,8 @@ const BINS = 200;
 const TOTAL_TOK_S = (131072 + 524288) / (SIM_MS / 1000);
 import type { Page } from '@playwright/test';
 
+import { serveKernelKinds } from './kernelKinds';
+
 const DECODE_TOKENS = 131072;
 const PREFILL_TOKENS = 524288;
 /** How long the simulation itself took to run, as the launcher measured it. */
@@ -1128,6 +1130,7 @@ export async function serveRunPage(page: Page): Promise<void> {
 
 /** Overview resources shared by focused specs that assemble the run page themselves. */
 export async function serveRunOverviewResources(page: Page): Promise<void> {
+  await serveKernelKinds(page);
   await page.route('**/api/analyzer/v1/runs/*/descriptor*', (route) =>
     route.fulfill({ json: RUN_DESCRIPTOR }),
   );
