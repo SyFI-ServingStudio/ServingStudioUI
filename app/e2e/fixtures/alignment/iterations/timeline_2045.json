@@ -10899,6 +10899,301 @@
       "simulated_occurrences": 65
     }
   ],
+  "reference_rank": {
+    "busy_ms": 2.45827,
+    "device_id": 0,
+    "gap_count": 458,
+    "idle_fraction": 0.2738760862970536,
+    "idle_ms": 0.9271989999999999,
+    "inter_phase_ms": 0.6917430000000002,
+    "largest_inter_phase_gaps": [
+      {
+        "after": {
+          "kernel": "_copy_page_indices_kernel",
+          "operation": null,
+          "phase": "preprocess"
+        },
+        "before": {
+          "kernel": "triton_poi_fused_0",
+          "operation": null,
+          "phase": "forward"
+        },
+        "duration_us": 661.759,
+        "start_ns": 11739765406
+      },
+      {
+        "after": {
+          "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+          "operation": "model.lm_head",
+          "phase": "postprocess"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "sample"
+        },
+        "duration_us": 18.496,
+        "start_ns": 11743084475
+      },
+      {
+        "after": {
+          "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+          "operation": "model.mlp_allreduce_and_norm_boundaries",
+          "phase": "forward"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "postprocess"
+        },
+        "duration_us": 11.488,
+        "start_ns": 11742983771
+      }
+    ],
+    "phases": [
+      {
+        "busy_ms": 0.003296,
+        "idle_fraction": 0.7057142857142856,
+        "idle_ms": 0.007904,
+        "kernel_count": 2,
+        "kernel_sum_ms": 0.003296,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "before": {
+              "kernel": "_copy_page_indices_kernel",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "duration_us": 7.904,
+            "start_ns": 11739755518
+          }
+        ],
+        "phase": "preprocess",
+        "span_ms": 0.0112
+      },
+      {
+        "busy_ms": 2.337918,
+        "idle_fraction": 0.08553840521378725,
+        "idle_ms": 0.21868799999999977,
+        "kernel_count": 450,
+        "kernel_sum_ms": 2.337918,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, __nv_bfloat16, float, __nv_bfloat16, (bool)0, float, __nv_bfloat16, __nv_bfloat16, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T10 *, T9 *, T5 *, const T6 *, const T6 *, const T11 *, const T4 *, T11 *, void *, long, T6 *, int *, T6 *, T6 *, const T6 *, const T6 *, const T6 *, const T6 *, const T6 *)",
+              "operation": "layer.down_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "model.mlp_allreduce_and_norm_boundaries",
+              "phase": "forward"
+            },
+            "duration_us": 1.664,
+            "start_ns": 11742341244
+          },
+          {
+            "after": {
+              "kernel": "nvjet_tst_64x8_64x16_4x1_v_bz_TNT",
+              "operation": "layer.output_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "layer.attention_allreduce_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 1.408,
+            "start_ns": 11742141276
+          },
+          {
+            "after": {
+              "kernel": "void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, __nv_bfloat16, float, __nv_bfloat16, (bool)0, float, __nv_bfloat16, __nv_bfloat16, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T10 *, T9 *, T5 *, const T6 *, const T6 *, const T11 *, const T4 *, T11 *, void *, long, T6 *, int *, T6 *, T6 *, const T6 *, const T6 *, const T6 *, const T6 *, const T6 *)",
+              "operation": "layer.down_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "model.mlp_allreduce_and_norm_boundaries",
+              "phase": "forward"
+            },
+            "duration_us": 1.312,
+            "start_ns": 11742262332
+          },
+          {
+            "after": {
+              "kernel": "void flashinfer::PersistentVariableLengthMergeStatesKernel<(unsigned int)8, (unsigned int)16, (unsigned int)8, (unsigned int)4, __nv_bfloat16, __nv_bfloat16, int>(T5 *, float *, T7 *, T6 *, float *, unsigned int, unsigned int *, unsigned int)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "nvjet_tst_64x8_64x16_4x1_v_bz_TNT",
+              "operation": "layer.output_projection",
+              "phase": "forward"
+            },
+            "duration_us": 1.248,
+            "start_ns": 11741339420
+          },
+          {
+            "after": {
+              "kernel": "triton_poi_fused_0",
+              "operation": null,
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "model.mlp_allreduce_and_norm_boundaries",
+              "phase": "forward"
+            },
+            "duration_us": 1.216,
+            "start_ns": 11740428829
+          },
+          {
+            "after": {
+              "kernel": "void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, __nv_bfloat16, float, __nv_bfloat16, (bool)0, float, __nv_bfloat16, __nv_bfloat16, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T10 *, T9 *, T5 *, const T6 *, const T6 *, const T11 *, const T4 *, T11 *, void *, long, T6 *, int *, T6 *, T6 *, const T6 *, const T6 *, const T6 *, const T6 *, const T6 *)",
+              "operation": "layer.down_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "model.mlp_allreduce_and_norm_boundaries",
+              "phase": "forward"
+            },
+            "duration_us": 1.056,
+            "start_ns": 11740906493
+          },
+          {
+            "after": {
+              "kernel": "nvjet_tst_64x8_64x16_4x1_v_bz_TNT",
+              "operation": "layer.output_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "layer.attention_allreduce_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 1.056,
+            "start_ns": 11742220956
+          },
+          {
+            "after": {
+              "kernel": "void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, __nv_bfloat16, float, __nv_bfloat16, (bool)0, float, __nv_bfloat16, __nv_bfloat16, (bool)1, (bool)0, (bool)0>(cublasLt::cublasSplitKParams<T6>, const T4 *, const T10 *, T9 *, T5 *, const T6 *, const T6 *, const T11 *, const T4 *, T11 *, void *, long, T6 *, int *, T6 *, T6 *, const T6 *, const T6 *, const T6 *, const T6 *, const T6 *)",
+              "operation": "layer.down_projection",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::trtllm_allreduce_fusion::allreduce_fusion_kernel_oneshot_lamport<(flashinfer::trtllm_allreduce_fusion::AllReduceFusionPattern)1, __nv_bfloat16, (int)4, (bool)1, (bool)1>(flashinfer::trtllm_allreduce_fusion::AllReduceFusionParams<T2>)",
+              "operation": "model.mlp_allreduce_and_norm_boundaries",
+              "phase": "forward"
+            },
+            "duration_us": 1.024,
+            "start_ns": 11742102780
+          }
+        ],
+        "phase": "forward",
+        "span_ms": 2.556606
+      },
+      {
+        "busy_ms": 0.082816,
+        "idle_fraction": 0.07173601147776186,
+        "idle_ms": 0.006400000000000003,
+        "kernel_count": 4,
+        "kernel_sum_ms": 0.082816,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "nvjet_tst_256x8_64x6_2x1_v_bz_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 3.264,
+            "start_ns": 11743069915
+          },
+          {
+            "after": {
+              "kernel": "void at::native::index_elementwise_kernel<(int)128, (int)4, void at::native::gpu_index_kernel<void at::native::index_kernel_impl<at::native::OpaqueType<(int)2>>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>)::[lambda(char *, const char *, long) (instance 1)]>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>, const T1 &, bool)::[lambda(int) (instance 1)]>(long, T3)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "nvjet_tst_256x8_64x6_2x1_v_bz_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 1.664,
+            "start_ns": 11743002587
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "void at::native::index_elementwise_kernel<(int)128, (int)4, void at::native::gpu_index_kernel<void at::native::index_kernel_impl<at::native::OpaqueType<(int)2>>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>)::[lambda(char *, const char *, long) (instance 1)]>(at::TensorIteratorBase &, c10::ArrayRef<long>, c10::ArrayRef<long>, const T1 &, bool)::[lambda(int) (instance 1)]>(long, T3)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "duration_us": 1.472,
+            "start_ns": 11742997179
+          }
+        ],
+        "phase": "postprocess",
+        "span_ms": 0.089216
+      },
+      {
+        "busy_ms": 0.03424,
+        "idle_fraction": 0.06713164777680909,
+        "idle_ms": 0.002464000000000001,
+        "kernel_count": 3,
+        "kernel_sum_ms": 0.03424,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(int) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.248,
+            "start_ns": 11743136667
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.216,
+            "start_ns": 11743106331
+          }
+        ],
+        "phase": "sample",
+        "span_ms": 0.036704
+      }
+    ],
+    "span_ms": 3.385469
+  },
   "selected_as": "full_capture",
   "simulated": {
     "slot_ms": [

@@ -5,7 +5,6 @@ import type {
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
 import { GROUP } from '../costTreeModel';
-import { dutyBreakdown } from './dutyBreakdown';
 import {
   continuousScene,
   measuredLane,
@@ -64,6 +63,20 @@ const iteration: AlignmentTimelineIteration = {
   },
   operationTotals: [],
   host: null,
+  // As the Analyzer states it; the lane quotes these rather than its own sums.
+  referenceRank: {
+    deviceId: 0,
+    spanMs: 4,
+    busyMs: 2,
+    idleMs: 2,
+    idleFraction: 0.5,
+    gapCount: 2,
+    interPhaseMs: 1,
+    phases: [
+      { phase: 'preprocess', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+      { phase: 'forward', spanMs: 1, busyMs: 1, idleMs: 0, idleFraction: 0, largestGaps: [] },
+    ],
+  },
 };
 
 const kernelNames = { 3: 'embedding_kernel', 7: 'nvjet_tst' };
@@ -211,7 +224,7 @@ describe('continuousScene', () => {
       ['selected', shifted(423, 6 * NS_PER_MS)],
       ['after', shifted(424, 13 * NS_PER_MS)],
     ] as const
-  ).map(([role, row]) => ({ role, iteration: row, breakdown: dutyBreakdown(row, 0) }));
+  ).map(([role, row]) => ({ role, iteration: row }));
 
   it('places every iteration by its own anchor on one axis', () => {
     const scene = continuousScene(inputs, sceneOptions)!;
@@ -263,11 +276,23 @@ describe('continuousScene', () => {
     expect(continuousScene([], sceneOptions)).toBeNull();
   });
 
-  it('reports each drawn iteration’s own idle share, not the scene’s', () => {
+  it('reports each drawn iteration’s own Analyzer occupancy, not the scene’s', () => {
     const scene = continuousScene(inputs, sceneOptions)!;
-    // Span 4 ms with 2 ms of kernels on the reference rank.
-    expect(scene.lanes[1].idleFraction).toBeCloseTo(0.5, 12);
-    expect(scene.lanes[1].gapCount).toBe(scene.lanes[1].gaps.length);
+    expect(scene.lanes[1]).toMatchObject({
+      spanMs: 4,
+      idleFraction: 0.5,
+      forwardIdleFraction: 0,
+      gapCount: 2,
+    });
+  });
+
+  it('draws the gaps of the reference rank’s own intervals inside its span', () => {
+    const scene = continuousScene(inputs, sceneOptions)!;
+    // Rank 1's 2-3.5 ms kernel does not close rank 0's 3-4 ms hole.
+    expect(scene.lanes[0].gaps).toEqual([
+      { startMs: 1, endMs: 2 },
+      { startMs: 3, endMs: 4 },
+    ]);
   });
 });
 

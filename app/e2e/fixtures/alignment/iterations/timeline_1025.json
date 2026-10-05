@@ -17267,6 +17267,329 @@
       "simulated_occurrences": 33
     }
   ],
+  "reference_rank": {
+    "busy_ms": 10.869263,
+    "device_id": 0,
+    "gap_count": 350,
+    "idle_fraction": 0.13692950308384008,
+    "idle_ms": 1.7244510000000002,
+    "inter_phase_ms": 0.4335350000000009,
+    "largest_inter_phase_gaps": [
+      {
+        "after": {
+          "kernel": "_copy_page_indices_kernel",
+          "operation": null,
+          "phase": "preprocess"
+        },
+        "before": {
+          "kernel": "triton_poi_fused_add_all_reduce_bitwise_and_bitwise_not_bitwise_or_embedding_ge_lt_masked_fill_mul_sub_unsqueeze_0",
+          "operation": null,
+          "phase": "forward"
+        },
+        "duration_us": 411.199,
+        "start_ns": 6136989848
+      },
+      {
+        "after": {
+          "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_2",
+          "operation": "model.mlp_boundary_norms",
+          "phase": "forward"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "postprocess"
+        },
+        "duration_us": 11.488,
+        "start_ns": 6149218634
+      },
+      {
+        "after": {
+          "kernel": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+          "operation": null,
+          "phase": "postprocess"
+        },
+        "before": {
+          "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+          "operation": null,
+          "phase": "sample"
+        },
+        "duration_us": 10.848,
+        "start_ns": 6149456042
+      }
+    ],
+    "phases": [
+      {
+        "busy_ms": 0.005088,
+        "idle_fraction": 0.7760563380281691,
+        "idle_ms": 0.017632000000000002,
+        "kernel_count": 3,
+        "kernel_sum_ms": 0.005088,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::vectorized_elementwise_kernel<(int)2, at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "before": {
+              "kernel": "_copy_page_indices_kernel",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "duration_us": 16.224,
+            "start_ns": 6136971320
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::CUDAFunctorOnSelf_add<int>, std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithoutCast, at::native::memory::StoreWithoutCast>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "before": {
+              "kernel": "void at::native::vectorized_elementwise_kernel<(int)2, at::native::FillFunctor<long>, std::array<char *, (unsigned long)1>>(int, T2, T3)",
+              "operation": null,
+              "phase": "preprocess"
+            },
+            "duration_us": 1.408,
+            "start_ns": 6136968632
+          }
+        ],
+        "phase": "preprocess",
+        "span_ms": 0.02272
+      },
+      {
+        "busy_ms": 10.559023,
+        "idle_fraction": 0.10649923711160322,
+        "idle_ms": 1.2585639999999998,
+        "kernel_count": 451,
+        "kernel_sum_ms": 10.570383,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, long, long, long, long, int, int, int, const float *, const float *, int)",
+              "operation": "layer.kv_cache_append",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::PrefillWithKVCacheKernel<flashinfer::SparseCollectiveMainloop<PagedParams::AdditionalParams, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)1, (bool)0>, flashinfer::CollectiveEpilogue<flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>>, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)0, (bool)1, flashinfer::BatchPrefillPersistentTileScheduler<int>, (bool)0>(T1::Params, T2::Params, T6::Params)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "duration_us": 180.896,
+            "start_ns": 6137574871
+          },
+          {
+            "after": {
+              "kernel": "triton_poi_fused_2",
+              "operation": null,
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void vllm::reshape_and_cache_flash_kernel<__nv_bfloat16, __nv_bfloat16, (vllm::Fp8KVCacheDataType)0>(const T1 *, const T1 *, T2 *, T2 *, const long *, long, long, long, long, long, int, int, int, const float *, const float *, int)",
+              "operation": "layer.kv_cache_append",
+              "phase": "forward"
+            },
+            "duration_us": 85.728,
+            "start_ns": 6137484119
+          },
+          {
+            "after": {
+              "kernel": "void flashinfer::PersistentVariableLengthMergeStatesKernel<(unsigned int)8, (unsigned int)16, (unsigned int)8, (unsigned int)4, __nv_bfloat16, __nv_bfloat16, int>(T5 *, float *, T7 *, T6 *, float *, unsigned int, unsigned int *, unsigned int)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "nvjet_tst_256x128_64x4_1x2_h_bz_coopA_TNT",
+              "operation": "layer.output_projection",
+              "phase": "forward"
+            },
+            "duration_us": 69.984,
+            "start_ns": 6137875351
+          },
+          {
+            "after": {
+              "kernel": "void flashinfer::PrefillWithKVCacheKernel<flashinfer::SparseCollectiveMainloop<PagedParams::AdditionalParams, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)1, (bool)0>, flashinfer::CollectiveEpilogue<flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>>, flashinfer::AttentionKernelTraits<(bool)0, (int)128, (int)128, (int)128, (int)96, (int)2, cutlass::bfloat16_t, cutlass::bfloat16_t, cutlass::bfloat16_t, int, flashinfer::StandardAttention>, (bool)0, (bool)1, flashinfer::BatchPrefillPersistentTileScheduler<int>, (bool)0>(T1::Params, T2::Params, T6::Params)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "void flashinfer::BatchPrefillWithPagedKVCacheKernel<flashinfer::KernelTraits<(flashinfer::MaskMode)0, (unsigned int)16, (unsigned int)1, (unsigned int)2, (unsigned int)8, (unsigned int)8, (unsigned int)1, (unsigned int)4, (flashinfer::PosEncodingMode)0, __nv_bfloat16, __nv_bfloat16, __nv_bfloat16, float, int, flashinfer::DefaultAttention<(bool)0, (bool)0, (bool)0, (bool)0>>, PagedParams>(T2)",
+              "operation": "layer.attention",
+              "phase": "forward"
+            },
+            "duration_us": 69.152,
+            "start_ns": 6137770455
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.mlp_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_1",
+              "operation": "model.mlp_boundary_norms",
+              "phase": "forward"
+            },
+            "duration_us": 5.664,
+            "start_ns": 6137450775
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.mlp_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_2",
+              "operation": "model.mlp_boundary_norms",
+              "phase": "forward"
+            },
+            "duration_us": 5.248,
+            "start_ns": 6142462770
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.attention_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_0",
+              "operation": "layer.attention_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 5.184,
+            "start_ns": 6144399120
+          },
+          {
+            "after": {
+              "kernel": "void <unnamed>::multimem_all_reduce_kernel<c10::BFloat16, (int)16>(T1 *, unsigned long, unsigned int **, unsigned long, unsigned long)",
+              "operation": "layer.attention_allreduce",
+              "phase": "forward"
+            },
+            "before": {
+              "kernel": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_0",
+              "operation": "layer.attention_post_norm",
+              "phase": "forward"
+            },
+            "duration_us": 5.184,
+            "start_ns": 6149012363
+          }
+        ],
+        "phase": "forward",
+        "span_ms": 11.817587
+      },
+      {
+        "busy_ms": 0.214528,
+        "idle_fraction": 0.05042492917847031,
+        "idle_ms": 0.011392000000000013,
+        "kernel_count": 5,
+        "kernel_sum_ms": 0.214528,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "void at::native::elementwise_kernel<(int)128, (int)4, void at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 12)]::operator ()() const::[lambda(c10::BFloat16) (instance 1)]>(at::TensorIteratorBase &, const T1 &)::[lambda(int) (instance 1)]>(int, T3)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "duration_us": 7.648,
+            "start_ns": 6149410122
+          },
+          {
+            "after": {
+              "kernel": "nvjet_tst_256x112_64x4_2x1_v_bz_coopA_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<(unsigned long)4096>)",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 1.696,
+            "start_ns": 6149310058
+          },
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 4)]::operator ()() const::[lambda(long) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "void at::native::vectorized_gather_kernel<(int)16, long>(char *, char *, T2 *, int, long, long, long, long, bool)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "duration_us": 1.056,
+            "start_ns": 6149231882
+          },
+          {
+            "after": {
+              "kernel": "void at::native::vectorized_gather_kernel<(int)16, long>(char *, char *, T2 *, int, long, long, long, long, bool)",
+              "operation": null,
+              "phase": "postprocess"
+            },
+            "before": {
+              "kernel": "nvjet_tst_256x112_64x4_2x1_v_bz_coopA_TNT",
+              "operation": "model.lm_head",
+              "phase": "postprocess"
+            },
+            "duration_us": 0.992,
+            "start_ns": 6149235146
+          }
+        ],
+        "phase": "postprocess",
+        "span_ms": 0.22592
+      },
+      {
+        "busy_ms": 0.090624,
+        "idle_fraction": 0.035422343324250656,
+        "idle_ms": 0.0033279999999999976,
+        "kernel_count": 3,
+        "kernel_sum_ms": 0.090624,
+        "largest_gaps": [
+          {
+            "after": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 7)]::operator ()() const::[lambda(float) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.824,
+            "start_ns": 6149510474
+          },
+          {
+            "after": {
+              "kernel": "void at::native::reduce_kernel<(int)512, (int)1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long, (int)4, (int)4>>(T3)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "before": {
+              "kernel": "void at::native::unrolled_elementwise_kernel<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase &)::[lambda() (instance 3)]::operator ()() const::[lambda() (instance 3)]::operator ()() const::[lambda(int) (instance 1)], std::array<char *, (unsigned long)2>, (int)4, TrivialOffsetCalculator<(int)1, unsigned int>, TrivialOffsetCalculator<(int)1, unsigned int>, at::native::memory::LoadWithCast<(int)1>, at::native::memory::StoreWithCast<(int)1>>(int, T1, T2, T4, T5, T6, T7)",
+              "operation": null,
+              "phase": "sample"
+            },
+            "duration_us": 1.504,
+            "start_ns": 6149557802
+          }
+        ],
+        "phase": "sample",
+        "span_ms": 0.093952
+      }
+    ],
+    "span_ms": 12.593714
+  },
   "selected_as": "full_capture",
   "simulated": {
     "slot_ms": [

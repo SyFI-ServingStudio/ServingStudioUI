@@ -552,6 +552,49 @@ export interface AlignmentTimelineIteration {
     readonly nvtx: AlignmentHostLane;
     readonly api: AlignmentHostLane;
   } | null;
+  readonly referenceRank: AlignmentReferenceRank;
+}
+
+/** What sits on one side of a reference-rank gap. */
+export interface AlignmentGapEdge {
+  readonly phase: string;
+  readonly operation: string | null;
+  readonly kernel: string;
+}
+
+/** One stretch of the reference rank with no kernel on it, capture-relative
+ * like `gpuSpanNs`. */
+export interface AlignmentReferenceGap {
+  readonly startNs: number;
+  readonly durationUs: number;
+  readonly after: AlignmentGapEdge;
+  readonly before: AlignmentGapEdge;
+}
+
+export interface AlignmentPhaseOccupancy {
+  readonly phase: string;
+  readonly spanMs: number;
+  readonly busyMs: number;
+  readonly idleMs: number;
+  /** Null when the phase has no span. */
+  readonly idleFraction: number | null;
+  /** The widest gaps with both edges in this phase, widest first. */
+  readonly largestGaps: readonly AlignmentReferenceGap[];
+}
+
+/** The Analyzer's occupancy of one iteration's reference rank: span, kernel
+ * time and bubble, per phase and between phases. */
+export interface AlignmentReferenceRank {
+  readonly deviceId: number;
+  readonly spanMs: number;
+  readonly busyMs: number;
+  readonly idleMs: number;
+  readonly idleFraction: number | null;
+  readonly gapCount: number;
+  /** Span not covered by any phase: the GPU waiting on the host. */
+  readonly interPhaseMs: number;
+  /** In capture order. */
+  readonly phases: readonly AlignmentPhaseOccupancy[];
 }
 
 // ---- e2e half ------------------------------------------------------------

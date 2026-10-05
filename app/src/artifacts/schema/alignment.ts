@@ -7,9 +7,11 @@ import type {
   AlignmentDistribution,
   AlignmentE2eReport,
   AlignmentE2eSeries,
+  AlignmentGapEdge,
   AlignmentHostEvent,
   AlignmentIterationReport,
   AlignmentIterationSeries,
+  AlignmentReferenceRank,
   AlignmentSequence,
   AlignmentSequenceOccurrence,
   AlignmentSequences,
@@ -1027,6 +1029,73 @@ export function parseAnalyzerV1AlignmentTimelineIndex(input: unknown): Alignment
   });
 }
 
+const gapEdgeSchema = z.object({
+  phase: z.string(),
+  operation: z.string().nullable(),
+  kernel: z.string(),
+});
+const referenceGapSchema = z.object({
+  start_ns: nanoseconds,
+  duration_us: nonNegative,
+  after: gapEdgeSchema,
+  before: gapEdgeSchema,
+});
+const referenceRankSchema = z.object({
+  device_id: count,
+  span_ms: nonNegative,
+  busy_ms: nonNegative,
+  idle_ms: nonNegative,
+  idle_fraction: finite.nullable(),
+  gap_count: count,
+  inter_phase_ms: nonNegative,
+  phases: z.array(
+    z.object({
+      phase: z.string(),
+      span_ms: nonNegative,
+      busy_ms: nonNegative,
+      idle_ms: nonNegative,
+      idle_fraction: finite.nullable(),
+      largest_gaps: z.array(referenceGapSchema),
+    }),
+  ),
+});
+
+const decodeGapEdge = (edge: z.infer<typeof gapEdgeSchema>): AlignmentGapEdge =>
+  Object.freeze({ phase: edge.phase, operation: edge.operation, kernel: edge.kernel });
+
+function decodeReferenceRank(rank: z.infer<typeof referenceRankSchema>): AlignmentReferenceRank {
+  return Object.freeze({
+    deviceId: rank.device_id,
+    spanMs: rank.span_ms,
+    busyMs: rank.busy_ms,
+    idleMs: rank.idle_ms,
+    idleFraction: rank.idle_fraction,
+    gapCount: rank.gap_count,
+    interPhaseMs: rank.inter_phase_ms,
+    phases: Object.freeze(
+      rank.phases.map((phase) =>
+        Object.freeze({
+          phase: phase.phase,
+          spanMs: phase.span_ms,
+          busyMs: phase.busy_ms,
+          idleMs: phase.idle_ms,
+          idleFraction: phase.idle_fraction,
+          largestGaps: Object.freeze(
+            phase.largest_gaps.map((gap) =>
+              Object.freeze({
+                startNs: gap.start_ns,
+                durationUs: gap.duration_us,
+                after: decodeGapEdge(gap.after),
+                before: decodeGapEdge(gap.before),
+              }),
+            ),
+          ),
+        }),
+      ),
+    ),
+  });
+}
+
 const timelineIterationSchema = z
   .object({
     iteration_id: count,
@@ -1086,6 +1155,10 @@ const timelineIterationSchema = z
         api: hostLaneSchema,
       })
       .nullish(),
+    // Written into the shard by the analysis since the wall-clock card stopped
+    // re-deriving occupancy; a shard analysed before that lacks it and must be
+    // re-analysed rather than drawn with numbers of the UI's own.
+    reference_rank: referenceRankSchema,
   })
   .superRefine((payload, context) => {
     if (payload.simulated.slot_ms.length !== payload.simulated.slot_op.length) {
@@ -1166,6 +1239,7 @@ export function parseAnalyzerV1AlignmentTimelineIteration(
           api: decodeHostLane(record.host.api),
         })
       : null,
+    referenceRank: decodeReferenceRank(record.reference_rank),
   });
 }
 
