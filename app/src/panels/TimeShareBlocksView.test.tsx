@@ -3,17 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf, sum } from './costTreeModel';
-import type * as Taxonomy from './kernelTaxonomy';
+import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import { TimeShareBlocksView } from './TimeShareBlocksView';
-
-// The DOC vocabulary is one Analyzer read; these views are tested on what it says.
-vi.mock('./kernelTaxonomy', async (importOriginal) => {
-  const kernelKinds = await import('../test/kernelKinds');
-  return {
-    ...(await importOriginal<typeof Taxonomy>()),
-    useKernelKinds: () => kernelKinds.TEST_KERNEL_KINDS,
-  };
-});
 
 describe('TimeShareBlocksView', () => {
   it("draws the Analyzer's composition and selects the leaf a position names", async () => {
@@ -35,6 +26,7 @@ describe('TimeShareBlocksView', () => {
         selectedLeafId={null}
         onSelectKernel={onSelectKernel}
       />,
+      { wrapper: KernelKindsProvider },
     );
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'm.gemm — 6.00 ms · 75%' }));

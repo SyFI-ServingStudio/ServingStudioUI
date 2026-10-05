@@ -18,6 +18,7 @@ import type { KernelComposition } from '../artifacts';
 import type { CostTree } from './costTreeModel';
 import { tokens, withAlpha } from '../ui/theme';
 import CostTreeNode from './CostTreeNode';
+import { useKernelKinds } from './kernelTaxonomy';
 
 export const COST_TREE_VIEWPORT_HEIGHT = 675;
 
@@ -109,6 +110,7 @@ export default function CostTreeCanvas({
   browserExpansion,
   fillFrame = false,
 }: CostTreeCanvasProps) {
+  const kinds = useKernelKinds();
   const timeShareByPosition = useMemo(
     () => new Map(timeShare.segments.map((segment) => [segment.position, segment])),
     [timeShare],
@@ -396,6 +398,7 @@ export default function CostTreeCanvas({
         <CostTreeNode
           node={tree}
           timeShareByPosition={timeShareByPosition}
+          kinds={kinds}
           selId={selectedLeafId}
           parSel={selectedParallelId}
           scopeSel={selectedScopeId}

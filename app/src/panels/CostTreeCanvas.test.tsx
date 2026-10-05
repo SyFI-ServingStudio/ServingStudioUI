@@ -3,17 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { annotate, leaf, sum } from './costTreeModel';
-import type * as Taxonomy from './kernelTaxonomy';
+import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
-
-// The DOC vocabulary is one Analyzer read; these views are tested on what it says.
-vi.mock('./kernelTaxonomy', async (importOriginal) => {
-  const kernelKinds = await import('../test/kernelKinds');
-  return {
-    ...(await importOriginal<typeof Taxonomy>()),
-    useKernelKinds: () => kernelKinds.TEST_KERNEL_KINDS,
-  };
-});
 
 const controls = {
   zoomIn: 'Zoom in test tree',
@@ -83,6 +74,7 @@ describe('CostTreeCanvas', () => {
         ariaLabel="Test CostTree canvas"
         controlLabels={controls}
       />,
+      { wrapper: KernelKindsProvider },
     );
     await userEvent
       .setup()
@@ -113,6 +105,7 @@ describe('CostTreeCanvas', () => {
     };
     const view = render(
       <CostTreeCanvas {...props} tree={firstTree} timeShare={composition('first.kernel', 1)} />,
+      { wrapper: KernelKindsProvider },
     );
     const viewport = screen.getByRole('region', { name: 'Test CostTree canvas' });
     const content = screen.getByTestId('cost-tree-content');
@@ -149,6 +142,7 @@ describe('CostTreeCanvas', () => {
         ariaLabel="Test CostTree canvas"
         controlLabels={controls}
       />,
+      { wrapper: KernelKindsProvider },
     );
     const node = screen.getByRole('button', { name: 'Inspect kernel first.kernel' });
     expect(within(node).getByText('42%')).toBeVisible();
