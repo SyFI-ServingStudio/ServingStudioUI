@@ -24,15 +24,11 @@ import { resolveResult, type ResolvedSection } from './resolve';
 export function ResultMain({ location }: { location: Extract<Location, { view: 'result' }> }) {
   return location.ref.kind === 'run' ? (
     <Box component="main" sx={{ ...pageLayout, mx: 'auto', px: 0, pt: 3.75, pb: 10 }}>
-      <ResultView location={location} />
+      <ResultBody location={location} />
     </Box>
   ) : (
-    <ResultView location={location} />
+    <ResultBody location={location} />
   );
-}
-
-export function ResultView({ location }: { location: Extract<Location, { view: 'result' }> }) {
-  return <ResultBody location={location} />;
 }
 
 function ResultBody({ location }: { location: Extract<Location, { view: 'result' }> }) {
