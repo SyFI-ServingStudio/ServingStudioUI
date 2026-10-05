@@ -5,9 +5,8 @@ import type {
   AlignmentSequence,
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
-import type { KernelKinds } from '../kernelTaxonomy';
-import { measuredKernelColor } from './kernelFamily';
 import { rotatingOperationColors } from './operationSplitPalette';
+import { unmappedColor } from './wallClockPalette';
 
 /**
  * §02 — what is in the comparison, and what is not.
@@ -398,8 +397,6 @@ export function boardLanes(
   report: AlignmentIterationReport,
   chosenByPhase: Readonly<Record<string, string>>,
   catalog: BoardSequenceCatalog,
-  /** The kind DOCs' categories, whose order colours an unmapped kernel's family. */
-  kinds: KernelKinds,
   /** Null keeps iteration-specific values empty; it never substitutes a
    * whole-capture average. */
   exampleBreakdown: AlignmentBreakdown | null,
@@ -454,7 +451,7 @@ export function boardLanes(
             color:
               mapped && label.operation !== undefined
                 ? operationColors[label.operation]
-                : measuredKernelColor(kinds, kernel.suggestedCategory, label.type ?? null),
+                : unmappedColor,
             ms: timing?.ms ?? null,
             timingNote:
               timing === null
@@ -502,9 +499,7 @@ export function boardLanes(
       claimed: pairedKernel !== undefined || owner !== undefined,
       color:
         pairedKernel?.color ??
-        (owner === undefined
-          ? measuredKernelColor(kinds, 'other', null)
-          : operationColors[owner.operation]),
+        (owner === undefined ? unmappedColor : operationColors[owner.operation]),
       repeat: prediction?.multiplicity ?? null,
       ms: prediction?.unitMs ?? null,
       timingNote:

@@ -402,7 +402,6 @@ export function parseAnalyzerV1AlignmentIterationReport(input: unknown): Alignme
 
 const sequenceKernelSchema = z.object({
   name: z.string(),
-  suggested_category: z.string(),
   label: z.object({
     status: z.string(),
     cross_rank: z.string(),
@@ -488,7 +487,6 @@ const decodeProgram = (program: z.infer<typeof sequenceProgramSchema>) =>
 function decodeSequenceKernel(kernel: z.infer<typeof sequenceKernelSchema>) {
   return Object.freeze({
     name: kernel.name,
-    suggestedCategory: kernel.suggested_category,
     label: Object.freeze({
       status: kernel.label.status,
       crossRank: kernel.label.cross_rank,
@@ -1103,7 +1101,6 @@ const timelineIterationSchema = z
         z.object({
           name_id: count,
           row: z.string(),
-          cat: z.string(),
           ph: z.string(),
           op: z.string().nullish(),
           sync: z.boolean(),
@@ -1193,7 +1190,6 @@ export function parseAnalyzerV1AlignmentTimelineIteration(
           Object.freeze({
             nameId: kernel.name_id,
             rowId: kernel.row,
-            category: kernel.cat,
             phase: kernel.ph,
             operation: kernel.op ?? null,
             synchronizing: kernel.sync,

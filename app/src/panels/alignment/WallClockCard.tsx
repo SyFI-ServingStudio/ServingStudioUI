@@ -101,9 +101,6 @@ export default function WallClockCard({
   const palette = useMemo(
     () => ({
       operationColors: operationColors(index.operations),
-      operationTypes: Object.fromEntries(
-        index.operations.map((entry) => [entry.operation, entry.type]),
-      ),
       unmappedColor,
       kernelKinds,
     }),

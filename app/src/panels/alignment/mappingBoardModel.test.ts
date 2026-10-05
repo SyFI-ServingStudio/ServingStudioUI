@@ -8,8 +8,8 @@ import type {
   AlignmentSequenceKernel,
   AlignmentSequences,
 } from '../../artifacts/schema/alignmentTypes';
-import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
 import { tokens } from '../../ui/theme';
+import { unmappedColor } from './wallClockPalette';
 import {
   boardCoverage,
   boardJoins,
@@ -24,15 +24,11 @@ import {
   UNMAPPED_KERNEL_LABEL,
 } from './mappingBoardModel';
 
-function kernel(
-  name: string,
-  suggestedCategory: string,
-  label: AlignmentSequenceKernel['label'],
-): AlignmentSequenceKernel {
-  return { name, suggestedCategory, label };
+function kernel(name: string, label: AlignmentSequenceKernel['label']): AlignmentSequenceKernel {
+  return { name, label };
 }
 
-const QKV = kernel('nvjet', 'gemm_or_cutlass', {
+const QKV = kernel('nvjet', {
   status: 'mapped',
   crossRank: 'independent',
   operation: 'layer.qkv_projection',
@@ -40,7 +36,7 @@ const QKV = kernel('nvjet', 'gemm_or_cutlass', {
   type: 'gemm',
   simulatedSlots: ['unified.attn_block.qkv_proj'],
 });
-const FUSED = kernel('allreduce_fusion', 'multimem_all_reduce', {
+const FUSED = kernel('allreduce_fusion', {
   status: 'mapped',
   crossRank: 'synchronizing',
   operation: 'model.mlp_allreduce_and_norm_boundaries',
@@ -48,7 +44,7 @@ const FUSED = kernel('allreduce_fusion', 'multimem_all_reduce', {
   type: 'collective_norm',
   simulatedSlots: ['unified.mlp_block.tp_allreduce', 'unified.final_norm'],
 });
-const EMBED = kernel('embed', 'other', { status: 'unmapped', crossRank: 'independent' });
+const EMBED = kernel('embed', { status: 'unmapped', crossRank: 'independent' });
 
 /** Phase key order is the labeler's, which is the order the phases run in. */
 const sequences: AlignmentSequences = {
@@ -398,14 +394,7 @@ describe('defaultBoardExampleIterationId', () => {
 
 describe('boardLanes measured side', () => {
   const catalog = boardSequenceCatalog(sequences, report);
-  const lanes = boardLanes(
-    sequences,
-    report,
-    defaultSequenceKeys(catalog),
-    catalog,
-    TEST_KERNEL_KINDS,
-    null,
-  );
+  const lanes = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null);
 
   it('shows one card per folded position, not per expanded ordinal', () => {
     expect(lanes.measured.map((card) => card.name)).toEqual([
@@ -424,6 +413,7 @@ describe('boardLanes measured side', () => {
   it('names an unmapped position rather than leaving it blank', () => {
     expect(lanes.measured[0].operationLabel).toBe(UNMAPPED_KERNEL_LABEL);
     expect(lanes.measured[0].mapped).toBe(false);
+    expect(lanes.measured[0].color).toBe(unmappedColor);
     expect(lanes.measured[2].operationLabel).toBe('layer.qkv_projection');
   });
 
@@ -459,17 +449,9 @@ describe('boardLanes measured side', () => {
         },
       ],
     };
-    const tracked = boardLanes(
-      sequences,
-      report,
-      defaultSequenceKeys(catalog),
-      catalog,
-      TEST_KERNEL_KINDS,
-      null,
-      {
-        'forward/sequence_big': detail,
-      },
-    );
+    const tracked = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null, {
+      'forward/sequence_big': detail,
+    });
     expect(tracked.measuredGroups.map((group) => group.label)).toEqual([
       'preprocess',
       'forward · stream 0',
@@ -480,14 +462,7 @@ describe('boardLanes measured side', () => {
 
 describe('boardLanes modelled side', () => {
   const catalog = boardSequenceCatalog(sequences, report);
-  const lanes = boardLanes(
-    sequences,
-    report,
-    defaultSequenceKeys(catalog),
-    catalog,
-    TEST_KERNEL_KINDS,
-    null,
-  );
+  const lanes = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null);
 
   it('shows a slot under the measured operation it is paired with', () => {
     expect(lanes.modelled[1].operationLabel).toBe('model.mlp_allreduce_and_norm_boundaries');
@@ -512,7 +487,6 @@ describe('boardLanes modelled side', () => {
       report,
       defaultSequenceKeys(catalog),
       catalog,
-      TEST_KERNEL_KINDS,
       exampleBreakdown,
     );
     expect(predicted.modelled.map((card) => card.slot)).toEqual([
@@ -534,7 +508,6 @@ describe('boardLanes modelled side', () => {
       report,
       defaultSequenceKeys(catalog),
       catalog,
-      TEST_KERNEL_KINDS,
       exampleMeasuredBreakdown,
     );
     const qkv = predicted.measured.find((card) => card.name === 'nvjet');
@@ -544,14 +517,7 @@ describe('boardLanes modelled side', () => {
 
 describe('boardJoins', () => {
   const catalog = boardSequenceCatalog(sequences, report);
-  const lanes = boardLanes(
-    sequences,
-    report,
-    defaultSequenceKeys(catalog),
-    catalog,
-    TEST_KERNEL_KINDS,
-    null,
-  );
+  const lanes = boardLanes(sequences, report, defaultSequenceKeys(catalog), catalog, null);
 
   it('declares one join per slot the label file names', () => {
     expect(boardJoins(lanes)).toEqual([

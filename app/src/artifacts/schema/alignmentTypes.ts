@@ -205,7 +205,6 @@ export interface AlignmentIterationReport {
  * when the labeler tied it to simulated slots. */
 export interface AlignmentSequenceKernel {
   readonly name: string;
-  readonly suggestedCategory: string;
   readonly label: {
     readonly status: string;
     readonly crossRank: string;
@@ -505,7 +504,6 @@ export type AlignmentKernelInterval =
 export interface AlignmentTimelineKernel {
   readonly nameId: number;
   readonly rowId: string;
-  readonly category: string;
   readonly phase: string;
   readonly operation: string | null;
   readonly synchronizing: boolean;

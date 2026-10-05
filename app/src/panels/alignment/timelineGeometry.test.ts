@@ -5,7 +5,6 @@ import type {
   AlignmentTimelineIteration,
 } from '../../artifacts/schema/alignmentTypes';
 import { TEST_KERNEL_KINDS } from '../../test/kernelKinds';
-import { colors } from '../../ui/theme';
 import {
   continuousScene,
   measuredLane,
@@ -35,7 +34,6 @@ const iteration: AlignmentTimelineIteration = {
       {
         nameId: 7,
         rowId: 'sequence_test:2',
-        category: 'gemm_or_cutlass',
         phase: 'forward',
         operation: 'layer.qkv_projection',
         synchronizing: false,
@@ -48,7 +46,6 @@ const iteration: AlignmentTimelineIteration = {
       {
         nameId: 3,
         rowId: 'sequence_test:1',
-        category: 'other',
         phase: 'preprocess',
         operation: null,
         synchronizing: false,
@@ -88,8 +85,7 @@ const slots = [
 ];
 const familyPalette: LanePalette = {
   operationColors: {},
-  operationTypes: { 'layer.qkv_projection': 'gemm' },
-  unmappedColor: colors.unclassifiedKernel,
+  unmappedColor: '#123456',
   kernelKinds: TEST_KERNEL_KINDS,
 };
 
@@ -104,6 +100,13 @@ describe('measuredLane', () => {
   it('preserves correlation identity for measured kernels', () => {
     const lane = measuredLane(iteration, kernelNames, 0, familyPalette);
     expect(lane[1].correlationId).toBe(202);
+  });
+
+  // The labeler's category is not a DOC category, so an unmapped kernel has no
+  // family to draw in, only the unmapped colour.
+  it('draws a kernel the labeler tied to no operation in the unmapped colour', () => {
+    const lane = measuredLane(iteration, kernelNames, 0, familyPalette);
+    expect(lane[0].color).toBe('#123456');
   });
 
   it('places bars relative to a shared origin, not each iteration’s own anchor', () => {

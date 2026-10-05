@@ -7,7 +7,6 @@ import { kindColor, type KernelKinds } from '../kernelTaxonomy';
 import { isFullViewport, spanOf, type AxisSpan } from './axisZoom';
 import { forwardIdleFraction } from './dutyBreakdown';
 import { fmtMs } from './format';
-import { measuredKernelColor } from './kernelFamily';
 
 /**
  * Geometry for the measured-against-modelled lanes.
@@ -47,10 +46,12 @@ export interface LaneBar {
 
 const NS_PER_MS = 1e6;
 
-/** What a bar's operation, or its kernel family, colours it. */
+/** What colours a bar: its operation, and failing that, on the measured lane,
+ * the unmapped colour and, on the modelled lane, its slot kind's family. A
+ * measured kernel names no kind, only the labeler's own category, which is not
+ * a DOC category, so it has no family to draw in. */
 export interface LanePalette {
   readonly operationColors: Readonly<Record<string, string>>;
-  readonly operationTypes: Readonly<Record<string, string>>;
   readonly unmappedColor: string;
   /** The kind DOCs, by which a modelled slot without an operation colours. */
   readonly kernelKinds: KernelKinds;
@@ -86,11 +87,7 @@ export function measuredLane(
         operation: kernel.operation,
         color:
           (kernel.operation === null ? undefined : palette.operationColors[kernel.operation]) ??
-          measuredKernelColor(
-            palette.kernelKinds,
-            kernel.category,
-            kernel.operation === null ? null : palette.operationTypes[kernel.operation],
-          ),
+          palette.unmappedColor,
         phase: kernel.phase,
         rowId: kernel.rowId,
         slotIndex: null,
