@@ -47,9 +47,11 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     maxSurface: wash(p.amber),
     scaleSurface: wash(p.violet),
     // Kernel families take these in the order the kind DOCs list their
-    // categories (panels/kernelTaxonomy.ts). Each serves as a rail on a light
-    // card and as a filled block under a white label, so each clears AA in
-    // both; a kind no category names draws as unclassified.
+    // categories (panels/kernelTaxonomy.ts): the five hues, then their
+    // half-way mixes, all distinct from each other and from the unclassified
+    // grey. Ten leave room above the DOCs' seven; past them a family repeats a
+    // hue only washed toward the grey. Each serves as a rail on a light card
+    // and as a filled block under a white label.
     kernelFamilies: [
       dim(p.blue),
       dim(p.green),
@@ -57,7 +59,10 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
       dim(p.red),
       dim(p.amber),
       dim(mixColor(p.violet, p.red, 0.5)),
-      p.muted,
+      dim(mixColor(p.green, p.blue, 0.5)),
+      dim(mixColor(p.amber, p.red, 0.5)),
+      dim(mixColor(p.blue, p.violet, 0.5)),
+      dim(mixColor(p.amber, p.green, 0.5)),
     ],
     unclassifiedKernel: p.muted,
     // An operation timeline's lanes rotate through their own hues.

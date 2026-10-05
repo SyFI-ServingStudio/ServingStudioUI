@@ -11,7 +11,7 @@
  * draw.
  */
 import { kernelKindsRef, useArtifact, type KernelKinds } from '../artifacts';
-import { colors } from '../ui/theme';
+import { colors, mixColor } from '../ui/theme';
 
 export type { KernelKinds } from '../artifacts';
 
@@ -23,12 +23,15 @@ export const NO_KERNEL_KINDS: KernelKinds = Object.freeze({ categories: [], kind
 export const familyOf = (kinds: KernelKinds, kind: string): string =>
   kinds.kinds[kind]?.category ?? UNCLASSIFIED_FAMILY;
 
-/** A family's colour: its category's position in the served order. */
+/** A family's colour: its category's position in the served order. A
+ * position past the palette repeats a hue washed half-way toward the
+ * unclassified grey, so it never reads as the family that hue first named. */
 export function familyColor(kinds: KernelKinds, family: string): string {
   const position = kinds.categories.indexOf(family);
-  return position < 0
-    ? colors.unclassifiedKernel
-    : colors.kernelFamilies[position % colors.kernelFamilies.length];
+  if (position < 0) return colors.unclassifiedKernel;
+  const palette = colors.kernelFamilies;
+  const hue = palette[position % palette.length];
+  return position < palette.length ? hue : mixColor(hue, colors.unclassifiedKernel, 0.5);
 }
 
 export const kindColor = (kinds: KernelKinds, kind: string): string =>

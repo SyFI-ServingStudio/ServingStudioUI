@@ -26,6 +26,16 @@ describe('kernel taxonomy', () => {
     expect(kindColor(reordered, 'single_gemm')).toBe(colors.kernelFamilies[1]);
   });
 
+  it('gives every family a colour no other family and no unclassified kind has', () => {
+    const many = {
+      categories: Array.from({ length: colors.kernelFamilies.length * 2 }, (_, i) => `c${i}`),
+      kinds: {},
+    };
+    const drawn = many.categories.map((category) => familyColor(many, category));
+    expect(new Set(drawn).size).toBe(drawn.length);
+    expect(drawn).not.toContain(colors.unclassifiedKernel);
+  });
+
   it('draws a kind no DOC names under its own name, unclassified', () => {
     for (const kinds of [TEST_KERNEL_KINDS, NO_KERNEL_KINDS]) {
       expect(familyOf(kinds, 'not_a_kind')).toBe(UNCLASSIFIED_FAMILY);
