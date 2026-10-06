@@ -74,10 +74,12 @@ const COST_TREE = {
   tree: {
     kind: 'sum',
     label: 'attention',
+    ms: 2.5,
     children: [
       {
         kind: 'sum',
         label: 'attention projection',
+        ms: 2.5,
         children: [
           {
             kind: 'leaf',

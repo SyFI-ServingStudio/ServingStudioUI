@@ -28,9 +28,7 @@ export function ParallelDetailView({
   readonly closeLabel: string;
   readonly onClose: () => void;
 }) {
-  const criticalChild = node.children.reduce((critical, child) =>
-    child.ms > critical.ms ? child : critical,
-  );
+  const criticalChild = node.children[node.critical] ?? node.children[0];
   const streams = node.kind === 'parallel';
   const accent = streams ? tokens.teal : tokens.gold;
 

@@ -546,7 +546,7 @@ function ParallelStreamsCard({
   const compact = density === 'compact';
   const selected = parSel != null && parSel === node.id;
   const clickable = !!onPar;
-  const slowestMs = Math.max(...node.children.map((child) => child.ms));
+  const slowestMs = node.children[node.critical]?.ms ?? 0;
   return (
     <Box
       data-cost-node-kind="parallel"
@@ -598,7 +598,7 @@ function ParallelStreamsCard({
         }}
       >
         {node.children.map((child, i) => {
-          const critical = child.ms === slowestMs;
+          const critical = i === node.critical;
           const share = slowestMs > 0 ? child.ms / slowestMs : 0;
           return (
             <Fragment key={i}>

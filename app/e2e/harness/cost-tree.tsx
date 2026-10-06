@@ -6,7 +6,8 @@ import { createRoot } from 'react-dom/client';
 import { createQueryClient } from '../../src/app/queryClient';
 import { CostTreeEvidence } from '../../src/panels/CostTreeEvidence';
 import { TimeShareBlocksView } from '../../src/panels/TimeShareBlocksView';
-import { annotate, leaf, sum } from '../../src/panels/costTreeModel';
+import { annotate } from '../../src/panels/costTreeModel';
+import { leaf, sum } from '../../src/test/costTreeDsl';
 import { theme } from '../../src/ui/theme';
 
 const tree = annotate(

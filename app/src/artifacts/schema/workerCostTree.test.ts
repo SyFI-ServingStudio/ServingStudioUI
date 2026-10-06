@@ -114,21 +114,12 @@ describe('parseWorkerCostTree', () => {
     expect(() => parseWorkerCostTree(malformed, REF)).toThrow(/Invalid CostTree.*base/);
   });
 
-  it('rejects finite inputs whose derived sum or nested scale overflows', () => {
-    const sumOverflow = body();
-    sumOverflow.tree = {
-      kind: 'sum',
-      children: [sumOverflow.tree, { ...sumOverflow.tree, base: Number.MAX_VALUE }],
-    } as unknown as typeof sumOverflow.tree;
-    (sumOverflow.tree as unknown as { children: Array<{ base: number }> }).children[0].base =
-      Number.MAX_VALUE;
-    expect(() => parseWorkerCostTree(sumOverflow, REF)).toThrow(/derived numeric value overflowed/);
-
+  it('rejects nested scale counts whose product overflows', () => {
     const scaleOverflow = body();
     scaleOverflow.tree.base = 0;
     let nestedScale: unknown = scaleOverflow.tree;
     for (let depth = 0; depth < 35; depth += 1) {
-      nestedScale = { kind: 'scale', n: 0xffff_ffff, children: [nestedScale] };
+      nestedScale = { kind: 'scale', ms: 0, n: 0xffff_ffff, children: [nestedScale] };
     }
     scaleOverflow.tree = nestedScale as typeof scaleOverflow.tree;
     expect(() => parseWorkerCostTree(scaleOverflow, REF)).toThrow(

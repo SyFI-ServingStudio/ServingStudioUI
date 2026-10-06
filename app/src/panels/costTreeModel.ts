@@ -1,8 +1,9 @@
 /*
  * CostTree is the UI's validated view of ServingStudioSim's cost-manifest structure.
  * Raw nodes mirror the wire combinators; annotated nodes are immutable copies
- * carrying stable preorder ids and finite derived costs. Keeping the two forms
- * distinct prevents transport-shaped partial objects from leaking into views.
+ * carrying stable preorder ids, the Analyzer's node times and their share of
+ * the root. Keeping the two forms distinct prevents transport-shaped partial
+ * objects from leaking into views.
  */
 import { parseRawCostNode } from '../artifacts';
 import {
@@ -12,14 +13,6 @@ import {
   type FanoutNode,
   type LeafNode,
   type RawCostNode,
-  type RawLeafNode,
-  type RawMaxNode,
-  type RawParallelNode,
-  type RawScaleNode,
-  type RawSlot,
-  type RawSumNode,
-  type ExactLeafStats,
-  type JsonValue,
   type KernelComposition,
 } from '../artifacts';
 
@@ -46,169 +39,16 @@ export type {
   SumNode,
 } from '../artifacts';
 
-function requireFiniteNonNegative(value: unknown, path: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-    invalidCostTree(path, 'expected a finite non-negative number');
-  }
-  return value;
-}
-
-function requireFinitePositive(value: unknown, path: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    invalidCostTree(path, 'expected a finite positive number');
-  }
-  return value;
-}
-
-function requireString(value: unknown, path: string, allowEmpty = true): string {
-  if (typeof value !== 'string' || (!allowEmpty && value.length === 0)) {
-    invalidCostTree(path, allowEmpty ? 'expected a string' : 'expected a non-empty string');
-  }
-  return value;
-}
-
-function requireUint32(value: unknown, path: string): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 0xffff_ffff) {
-    invalidCostTree(path, 'expected an unsigned 32-bit integer');
-  }
-  return value;
-}
-
 function finiteOperation(value: number, path: string): number {
   if (!Number.isFinite(value)) invalidCostTree(path, 'derived numeric value overflowed');
   return value;
-}
-
-function addFinite(left: number, right: number, path: string): number {
-  return finiteOperation(left + right, path);
 }
 
 function multiplyFinite(left: number, right: number, path: string): number {
   return finiteOperation(left * right, path);
 }
 
-// ---- authoring DSL (used by validated fixture adapters) --------------------
-export function leaf(
-  name: string,
-  kind: string,
-  kernelConfig: Readonly<Record<string, JsonValue>>,
-  base: number,
-  backend?: string,
-  stats: ExactLeafStats = {
-    input: null,
-    flops: null,
-    bytes: null,
-    tflops: null,
-    gbps: null,
-  },
-): RawLeafNode {
-  return Object.freeze({
-    kind: 'leaf',
-    slot: Object.freeze({
-      name: requireString(name, 'leaf.slot.name', false),
-      kind: requireString(kind, 'leaf.slot.kind', false),
-      kernel_config: Object.freeze(kernelConfig),
-      backend: backend ?? null,
-    }) as RawSlot,
-    base: requireFiniteNonNegative(base, 'leaf.base'),
-    stats,
-  });
-}
-
-export function sum(
-  label: string | undefined,
-  first: RawCostNode,
-  ...rest: RawCostNode[]
-): RawSumNode {
-  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
-  return Object.freeze({
-    kind: 'sum',
-    ...(label === undefined ? {} : { label }),
-    children: Object.freeze(children),
-  });
-}
-
-export function max(
-  label: string | undefined,
-  overlap: number,
-  first: RawCostNode,
-  ...rest: RawCostNode[]
-): RawMaxNode {
-  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
-  return Object.freeze({
-    kind: 'max',
-    ...(label === undefined ? {} : { label }),
-    overlap: requireFinitePositive(overlap, 'max.overlap'),
-    children: Object.freeze(children),
-  });
-}
-
-export function parallel(
-  label: string | undefined,
-  overlap: number,
-  first: RawCostNode,
-  ...rest: RawCostNode[]
-): RawParallelNode {
-  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
-  return Object.freeze({
-    kind: 'parallel',
-    ...(label === undefined ? {} : { label }),
-    overlap: requireFinitePositive(overlap, 'parallel.overlap'),
-    children: Object.freeze(children),
-  });
-}
-
-export function scale(label: string | undefined, n: number, child: RawCostNode): RawScaleNode {
-  const children: [RawCostNode] = [child];
-  return Object.freeze({
-    kind: 'scale',
-    ...(label === undefined ? {} : { label }),
-    n: requireUint32(n, 'scale.n'),
-    children: Object.freeze(children),
-  });
-}
-
-// ---- cost validation and immutable annotation -----------------------------
-function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, number>): number {
-  let nodeCost: number;
-  switch (node.kind) {
-    case 'leaf':
-      nodeCost = node.base;
-      break;
-    case 'sum':
-      nodeCost = node.children.reduce(
-        (total, child, index) =>
-          addFinite(total, computeCosts(child, `${path}.children.${index}`, costs), path),
-        0,
-      );
-      break;
-    case 'max':
-    case 'parallel': {
-      const childCosts = node.children.map((child, index) =>
-        computeCosts(child, `${path}.children.${index}`, costs),
-      );
-      const [firstCost, ...restCosts] = childCosts;
-      if (firstCost === undefined)
-        invalidCostTree(path, `validated ${node.kind} has no child cost`);
-      const maximum = restCosts.reduce(
-        (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
-        firstCost,
-      );
-      nodeCost = finiteOperation(maximum / node.overlap, path);
-      break;
-    }
-    case 'scale':
-      nodeCost = multiplyFinite(
-        node.n,
-        computeCosts(node.children[0], `${path}.children.0`, costs),
-        path,
-      );
-      break;
-  }
-  costs.set(node, nodeCost);
-  return nodeCost;
-}
-
+// ---- immutable annotation ------------------------------------------------
 function validateScaleProducts(node: RawCostNode, multiplier: number, path: string): void {
   if (node.kind === 'leaf') return;
   const nextMultiplier =
@@ -218,10 +58,10 @@ function validateScaleProducts(node: RawCostNode, multiplier: number, path: stri
   );
 }
 
-function annotatedCost(node: RawCostNode, costs: WeakMap<object, number>): number {
-  const value = costs.get(node);
-  if (value === undefined) invalidCostTree('$', 'internal cost annotation is missing');
-  return value;
+/** A node's own wall time: a leaf's slot time, or the `ms` the Analyzer
+ * folded for a container. */
+function nodeMs(node: RawCostNode): number {
+  return node.kind === 'leaf' ? node.base : node.ms;
 }
 
 function finitePct(ms: number, totalMs: number, path: string): number {
@@ -233,12 +73,11 @@ function annotateNode(
   node: RawCostNode,
   depth: number,
   totalMs: number,
-  costs: WeakMap<object, number>,
   nextId: { value: number },
   path: string,
 ): CostNode {
   const id = nextId.value++;
-  const ms = annotatedCost(node, costs);
+  const ms = nodeMs(node);
   const annotation = { id, depth, ms, pct: finitePct(ms, totalMs, path) };
   switch (node.kind) {
     case 'leaf':
@@ -257,9 +96,9 @@ function annotateNode(
     case 'sum': {
       const [first, ...rest] = node.children;
       const children: [CostNode, ...CostNode[]] = [
-        annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+        annotateNode(first, depth + 1, totalMs, nextId, `${path}.children.0`),
         ...rest.map((child, index) =>
-          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 1}`),
+          annotateNode(child, depth + 1, totalMs, nextId, `${path}.children.${index + 1}`),
         ),
       ];
       return Object.freeze({
@@ -273,22 +112,23 @@ function annotateNode(
     case 'parallel': {
       const [first, ...rest] = node.children;
       const children: [CostNode, ...CostNode[]] = [
-        annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+        annotateNode(first, depth + 1, totalMs, nextId, `${path}.children.0`),
         ...rest.map((child, index) =>
-          annotateNode(child, depth + 1, totalMs, costs, nextId, `${path}.children.${index + 1}`),
+          annotateNode(child, depth + 1, totalMs, nextId, `${path}.children.${index + 1}`),
         ),
       ];
       return Object.freeze({
         kind: node.kind,
         ...(node.label === undefined ? {} : { label: node.label }),
         overlap: node.overlap,
+        critical: node.critical,
         children: Object.freeze(children),
         ...annotation,
       });
     }
     case 'scale': {
       const children: [CostNode] = [
-        annotateNode(node.children[0], depth + 1, totalMs, costs, nextId, `${path}.children.0`),
+        annotateNode(node.children[0], depth + 1, totalMs, nextId, `${path}.children.0`),
       ];
       return Object.freeze({
         kind: 'scale',
@@ -320,15 +160,14 @@ function markRoot(root: CostNode, totalMs: number): CostTree {
 export function annotate(input: unknown): CostTree {
   const root = parseRawCostNode(input);
   validateScaleProducts(root, 1, '$');
-  const costs = new WeakMap<object, number>();
-  const totalMs = computeCosts(root, '$', costs);
-  const annotated = annotateNode(root, 0, totalMs, costs, { value: 0 }, '$');
+  const totalMs = nodeMs(root);
+  const annotated = annotateNode(root, 0, totalMs, { value: 0 }, '$');
   return markRoot(annotated, totalMs);
 }
 
 // ---- formatting and lookup -------------------------------------------------
 /** Max (ranks) and Parallel (streams) both cost their slowest child / overlap
- * and both open the critical-path inspector. */
+ * and both open the critical-path inspector on their `critical` child. */
 export function isFanout(node: CostNode): node is FanoutNode {
   return node.kind === 'max' || node.kind === 'parallel';
 }

@@ -590,7 +590,9 @@ describe('WorkerWorkbenchPanel', () => {
         tree: {
           kind: 'max',
           label: 'expert parallel',
+          ms: treeArtifact.value.tree.base,
           overlap: 1,
+          critical: 1,
           children: [
             treeArtifact.value.tree,
             { ...treeArtifact.value.tree, slot: { ...treeArtifact.value.tree.slot, name: 'b' } },
