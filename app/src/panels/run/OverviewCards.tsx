@@ -231,17 +231,18 @@ export function OverviewCards({
   workload: ArtifactResult<RunWorkload>;
 }) {
   const groups = topology.pools.map((pool) => pool.group);
+  // An arch that fixes its parallelism (DeepSeek-V4.1 is always TP4/EP4)
+  // takes no size parameter, so a missing key is unknown here, not 1.
   const param = (...keys: string[]) =>
     distinct(
       groups.map((group) => keys.map((key) => group.params[key]).find((value) => value != null)),
-      '1',
     );
   const layers = configNumber(model, 'num_hidden_layers');
   const hidden = configNumber(model, 'hidden_size');
   const attentionHeads = configNumber(model, 'num_attention_heads');
   const kvHeads = configNumber(model, 'num_key_value_heads');
   const contextLength = configNumber(model, 'max_position_embeddings');
-  const experts = configNumber(model, 'num_experts');
+  const experts = configNumber(model, 'num_experts', 'n_routed_experts');
   const topK = configNumber(model, 'num_experts_per_tok');
   const data = workload.status === 'ready' ? workload.value : null;
   const reason = 'reason' in workload ? workload.reason : undefined;
