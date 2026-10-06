@@ -845,7 +845,7 @@ const hostTimelineSchema = z.object({
  *
  * `children` is a half-open range into the same array and a parent always
  * precedes its children, so a placement walk from index 0 visits the tree
- * without a lookup table. The four shapes are the sim's own aggregation kinds;
+ * without a lookup table. The five shapes are the sim's own aggregation kinds;
  * decoding them into a discriminated union keeps the walk exhaustive instead of
  * defaulting an unrecognised node to a leaf.
  */
@@ -861,6 +861,11 @@ const costNodeSchema = z.union([
     kind: 'max' as const,
     overlap: node.Max.overlap,
     children: node.Max.children,
+  })),
+  z.object({ Parallel: z.object({ overlap: finite, children: childRange }) }).transform((node) => ({
+    kind: 'parallel' as const,
+    overlap: node.Parallel.overlap,
+    children: node.Parallel.children,
   })),
   z.object({ Scale: z.object({ n: count, children: childRange }) }).transform((node) => ({
     kind: 'scale' as const,

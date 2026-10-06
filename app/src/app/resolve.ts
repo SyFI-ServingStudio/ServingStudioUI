@@ -43,7 +43,7 @@ import {
   type ReadRef,
 } from '../artifacts';
 import { segmentOf, type Location } from '../location';
-import { annotate, leafById, nodeById } from '../panels/costTreeModel';
+import { annotate, isFanout, leafById, nodeById } from '../panels/costTreeModel';
 import { metricStatisticLabel, sweepMetricSections } from '../panels/sweep/metricSections';
 
 export interface ResolvedSection {
@@ -291,7 +291,10 @@ async function resolvePredictionPage(
   const leaf = segmentOf(location.focus.path, 'leaf');
   const parallel = segmentOf(location.focus.path, 'parallel');
   if (leaf !== null && leafById(annotated, leaf.id) === null) return 'not-found';
-  if (parallel !== null && nodeById(annotated, parallel.id)?.kind !== 'max') return 'not-found';
+  if (parallel !== null) {
+    const fanout = nodeById(annotated, parallel.id);
+    if (fanout === null || !isFanout(fanout)) return 'not-found';
+  }
   if (
     target === 'optimality-breakdown' ||
     target === 'optimality-kernel-ladder' ||

@@ -183,6 +183,29 @@ describe('simulatedLane', () => {
     ]);
   });
 
+  it('places Parallel streams like a Max: same start, own rows, widest / overlap', () => {
+    // Sum(Parallel{overlap: 2}(Leaf 0, Leaf 1), Leaf 0): the streams start together
+    // and the next slot starts after the 1 ms stream divided by the overlap.
+    const lane = simulatedLane(
+      iteration,
+      [
+        { kind: 'sum', children: [1, 3] },
+        { kind: 'parallel', overlap: 2, children: [3, 5] },
+        { kind: 'leaf', slotIndex: 0 },
+        { kind: 'leaf', slotIndex: 0 },
+        { kind: 'leaf', slotIndex: 1 },
+      ],
+      slots,
+      [],
+      familyPalette,
+    );
+    expect(lane.map((bar) => [bar.startMs, bar.endMs, bar.row])).toEqual([
+      [0, 0.5, 0],
+      [0, 1, 1],
+      [0.5, 1, 0],
+    ]);
+  });
+
   it('names each repeat from the manifest slot', () => {
     const lane = simulatedLane(iteration, sequentialNodes, slots, [], familyPalette);
     expect(lane[1].label).toBe('unified.attn_block.qkv_proj');

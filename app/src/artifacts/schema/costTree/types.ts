@@ -1,4 +1,4 @@
-export type NodeKind = 'sum' | 'max' | 'scale' | 'leaf';
+export type NodeKind = 'sum' | 'max' | 'parallel' | 'scale' | 'leaf';
 
 export interface Slot {
   readonly name: string;
@@ -42,8 +42,18 @@ export interface RawSumNode extends RawContainerNode {
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
 }
 
+/** Rank fan-out: the same section on interchangeable ranks. */
 export interface RawMaxNode extends RawContainerNode {
   readonly kind: 'max';
+  /** Rust manifest overlap divisor: max(child costs) / overlap. */
+  readonly overlap: number;
+  readonly children: readonly [RawCostNode, ...RawCostNode[]];
+}
+
+/** Concurrent streams on one device. Costs exactly like Max; only the meaning
+ * differs (a gap between children is overlap, not rank imbalance). */
+export interface RawParallelNode extends RawContainerNode {
+  readonly kind: 'parallel';
   /** Rust manifest overlap divisor: max(child costs) / overlap. */
   readonly overlap: number;
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
@@ -55,7 +65,7 @@ export interface RawScaleNode extends RawContainerNode {
   readonly children: readonly [RawCostNode];
 }
 
-export type RawCostNode = RawLeafNode | RawSumNode | RawMaxNode | RawScaleNode;
+export type RawCostNode = RawLeafNode | RawSumNode | RawMaxNode | RawParallelNode | RawScaleNode;
 
 interface CostAnnotation {
   readonly id: number;
@@ -82,13 +92,22 @@ export interface MaxNode extends CostAnnotation, RawContainerNode {
   readonly children: readonly [CostNode, ...CostNode[]];
 }
 
+export interface ParallelNode extends CostAnnotation, RawContainerNode {
+  readonly kind: 'parallel';
+  readonly overlap: number;
+  readonly children: readonly [CostNode, ...CostNode[]];
+}
+
+/** A node whose wall time is its slowest child over `overlap`. */
+export type FanoutNode = MaxNode | ParallelNode;
+
 export interface ScaleNode extends CostAnnotation, RawContainerNode {
   readonly kind: 'scale';
   readonly n: number;
   readonly children: readonly [CostNode];
 }
 
-export type CostNode = LeafNode | SumNode | MaxNode | ScaleNode;
+export type CostNode = LeafNode | SumNode | MaxNode | ParallelNode | ScaleNode;
 
 interface RootCostAnnotation {
   /** Wall-clock cost of the root combinator, distinct from summed leaf busy time. */
@@ -99,6 +118,7 @@ export type CostTree =
   | (LeafNode & RootCostAnnotation)
   | (SumNode & RootCostAnnotation)
   | (MaxNode & RootCostAnnotation)
+  | (ParallelNode & RootCostAnnotation)
   | (ScaleNode & RootCostAnnotation);
 
 export class CostTreeValidationError extends Error {

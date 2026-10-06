@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Stack, Tooltip, Typography } from '@mui/material';
 import type { Theme } from '@mui/material/styles';
 import type { SystemStyleObject } from '@mui/system';
-import type { MouseEvent, ReactNode } from 'react';
+import { Fragment, type MouseEvent, type ReactNode } from 'react';
 
 import {
   costTreeDisplayLabel,
@@ -9,8 +9,9 @@ import {
   fmtPct,
   leafSharePct,
   type CostNode,
+  type FanoutNode,
   type LeafNode,
-  type MaxNode,
+  type ParallelNode,
   type ScaleNode,
   type SumNode,
 } from './costTreeModel';
@@ -199,7 +200,7 @@ function WrapLabel({
   );
 }
 
-/** Compact 2-line header for container nodes (parallel / ×N repeat): identity on
+/** Compact 2-line header for container nodes (ranks / streams / ×N repeat): identity on
  *  line 1, the badge + cost on line 2. Stacking keeps the node's intrinsic width
  *  down to the widest single line rather than the whole row, so a container never
  *  gets wider than its child cards. */
@@ -213,7 +214,7 @@ function ContainerHead({
 }: {
   glyph: string;
   text: string;
-  node: MaxNode | ScaleNode;
+  node: FanoutNode | ScaleNode;
   extra?: string;
   showLabel?: boolean;
   compact?: boolean;
@@ -527,6 +528,139 @@ function LeafCard({
   );
 }
 
+/** Concurrent streams on one GPU: one lane per stream, each tagged with its
+ *  wall time against the slowest stream. Unlike a rank Max, the lanes run
+ *  different work, so the gap between them is overlap rather than imbalance. */
+function ParallelStreamsCard({
+  node,
+  timeShare,
+  kinds,
+  selId,
+  onSelect,
+  parSel,
+  onPar,
+  scopeSel,
+  onScope,
+  density = 'default',
+}: NodeProps<ParallelNode>) {
+  const compact = density === 'compact';
+  const selected = parSel != null && parSel === node.id;
+  const clickable = !!onPar;
+  const slowestMs = Math.max(...node.children.map((child) => child.ms));
+  return (
+    <Box
+      data-cost-node-kind="parallel"
+      data-cost-tree-density={density}
+      sx={{
+        borderRadius: 1.25,
+        p: compact ? 0.65 : 1.4,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: compact ? 0.4 : 1,
+        border: `${selected ? 1.5 : 1}px solid ${selected ? tokens.teal : withAlpha(tokens.teal, 0.32)}`,
+        boxShadow: selected ? tokens.shadowLift : 'none',
+        background: colors.parallelSurface,
+      }}
+    >
+      <NodeControl
+        ariaLabel={`Inspect stream critical path ${costTreeDisplayLabel(node.label ?? 'parallel')}`}
+        pressed={selected}
+        onActivate={clickable ? () => onPar?.(node.id) : undefined}
+        sx={{
+          display: 'block',
+          textAlign: 'left',
+          mx: -0.5,
+          px: 0.5,
+          py: compact ? 0 : 0.25,
+          borderRadius: 1,
+          cursor: clickable ? 'pointer' : 'default',
+          transition: `background .2s ${tokens.ease}`,
+          ...(clickable ? { '&:hover': { background: withAlpha(tokens.teal, 0.12) } } : {}),
+        }}
+      >
+        <ContainerHead
+          glyph="≡"
+          text="streams"
+          node={node}
+          extra={`one GPU · overlap ${node.overlap} · ${
+            selected ? '▾ critical stream' : clickable ? 'critical stream ▸' : 'critical stream'
+          }`}
+          compact={compact}
+        />
+      </NodeControl>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'auto minmax(0, 1fr)',
+          columnGap: compact ? 0.75 : 1.25,
+          rowGap: compact ? 0.45 : 1.1,
+          alignItems: 'start',
+        }}
+      >
+        {node.children.map((child, i) => {
+          const critical = child.ms === slowestMs;
+          const share = slowestMs > 0 ? child.ms / slowestMs : 0;
+          return (
+            <Fragment key={i}>
+              <Box
+                data-stream-lane={i}
+                data-critical-stream={critical || undefined}
+                sx={{
+                  minWidth: compact ? 64 : 84,
+                  flexShrink: 0,
+                  pt: compact ? 0.25 : 0.5,
+                  fontFamily: tokens.body,
+                  fontSize: compact ? 10 : 11,
+                  color: critical ? tokens.teal : tokens.sub,
+                }}
+              >
+                <Box
+                  sx={{ letterSpacing: '.12em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}
+                >
+                  stream {i + 1}
+                </Box>
+                <Box sx={{ fontWeight: 600, color: critical ? tokens.teal : tokens.sub2 }}>
+                  {fmtMs(child.ms)}
+                </Box>
+                <Box
+                  aria-hidden
+                  sx={{
+                    mt: 0.35,
+                    height: 4,
+                    borderRadius: 2,
+                    background: withAlpha(tokens.teal, 0.14),
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: `${share * 100}%`,
+                      height: '100%',
+                      background: critical ? tokens.teal : withAlpha(tokens.teal, 0.45),
+                    }}
+                  />
+                </Box>
+              </Box>
+              <CostTreeNode
+                node={child}
+                timeShare={timeShare}
+                kinds={kinds}
+                selId={selId}
+                onSelect={onSelect}
+                parSel={parSel}
+                onPar={onPar}
+                scopeSel={scopeSel}
+                onScope={onScope}
+                density={density}
+              />
+            </Fragment>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 export default function CostTreeNode({
   node,
   timeShare,
@@ -675,7 +809,7 @@ export default function CostTreeNode({
         }}
       >
         <NodeControl
-          ariaLabel={`Inspect parallel critical path ${costTreeDisplayLabel(node.label ?? 'max')}`}
+          ariaLabel={`Inspect rank critical path ${costTreeDisplayLabel(node.label ?? 'max')}`}
           pressed={selected}
           onActivate={clickable ? () => onPar?.(node.id) : undefined}
           sx={{
@@ -692,7 +826,7 @@ export default function CostTreeNode({
         >
           <ContainerHead
             glyph="⇉"
-            text="parallel"
+            text="ranks"
             node={node}
             extra={`overlap ${node.overlap} · ${
               selected ? '▾ critical path' : clickable ? 'critical path ▸' : 'critical path'
@@ -737,6 +871,23 @@ export default function CostTreeNode({
           ))}
         </Box>
       </Box>
+    );
+  }
+
+  if (node.kind === 'parallel') {
+    return (
+      <ParallelStreamsCard
+        node={node}
+        timeShare={timeShare}
+        kinds={kinds}
+        selId={selId}
+        onSelect={onSelect}
+        parSel={parSel}
+        onPar={onPar}
+        scopeSel={scopeSel}
+        onScope={onScope}
+        density={density}
+      />
     );
   }
 

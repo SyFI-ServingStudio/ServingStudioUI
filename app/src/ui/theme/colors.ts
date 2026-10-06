@@ -45,6 +45,7 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     axis: p.border,
     sumSurface: wash(p.green),
     maxSurface: wash(p.amber),
+    parallelSurface: wash(p.blue),
     scaleSurface: wash(p.violet),
     // Kernel families take these in the order the kind DOCs list their
     // categories (panels/kernelTaxonomy.ts): the five hues, then their

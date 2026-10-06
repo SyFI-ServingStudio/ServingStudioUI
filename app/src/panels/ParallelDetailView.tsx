@@ -2,7 +2,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import { Box, IconButton, Stack, Typography } from '@mui/material';
 
 import SurfaceCard from '../ui/controls/SurfaceCard';
-import { costTreeDisplayLabel, fmtMs, fmtPct, type CostNode, type MaxNode } from './costTreeModel';
+import {
+  costTreeDisplayLabel,
+  fmtMs,
+  fmtPct,
+  type CostNode,
+  type FanoutNode,
+} from './costTreeModel';
 import { tokens, withAlpha } from '../ui/theme';
 
 function nodeLabel(node: CostNode): string {
@@ -10,20 +16,23 @@ function nodeLabel(node: CostNode): string {
   return costTreeDisplayLabel(node.label ?? node.kind);
 }
 
-/** Selected Max view. It exposes only facts derivable from the validated pure
- * Max algebra; per-lane load and straggler claims require a future artifact. */
+/** Selected fan-out view: a rank Max or same-GPU Parallel streams. It exposes
+ * only facts derivable from the validated CostTree algebra; per-rank load and
+ * straggler claims require a future artifact. */
 export function ParallelDetailView({
   node,
   closeLabel,
   onClose,
 }: {
-  readonly node: MaxNode;
+  readonly node: FanoutNode;
   readonly closeLabel: string;
   readonly onClose: () => void;
 }) {
   const criticalChild = node.children.reduce((critical, child) =>
     child.ms > critical.ms ? child : critical,
   );
+  const streams = node.kind === 'parallel';
+  const accent = streams ? tokens.teal : tokens.gold;
 
   return (
     <SurfaceCard accent={tokens.violet}>
@@ -35,12 +44,12 @@ export function ParallelDetailView({
         sx={{ gap: 1.5, p: '15px 18px', borderBottom: `1px solid ${tokens.hair}` }}
       >
         <Typography sx={{ fontFamily: tokens.serif, fontWeight: 600, fontSize: 22 }}>
-          parallel{' '}
+          {streams ? 'streams' : 'ranks'}{' '}
           <Box
             component="span"
             sx={{ fontFamily: tokens.body, fontSize: 13, color: tokens.violet }}
           >
-            ⇉ {costTreeDisplayLabel(node.label ?? 'max')}
+            {streams ? '≡' : '⇉'} {costTreeDisplayLabel(node.label ?? node.kind)}
           </Box>
         </Typography>
         <Box
@@ -54,7 +63,7 @@ export function ParallelDetailView({
             background: withAlpha(tokens.violet, 0.12),
           }}
         >
-          pure Max · critical path
+          {streams ? 'Parallel on one GPU · critical stream' : 'Max over ranks · critical path'}
         </Box>
         <IconButton
           aria-label={closeLabel}
@@ -83,7 +92,7 @@ export function ParallelDetailView({
           <b>{fmtPct(node.pct)}</b>
         </div>
         <div>
-          parallel branches
+          {streams ? 'streams' : 'ranks'}
           <br />
           <b>{node.children.length}</b>
         </div>
@@ -93,21 +102,37 @@ export function ParallelDetailView({
           <b>{nodeLabel(criticalChild)}</b>
         </div>
       </Box>
-      <Box
-        role="status"
-        sx={{ m: 1.5, p: 1.5, borderLeft: `3px solid ${tokens.gold}`, background: tokens.tile }}
-      >
-        <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
-          Load-imbalance detail not generated
-        </Typography>
-        <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
-          Analyzer v1 has no versioned per-lane load or straggler artifact. The critical child above
-          is the real CostTree Max result, not an inferred lane measurement.
-        </Typography>
-        <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
-          evidence status · not_generated
-        </Typography>
-      </Box>
+      {streams ? (
+        <Box
+          role="note"
+          sx={{ m: 1.5, p: 1.5, borderLeft: `3px solid ${accent}`, background: tokens.tile }}
+        >
+          <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
+            Streams overlap; they are not balanced
+          </Typography>
+          <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
+            The streams run different work at the same time on one GPU. Wall time is the slowest
+            stream divided by the overlap, while their work still adds, so the gap between streams
+            is overlap and never counts as imbalance.
+          </Typography>
+        </Box>
+      ) : (
+        <Box
+          role="status"
+          sx={{ m: 1.5, p: 1.5, borderLeft: `3px solid ${accent}`, background: tokens.tile }}
+        >
+          <Typography sx={{ fontFamily: tokens.serif, fontSize: 14, fontWeight: 600 }}>
+            Load-imbalance detail not generated
+          </Typography>
+          <Typography sx={{ mt: 0.35, fontFamily: tokens.body, fontSize: 12, color: tokens.sub }}>
+            Analyzer v1 has no versioned per-lane load or straggler artifact. The critical child
+            above is the real CostTree Max result, not an inferred lane measurement.
+          </Typography>
+          <Typography sx={{ mt: 0.5, fontFamily: tokens.body, fontSize: 12, color: tokens.sub2 }}>
+            evidence status · not_generated
+          </Typography>
+        </Box>
+      )}
     </SurfaceCard>
   );
 }
