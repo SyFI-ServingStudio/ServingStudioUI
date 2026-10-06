@@ -184,7 +184,8 @@ export function simulatedLane(
         }
         return cursorMs - startMs;
       }
-      case 'max': {
+      case 'max':
+      case 'parallel': {
         let widestMs = 0;
         for (let child = node.children[0]; child < node.children[1]; child += 1) {
           widestMs = Math.max(widestMs, place(child, startMs, row + child - node.children[0]));

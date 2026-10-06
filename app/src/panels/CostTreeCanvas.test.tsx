@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, sum } from './costTreeModel';
+import { annotate, leaf, max, parallel, sum } from './costTreeModel';
 import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 
@@ -80,6 +80,63 @@ describe('CostTreeCanvas', () => {
       .setup()
       .click(screen.getByRole('button', { name: 'Scope analysis to projection' }));
     expect(onSelectScope).toHaveBeenCalledWith(1);
+  });
+
+  it('draws rank Max and same-GPU Parallel as two kinds of card', async () => {
+    const onSelectParallel = vi.fn();
+    const tree = annotate(
+      sum(
+        'root',
+        max(
+          'attention',
+          1,
+          leaf('rank0', 'single_gemm', {}, 1),
+          leaf('rank1', 'single_gemm', {}, 2),
+        ),
+        parallel(
+          'local_experts',
+          1,
+          leaf('shared_expert', 'single_gemm', {}, 1),
+          leaf('routed_experts', 'single_gemm', {}, 3),
+        ),
+      ),
+    );
+    const view = render(
+      <CostTreeCanvas
+        tree={tree}
+        timeShare={composition('routed_experts', 3)}
+        selectedLeafId={null}
+        selectedParallelId={null}
+        onSelectLeaf={vi.fn()}
+        onSelectParallel={onSelectParallel}
+        onSelectRoot={vi.fn()}
+        ariaLabel="Test CostTree canvas"
+        controlLabels={controls}
+      />,
+      { wrapper: KernelKindsProvider },
+    );
+    const rankCard = view.container.querySelector('[data-cost-node-kind="max"]');
+    const streamCard = view.container.querySelector('[data-cost-node-kind="parallel"]');
+    expect(rankCard).not.toBeNull();
+    expect(streamCard).not.toBeNull();
+    expect(within(rankCard as HTMLElement).getByText('ranks')).toBeVisible();
+    expect(within(streamCard as HTMLElement).getByText('streams')).toBeVisible();
+    // One lane per stream; the slower stream is the critical one.
+    const lanes = (streamCard as HTMLElement).querySelectorAll('[data-stream-lane]');
+    expect([...lanes].map((lane) => lane.textContent)).toEqual([
+      'stream 11.00 ms',
+      'stream 23.00 ms',
+    ]);
+    expect((streamCard as HTMLElement).querySelector('[data-critical-stream]')).toBe(lanes[1]);
+    expect(rankCard?.querySelector('[data-stream-lane]')).toBeNull();
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Inspect stream critical path local_experts' }));
+    expect(onSelectParallel).toHaveBeenCalledWith(4);
+    expect(
+      screen.getByRole('button', { name: 'Inspect rank critical path attention' }),
+    ).toBeVisible();
   });
 
   it('owns native viewport controls and resets the view for a new exact-operation tree', async () => {

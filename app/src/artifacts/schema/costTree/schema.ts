@@ -16,6 +16,7 @@ type ParsedRawCostNode =
     }
   | { kind: 'sum'; label?: string; children: ParsedRawCostNode[] }
   | { kind: 'max'; label?: string; overlap: number; children: ParsedRawCostNode[] }
+  | { kind: 'parallel'; label?: string; overlap: number; children: ParsedRawCostNode[] }
   | { kind: 'scale'; label?: string; n: number; children: ParsedRawCostNode[] };
 
 const finiteNonNegativeSchema = z
@@ -100,6 +101,14 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .strict(),
     z
       .object({
+        kind: z.literal('parallel'),
+        label: z.string().optional(),
+        overlap: overlapSchema,
+        children: z.array(parsedRawCostNodeSchema).min(1, 'parallel requires at least one child'),
+      })
+      .strict(),
+    z
+      .object({
         kind: z.literal('scale'),
         label: z.string().optional(),
         n: uint32Schema,
@@ -164,15 +173,17 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
         children: Object.freeze(children),
       });
     }
-    case 'max': {
+    case 'max':
+    case 'parallel': {
       const [first, ...rest] = parsed.children;
-      if (first === undefined) invalidCostTree('$.children', 'validated Max has no child');
+      if (first === undefined)
+        invalidCostTree('$.children', `validated ${parsed.kind} has no child`);
       const children: [RawCostNode, ...RawCostNode[]] = [
         immutableRawNode(first),
         ...rest.map(immutableRawNode),
       ];
       return Object.freeze({
-        kind: 'max',
+        kind: parsed.kind,
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
         overlap: parsed.overlap,
         children: Object.freeze(children),
@@ -226,7 +237,8 @@ function validateDerivedCost(node: RawCostNode, path: string): number {
           finiteDerived(total + validateDerivedCost(child, `${path}.children.${index}`), path),
         0,
       );
-    case 'max': {
+    case 'max':
+    case 'parallel': {
       const maximum = Math.max(
         ...node.children.map((child, index) =>
           validateDerivedCost(child, `${path}.children.${index}`),

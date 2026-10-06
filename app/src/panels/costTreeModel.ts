@@ -9,10 +9,12 @@ import {
   invalidCostTree,
   type CostNode,
   type CostTree,
+  type FanoutNode,
   type LeafNode,
   type RawCostNode,
   type RawLeafNode,
   type RawMaxNode,
+  type RawParallelNode,
   type RawScaleNode,
   type RawSlot,
   type RawSumNode,
@@ -26,13 +28,16 @@ export type {
   CostNode,
   CostTree,
   ExactLeafStats,
+  FanoutNode,
   JsonValue,
   LeafNode,
   MaxNode,
   NodeKind,
+  ParallelNode,
   RawCostNode,
   RawLeafNode,
   RawMaxNode,
+  RawParallelNode,
   RawScaleNode,
   RawSlot,
   RawSumNode,
@@ -138,6 +143,21 @@ export function max(
   });
 }
 
+export function parallel(
+  label: string | undefined,
+  overlap: number,
+  first: RawCostNode,
+  ...rest: RawCostNode[]
+): RawParallelNode {
+  const children: [RawCostNode, ...RawCostNode[]] = [first, ...rest];
+  return Object.freeze({
+    kind: 'parallel',
+    ...(label === undefined ? {} : { label }),
+    overlap: requireFinitePositive(overlap, 'parallel.overlap'),
+    children: Object.freeze(children),
+  });
+}
+
 export function scale(label: string | undefined, n: number, child: RawCostNode): RawScaleNode {
   const children: [RawCostNode] = [child];
   return Object.freeze({
@@ -162,12 +182,14 @@ function computeCosts(node: RawCostNode, path: string, costs: WeakMap<object, nu
         0,
       );
       break;
-    case 'max': {
+    case 'max':
+    case 'parallel': {
       const childCosts = node.children.map((child, index) =>
         computeCosts(child, `${path}.children.${index}`, costs),
       );
       const [firstCost, ...restCosts] = childCosts;
-      if (firstCost === undefined) invalidCostTree(path, 'validated Max has no child cost');
+      if (firstCost === undefined)
+        invalidCostTree(path, `validated ${node.kind} has no child cost`);
       const maximum = restCosts.reduce(
         (currentMaximum, childCost) => Math.max(currentMaximum, childCost),
         firstCost,
@@ -247,7 +269,8 @@ function annotateNode(
         ...annotation,
       });
     }
-    case 'max': {
+    case 'max':
+    case 'parallel': {
       const [first, ...rest] = node.children;
       const children: [CostNode, ...CostNode[]] = [
         annotateNode(first, depth + 1, totalMs, costs, nextId, `${path}.children.0`),
@@ -256,7 +279,7 @@ function annotateNode(
         ),
       ];
       return Object.freeze({
-        kind: 'max',
+        kind: node.kind,
         ...(node.label === undefined ? {} : { label: node.label }),
         overlap: node.overlap,
         children: Object.freeze(children),
@@ -286,6 +309,8 @@ function markRoot(root: CostNode, totalMs: number): CostTree {
       return Object.freeze({ ...root, totalMs });
     case 'max':
       return Object.freeze({ ...root, totalMs });
+    case 'parallel':
+      return Object.freeze({ ...root, totalMs });
     case 'scale':
       return Object.freeze({ ...root, totalMs });
   }
@@ -302,6 +327,12 @@ export function annotate(input: unknown): CostTree {
 }
 
 // ---- formatting and lookup -------------------------------------------------
+/** Max (ranks) and Parallel (streams) both cost their slowest child / overlap
+ * and both open the critical-path inspector. */
+export function isFanout(node: CostNode): node is FanoutNode {
+  return node.kind === 'max' || node.kind === 'parallel';
+}
+
 /** Keep generated CostTree identity labels compact without mutating the
  * analyzer-owned label. Worklet type and config remain available in the raw
  * node; cards consistently display only the qualified operation name. */
@@ -407,7 +438,7 @@ export function leafByName(root: CostNode, name: string): LeafNode | null {
 
 /**
  * A leaf's share of the tree root's wall clock: the Analyzer's `time_share`
- * segment for the leaf's position, after Scale and Max critical-path
+ * segment for the leaf's position, after Scale and Max/Parallel critical-path
  * attribution. Leaves that share a position name share its segment rather than
  * split it, and a position the composition omits contributed no time.
  */

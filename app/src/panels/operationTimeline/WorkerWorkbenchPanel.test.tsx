@@ -609,7 +609,7 @@ describe('WorkerWorkbenchPanel', () => {
     ];
     render(<WorkerWorkbenchPanel location={location(selectedPath, 10)} navigate={navigate} />);
 
-    expect(screen.getByText('pure Max · critical path')).toBeVisible();
+    expect(screen.getByText('Max over ranks · critical path')).toBeVisible();
     expect(screen.getByText('Load-imbalance detail not generated')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Back to worker ffn/2' }));
     expect(navigate).toHaveBeenCalledWith(

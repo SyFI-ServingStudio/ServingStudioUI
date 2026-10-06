@@ -297,7 +297,7 @@ function ScopeBreadcrumbs({
     pool: 'pool — utilization · KV · batch composition · kernel time',
     worker: 'worker — exact operation CostTree',
     kernel: 'kernel — CostTree facts · Analyzer evidence state',
-    parallel: 'parallel — pure Max critical path · imbalance not generated',
+    parallel: 'parallel — critical path of ranks or streams · imbalance not generated',
   }[scope];
   return (
     <Stack

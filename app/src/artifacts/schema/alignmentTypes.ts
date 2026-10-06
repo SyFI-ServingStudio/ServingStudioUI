@@ -469,15 +469,21 @@ export type AlignmentNodeChildren = readonly [number, number];
 /**
  * One node of the flattened cost tree.
  *
- * The four kinds are how the model aggregates time, and they are not
+ * The five kinds are how the model aggregates time, and they are not
  * interchangeable when the tree is drawn: `sum` is sequence, `scale` is
- * repetition, and `max` is concurrency — its branches share one span, so
- * laying them end to end would report overlapped work as elapsed time.
+ * repetition, and `max` (ranks) and `parallel` (streams on one GPU) are
+ * concurrency — their branches share one span, so laying them end to end
+ * would report overlapped work as elapsed time.
  */
 export type AlignmentCostNode =
   | { readonly kind: 'leaf'; readonly slotIndex: number }
   | { readonly kind: 'sum'; readonly children: AlignmentNodeChildren }
   | { readonly kind: 'max'; readonly overlap: number; readonly children: AlignmentNodeChildren }
+  | {
+      readonly kind: 'parallel';
+      readonly overlap: number;
+      readonly children: AlignmentNodeChildren;
+    }
   | { readonly kind: 'scale'; readonly repeats: number; readonly children: AlignmentNodeChildren };
 
 /** One leaf of the cost tree. `kind` is a cost-tree kind (`single_gemm`,

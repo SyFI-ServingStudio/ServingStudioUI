@@ -7,8 +7,10 @@ import {
   leafById,
   leafByName,
   leafSharePct,
+  isFanout,
   max,
   nodeById,
+  parallel,
   nodeByOrdinalPath,
   nodeOrdinalPath,
   scale,
@@ -49,6 +51,54 @@ describe('CostTree annotation', () => {
       expect(Number.isFinite(node.ms)).toBe(true);
       expect(Number.isFinite(node.pct)).toBe(true);
     });
+  });
+
+  it('costs Parallel streams like a Max and keeps its own kind', () => {
+    const tree = annotate(
+      sum(
+        'root',
+        parallel(
+          'streams',
+          0.5,
+          leaf('root.shared', 'single_gemm', {}, 1),
+          leaf('root.routed', 'grouped_gemm', {}, 3),
+        ),
+        max(
+          'ranks',
+          1,
+          leaf('root.rank0', 'rms_norm', {}, 2),
+          leaf('root.rank1', 'rms_norm', {}, 4),
+        ),
+      ),
+    );
+    if (tree.kind !== 'sum') throw new Error('Expected the test root to be Sum.');
+    const [streams, ranks] = tree.children;
+    expect(streams).toMatchObject({ kind: 'parallel', overlap: 0.5, ms: 6 });
+    expect(ranks).toMatchObject({ kind: 'max', overlap: 1, ms: 4 });
+    expect(tree.totalMs).toBe(10);
+    expect(isFanout(streams)).toBe(true);
+    expect(isFanout(ranks)).toBe(true);
+    expect(isFanout(tree)).toBe(false);
+  });
+
+  it('accepts the Analyzer wire kind "parallel"', () => {
+    const tree = annotate({
+      kind: 'parallel',
+      label: 'moe.local_experts [SGLang dual stream]',
+      overlap: 1,
+      children: [
+        {
+          kind: 'leaf',
+          slot: { name: 'shared', kind: 'single_gemm', kernel_config: {}, backend: null },
+          base: 2,
+          stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
+        },
+      ],
+    });
+    expect(tree).toMatchObject({ kind: 'parallel', ms: 2, totalMs: 2 });
+    expect(() => annotate({ kind: 'parallel', overlap: 1, children: [] })).toThrow(
+      'parallel requires at least one child',
+    );
   });
 
   it('leaves raw authoring data untouched and returns a deeply frozen copy', () => {

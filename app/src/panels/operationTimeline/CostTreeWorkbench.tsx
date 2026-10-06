@@ -19,6 +19,7 @@ import {
 } from '../../artifacts';
 import {
   annotate,
+  isFanout,
   leafById,
   nodeById,
   nodeByOrdinalPath,
@@ -671,7 +672,7 @@ function ExactTreeSupplementary({
           distributionCapability={distributionCapability}
         />
       )}
-      {selectedParallel?.kind === 'max' && (
+      {selectedParallel !== null && isFanout(selectedParallel) && (
         <ParallelDetailView
           node={selectedParallel}
           closeLabel={`Back to worker ${result.value.worker.poolTag}/${result.value.worker.workerId}`}
