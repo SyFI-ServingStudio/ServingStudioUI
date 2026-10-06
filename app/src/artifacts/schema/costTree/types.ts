@@ -28,6 +28,8 @@ export interface ExactLeafStats {
 
 interface RawContainerNode {
   readonly label?: string;
+  /** The node's own wall time, folded by the Analyzer; never re-derived here. */
+  readonly ms: number;
 }
 
 export interface RawLeafNode {
@@ -47,6 +49,8 @@ export interface RawMaxNode extends RawContainerNode {
   readonly kind: 'max';
   /** Rust manifest overlap divisor: max(child costs) / overlap. */
   readonly overlap: number;
+  /** Index of the critical child, as the Analyzer picks it. */
+  readonly critical: number;
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
 }
 
@@ -56,6 +60,8 @@ export interface RawParallelNode extends RawContainerNode {
   readonly kind: 'parallel';
   /** Rust manifest overlap divisor: max(child costs) / overlap. */
   readonly overlap: number;
+  /** Index of the critical (slowest) stream, as the Analyzer picks it. */
+  readonly critical: number;
   readonly children: readonly [RawCostNode, ...RawCostNode[]];
 }
 
@@ -89,12 +95,14 @@ export interface SumNode extends CostAnnotation, RawContainerNode {
 export interface MaxNode extends CostAnnotation, RawContainerNode {
   readonly kind: 'max';
   readonly overlap: number;
+  readonly critical: number;
   readonly children: readonly [CostNode, ...CostNode[]];
 }
 
 export interface ParallelNode extends CostAnnotation, RawContainerNode {
   readonly kind: 'parallel';
   readonly overlap: number;
+  readonly critical: number;
   readonly children: readonly [CostNode, ...CostNode[]];
 }
 

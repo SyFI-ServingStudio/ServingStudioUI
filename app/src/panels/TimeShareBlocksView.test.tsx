@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, sum } from './costTreeModel';
+import { annotate } from './costTreeModel';
+import { leaf, sum } from '../test/costTreeDsl';
 import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import { TimeShareBlocksView } from './TimeShareBlocksView';
 

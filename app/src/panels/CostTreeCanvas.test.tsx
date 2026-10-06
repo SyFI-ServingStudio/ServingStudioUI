@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { annotate, leaf, max, parallel, sum } from './costTreeModel';
+import { annotate } from './costTreeModel';
+import { leaf, max, parallel, sum } from '../test/costTreeDsl';
 import { KernelKindsProvider } from '../test/KernelKindsProvider';
 import CostTreeCanvas, { COST_TREE_VIEWPORT_HEIGHT } from './CostTreeCanvas';
 

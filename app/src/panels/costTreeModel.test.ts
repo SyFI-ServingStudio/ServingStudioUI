@@ -3,19 +3,15 @@ import { describe, expect, it } from 'vitest';
 import {
   annotate,
   CostTreeValidationError,
-  leaf,
   leafById,
   leafByName,
   leafSharePct,
   isFanout,
-  max,
   nodeById,
-  parallel,
   nodeByOrdinalPath,
   nodeOrdinalPath,
-  scale,
-  sum,
 } from './costTreeModel';
+import { leaf, max, parallel, scale, sum } from '../test/costTreeDsl';
 
 describe('CostTree annotation', () => {
   it('annotates all four node kinds with finite preorder metadata and costs', () => {
@@ -53,7 +49,7 @@ describe('CostTree annotation', () => {
     });
   });
 
-  it('costs Parallel streams like a Max and keeps its own kind', () => {
+  it('keeps Parallel streams and Max ranks as two fan-out kinds', () => {
     const tree = annotate(
       sum(
         'root',
@@ -73,8 +69,8 @@ describe('CostTree annotation', () => {
     );
     if (tree.kind !== 'sum') throw new Error('Expected the test root to be Sum.');
     const [streams, ranks] = tree.children;
-    expect(streams).toMatchObject({ kind: 'parallel', overlap: 0.5, ms: 6 });
-    expect(ranks).toMatchObject({ kind: 'max', overlap: 1, ms: 4 });
+    expect(streams).toMatchObject({ kind: 'parallel', overlap: 0.5, ms: 6, critical: 1 });
+    expect(ranks).toMatchObject({ kind: 'max', overlap: 1, ms: 4, critical: 1 });
     expect(tree.totalMs).toBe(10);
     expect(isFanout(streams)).toBe(true);
     expect(isFanout(ranks)).toBe(true);
@@ -85,7 +81,9 @@ describe('CostTree annotation', () => {
     const tree = annotate({
       kind: 'parallel',
       label: 'moe.local_experts [SGLang dual stream]',
+      ms: 2,
       overlap: 1,
+      critical: 0,
       children: [
         {
           kind: 'leaf',
@@ -96,15 +94,45 @@ describe('CostTree annotation', () => {
       ],
     });
     expect(tree).toMatchObject({ kind: 'parallel', ms: 2, totalMs: 2 });
-    expect(() => annotate({ kind: 'parallel', overlap: 1, children: [] })).toThrow(
-      'parallel requires at least one child',
-    );
+    expect(() =>
+      annotate({ kind: 'parallel', ms: 0, overlap: 1, critical: 0, children: [] }),
+    ).toThrow('parallel requires at least one child');
+  });
+
+  it('reads node times and the critical child from the Analyzer, never re-deriving them', () => {
+    const stats = { input: null, flops: null, bytes: null, tflops: null, gbps: null };
+    const leafNode = (name: string, base: number) => ({
+      kind: 'leaf',
+      slot: { name, kind: 'single_gemm', kernel_config: {}, backend: null },
+      base,
+      stats,
+    });
+    // Deliberately not max(1, 3) / 1: the UI shows what the Analyzer sent.
+    const tree = annotate({
+      kind: 'sum',
+      ms: 8,
+      children: [
+        {
+          kind: 'parallel',
+          ms: 5,
+          overlap: 1,
+          critical: 0,
+          children: [leafNode('a', 1), leafNode('b', 3)],
+        },
+        leafNode('c', 3),
+      ],
+    });
+    expect(tree).toMatchObject({ ms: 8, totalMs: 8 });
+    if (tree.kind !== 'sum') throw new Error('Expected a Sum root.');
+    expect(tree.children[0]).toMatchObject({ kind: 'parallel', ms: 5, critical: 0 });
+    expect(tree.children[0].pct).toBeCloseTo(62.5);
   });
 
   it('leaves raw authoring data untouched and returns a deeply frozen copy', () => {
     const raw = {
       kind: 'sum',
       label: 'mutable input',
+      ms: 1,
       children: [
         {
           kind: 'leaf',
@@ -206,12 +234,16 @@ describe('CostTree malformed boundaries', () => {
   const slot = { name: 'a', kind: 'single_gemm', kernel_config: {}, backend: null };
 
   it.each([
-    [{ kind: 'sum', children: [] }, 'sum requires at least one child'],
-    [{ kind: 'max', overlap: 1, children: [] }, 'max requires at least one child'],
-    [{ kind: 'scale', n: 2, children: [] }, 'scale requires exactly one child'],
+    [{ kind: 'sum', ms: 0, children: [] }, 'sum requires at least one child'],
+    [
+      { kind: 'max', ms: 0, overlap: 1, critical: 0, children: [] },
+      'max requires at least one child',
+    ],
+    [{ kind: 'scale', ms: 0, n: 2, children: [] }, 'scale requires exactly one child'],
     [
       {
         kind: 'scale',
+        ms: 2,
         n: 2,
         children: [
           { kind: 'leaf', slot, base: 1 },
@@ -225,7 +257,9 @@ describe('CostTree malformed boundaries', () => {
     [
       {
         kind: 'max',
+        ms: 1,
         overlap: 0,
+        critical: 0,
         children: [
           { kind: 'leaf', slot, base: 1 },
           { kind: 'leaf', slot: { ...slot, name: 'b' }, base: 1 },
@@ -236,17 +270,18 @@ describe('CostTree malformed boundaries', () => {
     [
       {
         kind: 'scale',
+        ms: 1,
         n: Number.POSITIVE_INFINITY,
         children: [{ kind: 'leaf', slot, base: 1 }],
       },
       'unsigned 32-bit integer',
     ],
     [
-      { kind: 'scale', n: 1.5, children: [{ kind: 'leaf', slot, base: 1 }] },
+      { kind: 'scale', ms: 1, n: 1.5, children: [{ kind: 'leaf', slot, base: 1 }] },
       'unsigned 32-bit integer',
     ],
     [
-      { kind: 'scale', n: 0x1_0000_0000, children: [{ kind: 'leaf', slot, base: 1 }] },
+      { kind: 'scale', ms: 1, n: 0x1_0000_0000, children: [{ kind: 'leaf', slot, base: 1 }] },
       'unsigned 32-bit integer',
     ],
   ])('rejects malformed shape %#', (raw, message) => {
@@ -254,16 +289,20 @@ describe('CostTree malformed boundaries', () => {
     expect(() => annotate(raw)).toThrow(message);
   });
 
-  it('rejects finite inputs whose derived cost overflows', () => {
+  it('rejects a container without a finite Analyzer time or with a stray critical child', () => {
+    const child = {
+      kind: 'leaf',
+      slot,
+      base: 1,
+      stats: { input: null, flops: null, bytes: null, tflops: null, gbps: null },
+    };
+    expect(() => annotate({ kind: 'sum', children: [child] })).toThrow('finite non-negative');
     expect(() =>
-      annotate(
-        sum(
-          'overflow',
-          leaf('a', 'single_gemm', {}, Number.MAX_VALUE),
-          leaf('b', 'single_gemm', {}, Number.MAX_VALUE),
-        ),
-      ),
-    ).toThrow(/derived numeric value overflowed/);
+      annotate({ kind: 'sum', ms: Number.POSITIVE_INFINITY, children: [child] }),
+    ).toThrow('finite non-negative');
+    expect(() =>
+      annotate({ kind: 'parallel', ms: 1, overlap: 1, critical: 1, children: [child] }),
+    ).toThrow('critical child 1 is out of range');
   });
 
   it('accepts a single-child Max emitted by a one-group fan-out', () => {
