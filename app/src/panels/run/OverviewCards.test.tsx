@@ -106,6 +106,46 @@ describe('OverviewCards', () => {
     ).toBeVisible();
   });
 
+  it('reads DeepSeek expert counts and leaves an unnamed parallelism unknown', () => {
+    const fixed: RunTopology = {
+      deployment: 'unified',
+      gpus: 4,
+      pools: [
+        {
+          tag: 'main',
+          placement: 'least-queued',
+          group: {
+            gpu: 'NVIDIA B200',
+            archType: 'deepseek_v41_vllm',
+            workerType: 'chunked_prefill',
+            replicas: 1,
+            gpusPerReplica: 4,
+            params: { model_config: 'model/config/deepseek_v41_flash.json' },
+            workers: [{ id: '0', gpus: [0, 1, 2, 3] }],
+          },
+        },
+      ],
+    };
+    const deepseek: RunModel = {
+      sourcePath: 'model/config/deepseek_v41_flash.json',
+      parameters: { total: 748_500_000_000, active: 16_800_000_000 },
+      config: { n_routed_experts: 384, num_experts_per_tok: 6 },
+    };
+    render(
+      <OverviewCards
+        runName={undefined}
+        topology={fixed}
+        model={deepseek}
+        workload={{ status: 'not_generated', reason: 'analysis has not run' }}
+      />,
+    );
+    expect(screen.getByText('384 / 6')).toBeVisible();
+    expect(screen.getByText(/^mixture of experts/)).toBeVisible();
+    for (const label of ['Tensor parallel', 'Expert parallel', 'Data parallel']) {
+      expect(screen.getByText(label).previousSibling).toHaveTextContent('n/a');
+    }
+  });
+
   it('keeps the trace card shape when workload generation is absent', () => {
     render(
       <OverviewCards
