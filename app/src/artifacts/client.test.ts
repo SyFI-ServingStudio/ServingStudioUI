@@ -242,22 +242,17 @@ describe('fetchArtifact', () => {
       'Invalid CostTree',
     );
 
-    const overflow = {
+    // A container's wall time comes from the Analyzer; the UI never folds one.
+    const untimed = {
       ...COST_TREE,
-      tree: {
-        kind: 'sum',
-        children: [
-          { ...COST_TREE.tree, base: Number.MAX_VALUE },
-          { ...COST_TREE.tree, base: Number.MAX_VALUE },
-        ],
-      },
+      tree: { kind: 'sum', children: [COST_TREE.tree, COST_TREE.tree] },
     };
-    stubFetch(respond(overflow));
-    const derivedOverflow = await fetchArtifact(COST_TREE_REF);
-    expect(derivedOverflow).toMatchObject({ status: 'incompatible', received: 1 });
-    expect(
-      derivedOverflow.status === 'incompatible' && derivedOverflow.issues?.join('\n'),
-    ).toContain('derived numeric value overflowed');
+    stubFetch(respond(untimed));
+    const missingMs = await fetchArtifact(COST_TREE_REF);
+    expect(missingMs).toMatchObject({ status: 'incompatible', received: 1 });
+    expect(missingMs.status === 'incompatible' && missingMs.issues?.join('\n')).toContain(
+      'finite non-negative',
+    );
   });
 
   it('returns ready with the revision the response identifies itself by', async () => {

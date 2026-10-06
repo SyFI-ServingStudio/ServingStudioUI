@@ -14,10 +14,16 @@ type ParsedRawCostNode =
       base: number;
       stats: ExactLeafStats;
     }
-  | { kind: 'sum'; label?: string; children: ParsedRawCostNode[] }
-  | { kind: 'max'; label?: string; overlap: number; children: ParsedRawCostNode[] }
-  | { kind: 'parallel'; label?: string; overlap: number; children: ParsedRawCostNode[] }
-  | { kind: 'scale'; label?: string; n: number; children: ParsedRawCostNode[] };
+  | { kind: 'sum'; label?: string; ms: number; children: ParsedRawCostNode[] }
+  | {
+      kind: 'max' | 'parallel';
+      label?: string;
+      ms: number;
+      overlap: number;
+      critical: number;
+      children: ParsedRawCostNode[];
+    }
+  | { kind: 'scale'; label?: string; ms: number; n: number; children: ParsedRawCostNode[] };
 
 const finiteNonNegativeSchema = z
   .number({
@@ -88,6 +94,7 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('sum'),
         label: z.string().optional(),
+        ms: finiteNonNegativeSchema,
         children: z.array(parsedRawCostNodeSchema).min(1, 'sum requires at least one child'),
       })
       .strict(),
@@ -95,7 +102,9 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('max'),
         label: z.string().optional(),
+        ms: finiteNonNegativeSchema,
         overlap: overlapSchema,
+        critical: uint32Schema,
         children: z.array(parsedRawCostNodeSchema).min(1, 'max requires at least one child'),
       })
       .strict(),
@@ -103,7 +112,9 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('parallel'),
         label: z.string().optional(),
+        ms: finiteNonNegativeSchema,
         overlap: overlapSchema,
+        critical: uint32Schema,
         children: z.array(parsedRawCostNodeSchema).min(1, 'parallel requires at least one child'),
       })
       .strict(),
@@ -111,6 +122,7 @@ const parsedRawCostNodeSchema: z.ZodType<ParsedRawCostNode> = z.lazy(() =>
       .object({
         kind: z.literal('scale'),
         label: z.string().optional(),
+        ms: finiteNonNegativeSchema,
         n: uint32Schema,
         children: z.array(parsedRawCostNodeSchema).length(1, 'scale requires exactly one child'),
       })
@@ -170,6 +182,7 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       return Object.freeze({
         kind: 'sum',
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
+        ms: parsed.ms,
         children: Object.freeze(children),
       });
     }
@@ -182,10 +195,14 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
         immutableRawNode(first),
         ...rest.map(immutableRawNode),
       ];
+      if (parsed.critical >= children.length)
+        invalidCostTree('$.critical', `critical child ${parsed.critical} is out of range`);
       return Object.freeze({
         kind: parsed.kind,
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
+        ms: parsed.ms,
         overlap: parsed.overlap,
+        critical: parsed.critical,
         children: Object.freeze(children),
       });
     }
@@ -196,6 +213,7 @@ function immutableRawNode(parsed: ParsedRawCostNode): RawCostNode {
       return Object.freeze({
         kind: 'scale',
         ...(parsed.label === undefined ? {} : { label: parsed.label }),
+        ms: parsed.ms,
         n: parsed.n,
         children: Object.freeze(children),
       });
@@ -227,37 +245,9 @@ function validateScaleProducts(node: RawCostNode, multiplier: number, path: stri
   );
 }
 
-function validateDerivedCost(node: RawCostNode, path: string): number {
-  switch (node.kind) {
-    case 'leaf':
-      return node.base;
-    case 'sum':
-      return node.children.reduce(
-        (total, child, index) =>
-          finiteDerived(total + validateDerivedCost(child, `${path}.children.${index}`), path),
-        0,
-      );
-    case 'max':
-    case 'parallel': {
-      const maximum = Math.max(
-        ...node.children.map((child, index) =>
-          validateDerivedCost(child, `${path}.children.${index}`),
-        ),
-      );
-      return finiteDerived(maximum / node.overlap, path);
-    }
-    case 'scale':
-      return finiteDerived(
-        node.n * validateDerivedCost(node.children[0], `${path}.children.0`),
-        path,
-      );
-  }
-}
-
 /** Validate numeric invariants needed by every consumer of the raw transport tree. */
 export function validateRawCostTreeSemantics(root: RawCostNode): void {
   validateScaleProducts(root, 1, '$');
-  validateDerivedCost(root, '$');
 }
 
 export function parseRawCostNode(input: unknown): RawCostNode {

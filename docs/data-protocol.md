@@ -595,7 +595,8 @@ subject-specific decoders。前者验证静态 export；后者只增加 fetch、
 - exact CostTree 路由为
   `GET /api/analyzer/v1/runs/{run_id}/workers/{pool_tag}/{worker_id}/operations/{iter_id}/{batch_id}/{operation_id}/subjects/cost-tree/payload`。
   响应 identity 回显 `operation_id`、`section` 和 `layer`，tree 仅由该 operation 的单行事实
-  构造。`time_share` 是 Analyzer 按 kernel-time-share 同一 critical-path 归因给出的该
+  构造。leaf 带 slot 时间 `base`；每个容器节点带 Analyzer 折叠出的自身 wall time `ms`，
+  `max`/`parallel` 另带关键子节点下标 `critical`。UI 只读取它们，不在浏览器重算节点时间。`time_share` 是 Analyzer 按 kernel-time-share 同一 critical-path 归因给出的该
   operation 组成（`kernel_time_ms`、`segments`、`kinds`；UI 只读前两者）；prediction 的 CostTree 路由同样携带。
   UI 只读取它，不在浏览器重算归因。旧 stage route 与 `stage_ids`/stage catalog 不属于该合同。
 - exact operation CostTree 只在用户选择后加载。
