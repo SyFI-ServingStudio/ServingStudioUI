@@ -15,7 +15,7 @@
 import { z } from 'zod';
 
 import { segmentSchema } from '../../location';
-import type { RunTopology, TopologyPool, TopologyWorker } from '../ref';
+import { DEPLOYMENTS, type RunTopology, type TopologyPool, type TopologyWorker } from '../ref';
 
 export const TOPOLOGY_SCHEMA_VERSION = 1;
 
@@ -72,7 +72,7 @@ const poolSchema = z
 
 const paramsSchema = z
   .object({
-    deployment: z.enum(['unified', 'pd', 'afd']),
+    deployment: z.enum(DEPLOYMENTS),
     pools: z.record(poolSchema),
   })
   .passthrough();
@@ -199,9 +199,18 @@ export function parseTopology(body: unknown): RunTopology {
     }
     const group = pool.groups[0];
     const workers = meta.workers.filter((worker) => worker.pool_tag === tag);
-    if (workers.length !== group.replicas) {
+    // A `pp` replica is one pipeline, and each of its stages is a worker of its
+    // own; everywhere else a replica is one worker.
+    const stages = params.deployment === 'pp' ? group.arch.pp_size : 1;
+    if (typeof stages !== 'number' || !Number.isSafeInteger(stages) || stages < 1) {
+      issues.push(`params.pools.${tag}.groups.0.arch.pp_size: a pp pipeline needs a stage count`);
+      return [];
+    }
+    if (workers.length !== group.replicas * stages) {
       issues.push(
-        `params.pools.${tag}.groups.0.replicas: declares ${group.replicas}, but run_meta has ${workers.length} workers`,
+        stages === 1
+          ? `params.pools.${tag}.groups.0.replicas: declares ${group.replicas}, but run_meta has ${workers.length} workers`
+          : `params.pools.${tag}.groups.0: declares ${group.replicas} replicas of ${stages} stages, but run_meta has ${workers.length} workers`,
       );
       return [];
     }
@@ -241,7 +250,7 @@ export function parseTopology(body: unknown): RunTopology {
           archType: group.arch.type,
           workerType: group.worker.type,
           replicas: group.replicas,
-          gpusPerReplica: [...widths][0],
+          gpusPerReplica: [...widths][0] * stages,
           params: archRest(group.arch),
           workers: workers.map((worker): TopologyWorker => ({
             id: String(worker.worker_id),

@@ -108,6 +108,7 @@ const SHAPE: readonly (readonly [string, string])[] = [
   ['attn_tp_size', 'attn TP'],
   ['ffn_tp_size', 'FFN TP'],
   ['ep_size', 'EP'],
+  ['pp_size', 'PP'],
   ['hp_size', 'HP'],
   ['nvl_num_gpu', 'NVL'],
 ];

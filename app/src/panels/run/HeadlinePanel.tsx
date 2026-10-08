@@ -12,6 +12,7 @@ import {
   topologyRef,
   useArtifact,
   useArtifacts,
+  type Deployment,
 } from '../../artifacts';
 import { atRoot, segmentOf, upTo } from '../../location';
 import AnalysisSection from '../../ui/controls/AnalysisSection';
@@ -248,7 +249,7 @@ function RunIdentity({ displayName }: { readonly displayName: string | undefined
   );
 }
 
-function scopeRunLabel(source: string, deployment: 'unified' | 'pd' | 'afd' | undefined): string {
+function scopeRunLabel(source: string, deployment: Deployment | undefined): string {
   const basename = source.split('/').filter(Boolean).at(-1) ?? source;
   const model = basename.replace(/\.json$/i, '').replace(/_/g, ' ');
   return deployment === undefined ? model : `${model} · ${deployment.toUpperCase()}`;

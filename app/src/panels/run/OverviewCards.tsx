@@ -51,6 +51,7 @@ function modelName(model: RunModel | undefined, topology: RunTopology): string {
 function deploymentHeadline(topology: RunTopology): string {
   if (topology.deployment === 'afd') return 'AFD deployment';
   if (topology.deployment === 'pd') return 'Prefill / decode deployment';
+  if (topology.deployment === 'pp') return 'Pipeline-parallel deployment';
   return 'Unified deployment';
 }
 
@@ -309,7 +310,7 @@ export function OverviewCards({
             { label: 'Pools', value: fmtInt(topology.pools.length) },
             {
               label: 'Workers',
-              value: fmtInt(groups.reduce((sum, group) => sum + group.replicas, 0)),
+              value: fmtInt(groups.reduce((sum, group) => sum + group.workers.length, 0)),
             },
             { label: 'Tensor parallel', value: param('attn_tp', 'tp_size', 'attn_tp_size') },
             { label: 'Expert parallel', value: param('ep', 'ep_size') },

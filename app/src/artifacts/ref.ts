@@ -2097,7 +2097,9 @@ export interface RunConcurrency {
   }>;
 }
 
-export type Deployment = 'unified' | 'pd' | 'afd';
+/** The simulator's deployment families, as its `params.deployment` spells them. */
+export const DEPLOYMENTS = ['unified', 'pd', 'afd', 'pp'] as const;
+export type Deployment = (typeof DEPLOYMENTS)[number];
 export type LifecycleStageStatus = 'not_started' | 'pending' | 'complete' | 'failed';
 export type ArtifactView = 'report' | 'payload';
 export type ArtifactViews = readonly [ArtifactView, ...ArtifactView[]];
@@ -2278,7 +2280,7 @@ export interface RunTopology {
   /** Every GPU the run placed, counted once. */
   readonly gpus: number;
   /** The simulator's deployment family; it determines the overview headline. */
-  readonly deployment: 'unified' | 'pd' | 'afd';
+  readonly deployment: Deployment;
 }
 
 export interface TopologyPool {
@@ -2307,6 +2309,7 @@ export interface TopologyGroup {
   readonly archType: string;
   readonly workerType: string;
   readonly replicas: number;
+  /** Every GPU of one replica: a `pp` replica is a whole pipeline, all its stages. */
   readonly gpusPerReplica: number;
   /**
    * The architecture parameters the run declared, as declared.

@@ -146,6 +146,41 @@ describe('OverviewCards', () => {
     }
   });
 
+  it('names a pipeline-parallel run and counts its stages as workers', () => {
+    // One replica of a five-stage pipeline, as the pp5 run declares it: five
+    // workers ran, not one.
+    const pipeline: RunTopology = {
+      deployment: 'pp',
+      gpus: 5,
+      pools: [
+        {
+          tag: 'stage',
+          placement: 'least-queued',
+          group: {
+            gpu: 'NVIDIA B200',
+            archType: 'glm53_flash_vllm_nvfp4_pp_kda_dsa_moe',
+            workerType: 'pipeline_chunked_prefill',
+            replicas: 1,
+            gpusPerReplica: 5,
+            params: { model_config: 'model/config/glm53_flash_nvfp4.json', pp_size: 5 },
+            workers: [0, 1, 2, 3, 4].map((id) => ({ id: String(id), gpus: [id] })),
+          },
+        },
+      ],
+    };
+    render(
+      <OverviewCards
+        runName={undefined}
+        topology={pipeline}
+        model={undefined}
+        workload={{ status: 'not_generated', reason: 'analysis has not run' }}
+      />,
+    );
+    expect(screen.getByText('Pipeline-parallel deployment')).toBeVisible();
+    expect(screen.getByText('Workers').previousSibling).toHaveTextContent('5');
+    expect(screen.getByText('GPUs').previousSibling).toHaveTextContent('5');
+  });
+
   it('keeps the trace card shape when workload generation is absent', () => {
     render(
       <OverviewCards

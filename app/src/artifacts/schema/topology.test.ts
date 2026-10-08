@@ -311,3 +311,77 @@ describe('parseTopology', () => {
     expect(parsed.pools[0].placement).toBe('unspecified');
   });
 });
+
+describe('parseTopology on a pp deployment', () => {
+  // Shaped like `20261008_3_glm53_glue_fix/pp5`: one `stage` pool declaring one
+  // replica, and that replica is a five-stage pipeline whose stages are workers
+  // 0..4, one GPU each. Worker `r * depth + s` is stage `s` of pipeline `r`.
+  function pipeline(replicas: number, stages: number, ppSize: unknown = stages): unknown {
+    const ids = Array.from({ length: replicas * stages }, (_, id) => id);
+    return body(
+      {
+        deployment: 'pp',
+        pools: {
+          stage: {
+            placement: 'least-queued',
+            groups: [
+              group({
+                gpu: 'NVIDIA B200',
+                replicas,
+                arch: { type: 'glm53_flash_vllm_nvfp4_pp_kda_dsa_moe', pp_size: ppSize },
+                worker: { type: 'pipeline_chunked_prefill' },
+              }),
+            ],
+          },
+        },
+      },
+      {
+        gpus: ids.map((id) => gpu(id, 'stage', 'NVIDIA B200')),
+        workers: ids.map((id) => worker(id, 'stage', [id])),
+      },
+    );
+  }
+
+  it('reads one pipeline as one replica whose stages are its workers', () => {
+    const parsed = parseTopology(pipeline(1, 5));
+    expect(parsed.deployment).toBe('pp');
+    expect(parsed.gpus).toBe(5);
+    expect(parsed.pools).toHaveLength(1);
+    expect(parsed.pools[0].tag).toBe('stage');
+    expect(parsed.pools[0].group).toMatchObject({
+      workerType: 'pipeline_chunked_prefill',
+      replicas: 1,
+      // A replica is the whole pipeline, so the map's replicas × GPUs adds up.
+      gpusPerReplica: 5,
+      params: { pp_size: 5 },
+    });
+    expect(parsed.pools[0].group.workers.map((stage) => stage.id)).toEqual([
+      '0',
+      '1',
+      '2',
+      '3',
+      '4',
+    ]);
+  });
+
+  it('reads several pipelines in one pool', () => {
+    const parsed = parseTopology(pipeline(2, 4));
+    expect(parsed.gpus).toBe(8);
+    expect(parsed.pools[0].group).toMatchObject({ replicas: 2, gpusPerReplica: 4 });
+    expect(parsed.pools[0].group.workers).toHaveLength(8);
+  });
+
+  it('refuses a pipeline whose stages are not the workers that ran', () => {
+    // Five workers ran, and the run says it had one four-stage pipeline: a map
+    // drawn from either document would leave a stage out or invent one.
+    expect(refusal(pipeline(1, 5, 4))).toContain(
+      'declares 1 replicas of 4 stages, but run_meta has 5 workers',
+    );
+  });
+
+  it('refuses a pipeline that does not say how many stages it has', () => {
+    expect(refusal(pipeline(1, 5, null))).toContain(
+      'params.pools.stage.groups.0.arch.pp_size: a pp pipeline needs a stage count',
+    );
+  });
+});
