@@ -10,6 +10,7 @@ function group(over: Partial<TopologyGroup> = {}): TopologyGroup {
     archType: 'llama3_dense',
     workerType: 'barebone',
     replicas: 2,
+    workersPerReplica: 1,
     gpusPerReplica: 1,
     params: {},
     workers: [
@@ -214,5 +215,53 @@ describe('archChips', () => {
     expect(
       archChips(group({ params: { dtype: 'bfloat16' } }), model({ torch_dtype: 'float16' })),
     ).toEqual(['bfloat16']);
+  });
+});
+
+describe('systemMap on a pp deployment', () => {
+  // One five-stage pipeline, as `parseTopology` reads the pp5 run: a replica is
+  // the whole pipeline, so it carries all five stage GPUs.
+  const PIPELINE: RunTopology = {
+    gpus: 5,
+    deployment: 'pp',
+    pools: [
+      {
+        tag: 'stage',
+        placement: 'least-queued',
+        group: group({
+          gpu: 'NVIDIA B200',
+          archType: 'glm53_flash_vllm_nvfp4_pp_kda_dsa_moe',
+          workerType: 'pipeline_chunked_prefill',
+          replicas: 1,
+          workersPerReplica: 5,
+          gpusPerReplica: 5,
+          params: { pp_size: 5 },
+          workers: [0, 1, 2, 3, 4].map((id) => ({ id: String(id), gpus: [id] })),
+        }),
+      },
+    ],
+  };
+
+  it('draws one stage pool with a worker per stage', () => {
+    const map = systemMap(PIPELINE, undefined, at([]));
+    expect(map.cluster).toEqual({ pools: 1, gpus: 5, deployment: 'pp', selected: true });
+    expect(map.pools[0]).toMatchObject({ tag: 'stage', gpus: 5, replicas: 1, gpusPerReplica: 5 });
+    expect(map.pools[0].workers.map((stage) => stage.id)).toEqual(['0', '1', '2', '3', '4']);
+    expect(map.pools[0].chips).toEqual(['PP=5']);
+  });
+
+  it('lights the one stage the reader opened', () => {
+    const map = systemMap(
+      PIPELINE,
+      undefined,
+      at([
+        { at: 'pool', role: 'stage' },
+        { at: 'worker', id: '3' },
+      ]),
+    );
+    expect(map.pools[0].selected).toBe(true);
+    expect(map.pools[0].workers.filter((stage) => stage.selected).map((stage) => stage.id)).toEqual(
+      ['3'],
+    );
   });
 });

@@ -11,10 +11,9 @@ import type {
   TraceDownload,
   TraceResource,
 } from '../ref';
+import { DEPLOYMENTS } from '../ref';
 import { analyzerV1ArtifactHrefSchema } from './artifactHref';
 import { analyzerV1ViewsSchema } from './capability';
-
-const DEPLOYMENTS = ['unified', 'pd', 'afd'] as const;
 
 /** Wire subject ids are protocol spelling; panels use stable domain names. */
 const SUBJECT_TO_DOMAIN = {

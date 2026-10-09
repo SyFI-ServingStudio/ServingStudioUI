@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Paper, Skeleton, Stack, Typography } from '@mui/material';
 import { useMemo } from 'react';
 
-import { isPending, runModelRef, topologyRef, useArtifact } from '../../artifacts';
+import { isPending, runModelRef, topologyRef, useArtifact, type Deployment } from '../../artifacts';
 import { atRoot, selectSegment, withPath, type Focus } from '../../location';
 import SurfaceCard from '../../ui/controls/SurfaceCard';
 import { useSectionFrameSubtitle } from '../../ui/controls/SectionFrameSubtitleContext';
@@ -20,9 +20,10 @@ function runLabel(sourcePath: string | undefined, deployment: string): string {
   return `${model} · ${deployment.toUpperCase()}`;
 }
 
-function deploymentMapLabel(deployment: 'unified' | 'pd' | 'afd'): string {
+function deploymentMapLabel(deployment: Deployment): string {
   if (deployment === 'afd') return 'AFD (attn ∥ ffn)';
   if (deployment === 'pd') return 'PD (prefill ∥ decode)';
+  if (deployment === 'pp') return 'PP (pipeline stages)';
   return 'unified';
 }
 

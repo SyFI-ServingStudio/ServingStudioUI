@@ -137,6 +137,12 @@ describe('parseAnalyzerV1RunDescriptor', () => {
     expect(Object.keys(descriptor.subjects)).not.toContain('slo-detailed');
   });
 
+  it('accepts a pipeline-parallel run', () => {
+    const wire = validWireDescriptor();
+    wire.deployment = 'pp';
+    expect(parseAnalyzerV1RunDescriptor(wire).deployment).toBe('pp');
+  });
+
   it('ignores unknown subject ids that collide with Object prototype properties', () => {
     const wire = validWireDescriptor();
     wire.subjects = {
