@@ -250,6 +250,7 @@ export function parseTopology(body: unknown): RunTopology {
           archType: group.arch.type,
           workerType: group.worker.type,
           replicas: group.replicas,
+          workersPerReplica: stages,
           gpusPerReplica: [...widths][0] * stages,
           params: archRest(group.arch),
           workers: workers.map((worker): TopologyWorker => ({

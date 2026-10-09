@@ -315,6 +315,7 @@ export function OverviewCards({
             { label: 'Tensor parallel', value: param('attn_tp', 'tp_size', 'attn_tp_size') },
             { label: 'Expert parallel', value: param('ep', 'ep_size') },
             { label: 'Data parallel', value: param('dp', 'dp_groups') },
+            { label: 'Pipeline parallel', value: param('pp_size') },
             { label: 'Placement', value: distinct(topology.pools.map((pool) => pool.placement)) },
           ]}
         />

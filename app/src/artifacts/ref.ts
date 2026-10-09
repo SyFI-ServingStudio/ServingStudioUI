@@ -2309,6 +2309,14 @@ export interface TopologyGroup {
   readonly archType: string;
   readonly workerType: string;
   readonly replicas: number;
+  /**
+   * The workers one replica runs on: a `pp` replica is one pipeline and each of
+   * its stages is a worker, so this is its stage count; elsewhere it is 1.
+   *
+   * Every stage of a pipeline runs the same microbatches, so a pool figure that
+   * sums its workers' token or request counts counts each one this many times.
+   */
+  readonly workersPerReplica: number;
   /** Every GPU of one replica: a `pp` replica is a whole pipeline, all its stages. */
   readonly gpusPerReplica: number;
   /**

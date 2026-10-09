@@ -14,10 +14,21 @@ interface BatchEvent {
   readonly values: BatchValues;
 }
 
-/** Reconstruct the same wall-clock pool snapshots as the existing UI. */
+/**
+ * Reconstruct the same wall-clock pool snapshots as the existing UI.
+ *
+ * `workersPerReplica` is the topology's count of workers one replica runs on.
+ * The stages of a `pp` pipeline each run the same microbatches, so the sum over
+ * a pool's workers holds every token once per stage; the aggregate divides it
+ * back to once per pipeline. Where a replica is one worker it is the plain sum.
+ * The average stays per worker: one stage's batch is the pipeline's microbatch.
+ */
 export function buildPoolBatchSnapshots(
   workers: readonly BatchTimelineScope[],
-  maxPoints = 4000,
+  {
+    workersPerReplica = 1,
+    maxPoints = 4000,
+  }: { workersPerReplica?: number; maxPoints?: number } = {},
 ): PoolBatchSnapshots | null {
   if (workers.length === 0) return null;
   const projected = workers.map(batchChartSeries);
@@ -67,7 +78,11 @@ export function buildPoolBatchSnapshots(
     prefillTokens: retained.map((index) => values[index][1] / divisor),
     decodeRequests: retained.map((index) => values[index][2] / divisor),
   });
-  return { aggregate: series(1), average: series(workers.length), workerCount: workers.length };
+  return {
+    aggregate: series(workersPerReplica),
+    average: series(workers.length),
+    workerCount: workers.length,
+  };
 }
 
 function retainedIndices(length: number, limit: number): number[] {

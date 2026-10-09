@@ -70,6 +70,7 @@ describe('parseTopology', () => {
             archType: 'llama3_dense',
             workerType: 'barebone',
             replicas: 1,
+            workersPerReplica: 1,
             gpusPerReplica: 1,
             params: {},
             workers: [{ id: '0', gpus: [0] }],
@@ -351,6 +352,9 @@ describe('parseTopology on a pp deployment', () => {
     expect(parsed.pools[0].group).toMatchObject({
       workerType: 'pipeline_chunked_prefill',
       replicas: 1,
+      // Each stage is a worker of the one pipeline, and each runs every
+      // microbatch: pool sums of tokens divide by this to count them once.
+      workersPerReplica: 5,
       // A replica is the whole pipeline, so the map's replicas × GPUs adds up.
       gpusPerReplica: 5,
       params: { pp_size: 5 },
@@ -367,7 +371,11 @@ describe('parseTopology on a pp deployment', () => {
   it('reads several pipelines in one pool', () => {
     const parsed = parseTopology(pipeline(2, 4));
     expect(parsed.gpus).toBe(8);
-    expect(parsed.pools[0].group).toMatchObject({ replicas: 2, gpusPerReplica: 4 });
+    expect(parsed.pools[0].group).toMatchObject({
+      replicas: 2,
+      workersPerReplica: 4,
+      gpusPerReplica: 4,
+    });
     expect(parsed.pools[0].group.workers).toHaveLength(8);
   });
 

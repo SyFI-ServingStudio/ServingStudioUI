@@ -31,7 +31,7 @@ const CARDS: readonly CardSpec[] = [
     title: 'Total batch tokens',
     metric: 'total_tokens',
     poolCaption:
-      "Wall-clock pool snapshot of total logical tokens. Aggregate sums every worker's latest sampled invocation; average divides that sum by the pool worker count.",
+      "Wall-clock pool snapshot of total logical tokens. Aggregate sums every worker's latest sampled invocation, counting a pipeline's stages once because they run the same microbatches; average is the mean over the pool's workers.",
     workerCaption:
       'Total logical tokens in each sampled worker invocation. For FFN this is the routed-token total.',
   },
@@ -40,7 +40,7 @@ const CARDS: readonly CardSpec[] = [
     title: 'Prefill tokens',
     metric: 'prefill_tokens',
     poolCaption:
-      "Wall-clock pool snapshot of prompt tokens. Aggregate sums every worker's latest sampled invocation; average divides that sum by the pool worker count.",
+      "Wall-clock pool snapshot of prompt tokens. Aggregate sums every worker's latest sampled invocation, counting a pipeline's stages once because they run the same microbatches; average is the mean over the pool's workers.",
     workerCaption: 'New prompt tokens processed by each sampled attention or iter-wise invocation.',
   },
   {
@@ -48,7 +48,7 @@ const CARDS: readonly CardSpec[] = [
     title: 'Decode requests',
     metric: 'decode_requests',
     poolCaption:
-      "Wall-clock pool snapshot of participating decode requests. Aggregate sums every worker's latest sampled invocation; average divides that sum by the pool worker count.",
+      "Wall-clock pool snapshot of participating decode requests. Aggregate sums every worker's latest sampled invocation, counting a pipeline's stages once because they run the same microbatches; average is the mean over the pool's workers.",
     workerCaption:
       'Decode sequences participating in each sampled attention or iter-wise invocation; standard one-token decode makes this equal to decode tokens.',
   },
@@ -62,11 +62,14 @@ export function PoolBatchPanel({ location }: PanelProps) {
     batch.status === 'ready' && poolTag !== null
       ? batch.value.workers.filter((worker) => worker.poolTag === poolTag)
       : [];
-  const snapshots = buildPoolBatchSnapshots(workers);
-  const workerType =
+  const group =
     topology.status === 'ready'
-      ? topology.value.pools.find((pool) => pool.tag === poolTag)?.group.workerType
-      : null;
+      ? topology.value.pools.find((pool) => pool.tag === poolTag)?.group
+      : undefined;
+  const snapshots = buildPoolBatchSnapshots(workers, {
+    workersPerReplica: group?.workersPerReplica,
+  });
+  const workerType = topology.status === 'ready' ? group?.workerType : null;
   const readProblem =
     !isPending(batch) && batch.status !== 'ready'
       ? describeRead("This result's batch subject", batch)?.message

@@ -10,6 +10,7 @@ function group(over: Partial<TopologyGroup> = {}): TopologyGroup {
     archType: 'llama3_dense',
     workerType: 'barebone',
     replicas: 2,
+    workersPerReplica: 1,
     gpusPerReplica: 1,
     params: {},
     workers: [
@@ -232,6 +233,7 @@ describe('systemMap on a pp deployment', () => {
           archType: 'glm53_flash_vllm_nvfp4_pp_kda_dsa_moe',
           workerType: 'pipeline_chunked_prefill',
           replicas: 1,
+          workersPerReplica: 5,
           gpusPerReplica: 5,
           params: { pp_size: 5 },
           workers: [0, 1, 2, 3, 4].map((id) => ({ id: String(id), gpus: [id] })),
