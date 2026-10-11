@@ -18,6 +18,7 @@ const projection: ReadyKernelLadderProjection = {
         balanced: 8,
         perConfigBest: 6,
         ignoreNetwork: 5,
+        sustainedLimit: 4.7,
         achievableLimit: 4.5,
         hardwareLimit: 4,
       },

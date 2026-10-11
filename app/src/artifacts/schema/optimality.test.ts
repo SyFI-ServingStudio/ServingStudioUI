@@ -1,12 +1,13 @@
 /**
- * The R4a achievable-limit rung and its kernel gap, as the optimality decoder
- * reads them.
+ * The R4a sustained-limit and R4b achievable-peak rungs, with their kernel and
+ * power gaps, as the optimality decoder reads them.
  *
- * The analyzer splits the old R4-R5 hardware gap at R4a (the best measured GEMM
- * or large copy): `kernel_gap = R4 - R4a` and `hardware_gap = R4a - R5`. The
- * buckets must still reconcile with the bar total. Payloads analyzed before the rung existed carry
- * neither key; they read as R4a = R4 with a zero kernel gap rather than as
- * incompatible.
+ * The analyzer splits the old R4-R5 hardware gap twice: R4a prices work at the
+ * sustained back-to-back GEMM or copy rate and R4b at the best measured short
+ * kernel, so `kernel_gap = R4 - R4a`, `power_gap = R4a - R4b` and
+ * `hardware_gap = R4b - R5`. The buckets must still reconcile with the bar
+ * total. Payloads analyzed before a rung existed lack its keys; they read as
+ * R4b = R4 and R4a = R4b with zero gaps rather than as incompatible.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -61,7 +62,7 @@ function ladder(rungs: Record<string, number>, kernelRungs: Record<string, numbe
 
 const BASE_BUCKETS = { idle: 0, imbalance: 1, batching: 2, communication: 1 };
 
-describe('optimality kernel gap', () => {
+describe('optimality kernel and power gaps', () => {
   it('reconciles a waterfall whose hardware gap is split at R4a', () => {
     const decoded = decodeAnalyzerV1IterationOptimalityWaterfall(
       waterfall({ ...BASE_BUCKETS, kernel_gap: 1.5, hardware_gap: 0.5, hardware_optimal: 4 }),
@@ -70,6 +71,22 @@ describe('optimality kernel gap', () => {
     );
     expect(decoded.level.buckets.kernelGap).toBe(1.5);
     expect(decoded.level.buckets.hardwareGap).toBe(0.5);
+  });
+
+  it('reconciles a waterfall carrying a power gap', () => {
+    const decoded = decodeAnalyzerV1IterationOptimalityWaterfall(
+      waterfall({
+        ...BASE_BUCKETS,
+        kernel_gap: 1,
+        power_gap: 0.5,
+        hardware_gap: 0.5,
+        hardware_optimal: 4,
+      }),
+      WORKER,
+      '7',
+    );
+    expect(decoded.level.buckets.kernelGap).toBe(1);
+    expect(decoded.level.buckets.powerGap).toBe(0.5);
   });
 
   it('rejects a waterfall that drops the kernel gap from its sum', () => {
@@ -89,14 +106,16 @@ describe('optimality kernel gap', () => {
       '7',
     );
     expect(decoded.level.buckets.kernelGap).toBe(0);
+    expect(decoded.level.buckets.powerGap).toBe(0);
     expect(decoded.level.buckets.hardwareGap).toBe(2);
   });
 
-  it('carries the scope and per-kernel R4a', () => {
+  it('carries the scope and per-kernel R4a and R4b', () => {
     const scope = {
       balanced: 9,
       per_config_best: 7,
       ignore_network: 6,
+      sustained_limit: 5,
       achievable_limit: 4.5,
       hardware_limit: 4,
     };
@@ -105,6 +124,7 @@ describe('optimality kernel gap', () => {
         balanced: 6,
         per_config_best: 5,
         ignore_network: 4,
+        sustained_limit: 3.5,
         achievable_limit: 3,
         hardware_limit: 2.5,
       },
@@ -112,6 +132,7 @@ describe('optimality kernel gap', () => {
         balanced: 3,
         per_config_best: 2,
         ignore_network: 2,
+        sustained_limit: 1.5,
         achievable_limit: 1.5,
         hardware_limit: 1.5,
       },
@@ -121,8 +142,37 @@ describe('optimality kernel gap', () => {
       WORKER,
       '7',
     );
+    expect(decoded.rungs.sustainedLimit).toBe(5);
     expect(decoded.rungs.achievableLimit).toBe(4.5);
+    expect(decoded.kernels.map((kernel) => kernel.rungs.sustainedLimit)).toEqual([3.5, 1.5]);
     expect(decoded.kernels.map((kernel) => kernel.rungs.achievableLimit)).toEqual([3, 1.5]);
+  });
+
+  it('reads a ladder analyzed before R4a sustained as R4a = R4b', () => {
+    const decoded = decodeAnalyzerV1IterationOptimalityKernelLadder(
+      ladder(
+        {
+          balanced: 9,
+          per_config_best: 7,
+          ignore_network: 6,
+          achievable_limit: 5,
+          hardware_limit: 4,
+        },
+        [
+          {
+            balanced: 9,
+            per_config_best: 7,
+            ignore_network: 6,
+            achievable_limit: 5,
+            hardware_limit: 4,
+          },
+        ],
+      ),
+      WORKER,
+      '7',
+    );
+    expect(decoded.rungs.sustainedLimit).toBe(5);
+    expect(decoded.kernels[0].rungs.sustainedLimit).toBe(5);
   });
 
   it('reads a ladder analyzed before R4a as R4a = R4', () => {
@@ -134,6 +184,7 @@ describe('optimality kernel gap', () => {
       '7',
     );
     expect(decoded.rungs.achievableLimit).toBe(6);
+    expect(decoded.rungs.sustainedLimit).toBe(6);
     expect(decoded.kernels[0].rungs.achievableLimit).toBe(6);
   });
 });

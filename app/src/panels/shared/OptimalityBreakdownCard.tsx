@@ -120,7 +120,7 @@ export function OptimalityWaterfallCard({
       caption={
         hasNecessaryWork
           ? "Necessary-work lower-bound ladder: R5 is further split into excess over per-op necessary work, cross-op fusion opportunity, and the global hardware-necessary floor. All bands telescope to the scope's total GPU·seconds."
-          : "Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, the kernel gap to the best measured GEMM or copy, the gap from that best kernel to the spec sheet, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's total GPU·seconds."
+          : "Distance from optimal GPU usage as a lower-bound ladder: each colored band is the GPU·seconds attributable to idle, load imbalance, small-batch loss, communication, the kernel gap to the sustained (back-to-back) GEMM or copy rate, the power gap from sustained to the best measured short kernel, the gap from that best kernel to the spec sheet, and the irreducible hardware-optimal floor. Bands telescope and sum to the scope's total GPU·seconds."
       }
     />
   );

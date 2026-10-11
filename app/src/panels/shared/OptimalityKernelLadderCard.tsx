@@ -50,7 +50,7 @@ export default function OptimalityKernelLadderCard({
       option={reportable ? optimalityKernelLadderOption(projection, CHART_THEME) : null}
       height={Math.max(330, projection.rows.length * 38 + 90)}
       empty={reportable ? undefined : 'No kernel GPU·seconds are recorded for this scope.'}
-      caption="Analyzer-owned optimality ladder for this exact scope. R0-R6 (R4a is the best measured GEMM or large copy on this GPU) preserve per-location attribution; R7 is the aggregate globally fused necessary-work floor. The UI selects and renders these rungs without recomputing scope rollups."
+      caption="Analyzer-owned optimality ladder for this exact scope. R0-R6 (R4a is the sustained back-to-back GEMM or large copy rate on this GPU, R4b the best measured short kernel) preserve per-location attribution; R7 is the aggregate globally fused necessary-work floor. The UI selects and renders these rungs without recomputing scope rollups."
     />
   );
 }

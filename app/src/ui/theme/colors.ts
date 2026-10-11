@@ -78,6 +78,10 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     // Same family as the hardware gap (both are kernel-rate headroom), set
     // clearly apart in lightness so the two adjacent bands stay distinct.
     kernelGap: mixColor(p.blue, p.background, 0.45),
+    // Sustained-vs-peak clock headroom sits between the two blue bands; leaning
+    // the blue toward violet keeps it in the kernel-rate family yet distinct
+    // from both and from the green necessary-work bands.
+    powerGap: mixColor(p.blue, p.violet, 0.4),
     communication: p.red,
     batching: p.amber,
     imbalance: p.violet,

@@ -125,7 +125,7 @@ export default function OptimalityKernelsCard({
       }
       height={Math.max(200, projection.rows.length * 26 + 96)}
       empty={reportable ? undefined : 'No per-kernel GPU·seconds recorded.'}
-      caption={`Each kernel location's balanced GPU·seconds, split by R2-R3 batching loss, R3-R4 communication cost, R4-R4a kernel gap (versus the best measured GEMM or large copy on this GPU), and R4a-R5 hardware gap (that best kernel versus the spec sheet). ${attributionDescription} Idle and critical-path imbalance are aggregate-only. ${scaleDescription}`}
+      caption={`Each kernel location's balanced GPU·seconds, split by R2-R3 batching loss, R3-R4 communication cost, R4-R4a kernel gap (versus the sustained back-to-back GEMM or large copy rate on this GPU), R4a-R4b power gap (sustained versus the best measured short kernel, which runs at boost clock), and R4b-R5 hardware gap (that best kernel versus the spec sheet). ${attributionDescription} Idle and critical-path imbalance are aggregate-only. ${scaleDescription}`}
     />
   );
 }
