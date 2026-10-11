@@ -252,7 +252,9 @@ payload 中显式提供 worker ladder，以及已经逐层聚合并完成 reconc
 `aggregate_kernel_ladders`；UI 只能按 scope 选择，禁止再按 location 名自行加和。
 iteration 使用上述精确 detail，kernel 层只筛选所选 CostTree leaf。无 R6 时每根 bar
 固定由 `R2-R3` batching、`R3-R4`
-communication、`R4-R5` hardware gap 和 `R5` hardware-optimal 四段组成；有 R6 时
+communication、`R4-R4a` kernel gap、`R4a-R5` hardware gap 和 `R5` hardware-optimal
+五段组成。R4a（`achievable_limit`）以该 GPU 上实测最快的同精度 GEMM 或 ≥1 GiB copy
+计价；缺少该字段的旧 payload 按 R4a=R4、kernel gap=0 解码；有 R6 时
 R5 进一步拆为 necessary-covered 与 redundant，`R6>R5` 必须显示独立 marker。R6 是
 location-attributed segmented necessary work；R7 是 aggregate-only globally fused floor，
 且 analyzer 必须验证 `Σ_location R6 = scope R6` 与 `R6 = R7 + fusion`。idle、
@@ -465,7 +467,7 @@ Analyzer-enriched per-row hardware limits. Dense TFLOPS and HBM bandwidth come
 from `gpu/spec.json`; interconnect exposes the catalog's bidirectional value and
 the derived one-way value. An unavailable GPU/dtype remains explicitly
 unavailable. The frontend may draw a catalog peak only when the row declares a
-numeric limit. A measurement descriptor lists plot *names*, and the URL is built
+numeric limit. A measurement descriptor lists plot _names_, and the URL is built
 from the measurement id and the name; the conversation backend never serves
 these bytes.
 

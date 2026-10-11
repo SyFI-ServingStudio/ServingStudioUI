@@ -33,7 +33,8 @@ function unavailableMessage(projection: KernelHeadroomProjection): string {
 }
 
 /** Per-kernel headroom: each location's balanced Real GPU·seconds split into
- * batching / communication / hardware-gap / hardware-optimal (top-N + `other`). */
+ * batching / communication / kernel-gap / hardware-gap / hardware-optimal
+ * (top-N + `other`). */
 export interface OptimalityKernelsCardProps {
   idx?: string;
   title: string;
@@ -124,7 +125,7 @@ export default function OptimalityKernelsCard({
       }
       height={Math.max(200, projection.rows.length * 26 + 96)}
       empty={reportable ? undefined : 'No per-kernel GPU·seconds recorded.'}
-      caption={`Each kernel location's balanced GPU·seconds, split by R2-R3 batching loss, R3-R4 communication cost, and R4-R5 hardware gap. ${attributionDescription} Idle and critical-path imbalance are aggregate-only. ${scaleDescription}`}
+      caption={`Each kernel location's balanced GPU·seconds, split by R2-R3 batching loss, R3-R4 communication cost, R4-R4a kernel gap (versus the best measured GEMM or large copy on this GPU), and R4a-R5 hardware gap (that best kernel versus the spec sheet). ${attributionDescription} Idle and critical-path imbalance are aggregate-only. ${scaleDescription}`}
     />
   );
 }

@@ -75,6 +75,9 @@ export function createDetailColors(p: ThemePalette, mode: 'dark' | 'light' = 'da
     iterationTypes: [p.blue, dim(p.amber), p.red, p.violet, p.amber, p.blue, dim(p.green)],
     hardwareOptimal: p.green,
     hardwareGap: p.blue,
+    // Same family as the hardware gap (both are kernel-rate headroom), set
+    // clearly apart in lightness so the two adjacent bands stay distinct.
+    kernelGap: mixColor(p.blue, p.background, 0.45),
     communication: p.red,
     batching: p.amber,
     imbalance: p.violet,
