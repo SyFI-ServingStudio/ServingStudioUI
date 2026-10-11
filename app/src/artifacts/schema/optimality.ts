@@ -106,6 +106,11 @@ export interface OptimalityBuckets {
   imbalance: number;
   batching: number;
   communication: number;
+  /** R4-R4a: modeled kernels versus the sustained GEMM / large-copy rate. */
+  kernelGap: number;
+  /** R4a-R4b: sustained (power-capped) rate versus the best measured one. */
+  powerGap: number;
+  /** R4b-R5: best measured GEMM / large copy versus the spec sheet. */
   hardwareGap: number;
   /** Plain R5 floor, present as a non-zero value for locked or degraded output. */
   hardwareOptimal: number;
@@ -133,10 +138,12 @@ export interface OptimalityLevel {
   necessaryRatio: number | null;
 }
 
-/** The four leaf-attributable buckets a single kernel (location) can carry. */
+/** The six leaf-attributable buckets a single kernel (location) can carry. */
 export interface OptimalityKernelBuckets {
   batching: number;
   communication: number;
+  kernelGap: number;
+  powerGap: number;
   hardwareGap: number;
   hardwareOptimal: number;
 }
@@ -145,7 +152,7 @@ export interface OptimalityKernel {
   name: string;
   kind: string;
   isComm: boolean;
-  /** Balanced Real GPU·s of this location (sums the four buckets). */
+  /** Balanced Real GPU·s of this location (sums the six buckets). */
   real: number;
   buckets: OptimalityKernelBuckets;
 }
@@ -156,6 +163,10 @@ export interface OptimalityRungs {
   balanced: number;
   perConfigBest: number;
   ignoreNetwork: number;
+  /** R4a: work at the rate a GEMM / large copy sustains back to back on this GPU. */
+  sustainedLimit: number;
+  /** R4b: work at the best measured GEMM / large-copy rate of this GPU. */
+  achievableLimit: number;
   hardwareLimit: number;
   /** Location-attributed segmented necessary-work R6. */
   segmentedNecessary?: number | null;
@@ -167,6 +178,8 @@ export interface OptimalityKernelRungs {
   balanced: number;
   perConfigBest: number;
   ignoreNetwork: number;
+  sustainedLimit: number;
+  achievableLimit: number;
   hardwareLimit: number;
   necessaryLimit?: number | null;
 }
@@ -261,6 +274,10 @@ const commonBucketsSchema = z.object({
   imbalance: bucketValue,
   batching: bucketValue,
   communication: bucketValue,
+  // Analyzer output before the R4a/R4b rungs has no kernel or power gap: its
+  // hardware gap is R4-R5.
+  kernel_gap: bucketValue.optional().default(0),
+  power_gap: bucketValue.optional().default(0),
   hardware_gap: bucketValue,
 });
 const bucketsSchema = z.union([
@@ -292,21 +309,41 @@ const kernelSchema = z.object({
   buckets: z.object({
     batching: bucketValue,
     communication: bucketValue,
+    kernel_gap: bucketValue.optional().default(0),
+    power_gap: bucketValue.optional().default(0),
     hardware_gap: bucketValue,
     hardware_optimal: bucketValue,
   }),
 });
 
-const rungsSchema = z.object({
-  real: nonNegativeNumber,
-  busy: nonNegativeNumber,
-  balanced: nonNegativeNumber,
-  per_config_best: nonNegativeNumber,
-  ignore_network: nonNegativeNumber,
-  hardware_limit: nonNegativeNumber,
-  segmented_necessary: nonNegativeNumber.nullable().optional().default(null),
-  hardware_necessary: nonNegativeNumber.nullable().optional().default(null),
-});
+/** Analyzer output before the R4a/R4b rungs lacks `sustained_limit` and
+ * `achievable_limit`. A missing R4b reads as R4 and a missing R4a as R4b, so
+ * such a payload's kernel and power gaps stay zero and its hardware gap R4-R5. */
+function withMeasuredLimits<
+  T extends { ignore_network: number; sustained_limit?: number; achievable_limit?: number },
+>(rungs: T): T & { sustained_limit: number; achievable_limit: number } {
+  const achievable_limit = rungs.achievable_limit ?? rungs.ignore_network;
+  return {
+    ...rungs,
+    sustained_limit: rungs.sustained_limit ?? achievable_limit,
+    achievable_limit,
+  };
+}
+
+const rungsSchema = z
+  .object({
+    real: nonNegativeNumber,
+    busy: nonNegativeNumber,
+    balanced: nonNegativeNumber,
+    per_config_best: nonNegativeNumber,
+    ignore_network: nonNegativeNumber,
+    sustained_limit: nonNegativeNumber.optional(),
+    achievable_limit: nonNegativeNumber.optional(),
+    hardware_limit: nonNegativeNumber,
+    segmented_necessary: nonNegativeNumber.nullable().optional().default(null),
+    hardware_necessary: nonNegativeNumber.nullable().optional().default(null),
+  })
+  .transform(withMeasuredLimits);
 
 const necessaryWorkSchema = z.object({
   semantics: z.array(z.string()),
@@ -327,13 +364,17 @@ const ladderKernelSchema = z.object({
   name: z.string().trim().min(1),
   kind: z.string().trim().min(1),
   is_comm: z.boolean(),
-  rungs: z.object({
-    balanced: nonNegativeNumber,
-    per_config_best: nonNegativeNumber,
-    ignore_network: nonNegativeNumber,
-    hardware_limit: nonNegativeNumber,
-    necessary_limit: nonNegativeNumber.nullable().optional().default(null),
-  }),
+  rungs: z
+    .object({
+      balanced: nonNegativeNumber,
+      per_config_best: nonNegativeNumber,
+      ignore_network: nonNegativeNumber,
+      sustained_limit: nonNegativeNumber.optional(),
+      achievable_limit: nonNegativeNumber.optional(),
+      hardware_limit: nonNegativeNumber,
+      necessary_limit: nonNegativeNumber.nullable().optional().default(null),
+    })
+    .transform(withMeasuredLimits),
   necessary_work: necessaryWorkSchema.nullable().optional().default(null),
 });
 
@@ -419,7 +460,7 @@ export type OptimalityDecodeResult =
   | Extract<SubjectResult<'optimality'>, { status: 'unavailable' }>
   | Extract<SubjectResult<'optimality'>, { status: 'incompatible' }>;
 
-/** The six buckets are telescoping differences of the rungs, so they must sum to
+/** The eight buckets are telescoping differences of the rungs, so they must sum to
  * the level's Real (or Busy) `total`; a mismatch means the ladder was mis-folded. */
 function bucketSum(level: z.infer<typeof levelSchema>): number {
   const b = level.buckets;
@@ -427,7 +468,16 @@ function bucketSum(level: z.infer<typeof levelSchema>): number {
     'hardware_optimal' in b
       ? b.hardware_optimal
       : b.excess_over_necessary + b.fusion + b.hardware_necessary;
-  return b.idle + b.imbalance + b.batching + b.communication + b.hardware_gap + floor;
+  return (
+    b.idle +
+    b.imbalance +
+    b.batching +
+    b.communication +
+    b.kernel_gap +
+    b.power_gap +
+    b.hardware_gap +
+    floor
+  );
 }
 
 type KernelLadderWire =
@@ -439,6 +489,8 @@ function kernelLadderIssues(path: string, ladder: KernelLadderWire): string[] {
     ['balanced', 'balanced'],
     ['per_config_best', 'per_config_best'],
     ['ignore_network', 'ignore_network'],
+    ['sustained_limit', 'sustained_limit'],
+    ['achievable_limit', 'achievable_limit'],
     ['hardware_limit', 'hardware_limit'],
   ] as const) {
     const kernelSum = ladder.kernels.reduce((sum, kernel) => sum + kernel.rungs[kernelKey], 0);
@@ -517,6 +569,8 @@ function toKernelLadderData(
       balanced: wire.rungs.balanced,
       perConfigBest: wire.rungs.per_config_best,
       ignoreNetwork: wire.rungs.ignore_network,
+      sustainedLimit: wire.rungs.sustained_limit,
+      achievableLimit: wire.rungs.achievable_limit,
       hardwareLimit: wire.rungs.hardware_limit,
       segmentedNecessary: wire.rungs.segmented_necessary,
       scopeFusedNecessary: wire.rungs.hardware_necessary,
@@ -534,6 +588,8 @@ function toKernelLadderData(
         balanced: kernel.rungs.balanced,
         perConfigBest: kernel.rungs.per_config_best,
         ignoreNetwork: kernel.rungs.ignore_network,
+        sustainedLimit: kernel.rungs.sustained_limit,
+        achievableLimit: kernel.rungs.achievable_limit,
         hardwareLimit: kernel.rungs.hardware_limit,
         necessaryLimit: kernel.rungs.necessary_limit,
       },
@@ -620,6 +676,8 @@ function toLevel(level: z.infer<typeof levelSchema>): OptimalityLevel {
       imbalance: level.buckets.imbalance,
       batching: level.buckets.batching,
       communication: level.buckets.communication,
+      kernelGap: level.buckets.kernel_gap,
+      powerGap: level.buckets.power_gap,
       hardwareGap: level.buckets.hardware_gap,
       ...floorBuckets,
     },
@@ -647,6 +705,8 @@ function toOptimality(wire: ReadyWire): Optimality {
       buckets: {
         batching: kernel.buckets.batching,
         communication: kernel.buckets.communication,
+        kernelGap: kernel.buckets.kernel_gap,
+        powerGap: kernel.buckets.power_gap,
         hardwareGap: kernel.buckets.hardware_gap,
         hardwareOptimal: kernel.buckets.hardware_optimal,
       },

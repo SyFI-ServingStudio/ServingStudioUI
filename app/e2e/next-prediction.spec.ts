@@ -136,6 +136,8 @@ const RUNGS = {
   balanced: 2,
   per_config_best: 1.8,
   ignore_network: 1.7,
+  sustained_limit: 1.65,
+  achievable_limit: 1.6,
   hardware_limit: 1.5,
 };
 const LADDER = {
@@ -150,7 +152,14 @@ const LADDER = {
       name: 'model.gemm',
       kind: 'single_gemm',
       is_comm: false,
-      rungs: { balanced: 2, per_config_best: 1.8, ignore_network: 1.7, hardware_limit: 1.5 },
+      rungs: {
+        balanced: 2,
+        per_config_best: 1.8,
+        ignore_network: 1.7,
+        sustained_limit: 1.65,
+        achievable_limit: 1.6,
+        hardware_limit: 1.5,
+      },
     },
   ],
   meta: {
@@ -178,7 +187,9 @@ const WATERFALL = {
       imbalance: 0.5,
       batching: 0.2,
       communication: 0.1,
-      hardware_gap: 0.2,
+      kernel_gap: 0.05,
+      power_gap: 0.05,
+      hardware_gap: 0.1,
       hardware_optimal: 1.5,
     },
     optimality_ratio: 0.6,

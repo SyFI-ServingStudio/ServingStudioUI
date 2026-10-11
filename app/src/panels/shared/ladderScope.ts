@@ -109,6 +109,8 @@ export function normalizeLadderPerCall<T extends OptimalityKernelLadderData>(
       balanced: kernel.rungs.balanced / divisor,
       perConfigBest: kernel.rungs.perConfigBest / divisor,
       ignoreNetwork: kernel.rungs.ignoreNetwork / divisor,
+      sustainedLimit: kernel.rungs.sustainedLimit / divisor,
+      achievableLimit: kernel.rungs.achievableLimit / divisor,
       hardwareLimit: kernel.rungs.hardwareLimit / divisor,
     };
     if (kernel.rungs.necessaryLimit !== null && kernel.rungs.necessaryLimit !== undefined) {
@@ -124,7 +126,14 @@ export function normalizeLadderPerCall<T extends OptimalityKernelLadderData>(
   };
 }
 
-const ADDITIVE_RUNGS = ['balanced', 'perConfigBest', 'ignoreNetwork', 'hardwareLimit'] as const;
+const ADDITIVE_RUNGS = [
+  'balanced',
+  'perConfigBest',
+  'ignoreNetwork',
+  'sustainedLimit',
+  'achievableLimit',
+  'hardwareLimit',
+] as const;
 
 /** Re-key a kernel ladder at CostTree-component granularity: one row per
  * component (e.g. `unified.qk_norm`) summing its kernels' additive rungs.
@@ -147,6 +156,8 @@ export function groupLadderByComponent<T extends OptimalityKernelLadderData>(
       balanced: 0,
       perConfigBest: 0,
       ignoreNetwork: 0,
+      sustainedLimit: 0,
+      achievableLimit: 0,
       hardwareLimit: 0,
     };
     for (const member of members) {

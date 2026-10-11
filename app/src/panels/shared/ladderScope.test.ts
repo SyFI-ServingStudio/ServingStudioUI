@@ -65,6 +65,8 @@ function ladder(): OptimalityKernelLadderData {
       balanced: hardwareLimit * 2,
       perConfigBest: hardwareLimit * 1.5,
       ignoreNetwork: hardwareLimit * 1.2,
+      sustainedLimit: hardwareLimit * 1.15,
+      achievableLimit: hardwareLimit * 1.1,
       hardwareLimit,
       necessaryLimit,
     },
@@ -78,6 +80,8 @@ function ladder(): OptimalityKernelLadderData {
       balanced: 8,
       perConfigBest: 6,
       ignoreNetwork: 5,
+      sustainedLimit: 4.7,
+      achievableLimit: 4.5,
       hardwareLimit: 4,
       segmentedNecessary: 1,
       scopeFusedNecessary: 0.9,
@@ -161,6 +165,7 @@ describe('normalizeLadderPerCall', () => {
     const normalized = normalizeLadderPerCall(ladder(), divisors);
     const qNorm = normalized.kernels.find((kernel) => kernel.name === 'unified.qk_norm.q_norm')!;
     expect(qNorm.rungs.hardwareLimit).toBeCloseTo(1 / 28, 12);
+    expect(qNorm.rungs.achievableLimit).toBeCloseTo(1.1 / 28, 12);
     expect(qNorm.rungs.balanced).toBeCloseTo(2 / 28, 12);
     expect(qNorm.rungs.necessaryLimit).toBeCloseTo(0.1 / 28, 12);
     expect(qNorm.necessaryWork).toBeNull();
@@ -183,6 +188,7 @@ describe('groupLadderByComponent', () => {
     ]);
     const qkNorm = grouped.kernels[0];
     expect(qkNorm.rungs.hardwareLimit).toBe(3);
+    expect(qkNorm.rungs.achievableLimit).toBeCloseTo(3.3, 12);
     expect(qkNorm.rungs.balanced).toBe(6);
     // Partial necessary coverage sums what exists rather than inventing zeros
     // for the uncovered kernel.

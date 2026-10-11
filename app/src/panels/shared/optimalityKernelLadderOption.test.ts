@@ -14,7 +14,14 @@ const projection: ReadyKernelLadderProjection = {
       name: 'model.gemm',
       kind: 'single_gemm',
       isComm: false,
-      rungs: { balanced: 8, perConfigBest: 6, ignoreNetwork: 5, hardwareLimit: 4 },
+      rungs: {
+        balanced: 8,
+        perConfigBest: 6,
+        ignoreNetwork: 5,
+        sustainedLimit: 4.7,
+        achievableLimit: 4.5,
+        hardwareLimit: 4,
+      },
     },
   ],
   rows: [

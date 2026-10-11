@@ -23,6 +23,8 @@ export interface OptimalityFamily {
 export const OPTIMALITY_FAMILIES: readonly OptimalityFamily[] = [
   { key: 'hardwareOptimal', label: 'hardware-optimal', color: colors.hardwareOptimal },
   { key: 'hardwareGap', label: 'hardware gap', color: colors.hardwareGap },
+  { key: 'powerGap', label: 'power gap', color: colors.powerGap },
+  { key: 'kernelGap', label: 'kernel gap', color: colors.kernelGap },
   { key: 'communication', label: 'communication', color: colors.communication },
   { key: 'batching', label: 'batching', color: colors.batching },
   { key: 'imbalance', label: 'imbalance', color: colors.imbalance },
@@ -38,10 +40,12 @@ export const OPTIMALITY_NECESSARY_WORK_FAMILIES: readonly OptimalityFamily[] = [
   ...OPTIMALITY_FAMILIES.slice(1),
 ];
 
-/** Kernel bars only carry the four leaf-attributable buckets (no idle/imbalance). */
+/** Kernel bars only carry the six leaf-attributable buckets (no idle/imbalance). */
 export const OPTIMALITY_KERNEL_FAMILIES: readonly OptimalityFamily[] = [
   { key: 'hardwareOptimal', label: 'hardware-optimal', color: colors.hardwareOptimal },
   { key: 'hardwareGap', label: 'hardware gap', color: colors.hardwareGap },
+  { key: 'powerGap', label: 'power gap', color: colors.powerGap },
+  { key: 'kernelGap', label: 'kernel gap', color: colors.kernelGap },
   { key: 'communication', label: 'communication', color: colors.communication },
   { key: 'batching', label: 'batching', color: colors.batching },
 ];

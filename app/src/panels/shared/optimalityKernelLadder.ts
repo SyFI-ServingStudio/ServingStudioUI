@@ -86,6 +86,8 @@ function ladderRows(
     makeRow('R2 Balanced', values('balanced', false, false)),
     makeRow('R3 Per-config best', values('perConfigBest', false, false)),
     makeRow('R4 Ignore network', values('ignoreNetwork', false, false)),
+    makeRow('R4a Sustained limit', values('sustainedLimit', false, false)),
+    makeRow('R4b Achievable peak', values('achievableLimit', false, false)),
     makeRow('R5 Hardware limit', values('hardwareLimit', false, false)),
   ];
   if (data.rungs.segmentedNecessary !== null && data.rungs.segmentedNecessary !== undefined) {
@@ -145,7 +147,8 @@ export function projectExactKernelLadder(
 const MAX_HEADROOM_KERNELS = 16;
 
 function kernelHeadroomRow(kernel: OptimalityKernelLadderKernel): OptimalityStackRow {
-  const { balanced, perConfigBest, ignoreNetwork, hardwareLimit } = kernel.rungs;
+  const { balanced, perConfigBest, ignoreNetwork, sustainedLimit, achievableLimit, hardwareLimit } =
+    kernel.rungs;
   const necessary = kernel.rungs.necessaryLimit;
   if (necessary !== null && necessary !== undefined) {
     return {
@@ -155,7 +158,9 @@ function kernelHeadroomRow(kernel: OptimalityKernelLadderKernel): OptimalityStac
       values: {
         batching: Math.max(0, balanced - perConfigBest),
         communication: Math.max(0, perConfigBest - ignoreNetwork),
-        hardwareGap: Math.max(0, ignoreNetwork - hardwareLimit),
+        kernelGap: Math.max(0, ignoreNetwork - sustainedLimit),
+        powerGap: Math.max(0, sustainedLimit - achievableLimit),
+        hardwareGap: Math.max(0, achievableLimit - hardwareLimit),
         redundant: Math.max(0, hardwareLimit - necessary),
         necessaryCovered: Math.min(hardwareLimit, necessary),
       },
@@ -167,7 +172,9 @@ function kernelHeadroomRow(kernel: OptimalityKernelLadderKernel): OptimalityStac
     values: {
       batching: Math.max(0, balanced - perConfigBest),
       communication: Math.max(0, perConfigBest - ignoreNetwork),
-      hardwareGap: Math.max(0, ignoreNetwork - hardwareLimit),
+      kernelGap: Math.max(0, ignoreNetwork - sustainedLimit),
+      powerGap: Math.max(0, sustainedLimit - achievableLimit),
+      hardwareGap: Math.max(0, achievableLimit - hardwareLimit),
       hardwareOptimal: Math.max(0, hardwareLimit),
     },
   };
